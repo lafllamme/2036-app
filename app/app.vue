@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
+import { useSound } from '~/composables/useSound'
+import { useSoundSettings } from '~/composables/useSoundSettings'
 import { getParty } from '~/content/parties'
 import { useGameStore } from '~/stores/game'
 
 const game = useGameStore()
+const settings = useSoundSettings()
+const sound = useSound()
 const {
   snapshot,
   currentDate,
@@ -18,6 +22,7 @@ const {
   rendererStats,
 } = storeToRefs(game)
 const selectedParty = computed(() => selectedPartyId.value ? getParty(selectedPartyId.value) : null)
+
 const coalitionStanding = computed(() => (snapshot.value?.coalitionSupport ?? 0) > 30 ? 'Mehrheit' : 'Minderheit')
 
 const buildingLabels = {
@@ -27,6 +32,11 @@ const buildingLabels = {
   commercial: 'Gewerbeimmobilie',
   industrial: 'Industriebetrieb',
   civic: 'Öffentliche Einrichtung',
+}
+
+function restart(): void {
+  sound.play('hud.reset')
+  game.reset()
 }
 </script>
 
@@ -62,6 +72,9 @@ const buildingLabels = {
           </div>
           <button class="quiet-button" type="button" @click="game.save">
             {{ game.saveStatus.startsWith('Gespeichert') ? 'Gespeichert' : 'Speichern' }}
+          </button>
+          <button class="icon-button" type="button" aria-label="Einstellungen" @click="settings.openSettings()">
+            <Icon name="lucide:settings" />
           </button>
         </header>
 
@@ -107,8 +120,10 @@ const buildingLabels = {
 
     <EntryExperience v-if="experienceStage !== 'gameplay'" />
 
+    <SettingsSheet />
+
     <div v-if="game.error" class="error-state panel" role="alert">
-      <strong>Simulation angehalten</strong><p>{{ game.error }}</p><button type="button" @click="game.reset">
+      <strong>Simulation angehalten</strong><p>{{ game.error }}</p><button type="button" @click="restart">
         Neu laden
       </button>
     </div>

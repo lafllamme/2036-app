@@ -8,6 +8,7 @@
 - [Cinematic UI/UX specification](superpowers/specs/2026-09-11-cinematic-ui-ux-direction-design.md)
 - [World architecture](WORLD_ARCHITECTURE.md)
 - [Rendering architecture](RENDERING_ARCHITECTURE.md)
+- [Audio and the sound contract](AUDIO.md)
 - [Asset pipeline](ASSET_PIPELINE.md)
 - [Asset sources](ASSET_SOURCES.md)
 - [Simulation model](SIMULATION_MODEL.md)

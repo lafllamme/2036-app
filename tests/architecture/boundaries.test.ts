@@ -96,4 +96,23 @@ describe('architecture boundaries', () => {
 
     for (const file of deterministicFiles) expect(file.source, `${file.path} uses Math.random`).not.toContain('Math.random(')
   })
+
+  it('keeps the sound library inside the audio boundary', () => {
+    /*
+     * Sound reaches the product through the bus and the cue contract, never through a component
+     * naming a cue itself. That is what lets the whole interface change sonic personality, and
+     * what keeps the audible surface reviewable in one file.
+     */
+    const outsideAudio = sourceFiles('app').filter(({ path }) => !path.includes('/app/audio/'))
+
+    for (const file of outsideAudio)
+      expect(file.source, `${file.path} imports uisfx directly`).not.toMatch(/from ['"]uisfx['"]/)
+  })
+
+  it('keeps simulation and world code free of sound', () => {
+    const domain = [...sourceFiles('app/simulation'), ...sourceFiles('app/world')]
+
+    for (const file of domain)
+      expect(file.source, `${file.path} reaches into audio`).not.toMatch(/~\/audio\/|useSound/)
+  })
 })

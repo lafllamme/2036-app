@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
+import { useSound } from '~/composables/useSound'
 import { useGameStore } from '~/stores/game'
 import { formatNumber } from '~/utils/labels'
 
 const game = useGameStore()
 const { snapshot } = storeToRefs(game)
 const expanded = ref(false)
+const sound = useSound()
+
+function toggleRail(): void {
+  expanded.value = !expanded.value
+  sound.play(expanded.value ? 'hud.railExpanded' : 'hud.railCollapsed')
+}
 
 const metrics = computed(() => snapshot.value?.metrics)
 const previous = computed(() => snapshot.value?.previousMetrics)
@@ -90,7 +97,7 @@ const perception = computed(() => snapshot.value?.perception)
   <aside class="metric-rail panel" :class="{ expanded }" aria-label="Stadtkennzahlen">
     <header class="section-heading">
       <span>Lagebild</span>
-      <button type="button" class="rail-toggle" :aria-expanded="expanded" @click="expanded = !expanded">
+      <button type="button" class="rail-toggle" :aria-expanded="expanded" @click="toggleRail">
         {{ expanded ? 'Kurzlage' : 'Lagebericht' }}
       </button>
     </header>

@@ -3,7 +3,7 @@ import { computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { PARTIES } from '../content/parties'
 import { useGameStore } from '../stores/game'
-import { CATEGORY_LABELS, CONFIDENCE_LABELS, effectTone, targetLabel } from './labels'
+import { CATEGORY_LABELS, CONFIDENCE_LABELS, effectTone, formatNumber, targetLabel } from './labels'
 import type { EventOption, PartyId, PolicyEffect } from '../core/contracts'
 
 const game = useGameStore()
@@ -77,13 +77,13 @@ function risks(option: EventOption, optionId: string): string[] {
   const entries: string[] = []
 
   for (const effect of losses(option)) {
-    entries.push(`Verschlechtert ${targetLabel(effect.target)} um ${Math.abs(effect.expected)}.`)
+    entries.push(`Verschlechtert ${targetLabel(effect.target)} um ${formatNumber(Math.abs(effect.expected))}.`)
   }
   for (const effect of option.effects.filter((candidate) => candidate.confidence === 'low')) {
-    entries.push(`Wirkung auf ${targetLabel(effect.target)} ist unsicher – das Modell hält ${effect.min} bis ${effect.max} für möglich.`)
+    entries.push(`Wirkung auf ${targetLabel(effect.target)} ist unsicher – das Modell hält ${formatNumber(effect.min)} bis ${formatNumber(effect.max)} für möglich.`)
   }
   if (option.monthlyCost > 0) {
-    entries.push(`Bindet dauerhaft ${option.monthlyCost.toFixed(2)} Mio. € im Monat, auch in schlechten Haushaltsjahren.`)
+    entries.push(`Bindet dauerhaft ${formatNumber(option.monthlyCost, 2)} Mio. € im Monat, auch in schlechten Haushaltsjahren.`)
   }
   if (option.oneOffCost > budget.value * 0.2 && option.oneOffCost > 0) {
     entries.push(`Verbraucht ${Math.round((option.oneOffCost / Math.max(1, budget.value)) * 100)} % des aktuellen Haushaltsspielraums.`)
@@ -131,11 +131,11 @@ function negotiationHint(partyId: PartyId): string {
         <div>
           <small>Politisches Kapital</small>
           <div class="resource-track"><i :style="{ width: `${capital}%` }"></i></div>
-          <b>{{ capital.toFixed(0) }}</b>
+          <b>{{ formatNumber(capital) }}</b>
         </div>
         <div>
           <small>Haushaltsspielraum</small>
-          <b class="resource-value">{{ budget.toFixed(0) }} Mio. €</b>
+          <b class="resource-value">{{ formatNumber(budget) }} Mio. €</b>
         </div>
       </section>
 
@@ -152,7 +152,7 @@ function negotiationHint(partyId: PartyId): string {
             <h4>Was es bringt</h4>
             <ul v-if="gains(option).length > 0">
               <li v-for="effect in gains(option)" :key="effect.target">
-                <b>{{ effect.expected > 0 ? '+' : '' }}{{ effect.expected }}</b> {{ targetLabel(effect.target) }}
+                <b>{{ effect.expected > 0 ? '+' : '' }}{{ formatNumber(effect.expected) }}</b> {{ targetLabel(effect.target) }}
                 <small>ab Monat {{ effect.delayMonths }}, volle Wirkung nach {{ effect.delayMonths + effect.rampMonths }} · {{ CONFIDENCE_LABELS[effect.confidence] }}</small>
               </li>
             </ul>
@@ -162,9 +162,9 @@ function negotiationHint(partyId: PartyId): string {
           <div class="ledger__column cost">
             <h4>Was es kostet</h4>
             <ul>
-              <li v-if="option.oneOffCost !== 0"><b>{{ option.oneOffCost.toFixed(1) }} Mio. €</b> einmalig<small>sofort aus dem Haushalt</small></li>
-              <li v-if="option.monthlyCost > 0"><b>{{ option.monthlyCost.toFixed(2) }} Mio. €</b> monatlich<small>dauerhaft, bis die Maßnahme endet</small></li>
-              <li v-if="option.monthlyCost < 0"><b>+{{ (-option.monthlyCost).toFixed(2) }} Mio. €</b> monatlich<small>Mehreinnahme statt Ausgabe</small></li>
+              <li v-if="option.oneOffCost !== 0"><b>{{ formatNumber(option.oneOffCost, 1) }} Mio. €</b>&nbsp;einmalig<small>sofort aus dem Haushalt</small></li>
+              <li v-if="option.monthlyCost > 0"><b>{{ formatNumber(option.monthlyCost, 2) }} Mio. €</b>&nbsp;monatlich<small>dauerhaft, bis die Maßnahme endet</small></li>
+              <li v-if="option.monthlyCost < 0"><b>+{{ formatNumber(-option.monthlyCost, 2) }} Mio. €</b>&nbsp;monatlich<small>Mehreinnahme statt Ausgabe</small></li>
               <li v-if="option.oneOffCost === 0 && option.monthlyCost === 0"><b>Nichts</b><small>keine Haushaltswirkung</small></li>
             </ul>
           </div>

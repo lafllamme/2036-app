@@ -25,6 +25,7 @@ const {
   rendererStats,
 } = storeToRefs(game)
 const selectedParty = computed(() => selectedPartyId.value ? getParty(selectedPartyId.value) : null)
+const coalitionStanding = computed(() => (snapshot.value?.coalitionSupport ?? 0) > 30 ? 'Mehrheit' : 'Minderheit')
 
 const buildingLabels = {
   altbau: 'Gründerzeit-Wohnhaus',
@@ -45,15 +46,20 @@ const buildingLabels = {
       <header class="top-command panel">
         <div class="brand-block">
           <strong>20<span>36</span></strong>
-          <div><b>LINDENHAFEN</b><small>{{ selectedParty?.abbreviation ?? 'Politische Stadtsimulation' }}</small></div>
+          <div>
+            <b>LINDENHAFEN</b>
+            <small>{{ selectedParty ? `${selectedParty.abbreviation} · ${coalitionStanding}` : 'Politische Stadtsimulation' }}</small>
+          </div>
         </div>
         <div class="date-block">
           <span>{{ currentDate }}</span>
           <div class="campaign-track"><i :style="{ width: `${campaignProgress}%` }"></i></div>
-          <small>2026 <b>→</b> 2036</small>
         </div>
         <div class="coalition-block" v-if="snapshot">
-          <small>KOALITION</small>
+          <small>Koalition</small>
+          <div class="seatline" role="img" :aria-label="`${snapshot.coalitionSupport} von 60 Sitzen`">
+            <i :style="{ width: `${(snapshot.coalitionSupport / 60) * 100}%` }"></i>
+          </div>
           <strong>{{ snapshot.coalitionSupport }}<i>/60</i></strong>
         </div>
         <button class="quiet-button" type="button" @click="game.save">

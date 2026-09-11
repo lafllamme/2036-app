@@ -4,47 +4,49 @@
 
 The city is the hero. The interface resembles a restrained municipal command surface placed over a cinematic miniature, not a dashboard or television clone. Campaign entry is intentionally monumental; gameplay becomes quiet and edge-oriented. The detailed interaction contract lives in [`docs/superpowers/specs/2026-09-11-cinematic-ui-ux-direction-design.md`](docs/superpowers/specs/2026-09-11-cinematic-ui-ux-direction-design.md).
 
-## Tokens
+## Type
 
-- Asphalt `#11171b`: primary panels and ticker.
-- Paper `#f4f0e6`: primary type.
-- Signal red `#dc5746`: time, urgent news, and decisive civic action.
-- Transit teal `#63b9aa`: stable/positive system health.
-- Public amber `#f0c65a`: selectable objects and pending decisions.
-- River steel `#315e70`: environmental anchor.
-- Ledger copper `#c9905e`: money and political capital.
+| Role | Family | Source | Notes |
+| --- | --- | --- | --- |
+| Display | Bricolage Grotesque | Google Fonts | Width axis at 92 %, weight 700, tight tracking. Headlines, the wordmark, key figures. |
+| Text | Switzer | Fontshare | Body copy, labels, briefings. |
+| Figures | Geist Mono | Google Fonts | Every number the player compares: money, seats, rates, dates. |
+
+Numbers are always set in the monospace face and always formatted for German — `13,61 €/m²`, not
+`13.61`. A figure that a player might compare against another figure never sits in the text face.
 
 ## Colour roles
 
-Colour carries meaning, so each one means exactly one thing everywhere and a player never needs a
-legend. New interface code uses the semantic role tokens, never the raw brand tokens above.
+Colour carries meaning, so exactly two of them do and everything else is paper, grey and depth. A
+player never needs a legend.
 
 | Role | Token | Means |
 | --- | --- | --- |
-| Positive | `--signal-positive` | approval, a gain, an indicator moving the way the city wants |
-| Negative | `--signal-negative` | rejection, a loss, a risk, an indicator moving the wrong way |
-| Pending | `--signal-pending` | undecided, open, awaiting the player — neither good nor bad |
-| Resource | `--signal-resource` | money and political capital: finite things being spent |
-| Neutral | `--signal-neutral` | labels, units, and context that carries no judgement |
+| Positive | `--positive` `#74c9ae` | approval, a gain, an indicator moving the way the city wants |
+| Negative | `--negative` `#ef7a60` | rejection, a loss, a risk, an indicator moving the wrong way |
+| Paper | `--ink` `#f6f3ec` | type, and the single filled action per region |
+| Grey | `--dim` `#97a09d` | labels, units, context that carries no judgement |
 
-Two rules follow from this. Cost is never painted in the rejection colour, because "this is expensive"
-and "this will fail" are different facts a player acts on differently. And composition indicators that
-the model deliberately does not judge — `internationalShare` above all — are rendered neutral, never
-positive or negative.
+Three rules follow. **Cost is never painted in the rejection colour** — "this is expensive" and
+"this will fail" are different facts a player acts on differently, so money is set in paper and mono.
+**Composition indicators the model deliberately does not judge** — `internationalShare` above all —
+are rendered grey, never positive or negative. And **party colours are identity, not judgement**:
+in the HUD they appear only as small round markers beside an abbreviation, never as a surface fill,
+because otherwise red would mean "SPD", "rejection" and "urgent" at the same time.
 
-Party colours are identity, not judgement: they appear only as small round markers next to an
-abbreviation, never as the fill of a surface that also carries a role colour.
+An earlier amber accent was removed entirely. It was carrying "pending", "selectable" and "FDP" at
+once, and the bordered amber button was the single most dated element in the interface.
 
-Display type uses condensed system faces (`Arial Narrow`/`Avenir Next Condensed`); body copy uses `Avenir Next`; numerical data uses the system monospace stack. Surfaces use thin borders, controlled translucency, compact 14–18 px radii, and 24–34 px radii for contextual sheets. Full-height hard-edged panel walls and decorative UI gradients are prohibited.
+## Surface
 
-## Composition and signature
+One panel primitive, used everywhere: `rgba(10, 14, 17, 0.58)`, **no border**, 24 px radius, 42 px
+backdrop blur with light saturation, and a soft shadow for separation. Panels stand through depth and
+space rather than through lines. Inside a panel, structure comes from hairline rules
+(`rgba(246, 243, 236, 0.08)`) and generous spacing, not from nested boxes.
 
-The full-viewport 3D city sits beneath a narrow command surface, three compact priority metrics, contextual world markers, and the bottom Stadtfunk ticker. Policies, buildings, news, and crises open one reusable soft context sheet instead of permanent dashboard columns. The ticker turns model events into a continuous civic narrative and opens causal details when selected.
-
-A council motion is presented as a three-column ledger — what it delivers, what it costs, what the
-player has to reckon with — above an explicit seat forecast. The forecast is a 60-seat bar split into
-yes, abstention and no, not a bare percentage, because the player's actual lever is moving a bloc out
-of the no column. One plain sentence names who is blocking and how many votes are missing.
+**Exactly one filled action per region.** The filled action is paper on dark, fully rounded. Every
+other control is text inside a hairline pill. A screen full of solid buttons destroys the air the
+rest of the system is built on.
 
 ## Motion and accessibility
 
@@ -52,4 +54,4 @@ Camera motion is damped and interruptible. UI motion uses opacity/transform only
 
 ## Avoid
 
-No generic SaaS cards, pill-heavy navigation, neon cyberpunk, excessive glass, random gradients, copied broadcast branding, flat GIS presentation, or fake 3D map extrusion as the primary world.
+No generic SaaS cards, neon cyberpunk, random gradients, copied broadcast branding, flat GIS presentation, or fake 3D map extrusion as the primary world. Blur is deliberate and load-bearing here, but it stays on a dark ground: a translucent panel light enough for the city to wash out its body copy is a defect, not a style.

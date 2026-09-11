@@ -51,6 +51,17 @@ export const CATEGORY_LABELS: Record<EventCategory, string> = {
   governance: 'Verwaltung',
 }
 
+/** German decimal formatting. `toFixed` yields "28.0" where a German player expects "28,0". */
+export function formatNumber(value: number, digits = 0): string {
+  return new Intl.NumberFormat('de-DE', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)
+}
+
+export const POLICY_CATEGORY_LABELS: Record<string, string> = {
+  housing: 'Wohnen',
+  transport: 'Mobilität',
+  tax: 'Steuern',
+}
+
 export const CONFIDENCE_LABELS = { low: 'unsicher', medium: 'mittlere Sicherheit', high: 'belastbar' }
 
 /**

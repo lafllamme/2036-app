@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useGameStore } from '../stores/game'
+import { formatNumber } from './labels'
 
 const game = useGameStore()
 const { snapshot } = storeToRefs(game)
@@ -30,11 +31,11 @@ const headline = computed(() => {
   const vacancy = (m.vacantUnits / Math.max(1, m.housingUnits)) * 100
   return [
     { label: 'Einwohner', value: compact(m.population), trend: trend('population', 1) },
-    { label: 'Beschäftigung', value: `${m.employment.toFixed(1)} %`, trend: trend('employment', 1) },
-    { label: 'Ø Angebotsmiete', value: `${m.averageRent.toFixed(2)} €/m²`, trend: trend('averageRent', -1) },
-    { label: 'Freie Wohnungen', value: `${Math.round(m.vacantUnits).toLocaleString('de-DE')} · ${vacancy.toFixed(1)} %`, trend: trend('vacantUnits', 1) },
-    { label: 'Kriminalität', value: `${m.crimeRate.toFixed(0)} / 1.000`, trend: trend('crimeRate', -1) },
-    { label: 'Haushaltsspielraum', value: `${m.cityBudget.toFixed(0)} Mio. €`, trend: trend('cityBudget', 1) },
+    { label: 'Beschäftigung', value: `${formatNumber(m.employment, 1)} %`, trend: trend('employment', 1) },
+    { label: 'Ø Angebotsmiete', value: `${formatNumber(m.averageRent, 2)} €/m²`, trend: trend('averageRent', -1) },
+    { label: 'Freie Wohnungen', value: `${formatNumber(m.vacantUnits)} · ${formatNumber(vacancy, 1)} %`, trend: trend('vacantUnits', 1) },
+    { label: 'Kriminalität', value: `${formatNumber(m.crimeRate)} / 1.000`, trend: trend('crimeRate', -1) },
+    { label: 'Haushaltsspielraum', value: `${formatNumber(m.cityBudget)} Mio. €`, trend: trend('cityBudget', 1) },
   ]
 })
 
@@ -42,21 +43,21 @@ const detail = computed(() => {
   if (!metrics.value) return []
   const m = metrics.value
   return [
-    { label: 'Wanderungssaldo', value: `${m.netMigration >= 0 ? '+' : ''}${m.netMigration.toFixed(0)} / Monat` },
-    { label: 'Wohnungsbestand', value: Math.round(m.housingUnits).toLocaleString('de-DE') },
-    { label: 'Davon Sozialbindung', value: `${Math.round(m.socialUnits).toLocaleString('de-DE')} · ${((m.socialUnits / m.housingUnits) * 100).toFixed(1)} %` },
-    { label: 'Im Bau', value: `${Math.round(m.unitsUnderConstruction).toLocaleString('de-DE')} Wohnungen` },
-    { label: 'Einbrüche', value: `${m.burglaryRate.toFixed(1)} / 1.000 Haushalte` },
-    { label: 'Ordnungsdienst', value: `${m.orderServiceCapacity.toFixed(1)} VZÄ / 10.000` },
-    { label: 'Jugendarbeitslosigkeit', value: `${m.youthUnemployment.toFixed(1)} %` },
-    { label: 'Kitaplätze', value: `${m.childcareCoverage.toFixed(0)} % des Anspruchs` },
-    { label: 'Schulauslastung', value: `${m.schoolUtilisation.toFixed(0)} %` },
-    { label: 'Integrationsplätze', value: `${(m.integrationCapacity * 100).toFixed(0)} % des Bedarfs` },
-    { label: 'Zuwanderungsanteil', value: `${m.internationalShare.toFixed(1)} %`, note: true },
-    { label: 'ÖPNV-Pünktlichkeit', value: `${m.transitReliability.toFixed(0)} %` },
-    { label: 'Stadtgrün', value: `${m.greenSpacePerCapita.toFixed(1)} m² / Kopf` },
-    { label: 'Kassenkredite', value: `${m.debt.toFixed(0)} Mio. €` },
-    { label: 'Sanierungsstau', value: `${m.investmentBacklog.toFixed(0)} Mio. €` },
+    { label: 'Wanderungssaldo', value: `${m.netMigration >= 0 ? '+' : ''}${formatNumber(m.netMigration)} / Monat` },
+    { label: 'Wohnungsbestand', value: formatNumber(m.housingUnits) },
+    { label: 'Davon Sozialbindung', value: `${formatNumber(m.socialUnits)} · ${formatNumber((m.socialUnits / m.housingUnits) * 100, 1)} %` },
+    { label: 'Im Bau', value: `${formatNumber(m.unitsUnderConstruction)} Wohnungen` },
+    { label: 'Einbrüche', value: `${formatNumber(m.burglaryRate, 1)} / 1.000 Haushalte` },
+    { label: 'Ordnungsdienst', value: `${formatNumber(m.orderServiceCapacity, 1)} VZÄ / 10.000` },
+    { label: 'Jugendarbeitslosigkeit', value: `${formatNumber(m.youthUnemployment, 1)} %` },
+    { label: 'Kitaplätze', value: `${formatNumber(m.childcareCoverage)} % des Anspruchs` },
+    { label: 'Schulauslastung', value: `${formatNumber(m.schoolUtilisation)} %` },
+    { label: 'Integrationsplätze', value: `${formatNumber(m.integrationCapacity * 100)} % des Bedarfs` },
+    { label: 'Zuwanderungsanteil', value: `${formatNumber(m.internationalShare, 1)} %`, note: true },
+    { label: 'ÖPNV-Pünktlichkeit', value: `${formatNumber(m.transitReliability)} %` },
+    { label: 'Stadtgrün', value: `${formatNumber(m.greenSpacePerCapita, 1)} m² / Kopf` },
+    { label: 'Kassenkredite', value: `${formatNumber(m.debt)} Mio. €` },
+    { label: 'Sanierungsstau', value: `${formatNumber(m.investmentBacklog)} Mio. €` },
   ]
 })
 

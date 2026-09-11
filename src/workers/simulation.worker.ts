@@ -1,34 +1,69 @@
-/// <reference lib="webworker" />
-
 import type { SimulationCommand, SimulationMessage } from '../core/contracts'
-import { advanceMonths, applyPolicy, createInitialState } from '../simulation/model'
+import {
+  advanceMonths,
+  applyPolicy,
+  campaignFor,
+  createInitialState,
+  forecastsForEvent,
+  negotiate,
+  proposePolicy,
+  resolveDecision,
+  snapshotOf,
+  type SimulationState,
+} from '../simulation/model'
 
-let state = createInitialState()
+let state: SimulationState = createInitialState()
 
-function respond(message: SimulationMessage): void {
-  self.postMessage(message)
-}
+const post = (message: SimulationMessage): void => globalThis.postMessage(message)
+const publish = (type: 'READY' | 'SNAPSHOT'): void => post({ type, snapshot: snapshotOf(state) })
 
-self.onmessage = ({ data }: MessageEvent<SimulationCommand>) => {
+globalThis.onmessage = ({ data }: MessageEvent<SimulationCommand>) => {
   try {
     switch (data.type) {
       case 'INIT':
       case 'RESET':
-        state = createInitialState(data.seed)
-        respond({ type: 'READY', snapshot: state.snapshot })
+        state = createInitialState(data.seed, data.partyId ?? null, data.priorityIds ?? [])
+        publish(data.type === 'INIT' ? 'READY' : 'SNAPSHOT')
         return
       case 'ADVANCE':
         state = advanceMonths(state, data.months)
-        respond({ type: 'SNAPSHOT', snapshot: state.snapshot })
+        publish('SNAPSHOT')
         return
-      case 'APPLY_POLICY':
-        state = applyPolicy(state, data.policyId)
-        respond({ type: 'SNAPSHOT', snapshot: state.snapshot })
+      case 'APPLY_POLICY': {
+        const outcome = proposePolicy(state, data.policyId)
+        state = outcome.state
+        if (outcome.result) post({ type: 'VOTE_RESULT', result: outcome.result, snapshot: snapshotOf(state) })
+        else publish('SNAPSHOT')
+        return
+      }
+      case 'RESOLVE_DECISION': {
+        const outcome = resolveDecision(state, data.eventId, data.optionId)
+        state = outcome.state
+        if (outcome.result) post({ type: 'VOTE_RESULT', result: outcome.result, snapshot: snapshotOf(state) })
+        else publish('SNAPSHOT')
+        return
+      }
+      case 'REQUEST_FORECAST':
+        post({ type: 'FORECAST', eventId: data.eventId, forecasts: forecastsForEvent(state, data.eventId) })
+        return
+      case 'NEGOTIATE':
+        state = negotiate(state, data.eventId, data.partyId)
+        publish('SNAPSHOT')
+        post({ type: 'FORECAST', eventId: data.eventId, forecasts: forecastsForEvent(state, data.eventId) })
+        return
+      case 'CAMPAIGN':
+        state = campaignFor(state, data.eventId, data.optionId)
+        publish('SNAPSHOT')
+        post({ type: 'FORECAST', eventId: data.eventId, forecasts: forecastsForEvent(state, data.eventId) })
+        return
+      case 'SET_CAMPAIGN':
+        state = createInitialState(state.seed, data.partyId, data.priorityIds)
+        publish('SNAPSHOT')
         return
     }
   } catch (error) {
-    respond({ type: 'ERROR', message: error instanceof Error ? error.message : 'Unbekannter Simulationsfehler' })
+    post({ type: 'ERROR', message: error instanceof Error ? error.message : 'Unbekannter Simulationsfehler' })
   }
 }
 
-export {}
+export { applyPolicy }

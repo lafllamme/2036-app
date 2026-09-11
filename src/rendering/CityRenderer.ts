@@ -43,12 +43,19 @@ export class CityRenderer {
   private fpsWindowStart = performance.now()
   private animationElapsed = 0
   private trafficFactor = 1
+  private readonly blueprint: CityBlueprint
+  /** Dwellings one rendered building stands for, so the skyline scales with the real stock. */
+  private readonly unitsPerBuilding: number
+  private nightLife = 0.67
+  private appliedBlight = -1
 
   constructor(options: CityRendererOptions) {
     this.canvas = options.canvas
     this.onBuildingSelected = options.onBuildingSelected
     this.onStats = options.onStats
     this.buildingCount = options.blueprint.buildings.length
+    this.blueprint = options.blueprint
+    this.unitsPerBuilding = 62_000 / Math.max(1, options.blueprint.buildings.length + options.blueprint.growthSlots.length)
     const forceWebGL = new URLSearchParams(window.location.search).has('webgl')
     this.renderer = new THREE.WebGPURenderer({ canvas: this.canvas, antialias: true, forceWebGL })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.65))
@@ -95,11 +102,54 @@ export class CityRenderer {
       })
   }
 
+  /**
+   * The city reacts to the simulation here. Everything below reads the derived `cityVisuals` block
+   * of the snapshot, so the renderer never interprets raw indicators or policy identifiers itself.
+   */
   applySnapshot(snapshot: SimulationSnapshot): void {
-    this.trafficFactor = THREE.MathUtils.clamp(0.74 + snapshot.metrics.employment / 250 - snapshot.metrics.transitCoverage / 420, 0.62, 1.05)
-    this.visuals.cranes.visible = snapshot.activePolicyIds.includes('housing-accelerator')
-    const windowMaterial = this.visuals.windows.material as THREE.MeshStandardMaterial
-    windowMaterial.emissiveIntensity = snapshot.metrics.satisfaction > 68 ? 0.44 : 0.26
+    const visuals = snapshot.cityVisuals
+    const slots = this.blueprint.growthSlots
+
+    this.trafficFactor = THREE.MathUtils.clamp(
+      0.62 + snapshot.metrics.employment / 230 - visuals.transitDensity * 0.22 + (snapshot.metrics.population / 120_000 - 1) * 0.6,
+      0.5,
+      1.25,
+    )
+    this.nightLife = visuals.nightLife
+
+    // Delivered housing fills the free parcels the generator left, from the centre outward.
+    const delivered = THREE.MathUtils.clamp(Math.round(visuals.completedUnitsSinceStart / this.unitsPerBuilding), 0, slots.length)
+    this.visuals.growth.count = delivered
+
+    // Cranes stand on the next parcels in line, so building is visible before buildings are.
+    const sites = Math.min(visuals.constructionSites, this.visuals.constructionSites.children.length)
+    this.visuals.constructionSites.children.forEach((site, index) => {
+      const slot = slots[(delivered + index) % Math.max(1, slots.length)]
+      site.visible = index < sites && slot !== undefined
+      if (slot) site.position.set(slot.x, 0, slot.z)
+    })
+
+    // Vacancy above the blight threshold drains colour out of a matching share of the stock.
+    if (Math.abs(visuals.blight - this.appliedBlight) > 0.02) {
+      this.appliedBlight = visuals.blight
+      const derelict = new THREE.Color('#6f6f68')
+      for (const mesh of this.visuals.buildingMeshes) {
+        const colors = this.visuals.buildingColors.get(mesh)
+        if (!colors) continue
+        const affected = Math.floor(colors.length * visuals.blight)
+        colors.forEach((color, index) => {
+          mesh.setColorAt(index, index < affected ? color.clone().lerp(derelict, 0.55) : color)
+        })
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+      }
+    }
+
+    // Green space is a stock the player can spend or build: fewer hectares, fewer and drier trees.
+    const greenery = THREE.MathUtils.clamp(visuals.greenery, 0.45, 1.3)
+    const treeCount = Math.min(this.blueprint.trees.length, Math.round(this.blueprint.trees.length * Math.min(1, greenery)))
+    this.visuals.treeCrowns.count = treeCount
+    this.visuals.treeTrunks.count = treeCount
+    this.visuals.treeCrowns.material.color.copy(new THREE.Color('#6b6233').lerp(new THREE.Color('#315943'), THREE.MathUtils.clamp(greenery, 0, 1)))
   }
 
   focusBuilding(buildingId: string): void {
@@ -252,8 +302,8 @@ export class CityRenderer {
     this.visuals.sun.intensity = 0.18 + daylight * 4.0
     this.visuals.sun.position.x = Math.cos(cycle * Math.PI * 2) * 1_100
     this.visuals.sun.position.y = 180 + sunHeight * 1_050
-    const windowMaterial = this.visuals.windows.material as THREE.MeshStandardMaterial
-    windowMaterial.emissiveIntensity = 0.24 + (1 - daylight) * 2.8
+    // Lit windows follow how well the city is doing, not just the hour.
+    this.visuals.windows.material.emissiveIntensity = (0.24 + (1 - daylight) * 2.8) * (0.45 + this.nightLife * 0.95)
   }
 
   private readonly render = (): void => {

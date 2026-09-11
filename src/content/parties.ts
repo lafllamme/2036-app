@@ -123,6 +123,8 @@ export const PARTIES: PartyDefinition[] = [
       { policyId: 'transit-network', stance: 'conditional', rationale: 'Infrastrukturinvestitionen werden unterstützt, wenn Finanzierung und Nutzen für Wirtschaft und Pendelverkehr gesichert sind.', sourceIds: ['cdu-program-2025'] },
       { policyId: 'business-tax-balance', stance: 'support', rationale: 'Die zeitweise Entlastung passt zur wachstums- und unternehmensorientierten Programmlinie.', sourceIds: ['cdu-program-2025'] },
     ],
+    axes: { fiscalRestraint: 0.6, marketVsPublic: 0.5, growthVsPreservation: 0.2, climateAmbition: -0.1, redistribution: -0.3, securityAuthority: 0.6, opennessIntegration: -0.3 },
+    redLines: [{ axis: 'securityAuthority', operator: '<', value: -0.6, reason: 'Abbau von Ordnungs- und Sicherheitsstrukturen wird nicht mitgetragen.' }],
     stats: { councilSeats: 18, publicSupport: 30, organization: 78, negotiation: 72 },
     sourceIds: ['cdu-program-2025', 'federal-election-result-2025', 'bundestag-fraktionen-2026'],
     asOf: PARTY_CONTENT_AS_OF,
@@ -144,6 +146,8 @@ export const PARTIES: PartyDefinition[] = [
       { policyId: 'transit-network', stance: 'oppose', rationale: 'Die gebündelte Vorlage priorisiert ÖPNV und Emissionssenkung stärker als die zugrunde gelegte Programmlinie.', sourceIds: ['afd-program-2025'] },
       { policyId: 'business-tax-balance', stance: 'support', rationale: 'Steuerliche Entlastung und marktwirtschaftliche Anreize entsprechen der zugrunde gelegten Programmlinie.', sourceIds: ['afd-program-2025'] },
     ],
+    axes: { fiscalRestraint: 0.5, marketVsPublic: 0.3, growthVsPreservation: 0.6, climateAmbition: -0.9, redistribution: -0.2, securityAuthority: 0.9, opennessIntegration: -0.9 },
+    redLines: [{ axis: 'opennessIntegration', operator: '>', value: 0.6, reason: 'Ausbau von Zuwanderungs- und Integrationsangeboten wird abgelehnt.' }],
     stats: { councilSeats: 13, publicSupport: 22, organization: 73, negotiation: 34 },
     sourceIds: ['afd-program-2025', 'federal-election-result-2025', 'bundestag-fraktionen-2026'],
     asOf: PARTY_CONTENT_AS_OF,
@@ -165,6 +169,8 @@ export const PARTIES: PartyDefinition[] = [
       { policyId: 'transit-network', stance: 'support', rationale: 'Ein dichterer öffentlicher Verkehr passt zur investitions- und teilhabeorientierten Programmlinie.', sourceIds: ['spd-program-2025'] },
       { policyId: 'business-tax-balance', stance: 'conditional', rationale: 'Wirtschaftsimpulse sind möglich, wenn Beschäftigungseffekte und kommunale Einnahmen abgesichert werden.', sourceIds: ['spd-program-2025'] },
     ],
+    axes: { fiscalRestraint: -0.4, marketVsPublic: -0.5, growthVsPreservation: -0.4, climateAmbition: 0.3, redistribution: 0.6, securityAuthority: 0.1, opennessIntegration: 0.4 },
+    redLines: [{ axis: 'redistribution', operator: '<', value: -0.6, reason: 'Maßnahmen zulasten niedriger Einkommen werden nicht mitgetragen.' }],
     stats: { councilSeats: 13, publicSupport: 22, organization: 76, negotiation: 82 },
     sourceIds: ['spd-program-2025', 'federal-election-result-2025', 'bundestag-fraktionen-2026'],
     asOf: PARTY_CONTENT_AS_OF,
@@ -186,6 +192,8 @@ export const PARTIES: PartyDefinition[] = [
       { policyId: 'transit-network', stance: 'support', rationale: 'ÖPNV-Ausbau und Emissionssenkung entsprechen den dokumentierten Mobilitäts- und Klimaschwerpunkten.', sourceIds: ['greens-program-2025'] },
       { policyId: 'business-tax-balance', stance: 'conditional', rationale: 'Eine Entlastung ist nur tragfähig, wenn Investitionen, Beschäftigung und ökologische Modernisierung zusammenwirken.', sourceIds: ['greens-program-2025'] },
     ],
+    axes: { fiscalRestraint: -0.3, marketVsPublic: -0.3, growthVsPreservation: -0.2, climateAmbition: 0.9, redistribution: 0.4, securityAuthority: -0.5, opennessIntegration: 0.8 },
+    redLines: [{ axis: 'climateAmbition', operator: '<', value: -0.5, reason: 'Beschlüsse gegen die kommunalen Klimaziele werden nicht mitgetragen.' }],
     stats: { councilSeats: 8, publicSupport: 13, organization: 67, negotiation: 71 },
     sourceIds: ['greens-program-2025', 'federal-election-result-2025', 'bundestag-fraktionen-2026'],
     asOf: PARTY_CONTENT_AS_OF,
@@ -207,6 +215,8 @@ export const PARTIES: PartyDefinition[] = [
       { policyId: 'transit-network', stance: 'support', rationale: 'Öffentliche Investitionen und Mobilität für alle entsprechen der Programmlinie.', sourceIds: ['left-program-2025'] },
       { policyId: 'business-tax-balance', stance: 'oppose', rationale: 'Die Senkung kommunaler Unternehmenssteuern kollidiert mit der stärkeren Finanzierung öffentlicher Aufgaben.', sourceIds: ['left-program-2025'] },
     ],
+    axes: { fiscalRestraint: -0.7, marketVsPublic: -0.9, growthVsPreservation: -0.3, climateAmbition: 0.6, redistribution: 0.9, securityAuthority: -0.7, opennessIntegration: 0.9 },
+    redLines: [{ axis: 'marketVsPublic', operator: '>', value: 0.6, reason: 'Privatisierung kommunaler Daseinsvorsorge wird abgelehnt.' }],
     stats: { councilSeats: 5, publicSupport: 8, organization: 61, negotiation: 52 },
     sourceIds: ['left-program-2025', 'federal-election-result-2025', 'bundestag-fraktionen-2026'],
     asOf: PARTY_CONTENT_AS_OF,
@@ -228,6 +238,8 @@ export const PARTIES: PartyDefinition[] = [
       { policyId: 'transit-network', stance: 'conditional', rationale: 'Investitionen werden an Technologieoffenheit, Effizienz und belastbare Finanzierung gebunden.', sourceIds: ['fdp-program-2025'] },
       { policyId: 'business-tax-balance', stance: 'support', rationale: 'Die befristete Entlastung entspricht dem Schwerpunkt auf Wachstum, Investitionen und geringerer Belastung.', sourceIds: ['fdp-program-2025'] },
     ],
+    axes: { fiscalRestraint: 0.8, marketVsPublic: 0.9, growthVsPreservation: -0.1, climateAmbition: 0, redistribution: -0.6, securityAuthority: 0, opennessIntegration: 0.3 },
+    redLines: [{ axis: 'fiscalRestraint', operator: '<', value: -0.7, reason: 'Dauerhaft schuldenfinanzierte Ausgabenprogramme werden abgelehnt.' }],
     stats: { councilSeats: 3, publicSupport: 5, organization: 52, negotiation: 66 },
     sourceIds: ['fdp-program-2025', 'federal-election-result-2025'],
     asOf: PARTY_CONTENT_AS_OF,
@@ -238,6 +250,22 @@ export function getParty(partyId: PartyId): PartyDefinition {
   const party = PARTIES.find(({ id }) => id === partyId)
   if (!party) throw new Error(`Unknown party: ${partyId}`)
   return party
+}
+
+/**
+ * Build a value for every council party. The object literal is typed as a complete
+ * `Record<PartyId, T>`, so adding a party to `PartyId` fails to compile until it is handled here —
+ * which is what keeps seat maps and vote tallies exhaustive without a cast.
+ */
+export function mapParties<T>(select: (party: PartyDefinition) => T): Record<PartyId, T> {
+  return {
+    cdu: select(getParty('cdu')),
+    afd: select(getParty('afd')),
+    spd: select(getParty('spd')),
+    gruene: select(getParty('gruene')),
+    linke: select(getParty('linke')),
+    fdp: select(getParty('fdp')),
+  }
 }
 
 export function getPartyEvidence(sourceIds: string[]): EvidenceReference[] {

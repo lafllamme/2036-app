@@ -40,7 +40,8 @@ const policyName = (policyId: string): string => getPolicy(policyId)?.name ?? po
 function moveBannerFocus(event: KeyboardEvent, index: number): void {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
   event.preventDefault()
-  const row = (event.currentTarget as HTMLElement).closest('.party-banner-row')
+  if (!(event.currentTarget instanceof HTMLElement)) return
+  const row = event.currentTarget.closest('.party-banner-row')
   const buttons = Array.from(row?.querySelectorAll<HTMLButtonElement>('.party-banner') ?? [])
   if (buttons.length === 0) return
   const nextIndex = event.key === 'Home'

@@ -12,6 +12,25 @@
   --amber: #f0c65a;
   --teal: #63b9aa;
   --shadow: rgba(0, 0, 0, 0.34);
+
+  /*
+   * Semantic roles. One colour means exactly one thing across the whole interface, so a player can
+   * read a screen without a legend. Never reach for the raw brand tokens above in new UI.
+   *
+   *   positive  approval, a gain, an indicator moving the way the city wants
+   *   negative  rejection, a loss, a risk, an indicator moving the wrong way
+   *   pending   undecided, open, awaiting the player — never good or bad in itself
+   *   resource  money and political capital: finite things being spent
+   */
+  --signal-positive: #63b9aa;
+  --signal-positive-dim: rgba(99, 185, 170, 0.16);
+  --signal-negative: #dc5746;
+  --signal-negative-dim: rgba(220, 87, 70, 0.16);
+  --signal-pending: #f0c65a;
+  --signal-pending-dim: rgba(240, 198, 90, 0.14);
+  --signal-resource: #c9905e;
+  --signal-resource-dim: rgba(201, 144, 94, 0.16);
+  --signal-neutral: #aeb5b3;
 }
 
 * {
@@ -845,4 +864,575 @@ button:focus-visible {
   .ticker-item:not(:first-child) {
     display: none;
   }
+}
+
+/* --- City-state rail ---------------------------------------------------- */
+
+.metric-rail.expanded {
+  bottom: 112px;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(244, 240, 230, 0.22) transparent;
+}
+
+.rail-toggle {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.rail-toggle:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.trend {
+  margin-left: 5px;
+  font-size: 8px;
+  font-style: normal;
+}
+
+.trend.good { color: var(--signal-positive); }
+.trend.bad { color: var(--signal-negative); }
+.trend.flat { color: var(--signal-neutral); }
+
+.detail-list {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(244, 240, 230, 0.09);
+}
+
+.detail-list dd {
+  font-size: 10px;
+}
+
+.detail-list dd.neutral {
+  color: var(--muted);
+}
+
+.rail-note {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.perception-block {
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(244, 240, 230, 0.09);
+}
+
+.perception-block h3 {
+  margin: 0 0 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.health-track i.inverse {
+  background: var(--signal-negative);
+}
+
+/* --- Decision panel ----------------------------------------------------- */
+
+.group-title {
+  margin: 14px 0 2px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.decision-card {
+  border-left: 2px solid var(--signal-pending);
+  padding-left: 11px;
+}
+
+.decision-card.breaking {
+  border-left-color: var(--signal-negative);
+}
+
+.policy-card__top .urgent {
+  color: var(--signal-negative);
+}
+
+.policy-card button.primary,
+.vote-actions button.primary,
+.vote-result button.primary {
+  width: 100%;
+  border-color: rgba(240, 198, 90, 0.5);
+  background: rgba(240, 198, 90, 0.14);
+  color: var(--amber);
+}
+
+.measure-list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.measure-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  border-top: 1px solid rgba(244, 240, 230, 0.06);
+  color: #c4cac7;
+  font-size: 10px;
+}
+
+.measure-list b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  color: var(--signal-positive);
+}
+
+.measure-list b.negative {
+  color: var(--signal-resource);
+}
+
+/* --- Vote sheet --------------------------------------------------------- */
+
+.vote-sheet {
+  position: relative;
+  width: min(840px, calc(100vw - 48px));
+  max-height: calc(100vh - 88px);
+  overflow: auto;
+  padding: 26px 30px 22px;
+  border-radius: 30px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(244, 240, 230, 0.22) transparent;
+}
+
+.vote-sheet header small,
+.vote-result small {
+  display: block;
+  color: var(--signal-pending);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.vote-sheet header h2 {
+  margin: 9px 0 8px;
+  font-family: "Arial Narrow", "Avenir Next Condensed", sans-serif;
+  font-size: 28px;
+  letter-spacing: 0.01em;
+}
+
+.vote-sheet header p {
+  margin: 0 0 6px;
+  max-width: 68ch;
+  color: #c4cac7;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.resource-row {
+  display: flex;
+  gap: 34px;
+  padding: 13px 0;
+  border-bottom: 1px solid rgba(244, 240, 230, 0.09);
+}
+
+.resource-row > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.resource-row small {
+  color: var(--signal-neutral);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.resource-row b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--signal-resource);
+}
+
+.resource-track {
+  width: 120px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(244, 240, 230, 0.12);
+  overflow: hidden;
+}
+
+.resource-track i {
+  display: block;
+  height: 100%;
+  background: var(--signal-resource);
+}
+
+.vote-option {
+  padding: 17px 0 18px;
+  border-bottom: 1px solid rgba(244, 240, 230, 0.09);
+}
+
+.vote-option__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.vote-option__head h3 {
+  margin: 0;
+  font-family: "Arial Narrow", "Avenir Next Condensed", sans-serif;
+  font-size: 19px;
+}
+
+.vote-option__head--implicit {
+  color: var(--signal-neutral);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-size: 8px !important;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.vote-option:first-of-type {
+  padding-top: 13px;
+}
+
+.outlook {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.outlook.positive { background: var(--signal-positive-dim); color: var(--signal-positive); }
+.outlook.pending { background: var(--signal-pending-dim); color: var(--signal-pending); }
+.outlook.negative { background: var(--signal-negative-dim); color: var(--signal-negative); }
+
+.rationale {
+  margin: 6px 0 13px;
+  max-width: 72ch;
+  color: #c4cac7;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ledger {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin-bottom: 13px;
+  background: rgba(244, 240, 230, 0.08);
+  border: 1px solid rgba(244, 240, 230, 0.08);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.ledger__column {
+  padding: 11px 13px 13px;
+  background: #131a1e;
+}
+
+.ledger__column h4 {
+  margin: 0 0 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.ledger__column.gain h4 { color: var(--signal-positive); }
+.ledger__column.cost h4 { color: var(--signal-resource); }
+.ledger__column.risk h4 { color: var(--signal-negative); }
+
+.ledger__column ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.ledger__column li {
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.ledger__column b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.ledger__column.gain b { color: var(--signal-positive); }
+.ledger__column.cost b { color: var(--signal-resource); }
+
+.ledger__column small {
+  display: block;
+  margin-top: 2px;
+  color: var(--signal-neutral);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.ledger__column.risk li span {
+  color: #ccc3bf;
+}
+
+.ledger__column.risk li::marker {
+  color: var(--signal-negative);
+}
+
+.ledger__empty {
+  margin: 0;
+  color: var(--signal-neutral);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.forecast {
+  padding: 12px 13px 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(244, 240, 230, 0.03);
+}
+
+.forecast__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+
+.forecast__head span {
+  color: var(--signal-neutral);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.forecast__head strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.forecast__head small {
+  margin-left: auto;
+  color: var(--signal-neutral);
+  font-size: 9px;
+}
+
+.seat-bar {
+  display: flex;
+  height: 9px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: rgba(244, 240, 230, 0.1);
+}
+
+.seat-bar i { display: block; height: 100%; }
+.seat-bar i.yes { background: var(--signal-positive); }
+.seat-bar i.abstain { background: rgba(244, 240, 230, 0.22); }
+.seat-bar i.no { background: var(--signal-negative); }
+
+.blockers {
+  margin: 9px 0 0;
+  color: #ccc3bf;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.party-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.party-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+}
+
+.party-chip i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.party-chip em {
+  font-style: normal;
+  font-size: 8px;
+  color: var(--signal-neutral);
+}
+
+.party-chip.yes { border-color: rgba(99, 185, 170, 0.55); }
+.party-chip.yes em { color: var(--signal-positive); }
+.party-chip.no { border-color: rgba(220, 87, 70, 0.5); }
+.party-chip.no em { color: var(--signal-negative); }
+.party-chip.open em { color: var(--signal-pending); }
+
+.vote-actions {
+  display: flex;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.vote-actions button {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.vote-actions button:disabled,
+.negotiation button:disabled {
+  opacity: 0.34;
+  cursor: not-allowed;
+}
+
+.negotiation {
+  padding-top: 16px;
+}
+
+.negotiation h3 {
+  margin: 0 0 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  color: var(--signal-neutral);
+  text-transform: uppercase;
+}
+
+.negotiation__intro {
+  margin: 0 0 10px;
+  color: var(--signal-neutral);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.negotiation__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.negotiation__row button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+}
+
+.negotiation__row button i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* --- Vote result -------------------------------------------------------- */
+
+.vote-result {
+  position: relative;
+  width: min(420px, calc(100vw - 48px));
+  padding: 24px 26px 20px;
+  border-radius: 28px;
+}
+
+.vote-result h2 {
+  margin: 8px 0 10px;
+  font-family: "Arial Narrow", "Avenir Next Condensed", sans-serif;
+  font-size: 30px;
+}
+
+.vote-result h2.passed { color: var(--signal-positive); }
+.vote-result h2.failed { color: var(--signal-negative); }
+
+.tally {
+  margin: 0 0 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+
+.tally small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.surprise {
+  margin: 0 0 12px;
+  padding: 9px 11px;
+  border-left: 2px solid var(--signal-pending);
+  color: #c4cac7;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.vote-rows {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.vote-rows li {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 0;
+  border-top: 1px solid rgba(244, 240, 230, 0.07);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+
+.vote-rows i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.vote-rows li.yes b { color: var(--signal-positive); }
+.vote-rows li.no b { color: var(--signal-negative); }
+.vote-rows li.abstain b { color: var(--signal-neutral); }
+
+.coalition-block strong i {
+  font-size: 11px;
+  font-style: normal;
+  color: var(--muted);
 }

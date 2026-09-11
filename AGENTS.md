@@ -5,6 +5,7 @@
 - Keep Three.js inside `src/rendering` and runtime integration code.
 - Keep simulation functions deterministic and independent from DOM, Vue, Pinia, and Three.js.
 - Never use party IDs as simulation modifiers. Parties may reference policies only.
+- Never use identity-composition indicators such as `internationalShare` in a health formula or an event trigger. Model contested causality through funded capacity; see `docs/METRICS.md`.
 - Do not add political claims without a dated evidence record and visible confidence/applicability notes.
 - Use named RNG streams; never use `Math.random()` for world or simulation outcomes.
 - Record every external asset and license in `docs/ASSET_SOURCES.md`.

@@ -6,12 +6,22 @@ export interface WorldVisuals {
   buildingMeshes: THREE.InstancedMesh[]
   buildingRecords: Map<THREE.InstancedMesh, BuildingRecord[]>
   buildingColors: Map<THREE.InstancedMesh, THREE.Color[]>
-  windows: THREE.InstancedMesh
+  windows: StandardInstancedMesh
   cars: THREE.InstancedMesh
   pedestrians: THREE.InstancedMesh
-  cranes: THREE.Group
+  /** Finished new housing. `count` grows as the construction pipeline delivers. */
+  growth: THREE.InstancedMesh
+  /** One crane per site, parked on the next growth parcels so building precedes buildings. */
+  constructionSites: THREE.Group
+  treeCrowns: StandardInstancedMesh
+  treeTrunks: THREE.InstancedMesh
   sun: THREE.DirectionalLight
 }
+
+const MAX_CONSTRUCTION_SITES = 16
+
+/** Instanced meshes whose material the renderer animates directly, typed so no cast is needed. */
+type StandardInstancedMesh = THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>
 
 const BUILDING_COLORS: Record<BuildingRecord['type'], string[]> = {
   altbau: ['#b8896f', '#d3b095', '#a66f62', '#c8a878'],
@@ -175,7 +185,59 @@ function addRoofs(scene: THREE.Scene, blueprint: CityBlueprint): void {
   scene.add(roof)
 }
 
-function addTrees(scene: THREE.Scene, blueprint: CityBlueprint): void {
+/** New housing on the parcels the generator left free. Hidden until the pipeline delivers. */
+function createGrowth(scene: THREE.Scene, blueprint: CityBlueprint): THREE.InstancedMesh {
+  const slots = blueprint.growthSlots
+  const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.6, metalness: 0.05, vertexColors: true })
+  const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), material, Math.max(1, slots.length))
+  const matrix = new THREE.Matrix4()
+  const quaternion = new THREE.Quaternion()
+  const palette = ['#cdd3ce', '#b9c4bd', '#d8d2c3', '#a9b7b4']
+
+  slots.forEach((slot, index) => {
+    quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), slot.rotation)
+    matrix.compose(
+      new THREE.Vector3(slot.x, slot.height / 2 + 0.8, slot.z),
+      quaternion,
+      new THREE.Vector3(slot.width, slot.height, slot.depth),
+    )
+    mesh.setMatrixAt(index, matrix)
+    mesh.setColorAt(index, new THREE.Color(palette[index % palette.length]))
+  })
+  mesh.count = 0
+  mesh.castShadow = true
+  mesh.receiveShadow = true
+  mesh.frustumCulled = false
+  scene.add(mesh)
+  return mesh
+}
+
+function createConstructionSites(scene: THREE.Scene): THREE.Group {
+  const group = new THREE.Group()
+  const steel = new THREE.MeshStandardMaterial({ color: '#dc9b28', roughness: 0.56, metalness: 0.28 })
+  const shell = new THREE.MeshStandardMaterial({ color: '#8d8577', roughness: 0.92 })
+
+  for (let index = 0; index < MAX_CONSTRUCTION_SITES; index += 1) {
+    const site = new THREE.Group()
+    const height = 54 + (index % 4) * 9
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(2.6, height, 2.6), steel)
+    mast.position.y = height / 2
+    const boom = new THREE.Mesh(new THREE.BoxGeometry(58, 2, 2), steel)
+    boom.position.set(19, height - 3, 0)
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(13, 6, 6), steel)
+    counter.position.set(-11, height - 5, 0)
+    const shellBlock = new THREE.Mesh(new THREE.BoxGeometry(30, 12, 26), shell)
+    shellBlock.position.set(4, 6, 0)
+    site.add(mast, boom, counter, shellBlock)
+    site.traverse((object) => { if (object instanceof THREE.Mesh) object.castShadow = true })
+    site.visible = false
+    group.add(site)
+  }
+  scene.add(group)
+  return group
+}
+
+function addTrees(scene: THREE.Scene, blueprint: CityBlueprint): Pick<WorldVisuals, 'treeTrunks' | 'treeCrowns'> {
   const trunk = new THREE.InstancedMesh(
     new THREE.CylinderGeometry(0.7, 0.95, 7, 6),
     new THREE.MeshStandardMaterial({ color: '#554433', roughness: 1 }),
@@ -196,6 +258,7 @@ function addTrees(scene: THREE.Scene, blueprint: CityBlueprint): void {
   trunk.castShadow = true
   crown.castShadow = true
   scene.add(trunk, crown)
+  return { treeTrunks: trunk, treeCrowns: crown }
 }
 
 function addLandmarks(scene: THREE.Scene): void {
@@ -232,27 +295,6 @@ function addLandmarks(scene: THREE.Scene): void {
   scene.add(hospital)
 }
 
-function addCranes(scene: THREE.Scene): THREE.Group {
-  const cranes = new THREE.Group()
-  const material = new THREE.MeshStandardMaterial({ color: '#dc9b28', roughness: 0.56, metalness: 0.28 })
-  for (const [x, z, height] of [[-420, -620, 72], [260, 610, 88], [540, -720, 64]] as const) {
-    const crane = new THREE.Group()
-    const mast = new THREE.Mesh(new THREE.BoxGeometry(3, height, 3), material)
-    mast.position.y = height / 2
-    const boom = new THREE.Mesh(new THREE.BoxGeometry(74, 2.4, 2.4), material)
-    boom.position.set(24, height - 3, 0)
-    const counter = new THREE.Mesh(new THREE.BoxGeometry(16, 8, 8), material)
-    counter.position.set(-14, height - 6, 0)
-    crane.add(mast, boom, counter)
-    crane.position.set(x, 0, z)
-    crane.traverse((object) => { if (object instanceof THREE.Mesh) object.castShadow = true })
-    cranes.add(crane)
-  }
-  cranes.visible = false
-  scene.add(cranes)
-  return cranes
-}
-
 function createAgents(scene: THREE.Scene): Pick<WorldVisuals, 'cars' | 'pedestrians'> {
   const cars = new THREE.InstancedMesh(
     new THREE.BoxGeometry(8.4, 3.2, 4),
@@ -281,9 +323,10 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint): World
   addRoads(scene, blueprint)
   const buildingVisuals = createBuildings(scene, blueprint)
   addRoofs(scene, blueprint)
-  addTrees(scene, blueprint)
+  const trees = addTrees(scene, blueprint)
   addLandmarks(scene)
-  const cranes = addCranes(scene)
+  const growth = createGrowth(scene, blueprint)
+  const constructionSites = createConstructionSites(scene)
   const agents = createAgents(scene)
 
   const hemisphere = new THREE.HemisphereLight('#d8e4e7', '#4a4439', 2.25)
@@ -301,5 +344,5 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint): World
   sun.shadow.bias = -0.00035
   scene.add(sun)
 
-  return { ...buildingVisuals, ...agents, cranes, sun }
+  return { ...buildingVisuals, ...agents, ...trees, growth, constructionSites, sun }
 }

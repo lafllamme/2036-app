@@ -7,7 +7,9 @@ import CityCanvas from './ui/CityCanvas.vue'
 import EntryExperience from './ui/EntryExperience.vue'
 import MetricRail from './ui/MetricRail.vue'
 import NewsTicker from './ui/NewsTicker.vue'
-import PolicyPanel from './ui/PolicyPanel.vue'
+import DecisionPanel from './ui/DecisionPanel.vue'
+import VoteSheet from './ui/VoteSheet.vue'
+import VoteResult from './ui/VoteResult.vue'
 
 const game = useGameStore()
 const {
@@ -51,8 +53,8 @@ const buildingLabels = {
           <small>2026 <b>→</b> 2036</small>
         </div>
         <div class="coalition-block" v-if="snapshot">
-          <small>KOALITIONSHALT</small>
-          <strong>{{ snapshot.coalitionSupport.toFixed(0) }} %</strong>
+          <small>KOALITION</small>
+          <strong>{{ snapshot.coalitionSupport }}<i>/60</i></strong>
         </div>
         <button class="quiet-button" type="button" @click="game.save">
           {{ game.saveStatus.startsWith('Gespeichert') ? 'Gespeichert' : 'Speichern' }}
@@ -60,7 +62,7 @@ const buildingLabels = {
       </header>
 
       <MetricRail />
-      <PolicyPanel />
+      <DecisionPanel />
 
       <section v-if="selectedBuilding" class="selection-card panel">
         <button type="button" aria-label="Auswahl schließen" @click="game.selectedBuilding = null">×</button>
@@ -92,6 +94,8 @@ const buildingLabels = {
       </div>
 
       <NewsTicker />
+      <VoteSheet />
+      <VoteResult />
     </template>
 
     <EntryExperience v-if="experienceStage !== 'gameplay'" />

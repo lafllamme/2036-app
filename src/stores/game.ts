@@ -8,7 +8,12 @@ import type {
   SaveGameV1,
   SimulationMessage,
   SimulationSnapshot,
+  VoteForecast,
+  VoteResult,
 } from '../core/contracts'
+import { getEvent } from '../content/events'
+import { getPolicy } from '../content/policies'
+import type { EventDefinition } from '../core/contracts'
 import { CAMPAIGN_LAST_MONTH, isCampaignComplete } from '../core/campaign'
 import type { RendererStats } from '../rendering/CityRenderer'
 
@@ -33,6 +38,9 @@ export const useGameStore = defineStore('game', () => {
   const selectedNews = shallowRef<NewsItem | null>(null)
   const rendererStats = shallowRef<RendererStats | null>(null)
   const experienceStage = ref<ExperienceStage>('title')
+  const openDecisionId = ref<string | null>(null)
+  const lastVoteResult = shallowRef<VoteResult | null>(null)
+  const forecasts = shallowRef<Record<string, VoteForecast>>({})
   const selectedPartyId = ref<PartyId | null>(null)
   const selectedPriorityIds = ref<CampaignPriorityId[]>([])
   const speed = ref<0 | 1 | 2 | 4>(0)
@@ -49,9 +57,24 @@ export const useGameStore = defineStore('game', () => {
       speed.value = 0
       return
     }
+    if (data.type === 'FORECAST') {
+      forecasts.value = data.forecasts
+      return
+    }
+    if (data.type === 'VOTE_RESULT') lastVoteResult.value = data.result
+
+    const previous = snapshot.value
     snapshot.value = data.snapshot
-    if (isCampaignComplete(data.snapshot.month)) speed.value = 0
     ready.value = true
+    if (isCampaignComplete(data.snapshot.month)) speed.value = 0
+
+    // A new council motion stops the clock: the player should never miss a decision while watching.
+    const known = new Set((previous?.pendingDecisions ?? []).map((entry) => entry.eventId))
+    const arrived = data.snapshot.pendingDecisions.find((entry) => !known.has(entry.eventId))
+    if (arrived) {
+      speed.value = 0
+      openDecisionId.value = arrived.eventId
+    }
   }
 
   worker.onerror = () => {
@@ -152,12 +175,94 @@ export const useGameStore = defineStore('game', () => {
     worker.postMessage({ type: 'APPLY_POLICY', policyId })
   }
 
+  const pendingDecisions = computed(() => snapshot.value?.pendingDecisions ?? [])
+
+  /**
+   * One lookup for both sources of a council vote: an event raised by the city, and one of the
+   * player's own standing motions. The sheet renders them identically.
+   */
+  function decisionDefinition(id: string): EventDefinition | null {
+    const event = getEvent(id)
+    if (event) return event
+    const policy = getPolicy(id)
+    if (!policy) return null
+    return {
+      schemaVersion: 1,
+      id: policy.id,
+      kind: 'decision',
+      category: policy.category === 'housing' ? 'housing' : policy.category === 'transport' ? 'mobility' : 'economy',
+      title: policy.name,
+      briefing: policy.summary,
+      urgency: 'normal',
+      trigger: { earliestMonth: 0, latestMonth: 131, conditions: [], baseWeight: 0, cooldownMonths: 0, oncePerCampaign: true },
+      immediateEffects: [],
+      options: [{
+        id: policy.id,
+        label: policy.name,
+        rationale: policy.summary,
+        oneOffCost: policy.implementationCost,
+        monthlyCost: policy.monthlyCost,
+        axes: policy.axes,
+        salience: policy.salience,
+        effects: policy.effects,
+        sourceIds: policy.sourceIds,
+      }],
+      expiresInMonths: 0,
+      sourceIds: policy.sourceIds,
+    }
+  }
+  const openDecision = computed(() => {
+    if (!openDecisionId.value) return null
+    const definition = decisionDefinition(openDecisionId.value)
+    if (!definition) return null
+    // A standing motion is never raised as an event, so it has no pending entry — but it does carry
+    // the same preparation, and the sheet must show it.
+    const prepared = snapshot.value?.motionPreparation[openDecisionId.value] ?? { negotiatedPartyIds: [], campaignedOptionIds: [] }
+    const entry = pendingDecisions.value.find((decision) => decision.eventId === openDecisionId.value)
+      ?? { eventId: openDecisionId.value, raisedMonth: snapshot.value?.month ?? 0, expiresMonth: Number.POSITIVE_INFINITY, ...prepared }
+    return { entry, definition: definition, prepared }
+  })
+
+  function openDecisionSheet(eventId: string | null): void {
+    openDecisionId.value = eventId
+    forecasts.value = {}
+    if (eventId) {
+      speed.value = 0
+      worker.postMessage({ type: 'REQUEST_FORECAST', eventId })
+    }
+  }
+
+  function requestForecasts(eventId: string): void {
+    worker.postMessage({ type: 'REQUEST_FORECAST', eventId })
+  }
+
+  function resolveDecision(eventId: string, optionId: string): void {
+    speed.value = 0
+    // A standing motion has no pending entry in the worker, so it goes through the policy path.
+    if (getEvent(eventId)) worker.postMessage({ type: 'RESOLVE_DECISION', eventId, optionId })
+    else worker.postMessage({ type: 'APPLY_POLICY', policyId: eventId })
+    openDecisionId.value = null
+  }
+
+  function negotiate(motionId: string, partyId: PartyId): void {
+    worker.postMessage({ type: 'NEGOTIATE', eventId: motionId, partyId })
+  }
+
+  function campaignFor(motionId: string, optionId: string): void {
+    worker.postMessage({ type: 'CAMPAIGN', eventId: motionId, optionId })
+  }
+
+  function dismissVoteResult(): void {
+    lastVoteResult.value = null
+  }
+
   function reset(): void {
     speed.value = 0
     accumulatedMs = 0
     selectedBuilding.value = null
     selectedNews.value = null
-    worker.postMessage({ type: 'RESET', seed: 2036 })
+    // Spread the priority list: a ref's value is a reactive Proxy, and structured clone rejects it.
+    worker.postMessage({ type: 'RESET', seed: 2036, partyId: selectedPartyId.value ?? undefined, priorityIds: [...selectedPriorityIds.value] })
   }
 
   async function save(): Promise<void> {
@@ -198,6 +303,18 @@ export const useGameStore = defineStore('game', () => {
     ready,
     error,
     saveStatus,
+    openDecisionId,
+    openDecision,
+    pendingDecisions,
+    forecasts,
+    lastVoteResult,
+    decisionDefinition,
+    openDecisionSheet,
+    requestForecasts,
+    resolveDecision,
+    negotiate,
+    campaignFor,
+    dismissVoteResult,
     currentDate,
     campaignProgress,
     canAdvance,

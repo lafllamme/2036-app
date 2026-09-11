@@ -39,6 +39,7 @@ export function generateCity(seed = LINDENHAFEN.seed): CityBlueprint {
   const treeRng = createRandomStream(seed, 'vegetation')
   const roads: RoadRecord[] = []
   const buildings: BuildingRecord[] = []
+  const growthSlots: BuildingRecord[] = []
   const trees: TreeRecord[] = []
 
   let roadIndex = 0
@@ -60,15 +61,15 @@ export function generateCity(seed = LINDENHAFEN.seed): CityBlueprint {
 
       for (const offsetX of parcelXs) {
         for (const offsetZ of parcelZs) {
-          if (buildingRng.next() > density) continue
+          const occupied = buildingRng.next() <= density
           const x = blockX + offsetX + buildingRng.between(-5, 5)
           const z = blockZ + offsetZ + buildingRng.between(-5, 5)
           const type = buildingTypeFor(districtId, buildingRng.next())
           const [minHeight, maxHeight] = baseHeight(type)
           const centerBoost = Math.max(0, 1 - Math.hypot(x, z) / 1_200)
           const height = buildingRng.between(minHeight, maxHeight) * (1 + centerBoost * (type === 'commercial' || type === 'modern' ? 0.8 : 0.25))
-          buildings.push({
-            id: `b-${buildingIndex.toString(36)}`,
+          const record: BuildingRecord = {
+            id: occupied ? `b-${buildingIndex.toString(36)}` : `g-${growthSlots.length.toString(36)}`,
             districtId,
             type,
             x,
@@ -79,8 +80,14 @@ export function generateCity(seed = LINDENHAFEN.seed): CityBlueprint {
             rotation: buildingRng.next() > 0.5 ? 0 : Math.PI,
             condition: buildingRng.between(0.62, 0.98),
             occupancy: buildingRng.between(0.76, 0.99),
-          })
-          buildingIndex += 1
+          }
+          if (occupied) {
+            buildings.push(record)
+            buildingIndex += 1
+          } else if (districtId !== 'hafen-industrie' && districtId !== 'gewerbe-ost') {
+            // Free residential parcels become the city's growth capacity.
+            growthSlots.push({ ...record, type: districtId === 'vorstadt-west' ? 'residential' : 'modern' })
+          }
         }
       }
     }
@@ -97,9 +104,13 @@ export function generateCity(seed = LINDENHAFEN.seed): CityBlueprint {
     trees.push({ id: `tree-${index.toString(36)}`, x, z, scale: treeRng.between(0.7, 1.45) })
   }
 
+  // Grow outward from the centre so the skyline fills in the way a real city densifies.
+  growthSlots.sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z))
+
   return {
     definition: { ...LINDENHAFEN, seed },
     buildings,
+    growthSlots,
     roads,
     trees,
   }

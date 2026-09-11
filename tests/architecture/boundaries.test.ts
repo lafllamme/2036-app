@@ -34,6 +34,33 @@ describe('architecture boundaries', () => {
     }
   })
 
+  it('never branches a simulation calculation on a party identifier', () => {
+    // AGENTS.md: parties may only enter through their authored position vector and seat count.
+    const partyIds = ['cdu', 'afd', 'spd', 'gruene', 'linke', 'fdp']
+    const engine = sourceFiles('src/simulation')
+
+    for (const file of engine) {
+      for (const partyId of partyIds) {
+        expect(file.source, `${file.path} compares against the party id "${partyId}"`)
+          .not.toMatch(new RegExp(`(===|!==|case)\\s*['"]${partyId}['"]`))
+      }
+    }
+  })
+
+  it('never lets an identity-composition indicator drive a score or a trigger', () => {
+    // docs/METRICS.md: composition is displayed, never causal. Capacity is what moves outcomes.
+    const composition = 'internationalShare'
+    const scoring = sourceFiles('src/simulation').filter(({ path }) => /dynamics|council|events/.test(path))
+
+    for (const file of scoring) {
+      const healthSection = file.source.slice(file.source.indexOf('export function healthFromState'))
+      expect(healthSection, `${file.path} scores on ${composition}`).not.toContain(composition)
+    }
+
+    const library = readFileSync(resolve(projectRoot, 'src/content/events.ts'), 'utf8')
+    expect(library, 'an event trigger reads an identity-composition indicator').not.toContain(`metric: '${composition}'`)
+  })
+
   it('never uses unseeded randomness in world or simulation code', () => {
     const deterministicFiles = [...sourceFiles('src/world'), ...sourceFiles('src/simulation')]
 

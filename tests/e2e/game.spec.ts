@@ -40,21 +40,45 @@ test.describe('2036 vertical slice', () => {
     await page.getByRole('button', { name: 'Mandat bestätigen' }).click()
     await page.getByRole('button', { name: 'Lindenhafen übernehmen' }).click()
     await expect(page.getByLabel('Stadtkennzahlen')).toContainText('Einwohner')
-    await expect(page.getByLabel('Politische Vorhaben')).toContainText('Wohnungsbau-Turbo')
+    await expect(page.getByLabel('Ratsvorlagen und Entscheidungen')).toContainText('Wohnungsbau-Turbo')
     await expect(page.locator('.render-badge')).toContainText('WebGL')
     await expect(page.locator('.brand-block')).toContainText('AfD')
   })
 
-  test('adopts a policy and advances the deterministic calendar', async ({ page }) => {
+  test('puts a motion to the council, shows the odds, and records the result', async ({ page }) => {
     await enterLindenhafen(page)
-    const housingPolicy = page.locator('.policy-card').filter({ hasText: 'Wohnungsbau-Turbo' })
+    const housingMotion = page.locator('.policy-card').filter({ hasText: 'Wohnungsbau-Turbo' })
+    await housingMotion.getByRole('button', { name: 'Zur Abstimmung' }).click()
 
-    await housingPolicy.getByRole('button', { name: 'Zur Abstimmung' }).click()
-    await expect(housingPolicy.getByRole('button', { name: 'Beschlossen' })).toBeDisabled()
-    await expect(page.getByLabel('Aktuelle Meldungen')).toContainText('Wohnungsbau-Turbo')
+    const sheet = page.getByRole('dialog', { name: 'Wohnungsbau-Turbo' })
+    await expect(sheet).toBeVisible()
+    // The forecast is computed from the party position vectors, not authored per party.
+    await expect(sheet.getByText(/Mehrheit \d+ %/)).toBeVisible()
+    await expect(sheet.locator('.party-chip')).toHaveCount(6)
+
+    await sheet.getByRole('button', { name: 'Abstimmen lassen' }).click()
+
+    const result = page.getByRole('dialog', { name: /Angenommen|Abgelehnt/ })
+    await expect(result).toBeVisible()
+    await expect(result).toContainText('Enthaltungen')
+    await expect(result.locator('.vote-rows li')).toHaveCount(6)
+    await result.getByRole('button', { name: 'Weiter' }).click()
 
     await page.getByRole('button', { name: 'Nächster Monat' }).click()
     await expect(page.getByText('FEB 2026', { exact: true })).toBeVisible()
+  })
+
+  test('expands the city-state dashboard with the sensitive-indicator disclosure', async ({ page }) => {
+    await enterLindenhafen(page)
+    const rail = page.getByLabel('Stadtkennzahlen')
+    await expect(rail).toContainText('Freie Wohnungen')
+    await expect(rail).toContainText('Kriminalität')
+
+    await rail.getByRole('button', { name: 'Lagebericht' }).click()
+    await expect(rail).toContainText('Sanierungsstau')
+    await expect(rail).toContainText('Zuwanderungsanteil')
+    await expect(rail).toContainText('geht in keine Bewertung und in keinen Ereignisauslöser ein')
+    await expect(rail).toContainText('Wahrnehmung')
   })
 
   test('opens a causal news detail from the ticker', async ({ page }) => {

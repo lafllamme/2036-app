@@ -1,0 +1,300 @@
+# Event Matrix
+
+The event system is how a decade of municipal politics becomes playable. Events create situations, the council decides whether the player's answer passes, and consequences arrive months or years later. This document defines the mechanics, the schema, and the authored event library.
+
+Related: [`METRICS.md`](METRICS.md) for the indicators events read and write, [`POLITICAL_MODEL.md`](POLITICAL_MODEL.md) for the party layer, [`CAUSAL_GRAPH.md`](CAUSAL_GRAPH.md) for the chains.
+
+## Principles
+
+1. **Events never target a party.** A trigger condition may read city indicators, active measures, prior events, and the calendar. It may never read the player's party ID. The same event fires for every player in the same city state.
+2. **Everything is seeded.** Event selection, council votes, and follow-ups draw from named RNG streams derived from `(campaignSeed, month, eventId)`. Reloading a save reproduces the same draw, so reloading to reroll a lost vote does not work.
+3. **Uncertainty is disclosed, not hidden.** Before committing to an option the player sees the cost, the expected effects with their range and confidence, and the exact majority probability. The dice are visible.
+4. **Effects are deterministic, votes are not.** Once a measure passes, its effect uses the expected value with the authored delay and ramp. The stochastic part of the game is political feasibility, not physics.
+5. **Doing nothing is a decision.** Every decision event has an explicit default that fires when it expires, and the default is recorded in the causal ledger as a choice.
+6. **Slow beats fast.** The strongest levers are stocks that need years: housing, social bindings, investment backlog, green space, trust. Events that offer an instant fix carry a cost that lands later.
+
+## Event lifecycle
+
+```text
+eligible → drawn → briefing (ticker + sheet)
+          ├─ incident  → immediate effects → optional follow-up chain
+          └─ decision  → option chosen → council vote
+                                          ├─ passed   → measure activated (delay, ramp, monthly cost)
+                                          ├─ rejected → cooldown, trust/perception penalty, may re-fire harder
+                                          └─ expired  → default option applies
+```
+
+A decision stays open for `expiresInMonths` (default 3). Time can keep running; the campaign auto-pauses on `breaking` urgency only.
+
+## Pressure budget
+
+Measured over a full 131-month campaign with the current library of 18 events:
+
+| Quantity | Measured |
+| --- | --- |
+| Events drawn across the campaign | ~48 |
+| Council votes per year | 3–4 |
+| Simultaneously open decisions | max 2, further draws deferred |
+| Undecided motions | expire after 2–4 months into their authored default |
+
+The original design target was 0.8 events per month. That is not reachable with 18 authored events and
+cooldowns long enough to keep a recurring problem from repeating every quarter, so the measured
+figure above is the contract. Raising density means authoring more events, not shortening cooldowns.
+
+Per-category cooldowns prevent three burglary events in one quarter. The draw is a weighted pick over eligible events, with weight scaled by how strongly the trigger conditions are exceeded — a city with 1.2 % vacancy sees housing events far more often than one with 5 %.
+
+## Schema
+
+```ts
+type EventKind = 'incident' | 'decision' | 'external' | 'chain' | 'milestone'
+type EventCategory = 'safety' | 'housing' | 'social' | 'mobility'
+                   | 'environment' | 'economy' | 'finance' | 'governance'
+
+interface EventDefinition {
+  id: string
+  schemaVersion: 1
+  kind: EventKind
+  category: EventCategory
+  title: string                    // German ticker headline
+  briefing: string                 // two to four sentences in the sheet
+  districtScope: DistrictId[] | 'city'
+  trigger: EventTrigger
+  immediateEffects: IndicatorEffect[]   // incidents and externals
+  options: EventOption[]                // decisions
+  defaultOptionId?: string              // applied when the decision expires
+  expiresInMonths: number
+  sourceIds: string[]
+}
+
+interface EventTrigger {
+  earliestMonth: number
+  latestMonth: number
+  conditions: Condition[]          // all must hold
+  baseWeight: number
+  cooldownMonths: number
+  oncePerCampaign: boolean
+  requiresEventIds?: string[]      // chain parents
+  blockedByMeasureIds?: string[]   // a measure that prevents the situation
+}
+
+interface Condition {
+  indicator: IndicatorId
+  operator: '<' | '<=' | '>' | '>='
+  value: number
+  sustainedMonths?: number         // must hold for N consecutive months
+}
+
+interface EventOption {
+  id: string
+  label: string
+  rationale: string                // what the administration argues
+  oneOffCost: number               // € m
+  monthlyCost: number              // € m
+  administrativeLoad: number
+  axes: Partial<Record<AxisId, number>>       // −1..1 political content
+  salience: Partial<Record<AxisId, number>>   // 0..1 which axes actually matter here
+  effects: IndicatorEffect[]       // delay, ramp, min/expected/max, confidence
+  unlocksEventIds?: string[]
+  sourceIds: string[]
+}
+```
+
+`IndicatorEffect` reuses the existing `PolicyEffect` shape (`metric`, `delayMonths`, `rampMonths`, `min`, `expected`, `max`, `confidence`) widened to the full indicator set.
+
+## Council vote model
+
+The rule from `AGENTS.md` is absolute: a party identifier must never appear in a calculation branch. Voting therefore runs on **positions**, not identities.
+
+### Axes
+
+Every option and every party carries a position on seven axes, each `−1 … +1`:
+
+| Axis | −1 | +1 |
+| --- | --- | --- |
+| `fiscalRestraint` | borrow and invest | balance the books |
+| `marketVsPublic` | municipal provision | private provision |
+| `growthVsPreservation` | densify and build | protect stock and townscape |
+| `climateAmbition` | defer climate cost | climate first |
+| `redistribution` | flat burden | redistribute to low incomes |
+| `securityAuthority` | prevention and civil liberties | enforcement and control |
+| `opennessIntegration` | restrict | open and integrate |
+
+Party axis values are authored from the same official 2025 programmes already cited in [`DATA_SOURCES.md`](DATA_SOURCES.md), mapped to the municipal level, dated, and shown with source links in the UI.
+
+### Support
+
+```text
+distance    = Σ_a salience_a · |party.axis_a − option.axis_a| / (1.5 · Σ_a salience_a)
+baseSupport = 1 − min(1, distance)                                    // 0..1
+
+support = baseSupport
+        + 0.12 · coalitionBond(party)
+        + 0.25 · (playerParty.negotiation / 100) · relationship(party)   // relationship −1..1
+        + 0.08 · baseSupport · salienceMatch(party.focusPriorities)
+        + 0.10 · publicPressure(option)        // media attention × how the option polls
+        − 0.15 · fiscalStress(option) · max(0, party.fiscalRestraint)
+support = clamp01(support)
+support = min(support, 0.15)   if the option crosses a red line of that party
+```
+
+Two calibration decisions are load-bearing and were both corrected after measuring real forecasts:
+
+**Distance is normalized on 1.5 per axis, not on the theoretical maximum of 2.** Real programmes
+never sit diametrically opposed on every axis at once, so normalizing on 2 compressed every motion
+into the 0.5–0.75 support band and made the council approve everything unanimously.
+
+**The issue-salience bonus scales with base support.** A flat bonus made every party friendly to
+anything in a field it campaigns on, including motions it opposes. A party wants to be seen acting —
+but only on a motion it can already live with.
+
+### From support to seats
+
+```text
+pYes     = clamp01((support − 0.50) / 0.16)
+pNo      = clamp01((0.50 − support) / 0.16)
+pAbstain = 1 − pYes − pNo
+```
+
+Full opposition below 0.34, reliable approval above 0.66, and a genuinely contested band between.
+
+One seeded draw per party per vote, stream `vote:{seed}:{month}:{eventId}:{optionId}:{partyId}`. Seats vote as a bloc (Fraktionsdisziplin); per-member defection is Tier B. A motion passes on a simple majority of votes cast — abstentions do not count.
+
+Because there are six parties with three outcomes each, the exact outcome distribution is 729 combinations. The engine enumerates them, so the forecast shown to the player is not an estimate:
+
+> **Prognose:** 33 von 60 Stimmen erwartet · Mehrheit mit **71 %** wahrscheinlich · GRÜNE und LINKE zustimmend, CDU gespalten, AfD ablehnend
+
+### Player levers before the vote
+
+| Lever | Cost | Effect |
+| --- | --- | --- |
+| **Verhandeln** | 12 political capital | `relationship(party) += 0.45` for one party, decays ~6 % per month and carries into later votes |
+| **Zugeständnis** | scope and effect size | shift the option along one axis by up to 0.4; recomputes the whole forecast live |
+| **Kampagne** | 18 political capital | raises `publicPressure` to 0.75 for one option of one motion |
+| **Koalitionsdisziplin** | relationship with partners | forces coalition partners to `support ≥ 0.6` once per year; a second use within 24 months risks the coalition breaking |
+
+### What negotiation actually buys
+
+It rarely buys a yes. It buys an **abstention** — and because a motion passes on a simple majority of
+votes cast, moving a bloc out of the no column is enough. That is how a minority administration
+survives a term, and it is the central tactical loop of the campaign.
+
+Worked example, playing the social-democratic party (26 of 60 seats, minority coalition):
+
+| Step | Majority probability | CDU probability of voting no |
+| --- | --- | --- |
+| Motion as tabled | 27 % | 83 % |
+| After negotiating with the CDU (−12 capital) | 78 % | 25 % |
+| After a public campaign (−18 capital) | 100 % | 0 % |
+
+### Failure
+
+Rejection is not a dead end. The event enters cooldown, `institutionalTrust` drops, and the trigger conditions of its escalation child are now satisfied — the same problem returns larger and more expensive. Repeated rejection of coalition-relevant motions moves `coalitionSupport` toward a formation crisis, which `GAME_DESIGN.md` already treats as an early campaign end.
+
+## Coalition formation
+
+The player's coalition is assembled by position distance, admitting the closest parties until the
+bloc holds a majority — but only partners within a mean per-axis distance of 0.55. An incompatible
+party is never admitted just to reach 31 seats. A player whose neighbours are all far away therefore
+governs as a **minority** and has to win every vote by negotiation, which is a common and legitimate
+municipal outcome rather than a failure state.
+
+## Event library
+
+Kind: **I** incident · **D** decision · **X** external · **C** chain · **M** milestone.
+Horizon: when the main effect is fully realized.
+
+### Safety
+
+| ID | Titel | Kind | Trigger | Options | Main effect | Chain / horizon |
+| --- | --- | --- | --- | --- | --- | --- |
+| `SAF-01` | Einbruchserie im Wohnring Süd | D | `burglaryRate > 4.5` sustained 2 m | Ordnungsdienst aufstocken · Beleuchtung und Nachbarschaftsprogramm · Videoüberwachung an Knotenpunkten · zur Kenntnis nehmen | `burglaryRate`, `perceivedSafety` | → `SAF-02` if untreated 12 m; 6–18 m |
+| `SAF-02` | Sicherheitsdebatte eskaliert | C | parent `SAF-01` unresolved 12 m | Runder Tisch · Präsenzoffensive · Präventionsbudget | `perceivedSafety`, `polarisation` | 12 m |
+| `SAF-03` | Gewalt am Bahnhofsvorplatz | I | `youthUnemployment > 9` and nightlife density | — | `recordedCrimeRate`, `perceivedSafety` | immediate |
+| `SAF-04` | Brandstiftung im Leerstand | I | `vacancyRate > 6` sustained 6 m | — | `perceivedSafety`, `investmentBacklog` | immediate |
+| `SAF-05` | Land zieht Polizeistellen ab | X | month > 24, once | — | `clearanceRate`, `perceivedSafety` | 24 m, no municipal reversal |
+| `SAF-06` | Jugendtreff vor der Schließung | D | `cityBudget < 60` | weiterfinanzieren · Trägerwechsel · schließen | `youthUnemployment`, later `recordedCrimeRate` | 36 m — closing is cheap now, expensive in 2032 |
+
+### Housing
+
+| ID | Titel | Kind | Trigger | Options | Main effect | Chain / horizon |
+| --- | --- | --- | --- | --- | --- | --- |
+| `HOU-01` | Mietspiegel springt nach oben | I | `averageRent` +6 % over 12 m | — | `perceivedHousingPressure` | immediate |
+| `HOU-02` | Investor kauft 400 Wohnungen | D | `vacancyRate < 3`, once | Vorkaufsrecht ziehen · Milieuschutzsatzung · Sozialcharta verhandeln · nichts tun | `socialUnits`, `averageRent`, `cityBudget` | 6–24 m |
+| `HOU-03` | Sozialbindungen laufen aus | M | scheduled 2029-01, repeats 2033 | Bindungen ankaufen · Neubau binden · auslaufen lassen | `socialUnits` −900 if ignored | permanent stock loss |
+| `HOU-04` | Leerstandsskandal | D | `vacancyRate > 7` and `emergencyHousingCases > 40` | Zweckentfremdungssatzung · Ankauf und Sanierung · Bußgelder | `vacantUnits`, `institutionalTrust` | 12–30 m |
+| `HOU-05` | Baukosten explodieren | X | random 2027–2031, once | — | `unitsUnderConstruction` pipeline slows 25 % | 18 m |
+| `HOU-06` | Schulgebäude wegen Sanierungsstau gesperrt | C | `investmentBacklog > 140` | Notsanierung · Container · Standort aufgeben | `schoolUtilisation`, `institutionalTrust` | 6–36 m |
+
+### Social and integration
+
+| ID | Titel | Kind | Trigger | Options | Main effect | Chain / horizon |
+| --- | --- | --- | --- | --- | --- | --- |
+| `SOC-01` | Land weist 600 Personen zu | X + D | month > 6, recurring | dezentral unterbringen und Sprachkurse · Sammelunterkunft · Zuweisung beklagen | `integrationCapacity`, `housingUnits` demand, `cityBudget` | 12–48 m |
+| `SOC-02` | Kitaplatz-Klagen | D | `childcareCoverage < 92` sustained 3 m | Ausbauprogramm · Tagespflege fördern · Rechtsstreit führen | `childcareCoverage`, `employmentRate` (parents) | 24 m |
+| `SOC-03` | Schulen über Kapazität | C | `schoolUtilisation > 104` | Neubau · Container · Sprengel neu schneiden | `schoolUtilisation`, `cohesion` | 36–48 m |
+| `SOC-04` | Hausarztmangel im Wohnring | D | `gpDensity < 5.5` | Praxisförderung · MVZ kommunal · abwarten | `healthcare` health, `satisfaction` | 24 m |
+| `SOC-05` | Zwei Demonstrationen am selben Tag | I | `polarisation > 55` | — | `polarisation`, `perceivedSafety`, media attention | immediate |
+| `SOC-06` | Sprachkurs-Träger gibt auf | C | `integrationCapacity < 0.6` sustained 6 m | kommunal übernehmen · neu ausschreiben · einstellen | `integrationCapacity`, later `youthUnemployment` | 48 m |
+
+### Mobility
+
+| ID | Titel | Kind | Trigger | Options | Main effect | Chain / horizon |
+| --- | --- | --- | --- | --- | --- | --- |
+| `MOB-01` | Hafenbrücke gesperrt | C | `investmentBacklog > 100`, once | Vollsanierung · Provisorium · Umleitung dauerhaft | `congestionIndex`, `businessStock`, huge one-off cost | 24–48 m |
+| `MOB-02` | Streik im Nahverkehr | I | `transitReliability < 82` | — | `transitReliability`, `satisfaction` | 1–2 m |
+| `MOB-03` | Radachse gegen Parkplätze | D | after `transit-network` adopted | Radachse bauen · Kompromissvariante · verschieben | `bikeNetworkKm`, `emissions`, local `satisfaction` split | 18 m |
+| `MOB-04` | Bund schreibt Takterhöhung aus | X | month 30–60, once | Antrag stellen · verzichten | `transitCoverage` with 70 % federal funding | 30 m |
+
+### Environment
+
+| ID | Titel | Kind | Trigger | Options | Main effect | Chain / horizon |
+| --- | --- | --- | --- | --- | --- | --- |
+| `ENV-01` | Hitzesommer | X | July, rising probability after 2029 | — | `heatVulnerability` damage scaled by `greenSpacePerCapita` | immediate, severity set years earlier |
+| `ENV-02` | Starkregen überflutet Gewerbe Ost | X | rising probability, once | — | `investmentBacklog`, `businessStock`; damage scaled by sealed surface | immediate |
+| `ENV-03` | Grenzwert überschritten, Klage droht | D | `airQualityIndex < 55` sustained 4 m | Umweltzone · Flottenumstellung · Rechtsstreit | `airQualityIndex`, `congestionIndex`, legal risk | 12–36 m |
+| `ENV-04` | Baumbestand im Stadtwald kippt | C | `greenSpacePerCapita` falling 24 m | Waldumbau · Nachpflanzung · nichts | `greenSpacePerCapita`, `heatVulnerability` | 60 m+ — the longest horizon in the game |
+
+### Economy and finance
+
+| ID | Titel | Kind | Trigger | Options | Main effect | Chain / horizon |
+| --- | --- | --- | --- | --- | --- | --- |
+| `ECO-01` | Werkschließung im Hafen, 500 Stellen | X + D | month > 18, once | Transfergesellschaft · Flächenankauf · Ansiedlungsoffensive | `employmentRate`, `tradeTaxRevenue` | 12–48 m |
+| `ECO-02` | Rechenzentrum will sich ansiedeln | D | `businessStock` stable, month 24–84 | zusagen · mit Auflagen zusagen · ablehnen | `tradeTaxRevenue` +, `emissions` +, `employmentRate` small + | 24 m, permanent |
+| `ECO-03` | Land kürzt Schlüsselzuweisungen | X | month 36–84, once | — | `cityBudget` −12 %/year | permanent |
+| `FIN-01` | Kommunalaufsicht fordert Haushaltssicherung | C | `debt > 180` or `annualBalance < −25` sustained 6 m | Konsolidierungspaket · Gebühren erhöhen · Widerspruch | locks all voluntary spending until cleared | 24–48 m, campaign-defining |
+| `FIN-02` | Haushaltsberatung | M | every January | Schwerpunkte setzen (3 ressorts) | allocates the year's investment budget | 12 m |
+| `FIN-03` | Jahresbericht | M | every December | — | quarterly/annual report, sets `institutionalTrust` baseline | — |
+
+### Governance
+
+| ID | Titel | Kind | Trigger | Options | Main effect | Chain / horizon |
+| --- | --- | --- | --- | --- | --- | --- |
+| `GOV-01` | Vergabeaffäre im eigenen Haus | I | `administrativeLoad` high, once | — | `institutionalTrust`, `politicalCapital` | 12 m |
+| `GOV-02` | Bürgerbegehren gegen eine Maßnahme | D | a measure adopted < 18 m ago with `satisfaction` falling | Bürgerentscheid annehmen · Abstimmung ansetzen · formal ablehnen | can repeal an active measure | 6 m |
+| `GOV-03` | Koalitionspartner droht mit Ausstieg | C | second red-line breach within 24 m | nachgeben · Neuverhandlung · Minderheitsposition | `coalitionSupport`, vote maths for the rest of the term | permanent |
+| `GOV-04` | Kommunalwahl | M | 2030-09, 2035-09 | — | reseats the council from domain satisfaction and salience | permanent |
+
+## Long-horizon mechanics
+
+Five mechanisms make 2026 decisions still legible in 2036:
+
+1. **Stocks, not flows.** `socialUnits`, `investmentBacklog`, `greenSpacePerCapita`, `debt`, and school capacity only move a few percent per year. A decade of neglect is visible; a panic fix is not.
+2. **Pipelines.** Construction decisions create projects completing in 18–48 months. They are visible in the 3D city (feature `REND-05`) long before their numbers land.
+3. **Escalation chains.** Untreated `I` events become `C` events with worse options and higher costs. `SAF-01 → SAF-02`, `investmentBacklog → MOB-01 / HOU-06`, `integrationCapacity → SOC-06`.
+4. **Asymmetric trust.** Perception falls roughly five times faster than it recovers, so cheap wins do not repair a reputation.
+5. **Election checkpoints.** 2030 and 2035 convert accumulated per-domain satisfaction into seats, which changes the vote arithmetic for the remaining term.
+
+## Authoring rules
+
+- Every event ID is stable and never reused; the library is content-versioned with the policies.
+- Every option needs a plain-German `rationale` that states what the administration expects, not what will happen.
+- Every effect needs `min`, `expected`, `max`, and a confidence level. Prototype values are labelled **Modellannahme – keine reale Prognose** until empirical evidence replaces them.
+- No option may be strictly dominant. Each carries at least one indicator it worsens or one constituency it costs.
+- No trigger may read `internationalShare` or any identity composition indicator; see the sensitive-indicator rule in [`METRICS.md`](METRICS.md).
+- New events land with a deterministic unit test proving their trigger fires under the intended state and does not fire otherwise.
+
+## Open questions
+
+- Whether district-level indicators are needed for Tier A events, or whether `districtScope` stays presentational until the district model exists.
+- Whether abstentions should count toward the majority denominator for budget motions specifically, as several German municipal codes require.
+- How far amendments (`Zugeständnis`) may shift an option before the effect model has to be re-authored rather than scaled.

@@ -78,19 +78,61 @@ export interface TreeRecord {
 export interface CityBlueprint {
   definition: CityDefinition
   buildings: BuildingRecord[]
+  /**
+   * Parcels the generator left empty. New housing is built here, in generation order, so the city
+   * visibly fills in as the construction pipeline delivers — and never overlaps existing buildings.
+   */
+  growthSlots: BuildingRecord[]
   roads: RoadRecord[]
   trees: TreeRecord[]
 }
 
-export type MetricId =
-  | 'population'
-  | 'employment'
-  | 'housingUnits'
-  | 'averageRent'
-  | 'transitCoverage'
-  | 'cityBudget'
-  | 'emissions'
-  | 'satisfaction'
+/**
+ * Raw city indicators in real units. Events and measures write here and nowhere else.
+ * Perception and health scores are derived; see PerceptionState and HealthScores.
+ */
+export interface CityMetrics {
+  // Demography
+  population: number
+  households: number
+  netMigration: number
+  internationalShare: number
+  // Housing
+  housingUnits: number
+  vacantUnits: number
+  socialUnits: number
+  unitsUnderConstruction: number
+  averageRent: number
+  // Labour and economy
+  employment: number
+  youthUnemployment: number
+  businessStock: number
+  // Public safety
+  crimeRate: number
+  burglaryRate: number
+  orderServiceCapacity: number
+  // Mobility
+  transitCoverage: number
+  transitReliability: number
+  // Environment
+  emissions: number
+  greenSpacePerCapita: number
+  // Social services
+  childcareCoverage: number
+  schoolUtilisation: number
+  integrationCapacity: number
+  // Municipal finance
+  cityBudget: number
+  debt: number
+  investmentBacklog: number
+  annualBalance: number
+  // Politics
+  satisfaction: number
+  politicalCapital: number
+  polarisation: number
+}
+
+export type MetricId = keyof CityMetrics
 
 export type HealthId =
   | 'economy'
@@ -139,9 +181,20 @@ export interface PartyDefinition {
   tradeoffs: [string, string]
   focusPriorityIds: CampaignPriorityId[]
   policyPositions: PartyPolicyPosition[]
+  /** Municipal position vector. The only thing a council vote is ever allowed to read. */
+  axes: Record<AxisId, number>
+  /** Positions this party will not carry, whatever is offered in return. */
+  redLines: PartyRedLine[]
   stats: PartyScenarioStats
   sourceIds: string[]
   asOf: string
+}
+
+export interface PartyRedLine {
+  axis: AxisId
+  operator: '<' | '>'
+  value: number
+  reason: string
 }
 
 export interface CampaignPriorityDefinition {
@@ -150,22 +203,23 @@ export interface CampaignPriorityDefinition {
   description: string
 }
 
-export interface CityMetrics {
-  population: number
-  employment: number
-  housingUnits: number
-  averageRent: number
-  transitCoverage: number
-  cityBudget: number
-  emissions: number
-  satisfaction: number
-}
-
 export type HealthScores = Record<HealthId, number>
+
+/**
+ * What residents believe about the city. Derived from raw indicators with an asymmetric lag
+ * (trust falls roughly five times faster than it recovers) plus decaying media attention.
+ * Voters and event weights read perception; measures never write it directly.
+ */
+export interface PerceptionState {
+  safety: number
+  housingPressure: number
+  trust: number
+  mediaAttention: Record<EventCategory, number>
+}
 
 export interface CausalEdge {
   from: string
-  to: MetricId
+  to: EffectTargetId
   delta: number
   explanation: string
 }
@@ -186,15 +240,65 @@ export interface SimulationSnapshot {
   year: number
   monthOfYear: number
   metrics: CityMetrics
+  previousMetrics: CityMetrics
   health: HealthScores
+  perception: PerceptionState
   activePolicyIds: string[]
+  activeMeasures: ActiveMeasureView[]
+  pendingDecisions: PendingDecision[]
+  /** Negotiation and campaigning already paid for, keyed by motion id. */
+  motionPreparation: Record<string, MotionPreparationView>
+  councilSeatsByParty: Record<PartyId, number>
+  coalitionPartyIds: PartyId[]
   coalitionSupport: number
   causalEdges: CausalEdge[]
   news: NewsItem[]
+  cityVisuals: CityVisualState
 }
 
+/** What the renderer needs in order to show the city reacting. Derived, never authored. */
+export interface CityVisualState {
+  constructionSites: number
+  completedUnitsSinceStart: number
+  vacancyRate: number
+  blight: number
+  transitDensity: number
+  nightLife: number
+  greenery: number
+  unrest: number
+}
+
+export interface ActiveMeasureView {
+  id: string
+  label: string
+  category: EventCategory
+  startedMonth: number
+  monthlyCost: number
+}
+
+/**
+ * Slow structural capacities. Measures buy these; the dynamics turn them into outcomes. Buying
+ * order-service staff is possible, buying a crime rate is not.
+ */
+export type StockId =
+  | 'greenSpaceHectares'
+  | 'childcarePlaces'
+  | 'schoolPlaces'
+  | 'integrationPlaces'
+  | 'orderServiceFte'
+  | 'transitCapacity'
+  | 'maintenanceSpend'
+
+export type EffectTargetId = MetricId | StockId
+
 export interface PolicyEffect {
-  metric: MetricId
+  target: EffectTargetId
+  /**
+   * `rate` adds the value every month the measure is active (110 extra housing starts per month).
+   * `level` shifts the target permanently by the value once the ramp completes (+14 FTE, and it
+   * stays at +14 rather than growing without bound).
+   */
+  mode: 'rate' | 'level'
   delayMonths: number
   rampMonths: number
   min: number
@@ -224,19 +328,25 @@ export interface PolicyDefinition {
   implementationCost: number
   monthlyCost: number
   administrativeLoad: number
+  /** Political content, so a player-initiated motion goes through the same council vote. */
+  axes: AxisVector
+  salience: AxisVector
   effects: PolicyEffect[]
   sourceIds: string[]
 }
 
 export type SimulationCommand =
-  | { type: 'INIT'; seed: number }
+  | { type: 'INIT'; seed: number; partyId?: PartyId; priorityIds?: CampaignPriorityId[] }
   | { type: 'ADVANCE'; months: number }
   | { type: 'APPLY_POLICY'; policyId: string }
-  | { type: 'RESET'; seed: number }
+  | { type: 'RESET'; seed: number; partyId?: PartyId; priorityIds?: CampaignPriorityId[] }
+  | SimulationCommandExtra
 
 export type SimulationMessage =
   | { type: 'READY'; snapshot: SimulationSnapshot }
   | { type: 'SNAPSHOT'; snapshot: SimulationSnapshot }
+  | { type: 'VOTE_RESULT'; result: VoteResult; snapshot: SimulationSnapshot }
+  | { type: 'FORECAST'; eventId: string; forecasts: Record<string, VoteForecast> }
   | { type: 'ERROR'; message: string }
 
 export type GameCommand =
@@ -254,3 +364,137 @@ export interface SaveGameV1 {
   snapshot: SimulationSnapshot
   savedAt: string
 }
+
+// ---------------------------------------------------------------------------
+// Events and council voting — see docs/EVENT_MATRIX.md and ADR-0003
+// ---------------------------------------------------------------------------
+
+export type EventCategory =
+  | 'safety'
+  | 'housing'
+  | 'social'
+  | 'mobility'
+  | 'environment'
+  | 'economy'
+  | 'finance'
+  | 'governance'
+
+export type EventKind = 'incident' | 'decision' | 'external' | 'chain' | 'milestone'
+
+/**
+ * Municipal political axes. Options and parties both carry a position here, which is how a
+ * council vote is decided without any calculation ever branching on a party identifier.
+ */
+export type AxisId =
+  | 'fiscalRestraint'
+  | 'marketVsPublic'
+  | 'growthVsPreservation'
+  | 'climateAmbition'
+  | 'redistribution'
+  | 'securityAuthority'
+  | 'opennessIntegration'
+
+export type AxisVector = Partial<Record<AxisId, number>>
+
+export interface TriggerCondition {
+  metric: MetricId
+  operator: '<' | '<=' | '>' | '>='
+  value: number
+  sustainedMonths?: number
+}
+
+export interface EventTrigger {
+  earliestMonth: number
+  latestMonth: number
+  conditions: TriggerCondition[]
+  baseWeight: number
+  cooldownMonths: number
+  oncePerCampaign: boolean
+  requiresEventIds?: string[]
+  blockedByMeasureIds?: string[]
+  scheduledMonthOfYear?: number
+}
+
+export interface EventOption {
+  id: string
+  label: string
+  rationale: string
+  oneOffCost: number
+  monthlyCost: number
+  axes: AxisVector
+  salience: AxisVector
+  effects: PolicyEffect[]
+  immediateEffects?: PolicyEffect[]
+  unlocksEventIds?: string[]
+  sourceIds: string[]
+}
+
+export interface EventDefinition {
+  schemaVersion: 1
+  id: string
+  kind: EventKind
+  category: EventCategory
+  title: string
+  briefing: string
+  urgency: NewsItem['urgency']
+  trigger: EventTrigger
+  immediateEffects: PolicyEffect[]
+  options: EventOption[]
+  defaultOptionId?: string
+  expiresInMonths: number
+  sourceIds: string[]
+}
+
+export type PartyVote = 'yes' | 'abstain' | 'no'
+
+export interface PartyVoteForecast {
+  partyId: PartyId
+  seats: number
+  support: number
+  probabilities: Record<PartyVote, number>
+}
+
+export interface VoteForecast {
+  expectedYesSeats: number
+  expectedNoSeats: number
+  majorityProbability: number
+  parties: PartyVoteForecast[]
+}
+
+export interface VoteResult {
+  optionId: string
+  passed: boolean
+  yesSeats: number
+  noSeats: number
+  abstainSeats: number
+  /** One entry per party that took part in this vote, in council order. */
+  votes: PartyVoteRecord[]
+  forecast: VoteForecast
+}
+
+export interface MotionPreparationView {
+  negotiatedPartyIds: PartyId[]
+  campaignedOptionIds: string[]
+}
+
+export interface PartyVoteRecord {
+  partyId: PartyId
+  seats: number
+  vote: PartyVote
+}
+
+export interface PendingDecision {
+  eventId: string
+  raisedMonth: number
+  expiresMonth: number
+  negotiatedPartyIds: PartyId[]
+  campaignedOptionIds: string[]
+}
+
+export type SimulationCommandExtra =
+  | { type: 'REQUEST_FORECAST'; eventId: string }
+  | { type: 'RESOLVE_DECISION'; eventId: string; optionId: string }
+  | { type: 'NEGOTIATE'; eventId: string; partyId: PartyId }
+  | { type: 'CAMPAIGN'; eventId: string; optionId: string }
+  | { type: 'SET_CAMPAIGN'; partyId: PartyId; priorityIds: CampaignPriorityId[] }
+

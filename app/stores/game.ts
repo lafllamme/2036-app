@@ -18,6 +18,7 @@ import { computed, onScopeDispose, ref, shallowRef } from 'vue'
 import { getEvent } from '~/content/events'
 import { getPolicy } from '~/content/policies'
 import { CAMPAIGN_LAST_MONTH, isCampaignComplete } from '~/core/campaign'
+import { formatClock, readDaylight } from '~/core/daylight'
 
 const MONTH_DURATION_MS = 300_000
 const DB_NAME = '2036-lindenhafen'
@@ -45,7 +46,12 @@ export const useGameStore = defineStore('game', () => {
   const forecasts = shallowRef<Record<string, VoteForecast>>({})
   const selectedPartyId = ref<PartyId | null>(null)
   const selectedPriorityIds = ref<CampaignPriorityId[]>([])
-  const speed = ref<0 | 1 | 2 | 4>(0)
+  /*
+   * The campaign runs as soon as the player enters the city. Starting paused made the clock and the
+   * sky look broken: nothing moved until you found the speed buttons. A raised motion still pauses
+   * on its own, which is the only moment the game should stop by itself.
+   */
+  const speed = ref<0 | 1 | 2 | 4>(1)
   const ready = ref(false)
   const error = ref<string | null>(null)
   const saveStatus = ref('Nicht gespeichert')
@@ -62,6 +68,12 @@ export const useGameStore = defineStore('game', () => {
    */
   let worker: Worker | null = null
   let accumulatedMs = 0
+  /**
+   * How far the campaign has travelled through the current month, 0 … 1. A month is a day, so this
+   * is also the time of day. It is derived from simulation progress rather than from a render timer,
+   * which is what makes the clock and the sky stop when the player pauses.
+   */
+  const monthProgress = ref(0)
   let previousTime = 0
 
   const send = (command: SimulationCommand): void => {
@@ -122,10 +134,21 @@ export const useGameStore = defineStore('game', () => {
         accumulatedMs %= MONTH_DURATION_MS
         send({ type: 'ADVANCE', months: 1 })
       }
+      monthProgress.value = accumulatedMs / MONTH_DURATION_MS
     }, 250)
 
     onScopeDispose(() => worker?.terminate())
   }
+
+  /** The sky, the clock and the thermometer, all read from the same progress value. */
+  const daylight = computed(() => readDaylight(
+    snapshot.value?.monthOfYear ?? 1,
+    monthProgress.value,
+    // A city that has spent its green space runs warmer; see ADR-0005.
+    ((21.5 - (snapshot.value?.metrics.greenSpacePerCapita ?? 21.5)) * 0.12),
+  ))
+
+  const clock = computed(() => formatClock(daylight.value.hourOfDay))
 
   const currentDate = computed(() => {
     if (!snapshot.value)
@@ -185,6 +208,7 @@ export const useGameStore = defineStore('game', () => {
     if (!selectedPartyId.value || selectedPriorityIds.value.length !== 3)
       return
     reset()
+    speed.value = 1
     experienceStage.value = 'gameplay'
   }
 
@@ -300,6 +324,7 @@ export const useGameStore = defineStore('game', () => {
   function reset(): void {
     speed.value = 0
     accumulatedMs = 0
+    monthProgress.value = 0
     selectedBuilding.value = null
     selectedNews.value = null
     // Spread the priority list: a ref's value is a reactive Proxy, and structured clone rejects it.
@@ -360,6 +385,9 @@ export const useGameStore = defineStore('game', () => {
     campaignFor,
     dismissVoteResult,
     currentDate,
+    monthProgress,
+    daylight,
+    clock,
     campaignProgress,
     canAdvance,
     startNewCampaign,

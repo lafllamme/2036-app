@@ -256,6 +256,18 @@ export interface SimulationSnapshot {
   cityVisuals: CityVisualState
 }
 
+/** Where the sun and the moon stand, handed to the renderer so it never owns its own clock. */
+export interface SkyState {
+  /** Hours since midnight, 0 … 24. */
+  hourOfDay: number
+  /** −1 below the horizon … 1 at the zenith. */
+  elevation: number
+  /** 0 at sunrise … 1 at sunset; drives the east-to-west sweep. */
+  sweep: number
+  phase: string
+  temperature: number
+}
+
 /** What the renderer needs in order to show the city reacting. Derived, never authored. */
 export interface CityVisualState {
   constructionSites: number

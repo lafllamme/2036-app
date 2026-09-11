@@ -16,6 +16,10 @@ export interface WorldVisuals {
   treeCrowns: StandardInstancedMesh
   treeTrunks: THREE.InstancedMesh
   sun: THREE.DirectionalLight
+  /** Rides opposite the sun and carries the city through the night. */
+  moon: THREE.DirectionalLight
+  hemisphere: THREE.HemisphereLight
+  stars: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial>
 }
 
 const MAX_CONSTRUCTION_SITES = 16
@@ -324,6 +328,34 @@ function createAgents(scene: THREE.Scene): Pick<WorldVisuals, 'cars' | 'pedestri
   return { cars, pedestrians }
 }
 
+/**
+ * A dome of points far outside the city. Only the upper hemisphere is populated, so the horizon
+ * stays clean and no star ever appears below the rooftops.
+ */
+function createStars(scene: THREE.Scene, seed: number): THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial> {
+  const rng = createRandomStream(seed, 'stars')
+  const count = 900
+  const positions = new Float32Array(count * 3)
+
+  for (let index = 0; index < count; index += 1) {
+    const azimuth = rng.next() * Math.PI * 2
+    // Biased toward the zenith so the band near the horizon stays sparse.
+    const height = 0.12 + rng.next() ** 0.7 * 0.88
+    const radius = Math.sqrt(Math.max(0, 1 - height * height)) * 4_200
+    positions[index * 3] = Math.cos(azimuth) * radius
+    positions[index * 3 + 1] = height * 3_000 + 200
+    positions[index * 3 + 2] = Math.sin(azimuth) * radius
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  const material = new THREE.PointsMaterial({ color: '#dfe7f2', size: 7, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false })
+  const stars = new THREE.Points(geometry, material)
+  stars.frustumCulled = false
+  scene.add(stars)
+  return stars
+}
+
 export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint): WorldVisuals {
   addGround(scene)
   addRoads(scene, blueprint)
@@ -337,6 +369,7 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint): World
 
   const hemisphere = new THREE.HemisphereLight('#d8e4e7', '#4a4439', 2.25)
   scene.add(hemisphere)
+  const stars = createStars(scene, blueprint.definition.seed)
   const sun = new THREE.DirectionalLight('#fff2d2', 4.2)
   sun.position.set(-700, 1_100, -420)
   sun.castShadow = true
@@ -348,7 +381,14 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint): World
   sun.shadow.camera.near = 80
   sun.shadow.camera.far = 2_400
   sun.shadow.bias = -0.00035
+  // The renderer drives shadow refreshes itself, on a slower cadence than the frame.
+  sun.shadow.autoUpdate = false
+  sun.shadow.needsUpdate = true
   scene.add(sun)
 
-  return { ...buildingVisuals, ...agents, ...trees, growth, constructionSites, sun }
+  const moon = new THREE.DirectionalLight('#b9c6d4', 0)
+  moon.position.set(700, 900, 420)
+  scene.add(moon)
+
+  return { ...buildingVisuals, ...agents, ...trees, growth, constructionSites, sun, moon, hemisphere, stars }
 }

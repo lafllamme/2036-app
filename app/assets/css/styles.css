@@ -38,6 +38,9 @@
   --positive: #74c9ae;
   --negative: #ef7a60;
   --positive-dim: rgba(116, 201, 174, 0.16);
+  /* Sky readings: identity for the sun and the moon, never a judgement. */
+  --sun: #f2c078;
+  --moon: #b9c6d4;
   --negative-dim: rgba(239, 122, 96, 0.16);
 
   color: var(--ink);
@@ -87,6 +90,7 @@ button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; borde
 
 .top-command {
   position: absolute; top: 16px; right: 16px; left: 16px; z-index: 4;
+  overflow: hidden;
   display: flex; align-items: center; gap: 28px;
   height: 62px; padding: 0 20px;
 }
@@ -106,14 +110,39 @@ button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; borde
   color: var(--dim); font-family: var(--mono); font-size: 8px; letter-spacing: 0.13em; text-transform: uppercase;
 }
 
-.date-block { margin-left: auto; display: flex; align-items: center; gap: 14px; }
-.date-block > span { font-family: var(--mono); font-size: 13px; font-weight: 500; letter-spacing: 0.02em; }
-.date-block small { display: none; }
+/*
+ * Every cell has a fixed width and the block is anchored, never auto-centred. Anything that
+ * re-centres itself as its text changes length makes the clock visibly jump every few seconds.
+ */
+.date-block { margin-left: 34px; display: flex; align-items: center; gap: 16px; }
+.date-block__month {
+  width: 78px; color: var(--dim);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+}
+.date-block__clock {
+  min-width: 74px;
+  font-family: var(--mono); font-size: 24px; font-weight: 500; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.date-block__temp {
+  min-width: 52px; text-align: right;
+  font-family: var(--mono); font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums;
+}
+.date-block__temp small { margin-left: 2px; color: var(--dim); font-size: 9px; }
+.date-block__sky { width: 16px; height: 16px; color: var(--sun); }
+.date-block__sky.is-night { color: var(--moon); }
 
-.campaign-track { position: relative; width: 148px; height: 2px; background: var(--hairline); }
-.campaign-track i { position: absolute; inset: 0 auto 0 0; background: var(--ink); }
+/*
+ * The decade is the bar's own bottom edge rather than a stray line inside it: 2026 at the left,
+ * 2036 at the right. It belongs to the campaign, not to the day, so it sits apart from the clock.
+ */
+.campaign-track {
+  position: absolute; right: 20px; bottom: 0; left: 20px;
+  height: 2px; background: var(--rule); border-radius: 2px; overflow: hidden;
+}
+.campaign-track i { position: absolute; inset: 0 auto 0 0; background: rgba(246, 243, 236, 0.5); }
 
-.coalition-block { display: flex; align-items: center; gap: 9px; }
+.coalition-block { display: flex; align-items: center; gap: 9px; margin-left: auto; }
 .seatline { display: flex; width: 74px; height: 5px; overflow: hidden; border-radius: var(--r-pill); background: var(--hairline); }
 .seatline i { display: block; height: 100%; background: var(--positive); }
 .coalition-block strong { font-family: var(--mono); font-size: 13px; font-weight: 500; }

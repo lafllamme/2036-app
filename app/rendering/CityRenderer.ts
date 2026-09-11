@@ -1,4 +1,4 @@
-import type { BuildingRecord, CityBlueprint, SimulationSnapshot } from '../core/contracts'
+import type { BuildingRecord, CityBlueprint, SimulationSnapshot, SkyState } from '../core/contracts'
 import type { WorldVisuals } from './createWorld'
 import { MapControls } from 'three/addons/controls/MapControls.js'
 import * as THREE from 'three/webgpu'
@@ -20,6 +20,14 @@ export interface CityRendererOptions {
   onStats: (stats: RendererStats) => void
   onError: (message: string) => void
 }
+
+/** Palette constants, hoisted so the render loop allocates no colours at all. */
+const NIGHT_SKY = 0x0D1522
+const DAY_SKY = new THREE.Color('#94aebc')
+const EMBER = new THREE.Color('#c9764f')
+const SUN_WHITE = 0xFFF2D2
+const NIGHT_AMBIENT = 0x2C3D55
+const DAY_AMBIENT = new THREE.Color('#d8e4e7')
 
 export class CityRenderer {
   private readonly canvas: HTMLCanvasElement
@@ -48,6 +56,23 @@ export class CityRenderer {
   private readonly unitsPerBuilding: number
   private nightLife = 0.67
   private appliedBlight = -1
+  /** Where the sky should be, handed in by the store; `sky` eases toward it between updates. */
+  private skyTarget: SkyState = { hourOfDay: 12, elevation: 1, sweep: 0.5, phase: 'noon', temperature: 10 }
+  private sky = { elevation: 1, sweep: 0.5 }
+  /*
+   * Scratch instances reused every frame. Allocating inside the loop produced roughly 41 000
+   * throwaway objects per second at 60 fps, all of which the collector had to sweep.
+   */
+  private readonly scratchMatrix = new THREE.Matrix4()
+  private readonly scratchQuaternion = new THREE.Quaternion()
+  private readonly scratchPosition = new THREE.Vector3()
+  private readonly scratchScale = new THREE.Vector3(1, 1, 1)
+  private readonly axisY = new THREE.Vector3(0, 1, 0)
+  private readonly skyColour = new THREE.Color()
+  private readonly sunColour = new THREE.Color()
+  private readonly hemisphereColour = new THREE.Color()
+  /** Shadows are re-rendered on a slower cadence than the frame; the sun barely moves between them. */
+  private shadowClock = 0
 
   constructor(options: CityRendererOptions) {
     this.canvas = options.canvas
@@ -100,6 +125,15 @@ export class CityRenderer {
       .catch((error: unknown) => {
         options.onError(error instanceof Error ? error.message : 'Der 3D-Renderer konnte nicht gestartet werden.')
       })
+  }
+
+  /**
+   * The sky follows campaign time, not the render loop. The store sends a reading roughly four times
+   * a second; the values below are eased between those updates so the sun sweeps smoothly, and they
+   * stop dead when the player pauses because the reading stops changing.
+   */
+  setSky(state: SkyState): void {
+    this.skyTarget = state
   }
 
   /**
@@ -264,8 +298,9 @@ export class CityRenderer {
   }
 
   private updateAgents(elapsed: number): void {
-    const matrix = new THREE.Matrix4()
-    const quaternion = new THREE.Quaternion()
+    const matrix = this.scratchMatrix
+    const quaternion = this.scratchQuaternion
+    const position = this.scratchPosition
     const citySpan = 2_880
     const visibleCars = Math.floor(180 * this.trafficFactor)
     this.visuals.cars.count = visibleCars
@@ -277,20 +312,32 @@ export class CityRenderer {
       const progress = ((elapsed * (13 + (index % 7)) * direction + index * 93) % citySpan + citySpan) % citySpan - citySpan / 2
       const x = horizontal ? progress : cross
       const z = horizontal ? cross : progress
-      quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), horizontal ? 0 : Math.PI / 2)
-      matrix.compose(new THREE.Vector3(x, 2.15, z), quaternion, new THREE.Vector3(1, 1, 1))
+      quaternion.setFromAxisAngle(this.axisY, horizontal ? 0 : Math.PI / 2)
+      matrix.compose(position.set(x, 2.15, z), quaternion, this.scratchScale)
       this.visuals.cars.setMatrixAt(index, matrix)
     }
     this.visuals.cars.instanceMatrix.needsUpdate = true
 
-    for (let index = 0; index < 320; index += 1) {
+    /*
+     * Pedestrians are barely a pixel from a strategic camera height, so above it they are switched
+     * off entirely rather than animated into invisibility — 320 matrix writes and a buffer upload
+     * saved on every frame the player spends looking at the whole city.
+     */
+    const distance = this.camera.position.distanceTo(this.controls.target)
+    const walkers = distance > 1_100 ? 0 : 320
+    this.visuals.pedestrians.count = walkers
+    if (walkers === 0)
+      return
+
+    quaternion.identity()
+    for (let index = 0; index < walkers; index += 1) {
       const horizontal = index % 2 === 0
       const block = ((index * 11) % 16) - 8
       const cross = block * 180 + (index % 4 < 2 ? 20 : -20)
       const progress = ((elapsed * (1.2 + (index % 5) * 0.18) + index * 51) % citySpan) - citySpan / 2
       const x = horizontal ? progress : cross
       const z = horizontal ? cross : progress
-      matrix.compose(new THREE.Vector3(x, 2.25, z), new THREE.Quaternion(), new THREE.Vector3(1, 1, 1))
+      matrix.compose(position.set(x, 2.25, z), quaternion, this.scratchScale)
       this.visuals.pedestrians.setMatrixAt(index, matrix)
     }
     this.visuals.pedestrians.instanceMatrix.needsUpdate = true
@@ -307,19 +354,50 @@ export class CityRenderer {
       this.focusTween = null
   }
 
-  private updateAtmosphere(elapsed: number): void {
-    const cycle = (elapsed % 1_200) / 1_200
-    const sunHeight = Math.sin(cycle * Math.PI * 2) * 0.5 + 0.5
-    const daylight = THREE.MathUtils.smoothstep(sunHeight, 0.08, 0.55)
-    const sky = new THREE.Color('#172331').lerp(new THREE.Color('#94aebc'), daylight)
+  private updateAtmosphere(delta: number): void {
+    // Ease toward the store's reading. A large jump means the campaign was reset or skipped ahead.
+    const ease = Math.min(1, delta * 3.2)
+    const jumped = Math.abs(this.skyTarget.sweep - this.sky.sweep) > 0.4
+    this.sky.elevation = jumped ? this.skyTarget.elevation : this.sky.elevation + (this.skyTarget.elevation - this.sky.elevation) * ease
+    this.sky.sweep = jumped ? this.skyTarget.sweep : this.sky.sweep + (this.skyTarget.sweep - this.sky.sweep) * ease
+
+    const elevation = this.sky.elevation
+    const daylight = THREE.MathUtils.smoothstep(elevation, -0.12, 0.28)
+    // Warmth peaks while the sun sits on the horizon and fades as it climbs.
+    const horizonWarmth = THREE.MathUtils.smoothstep(0.34 - Math.abs(elevation), 0, 0.34) * THREE.MathUtils.smoothstep(elevation, -0.3, 0.05)
+
+    const sky = this.skyColour.setHex(NIGHT_SKY).lerp(DAY_SKY, daylight).lerp(EMBER, horizonWarmth * 0.62)
     this.scene.background = sky
     if (this.scene.fog instanceof THREE.FogExp2)
       this.scene.fog.color.copy(sky)
-    this.visuals.sun.intensity = 0.18 + daylight * 4.0
-    this.visuals.sun.position.x = Math.cos(cycle * Math.PI * 2) * 1_100
-    this.visuals.sun.position.y = 180 + sunHeight * 1_050
-    // Lit windows follow how well the city is doing, not just the hour.
-    this.visuals.windows.material.emissiveIntensity = (0.24 + (1 - daylight) * 2.8) * (0.45 + this.nightLife * 0.95)
+
+    // The sun sweeps east to west; below the horizon it keeps going so dawn arrives from the east.
+    const angle = Math.PI * (1 - this.sky.sweep)
+    const radius = 1_250
+    this.visuals.sun.position.set(Math.cos(angle) * radius, Math.max(-400, elevation * 1_050 + 120), Math.sin(angle) * radius * 0.45)
+    this.visuals.sun.intensity = 0.05 + daylight * 4.1
+    this.visuals.sun.color.copy(this.sunColour.setHex(SUN_WHITE).lerp(EMBER, horizonWarmth))
+    this.visuals.sun.visible = elevation > -0.16
+
+    // The moon rides opposite the sun and only lights the city once the sun has gone.
+    const moonAngle = angle + Math.PI
+    this.visuals.moon.position.set(Math.cos(moonAngle) * radius, Math.max(-400, -elevation * 900 + 140), Math.sin(moonAngle) * radius * 0.45)
+    this.visuals.moon.intensity = (1 - daylight) * 0.85
+    this.visuals.moon.visible = elevation < 0.08
+
+    /*
+     * Night keeps its real length, so it has to stay readable: an ambient floor plus lit windows
+     * carry the city through a December night instead of shortening it. See ADR-0005.
+     */
+    this.visuals.hemisphere.intensity = 0.42 + daylight * 1.95
+    this.visuals.hemisphere.color.copy(this.hemisphereColour.setHex(NIGHT_AMBIENT).lerp(DAY_AMBIENT, daylight))
+
+    this.visuals.stars.visible = daylight < 0.5
+    const starMaterial = this.visuals.stars.material
+    starMaterial.opacity = Math.max(0, 1 - daylight * 2.4)
+
+    // Lit windows follow both the hour and how well the city is doing.
+    this.visuals.windows.material.emissiveIntensity = (0.2 + (1 - daylight) * 3.1) * (0.45 + this.nightLife * 0.95)
   }
 
   private readonly render = (): void => {
@@ -327,9 +405,20 @@ export class CityRenderer {
     const delta = Math.min(0.05, this.timer.getDelta())
     this.animationElapsed += delta
     const now = performance.now()
+    /*
+     * A 2048² shadow pass every frame for a sun that moves a fraction of a degree between them is
+     * pure waste. Re-rendering it twelve times a second is indistinguishable and frees a full
+     * shadow pass on four frames out of five.
+     */
+    this.shadowClock += delta
+    if (this.shadowClock >= 1 / 12) {
+      this.shadowClock = 0
+      this.visuals.sun.shadow.needsUpdate = true
+    }
+
     this.updateAgents(this.animationElapsed)
     this.updateFocus(now)
-    this.updateAtmosphere(this.animationElapsed)
+    this.updateAtmosphere(delta)
     this.controls.update()
     this.renderer.info.reset()
     this.renderer.render(this.scene, this.camera)

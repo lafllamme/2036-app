@@ -2,11 +2,12 @@
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 import { useSound } from '~/composables/useSound'
+import { formatClock } from '~/core/daylight'
 import { useGameStore } from '~/stores/game'
 import { formatNumber } from '~/utils/labels'
 
 const game = useGameStore()
-const { snapshot } = storeToRefs(game)
+const { snapshot, daylight } = storeToRefs(game)
 const expanded = ref(false)
 const sound = useSound()
 
@@ -70,6 +71,11 @@ const detail = computed(() => {
     { label: 'Stadtgrün', value: `${formatNumber(m.greenSpacePerCapita, 1)} m² / Kopf` },
     { label: 'Kassenkredite', value: `${formatNumber(m.debt)} Mio. €` },
     { label: 'Sanierungsstau', value: `${formatNumber(m.investmentBacklog)} Mio. €` },
+    { label: 'Tag im Monat', value: `${Math.floor(daylight.value.hourOfDay / 24 * 30) + 1} von 30` },
+    { label: 'Sonnenaufgang', value: formatClock(daylight.value.sunriseHour) },
+    { label: 'Sonnenuntergang', value: formatClock(daylight.value.sunsetHour) },
+    { label: 'Tageslänge', value: `${formatNumber(daylight.value.sunsetHour - daylight.value.sunriseHour, 1)} Stunden` },
+    { label: 'Temperatur', value: `${formatNumber(daylight.value.temperature, 1)} °C` },
   ]
 })
 

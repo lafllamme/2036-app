@@ -5,12 +5,15 @@ import { useSound } from '~/composables/useSound'
 import { useSoundSettings } from '~/composables/useSoundSettings'
 import { getParty } from '~/content/parties'
 import { useGameStore } from '~/stores/game'
+import { formatNumber } from '~/utils/labels'
 
 const game = useGameStore()
 const settings = useSoundSettings()
 const sound = useSound()
 const {
   snapshot,
+  clock,
+  daylight,
   currentDate,
   campaignProgress,
   canAdvance,
@@ -24,6 +27,45 @@ const {
 const selectedParty = computed(() => selectedPartyId.value ? getParty(selectedPartyId.value) : null)
 
 const coalitionStanding = computed(() => (snapshot.value?.coalitionSupport ?? 0) > 30 ? 'Mehrheit' : 'Minderheit')
+
+/*
+ * One glyph carries the state of the sky. The words for each phase and the exact sunrise and sunset
+ * times live in the Lagebericht, where they are looked up rather than monitored — a label in the
+ * command bar cost 290 px for something the sky itself already says.
+ */
+const SUN_GLYPHS: Record<string, string> = {
+  night: 'lucide:moon',
+  dawn: 'lucide:sunrise',
+  sunrise: 'lucide:sunrise',
+  morning: 'lucide:sun',
+  noon: 'lucide:sun',
+  afternoon: 'lucide:sun',
+  goldenHour: 'lucide:sunset',
+  sunset: 'lucide:sunset',
+  dusk: 'lucide:sunset',
+}
+
+const PHASE_LABELS: Record<string, string> = {
+  night: 'Nacht',
+  dawn: 'Morgendämmerung',
+  sunrise: 'Sonnenaufgang',
+  morning: 'Vormittag',
+  noon: 'Mittag',
+  afternoon: 'Nachmittag',
+  goldenHour: 'Goldene Stunde',
+  sunset: 'Sonnenuntergang',
+  dusk: 'Abenddämmerung',
+}
+
+const sky = computed(() => {
+  const reading = daylight.value
+  return {
+    glyph: SUN_GLYPHS[reading.phase] ?? 'lucide:sun',
+    label: PHASE_LABELS[reading.phase] ?? '',
+    temperature: `${formatNumber(reading.temperature, 0)}°`,
+    isNight: reading.phase === 'night',
+  }
+})
 
 const buildingLabels = {
   altbau: 'Gründerzeit-Wohnhaus',
@@ -58,7 +100,15 @@ function restart(): void {
             </div>
           </div>
           <div class="date-block">
-            <span>{{ currentDate }}</span>
+            <span class="date-block__month">{{ currentDate }}</span>
+            <span class="date-block__clock">{{ clock }}</span>
+            <span class="date-block__temp">{{ sky.temperature }}<small>C</small></span>
+            <Icon
+              class="date-block__sky"
+              :class="{ 'is-night': sky.isNight }"
+              :name="sky.glyph"
+              :aria-label="sky.label"
+            />
             <div class="campaign-track">
               <i :style="{ width: `${campaignProgress}%` }" />
             </div>

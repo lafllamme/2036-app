@@ -7,7 +7,7 @@ import { generateCity } from '~/world/generation/generateCity'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const game = useGameStore()
-const { snapshot } = storeToRefs(game)
+const { snapshot, daylight } = storeToRefs(game)
 let cityRenderer: CityRenderer | null = null
 
 onMounted(async () => {
@@ -31,6 +31,17 @@ watch(snapshot, (next) => {
   if (next)
     cityRenderer?.applySnapshot(next)
 })
+
+// The sky follows campaign time: this stops updating the moment the player pauses.
+watch(daylight, (reading) => {
+  cityRenderer?.setSky({
+    hourOfDay: reading.hourOfDay,
+    elevation: reading.elevation,
+    sweep: (reading.hourOfDay - reading.sunriseHour) / Math.max(0.5, reading.sunsetHour - reading.sunriseHour),
+    phase: reading.phase,
+    temperature: reading.temperature,
+  })
+}, { immediate: true })
 
 watch(() => game.selectedBuilding?.id, (buildingId) => {
   if (buildingId)

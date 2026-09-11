@@ -14,6 +14,12 @@ async function enterLindenhafen(page: import('@playwright/test').Page): Promise<
   await expect(page.getByRole('heading', { name: 'Das Jahrzehnt beginnt.' })).toBeVisible()
   await page.getByRole('button', { name: 'Lindenhafen übernehmen' }).click()
   await expect(page.getByLabel('Stadtkennzahlen')).toBeVisible()
+  /*
+   * The campaign now runs from the moment the player enters the city. These tests exercise the
+   * council and the panels, not the clock, and a month ticking over mid-test raises a motion whose
+   * sheet then swallows every following click. `clock.spec.ts` owns the running-time behaviour.
+   */
+  await page.getByRole('button', { name: 'Ⅱ' }).click()
 }
 
 test.describe('2036 vertical slice', () => {

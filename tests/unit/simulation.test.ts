@@ -34,4 +34,13 @@ describe('monthly simulation', () => {
     expect(state.snapshot.metrics.transitCoverage).toBeGreaterThanOrEqual(0)
     expect(state.snapshot.metrics.transitCoverage).toBeLessThanOrEqual(100)
   })
+
+  it('ends the campaign in December 2036 and never advances into 2037', () => {
+    const state = advanceMonths(createInitialState(2036), 1_000)
+
+    expect(state.snapshot.month).toBe(131)
+    expect(state.snapshot.year).toBe(2036)
+    expect(state.snapshot.monthOfYear).toBe(12)
+    expect(advanceMonths(state, 12)).toEqual(state)
+  })
 })

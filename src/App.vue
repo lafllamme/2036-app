@@ -1,13 +1,28 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
+import { getParty } from './content/parties'
 import { useGameStore } from './stores/game'
 import CityCanvas from './ui/CityCanvas.vue'
+import EntryExperience from './ui/EntryExperience.vue'
 import MetricRail from './ui/MetricRail.vue'
 import NewsTicker from './ui/NewsTicker.vue'
 import PolicyPanel from './ui/PolicyPanel.vue'
 
 const game = useGameStore()
-const { snapshot, currentDate, campaignProgress, speed, selectedBuilding, selectedNews, rendererStats } = storeToRefs(game)
+const {
+  snapshot,
+  currentDate,
+  campaignProgress,
+  canAdvance,
+  experienceStage,
+  selectedPartyId,
+  speed,
+  selectedBuilding,
+  selectedNews,
+  rendererStats,
+} = storeToRefs(game)
+const selectedParty = computed(() => selectedPartyId.value ? getParty(selectedPartyId.value) : null)
 
 const buildingLabels = {
   altbau: 'Gründerzeit-Wohnhaus',
@@ -20,64 +35,66 @@ const buildingLabels = {
 </script>
 
 <template>
-  <main class="game-shell">
+  <main class="game-shell" :class="{ 'entry-active': experienceStage !== 'gameplay' }">
     <CityCanvas />
     <div class="atmosphere-vignette" aria-hidden="true"></div>
 
-    <header class="top-command panel">
-      <div class="brand-block">
-        <strong>20<span>36</span></strong>
-        <div><b>LINDENHAFEN</b><small>Politische Stadtsimulation</small></div>
+    <template v-if="experienceStage === 'gameplay'">
+      <header class="top-command panel">
+        <div class="brand-block">
+          <strong>20<span>36</span></strong>
+          <div><b>LINDENHAFEN</b><small>{{ selectedParty?.abbreviation ?? 'Politische Stadtsimulation' }}</small></div>
+        </div>
+        <div class="date-block">
+          <span>{{ currentDate }}</span>
+          <div class="campaign-track"><i :style="{ width: `${campaignProgress}%` }"></i></div>
+          <small>2026 <b>→</b> 2036</small>
+        </div>
+        <div class="coalition-block" v-if="snapshot">
+          <small>KOALITIONSHALT</small>
+          <strong>{{ snapshot.coalitionSupport.toFixed(0) }} %</strong>
+        </div>
+        <button class="quiet-button" type="button" @click="game.save">
+          {{ game.saveStatus.startsWith('Gespeichert') ? 'Gespeichert' : 'Speichern' }}
+        </button>
+      </header>
+
+      <MetricRail />
+      <PolicyPanel />
+
+      <section v-if="selectedBuilding" class="selection-card panel">
+        <button type="button" aria-label="Auswahl schließen" @click="game.selectedBuilding = null">×</button>
+        <small>{{ selectedBuilding.districtId.replaceAll('-', ' ') }}</small>
+        <h2>{{ buildingLabels[selectedBuilding.type] }}</h2>
+        <dl>
+          <div><dt>Objekt</dt><dd>{{ selectedBuilding.id.toUpperCase() }}</dd></div>
+          <div><dt>Zustand</dt><dd>{{ (selectedBuilding.condition * 100).toFixed(0) }} %</dd></div>
+          <div><dt>Auslastung</dt><dd>{{ (selectedBuilding.occupancy * 100).toFixed(0) }} %</dd></div>
+        </dl>
+      </section>
+
+      <section class="camera-help panel" aria-label="Kamerasteuerung">
+        <span><b>LINKS</b> verschieben</span><span><b>RECHTS</b> drehen</span><span><b>RAD</b> zoomen</span>
+      </section>
+
+      <section class="time-controls panel" aria-label="Zeitsteuerung">
+        <button v-for="value in [0, 1, 2, 4] as const" :key="value" type="button" :class="{ active: speed === value }" @click="game.setSpeed(value)">
+          {{ value === 0 ? 'Ⅱ' : `${value}×` }}
+        </button>
+        <span></span>
+        <button type="button" class="advance" :disabled="!canAdvance" @click="game.advanceMonth">
+          {{ canAdvance ? 'Nächster Monat' : 'Kampagne abgeschlossen' }}
+        </button>
+      </section>
+
+      <div class="render-badge" v-if="rendererStats">
+        {{ rendererStats.backend }} · {{ rendererStats.fps }} FPS · {{ rendererStats.drawCalls }} Draws · {{ rendererStats.buildings }} Gebäude
       </div>
-      <div class="date-block">
-        <span>{{ currentDate }}</span>
-        <div class="campaign-track"><i :style="{ width: `${campaignProgress}%` }"></i></div>
-        <small>2026 <b>→</b> 2036</small>
-      </div>
-      <div class="coalition-block" v-if="snapshot">
-        <small>KOALITIONSHALT</small>
-        <strong>{{ snapshot.coalitionSupport.toFixed(0) }} %</strong>
-      </div>
-      <button class="quiet-button" type="button" @click="game.save">
-        {{ game.saveStatus.startsWith('Gespeichert') ? 'Gespeichert' : 'Speichern' }}
-      </button>
-    </header>
 
-    <MetricRail />
-    <PolicyPanel />
+      <NewsTicker />
+    </template>
 
-    <section v-if="selectedBuilding" class="selection-card panel">
-      <button type="button" aria-label="Auswahl schließen" @click="game.selectedBuilding = null">×</button>
-      <small>{{ selectedBuilding.districtId.replaceAll('-', ' ') }}</small>
-      <h2>{{ buildingLabels[selectedBuilding.type] }}</h2>
-      <dl>
-        <div><dt>Objekt</dt><dd>{{ selectedBuilding.id.toUpperCase() }}</dd></div>
-        <div><dt>Zustand</dt><dd>{{ (selectedBuilding.condition * 100).toFixed(0) }} %</dd></div>
-        <div><dt>Auslastung</dt><dd>{{ (selectedBuilding.occupancy * 100).toFixed(0) }} %</dd></div>
-      </dl>
-    </section>
-
-    <section class="camera-help panel" aria-label="Kamerasteuerung">
-      <span><b>LINKS</b> verschieben</span><span><b>RECHTS</b> drehen</span><span><b>RAD</b> zoomen</span>
-    </section>
-
-    <section class="time-controls panel" aria-label="Zeitsteuerung">
-      <button v-for="value in [0, 1, 2, 4] as const" :key="value" type="button" :class="{ active: speed === value }" @click="game.setSpeed(value)">
-        {{ value === 0 ? 'Ⅱ' : `${value}×` }}
-      </button>
-      <span></span>
-      <button type="button" class="advance" @click="game.advanceMonth">Nächster Monat</button>
-    </section>
-
-    <div class="render-badge" v-if="rendererStats">
-      {{ rendererStats.backend }} · {{ rendererStats.fps }} FPS · {{ rendererStats.drawCalls }} Draws · {{ rendererStats.buildings }} Gebäude
-    </div>
-
-    <NewsTicker />
-
-    <div v-if="!game.ready || !rendererStats" class="loading-state">
-      <strong>2036</strong><span>Lindenhafen wird aufgebaut</span>
-    </div>
+    <EntryExperience v-if="experienceStage !== 'gameplay'" />
 
     <div v-if="game.error" class="error-state panel" role="alert">
       <strong>Simulation angehalten</strong><p>{{ game.error }}</p><button type="button" @click="game.reset">Neu laden</button>

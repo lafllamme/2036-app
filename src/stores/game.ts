@@ -1,11 +1,22 @@
 import { computed, onScopeDispose, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
-import type { BuildingRecord, NewsItem, SaveGameV1, SimulationMessage, SimulationSnapshot } from '../core/contracts'
+import type {
+  BuildingRecord,
+  CampaignPriorityId,
+  NewsItem,
+  PartyId,
+  SaveGameV1,
+  SimulationMessage,
+  SimulationSnapshot,
+} from '../core/contracts'
+import { CAMPAIGN_LAST_MONTH, isCampaignComplete } from '../core/campaign'
 import type { RendererStats } from '../rendering/CityRenderer'
 
-const MONTH_DURATION_MS = 240_000
+const MONTH_DURATION_MS = 300_000
 const DB_NAME = '2036-lindenhafen'
 const SAVE_KEY = 'autosave-v1'
+
+export type ExperienceStage = 'title' | 'partyHall' | 'partyProfile' | 'manifesto' | 'intro' | 'gameplay'
 
 function openSaveDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -21,6 +32,9 @@ export const useGameStore = defineStore('game', () => {
   const selectedBuilding = shallowRef<BuildingRecord | null>(null)
   const selectedNews = shallowRef<NewsItem | null>(null)
   const rendererStats = shallowRef<RendererStats | null>(null)
+  const experienceStage = ref<ExperienceStage>('title')
+  const selectedPartyId = ref<PartyId | null>(null)
+  const selectedPriorityIds = ref<CampaignPriorityId[]>([])
   const speed = ref<0 | 1 | 2 | 4>(0)
   const ready = ref(false)
   const error = ref<string | null>(null)
@@ -36,6 +50,7 @@ export const useGameStore = defineStore('game', () => {
       return
     }
     snapshot.value = data.snapshot
+    if (isCampaignComplete(data.snapshot.month)) speed.value = 0
     ready.value = true
   }
 
@@ -50,7 +65,7 @@ export const useGameStore = defineStore('game', () => {
     const now = performance.now()
     const elapsed = now - previousTime
     previousTime = now
-    if (speed.value === 0 || !ready.value) return
+    if (speed.value === 0 || !ready.value || isCampaignComplete(snapshot.value?.month ?? 0)) return
     accumulatedMs += elapsed * speed.value
     if (accumulatedMs >= MONTH_DURATION_MS) {
       accumulatedMs %= MONTH_DURATION_MS
@@ -70,14 +85,66 @@ export const useGameStore = defineStore('game', () => {
   })
 
   const campaignProgress = computed(() => Math.min(100, ((snapshot.value?.month ?? 0) / 131) * 100))
+  const canAdvance = computed(() => (snapshot.value?.month ?? 0) < CAMPAIGN_LAST_MONTH)
 
   function setSpeed(nextSpeed: 0 | 1 | 2 | 4): void {
-    speed.value = nextSpeed
+    speed.value = canAdvance.value ? nextSpeed : 0
   }
 
   function advanceMonth(): void {
+    if (!canAdvance.value) return
     speed.value = 0
     worker.postMessage({ type: 'ADVANCE', months: 1 })
+  }
+
+  function startNewCampaign(): void {
+    speed.value = 0
+    selectedPartyId.value = null
+    selectedPriorityIds.value = []
+    experienceStage.value = 'partyHall'
+  }
+
+  function selectParty(partyId: PartyId): void {
+    selectedPartyId.value = partyId
+    experienceStage.value = 'partyProfile'
+  }
+
+  function confirmParty(): void {
+    if (!selectedPartyId.value) return
+    experienceStage.value = 'manifesto'
+  }
+
+  function togglePriority(priorityId: CampaignPriorityId): void {
+    const currentIndex = selectedPriorityIds.value.indexOf(priorityId)
+    if (currentIndex >= 0) {
+      selectedPriorityIds.value = selectedPriorityIds.value.filter((id) => id !== priorityId)
+      return
+    }
+    if (selectedPriorityIds.value.length < 3) selectedPriorityIds.value = [...selectedPriorityIds.value, priorityId]
+  }
+
+  function reviewCampaign(): void {
+    if (selectedPartyId.value && selectedPriorityIds.value.length === 3) experienceStage.value = 'intro'
+  }
+
+  function enterCity(): void {
+    if (!selectedPartyId.value || selectedPriorityIds.value.length !== 3) return
+    reset()
+    experienceStage.value = 'gameplay'
+  }
+
+  function showTitle(): void {
+    speed.value = 0
+    experienceStage.value = 'title'
+  }
+
+  function showPartyHall(): void {
+    speed.value = 0
+    experienceStage.value = 'partyHall'
+  }
+
+  function showPartyProfile(): void {
+    if (selectedPartyId.value) experienceStage.value = 'partyProfile'
   }
 
   function applyPolicy(policyId: string): void {
@@ -101,6 +168,8 @@ export const useGameStore = defineStore('game', () => {
         schemaVersion: 1,
         contentVersion: 'vertical-slice-1',
         citySeed: 2036,
+        partyId: selectedPartyId.value ?? undefined,
+        priorityIds: selectedPriorityIds.value,
         snapshot: snapshot.value,
         savedAt: new Date().toISOString(),
       }
@@ -122,12 +191,25 @@ export const useGameStore = defineStore('game', () => {
     selectedBuilding,
     selectedNews,
     rendererStats,
+    experienceStage,
+    selectedPartyId,
+    selectedPriorityIds,
     speed,
     ready,
     error,
     saveStatus,
     currentDate,
     campaignProgress,
+    canAdvance,
+    startNewCampaign,
+    selectParty,
+    confirmParty,
+    togglePriority,
+    reviewCampaign,
+    enterCity,
+    showTitle,
+    showPartyHall,
+    showPartyProfile,
     setSpeed,
     advanceMonth,
     applyPolicy,

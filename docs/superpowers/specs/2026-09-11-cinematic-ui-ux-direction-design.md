@@ -1,6 +1,6 @@
 # 2036 — Cinematic UI/UX Direction
 
-Status: approved visual direction, pending written-spec review
+Status: approved for implementation
 
 Date: 2026-09-11
 
@@ -493,7 +493,7 @@ Any implementation change based on this specification must:
 
 The following are outside this specification and do not block its implementation plan:
 
-- final party names, emblems, colors, and evidence packages;
+- final production emblems and any naming adjustments required by legal/editorial review;
 - final key art and whether it is authored, rendered offline, or captured from a future production city build;
 - music composition and voice talent;
 - the final number of selectable parties;

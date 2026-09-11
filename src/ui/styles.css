@@ -58,6 +58,10 @@ button:focus-visible {
   cursor: grabbing;
 }
 
+.entry-active .city-canvas {
+  pointer-events: none;
+}
+
 .atmosphere-vignette {
   position: absolute;
   inset: 0;
@@ -68,6 +72,7 @@ button:focus-visible {
 
 .panel {
   border: 1px solid var(--line);
+  border-radius: 18px;
   background: var(--panel);
   box-shadow: 0 18px 50px var(--shadow);
   backdrop-filter: blur(14px) saturate(115%);
@@ -86,6 +91,7 @@ button:focus-visible {
   align-items: center;
   gap: 28px;
   padding: 9px 12px 9px 15px;
+  border-radius: 22px;
 }
 
 .brand-block,
@@ -196,6 +202,7 @@ button:focus-visible {
   padding: 0 16px;
   font-size: 11px;
   letter-spacing: 0.06em;
+  border-radius: 12px;
 }
 
 .quiet-button:hover,
@@ -212,6 +219,7 @@ button:focus-visible {
   z-index: 3;
   width: 258px;
   padding: 15px;
+  border-radius: 24px;
 }
 
 .section-heading {
@@ -337,6 +345,7 @@ button:focus-visible {
   padding: 15px;
   scrollbar-width: thin;
   scrollbar-color: rgba(244, 240, 230, 0.22) transparent;
+  border-radius: 30px 10px 30px 30px;
 }
 
 .seats {
@@ -426,6 +435,7 @@ button:focus-visible {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  border-radius: 12px;
 }
 
 .policy-card button:hover:not(:disabled) {
@@ -451,6 +461,7 @@ button:focus-visible {
   z-index: 3;
   width: 260px;
   padding: 15px;
+  border-radius: 24px 10px 24px 24px;
 }
 
 .selection-card > button,
@@ -534,6 +545,7 @@ button:focus-visible {
   gap: 4px;
   padding: 5px;
   transform: translateX(-50%);
+  border-radius: 18px;
 }
 
 .time-controls button {
@@ -687,7 +699,7 @@ button:focus-visible {
   position: absolute;
   top: 50%;
   left: 50%;
-  z-index: 12;
+  z-index: 50;
   width: min(420px, calc(100% - 32px));
   padding: 22px;
   transform: translate(-50%, -50%);

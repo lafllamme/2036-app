@@ -2,7 +2,7 @@
 
 ## Purpose
 
-2036 lets German-speaking players aged roughly 16+ explore how municipal decisions interact over a decade. It communicates consequences through a living 3D city, transparent metrics, and causal explanations rather than party labels.
+2036 lets German-speaking players aged roughly 16+ lead a fictional municipal party and explore how city decisions interact over a decade. It communicates consequences through a living 3D city, transparent metrics, and causal explanations rather than hidden party-label modifiers.
 
 ## Current product slice
 
@@ -11,6 +11,7 @@
 - Strategy camera, building inspection, traffic, pedestrians, and day/night atmosphere.
 - Monthly deterministic simulation and three illustrative municipal policies.
 - German HUD and simulated city/national/world news.
+- Fictional party selection with familiar abbreviations, original names and symbols, sourced policy-position inspiration, and explicitly fictional Lindenhafen council values.
 
 ## Principles
 

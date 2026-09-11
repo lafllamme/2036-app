@@ -106,6 +106,50 @@ export type HealthId =
   | 'fiscalHealth'
   | 'satisfaction'
 
+export type PartyId = 'cdu' | 'afd' | 'spd' | 'gruene' | 'linke' | 'fdp'
+
+export type CampaignPriorityId = 'housing' | 'employment' | 'mobility' | 'climate' | 'cohesion' | 'fiscalHealth'
+
+export type PolicyStance = 'support' | 'conditional' | 'oppose'
+
+export interface PartyPolicyPosition {
+  policyId: string
+  stance: PolicyStance
+  rationale: string
+  sourceIds: string[]
+}
+
+export interface PartyScenarioStats {
+  councilSeats: number
+  publicSupport: number
+  organization: number
+  negotiation: number
+}
+
+export interface PartyDefinition {
+  schemaVersion: 1
+  id: PartyId
+  abbreviation: string
+  name: string
+  color: string
+  textColor: '#11171b' | '#f4f0e6'
+  emblem: string
+  summary: string
+  strengths: [string, string]
+  tradeoffs: [string, string]
+  focusPriorityIds: CampaignPriorityId[]
+  policyPositions: PartyPolicyPosition[]
+  stats: PartyScenarioStats
+  sourceIds: string[]
+  asOf: string
+}
+
+export interface CampaignPriorityDefinition {
+  id: CampaignPriorityId
+  name: string
+  description: string
+}
+
 export interface CityMetrics {
   population: number
   employment: number
@@ -164,10 +208,11 @@ export interface EvidenceReference {
   publisher: string
   title: string
   url: string
-  publishedAt: string
+  publishedAt: string | null
   accessedAt: string
   claimType: 'position' | 'effect' | 'baseline'
   applicability: string
+  notes?: string
 }
 
 export interface PolicyDefinition {
@@ -204,6 +249,8 @@ export interface SaveGameV1 {
   schemaVersion: 1
   contentVersion: 'vertical-slice-1'
   citySeed: number
+  partyId?: PartyId
+  priorityIds?: CampaignPriorityId[]
   snapshot: SimulationSnapshot
   savedAt: string
 }

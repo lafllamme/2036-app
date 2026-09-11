@@ -1,4 +1,5 @@
 import type { CityMetrics, HealthScores, MetricId, NewsItem, SimulationSnapshot } from '../core/contracts'
+import { CAMPAIGN_LAST_MONTH } from '../core/campaign'
 import { getPolicy } from '../content/policies'
 
 export interface ActivePolicyState {
@@ -126,6 +127,7 @@ export function applyPolicy(state: SimulationState, policyId: string): Simulatio
 }
 
 export function advanceOneMonth(state: SimulationState): SimulationState {
+  if (state.snapshot.month >= CAMPAIGN_LAST_MONTH) return state
   const month = state.snapshot.month + 1
   const previous = state.snapshot.metrics
   const metrics = { ...previous }

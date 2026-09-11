@@ -1,0 +1,305 @@
+import * as THREE from 'three/webgpu'
+import type { BuildingRecord, CityBlueprint } from '../core/contracts'
+import { createRandomStream } from '../core/rng'
+
+export interface WorldVisuals {
+  buildingMeshes: THREE.InstancedMesh[]
+  buildingRecords: Map<THREE.InstancedMesh, BuildingRecord[]>
+  buildingColors: Map<THREE.InstancedMesh, THREE.Color[]>
+  windows: THREE.InstancedMesh
+  cars: THREE.InstancedMesh
+  pedestrians: THREE.InstancedMesh
+  cranes: THREE.Group
+  sun: THREE.DirectionalLight
+}
+
+const BUILDING_COLORS: Record<BuildingRecord['type'], string[]> = {
+  altbau: ['#b8896f', '#d3b095', '#a66f62', '#c8a878'],
+  modern: ['#8fa8aa', '#c1c7c3', '#718d91', '#dad6ca'],
+  residential: ['#d0b98d', '#b7c29b', '#c38e78', '#d7d0bb'],
+  commercial: ['#71868b', '#94a7a5', '#65767b', '#a6aaa0'],
+  industrial: ['#6b7473', '#8a8172', '#596a6e', '#84796c'],
+  civic: ['#c3b59e', '#8da7a2', '#b9c0b7', '#d0c3aa'],
+}
+
+function addGround(scene: THREE.Scene): void {
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(3_200, 3_200),
+    new THREE.MeshStandardMaterial({ color: '#52634f', roughness: 0.96, metalness: 0 }),
+  )
+  ground.rotation.x = -Math.PI / 2
+  ground.receiveShadow = true
+  scene.add(ground)
+
+  const river = new THREE.Mesh(
+    new THREE.PlaneGeometry(250, 3_200),
+    new THREE.MeshStandardMaterial({ color: '#315e70', roughness: 0.25, metalness: 0.08 }),
+  )
+  river.rotation.x = -Math.PI / 2
+  river.position.set(-1_050, 0.34, 0)
+  scene.add(river)
+
+  const promenadeMaterial = new THREE.MeshStandardMaterial({ color: '#b7afa0', roughness: 0.9 })
+  for (const x of [-1_188, -912]) {
+    const promenade = new THREE.Mesh(new THREE.BoxGeometry(24, 1.2, 3_050), promenadeMaterial)
+    promenade.position.set(x, 0.55, 0)
+    promenade.receiveShadow = true
+    scene.add(promenade)
+  }
+}
+
+function addRoads(scene: THREE.Scene, blueprint: CityBlueprint): void {
+  const geometry = new THREE.BoxGeometry(1, 1, 1)
+  const roadMaterial = new THREE.MeshStandardMaterial({ color: '#252a2b', roughness: 0.92 })
+  const roads = new THREE.InstancedMesh(geometry, roadMaterial, blueprint.roads.length)
+  const matrix = new THREE.Matrix4()
+  blueprint.roads.forEach((road, index) => {
+    matrix.compose(
+      new THREE.Vector3(road.x, 0.46, road.z),
+      new THREE.Quaternion(),
+      new THREE.Vector3(road.width, 0.34, road.depth),
+    )
+    roads.setMatrixAt(index, matrix)
+  })
+  roads.receiveShadow = true
+  scene.add(roads)
+
+  const markingMaterial = new THREE.MeshBasicMaterial({ color: '#c6bfa8', transparent: true, opacity: 0.46 })
+  const markings = new THREE.InstancedMesh(geometry, markingMaterial, blueprint.roads.length)
+  blueprint.roads.forEach((road, index) => {
+    const width = road.axis === 'x' ? road.width : 0.42
+    const depth = road.axis === 'z' ? road.depth : 0.42
+    matrix.compose(
+      new THREE.Vector3(road.x, 0.68, road.z),
+      new THREE.Quaternion(),
+      new THREE.Vector3(width, 0.02, depth),
+    )
+    markings.setMatrixAt(index, matrix)
+  })
+  scene.add(markings)
+
+  const bridgeMaterial = new THREE.MeshStandardMaterial({ color: '#5a5f5d', roughness: 0.8 })
+  for (const z of [-720, 0, 720]) {
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(320, 3.8, 34), bridgeMaterial)
+    bridge.position.set(-1_050, 3.2, z)
+    bridge.castShadow = true
+    bridge.receiveShadow = true
+    scene.add(bridge)
+  }
+}
+
+function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): Pick<WorldVisuals, 'buildingMeshes' | 'buildingRecords' | 'buildingColors' | 'windows'> {
+  const rng = createRandomStream(blueprint.definition.seed, 'render-colors')
+  const grouped = new Map<BuildingRecord['type'], BuildingRecord[]>()
+  for (const building of blueprint.buildings) {
+    const records = grouped.get(building.type) ?? []
+    records.push(building)
+    grouped.set(building.type, records)
+  }
+
+  const buildingMeshes: THREE.InstancedMesh[] = []
+  const buildingRecords = new Map<THREE.InstancedMesh, BuildingRecord[]>()
+  const buildingColors = new Map<THREE.InstancedMesh, THREE.Color[]>()
+  const box = new THREE.BoxGeometry(1, 1, 1)
+  const matrix = new THREE.Matrix4()
+  const quaternion = new THREE.Quaternion()
+
+  for (const [type, records] of grouped) {
+    const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: type === 'modern' ? 0.56 : 0.83, metalness: type === 'modern' ? 0.08 : 0.01, vertexColors: true })
+    const mesh = new THREE.InstancedMesh(box, material, records.length)
+    const colors: THREE.Color[] = []
+    records.forEach((building, index) => {
+      quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), building.rotation)
+      matrix.compose(
+        new THREE.Vector3(building.x, building.height / 2 + 0.8, building.z),
+        quaternion,
+        new THREE.Vector3(building.width, building.height, building.depth),
+      )
+      mesh.setMatrixAt(index, matrix)
+      const palette = BUILDING_COLORS[type]
+      const source = palette[Math.floor(rng.next() * palette.length)] ?? palette[0] ?? '#aaaaaa'
+      const color = new THREE.Color(source).multiplyScalar(0.82 + building.condition * 0.18)
+      colors.push(color)
+      mesh.setColorAt(index, color)
+    })
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+    mesh.computeBoundingSphere()
+    buildingMeshes.push(mesh)
+    buildingRecords.set(mesh, records)
+    buildingColors.set(mesh, colors)
+    scene.add(mesh)
+  }
+
+  const detailed = blueprint.buildings.filter((building) => Math.abs(building.x) < 620 && Math.abs(building.z) < 860 && building.height > 16)
+  const windowCount = detailed.reduce((sum, building) => sum + Math.min(8, Math.max(3, Math.floor(building.height / 5))), 0)
+  const windowMaterial = new THREE.MeshStandardMaterial({ color: '#809ca1', emissive: '#203a41', emissiveIntensity: 0.28, roughness: 0.35 })
+  const windows = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 0.18), windowMaterial, windowCount)
+  let windowIndex = 0
+  for (const building of detailed) {
+    const floorCount = Math.min(8, Math.max(3, Math.floor(building.height / 5)))
+    for (let floor = 0; floor < floorCount; floor += 1) {
+      matrix.compose(
+        new THREE.Vector3(building.x, 4.2 + floor * 4.2, building.z + building.depth / 2 + 0.12),
+        new THREE.Quaternion(),
+        new THREE.Vector3(building.width * 0.64, 1.65, 1),
+      )
+      windows.setMatrixAt(windowIndex, matrix)
+      windowIndex += 1
+    }
+  }
+  scene.add(windows)
+
+  return { buildingMeshes, buildingRecords, buildingColors, windows }
+}
+
+function addRoofs(scene: THREE.Scene, blueprint: CityBlueprint): void {
+  const pitched = blueprint.buildings.filter((building) => building.type === 'altbau' || building.type === 'residential')
+  const roof = new THREE.InstancedMesh(
+    new THREE.ConeGeometry(0.72, 0.34, 4),
+    new THREE.MeshStandardMaterial({ color: '#713f36', roughness: 0.92 }),
+    pitched.length,
+  )
+  const matrix = new THREE.Matrix4()
+  const quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4)
+  pitched.forEach((building, index) => {
+    matrix.compose(
+      new THREE.Vector3(building.x, building.height + 4.2, building.z),
+      quaternion,
+      new THREE.Vector3(building.width, 24, building.depth),
+    )
+    roof.setMatrixAt(index, matrix)
+  })
+  roof.castShadow = true
+  scene.add(roof)
+}
+
+function addTrees(scene: THREE.Scene, blueprint: CityBlueprint): void {
+  const trunk = new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(0.7, 0.95, 7, 6),
+    new THREE.MeshStandardMaterial({ color: '#554433', roughness: 1 }),
+    blueprint.trees.length,
+  )
+  const crown = new THREE.InstancedMesh(
+    new THREE.IcosahedronGeometry(4.8, 1),
+    new THREE.MeshStandardMaterial({ color: '#315943', roughness: 0.96 }),
+    blueprint.trees.length,
+  )
+  const matrix = new THREE.Matrix4()
+  blueprint.trees.forEach((tree, index) => {
+    matrix.compose(new THREE.Vector3(tree.x, 3.5 * tree.scale, tree.z), new THREE.Quaternion(), new THREE.Vector3(tree.scale, tree.scale, tree.scale))
+    trunk.setMatrixAt(index, matrix)
+    matrix.compose(new THREE.Vector3(tree.x, 9 * tree.scale, tree.z), new THREE.Quaternion(), new THREE.Vector3(tree.scale, tree.scale, tree.scale))
+    crown.setMatrixAt(index, matrix)
+  })
+  trunk.castShadow = true
+  crown.castShadow = true
+  scene.add(trunk, crown)
+}
+
+function addLandmarks(scene: THREE.Scene): void {
+  const stone = new THREE.MeshStandardMaterial({ color: '#b8aa91', roughness: 0.84 })
+  const copper = new THREE.MeshStandardMaterial({ color: '#3e7063', roughness: 0.62, metalness: 0.18 })
+  const glass = new THREE.MeshStandardMaterial({ color: '#7ba1aa', roughness: 0.24, metalness: 0.12, transparent: true, opacity: 0.84 })
+
+  const cityHall = new THREE.Group()
+  const base = new THREE.Mesh(new THREE.BoxGeometry(90, 34, 58), stone)
+  base.position.y = 17
+  const tower = new THREE.Mesh(new THREE.BoxGeometry(22, 68, 22), stone)
+  tower.position.set(0, 34, 0)
+  const spire = new THREE.Mesh(new THREE.ConeGeometry(16, 28, 4), copper)
+  spire.position.set(0, 82, 0)
+  spire.rotation.y = Math.PI / 4
+  cityHall.add(base, tower, spire)
+  cityHall.position.set(-160, 0, -30)
+  cityHall.traverse((object) => { if (object instanceof THREE.Mesh) object.castShadow = true })
+  scene.add(cityHall)
+
+  const station = new THREE.Group()
+  const stationBase = new THREE.Mesh(new THREE.BoxGeometry(210, 24, 72), stone)
+  stationBase.position.y = 12
+  const stationRoof = new THREE.Mesh(new THREE.CylinderGeometry(42, 42, 210, 18, 1, false, 0, Math.PI), glass)
+  stationRoof.rotation.z = Math.PI / 2
+  stationRoof.position.y = 24
+  station.add(stationBase, stationRoof)
+  station.position.set(0, 0, 820)
+  scene.add(station)
+
+  const hospital = new THREE.Mesh(new THREE.BoxGeometry(160, 42, 94), new THREE.MeshStandardMaterial({ color: '#d5d7d0', roughness: 0.66 }))
+  hospital.position.set(880, 21, -40)
+  hospital.castShadow = true
+  scene.add(hospital)
+}
+
+function addCranes(scene: THREE.Scene): THREE.Group {
+  const cranes = new THREE.Group()
+  const material = new THREE.MeshStandardMaterial({ color: '#dc9b28', roughness: 0.56, metalness: 0.28 })
+  for (const [x, z, height] of [[-420, -620, 72], [260, 610, 88], [540, -720, 64]] as const) {
+    const crane = new THREE.Group()
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(3, height, 3), material)
+    mast.position.y = height / 2
+    const boom = new THREE.Mesh(new THREE.BoxGeometry(74, 2.4, 2.4), material)
+    boom.position.set(24, height - 3, 0)
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(16, 8, 8), material)
+    counter.position.set(-14, height - 6, 0)
+    crane.add(mast, boom, counter)
+    crane.position.set(x, 0, z)
+    crane.traverse((object) => { if (object instanceof THREE.Mesh) object.castShadow = true })
+    cranes.add(crane)
+  }
+  cranes.visible = false
+  scene.add(cranes)
+  return cranes
+}
+
+function createAgents(scene: THREE.Scene): Pick<WorldVisuals, 'cars' | 'pedestrians'> {
+  const cars = new THREE.InstancedMesh(
+    new THREE.BoxGeometry(8.4, 3.2, 4),
+    new THREE.MeshStandardMaterial({ color: '#c54a3d', roughness: 0.5, metalness: 0.18, vertexColors: true }),
+    180,
+  )
+  const carPalette = ['#c94b3e', '#d9d2c2', '#274f63', '#323638', '#d6a636', '#66715d']
+  for (let index = 0; index < 180; index += 1) cars.setColorAt(index, new THREE.Color(carPalette[index % carPalette.length]))
+  cars.castShadow = true
+  scene.add(cars)
+
+  const pedestrians = new THREE.InstancedMesh(
+    new THREE.CapsuleGeometry(0.62, 1.8, 3, 5),
+    new THREE.MeshStandardMaterial({ color: '#d6c9b5', roughness: 0.88, vertexColors: true }),
+    320,
+  )
+  const peoplePalette = ['#d85848', '#315d70', '#d6b258', '#39473d', '#efe5d1', '#895f74']
+  for (let index = 0; index < 320; index += 1) pedestrians.setColorAt(index, new THREE.Color(peoplePalette[index % peoplePalette.length]))
+  pedestrians.castShadow = true
+  scene.add(pedestrians)
+  return { cars, pedestrians }
+}
+
+export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint): WorldVisuals {
+  addGround(scene)
+  addRoads(scene, blueprint)
+  const buildingVisuals = createBuildings(scene, blueprint)
+  addRoofs(scene, blueprint)
+  addTrees(scene, blueprint)
+  addLandmarks(scene)
+  const cranes = addCranes(scene)
+  const agents = createAgents(scene)
+
+  const hemisphere = new THREE.HemisphereLight('#d8e4e7', '#4a4439', 2.25)
+  scene.add(hemisphere)
+  const sun = new THREE.DirectionalLight('#fff2d2', 4.2)
+  sun.position.set(-700, 1_100, -420)
+  sun.castShadow = true
+  sun.shadow.mapSize.set(2048, 2048)
+  sun.shadow.camera.left = -720
+  sun.shadow.camera.right = 720
+  sun.shadow.camera.top = 720
+  sun.shadow.camera.bottom = -720
+  sun.shadow.camera.near = 80
+  sun.shadow.camera.far = 2_400
+  sun.shadow.bias = -0.00035
+  scene.add(sun)
+
+  return { ...buildingVisuals, ...agents, cranes, sun }
+}

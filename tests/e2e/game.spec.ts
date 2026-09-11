@@ -18,6 +18,12 @@ async function enterLindenhafen(page: import('@playwright/test').Page): Promise<
 
 test.describe('2036 vertical slice', () => {
   test.beforeEach(async ({ page }) => {
+    /*
+     * These prove the game, not its sound. Every click otherwise synthesises a cue, which on a
+     * CI runner already saturated by software rendering is enough to push the council flow past
+     * its timeout. `tests/e2e/sound.spec.ts` owns the audible surface.
+     */
+    await page.addInitScript(() => window.localStorage.setItem('2036-sound-enabled', 'false'))
     await page.goto('/?webgl')
     await expect(page.getByRole('button', { name: 'Neue Kampagne' })).toBeEnabled({ timeout: 30_000 })
   })

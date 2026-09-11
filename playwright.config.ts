@@ -11,6 +11,12 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'line',
+  /*
+   * CI runs the whole city through swiftshader on a shared runner and is roughly three times
+   * slower than a local machine — a suite that takes 2 minutes here takes 8 there. Playwright's
+   * 30 s default left the council flow finishing its entry sequence with nothing to spare.
+   */
+  timeout: process.env.CI ? 90_000 : 30_000,
   use: {
     baseURL,
     trace: 'retain-on-failure',

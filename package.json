@@ -21,6 +21,7 @@
     "lint:fix": "CI=true eslint . --fix"
   },
   "dependencies": {
+    "@nuxt/icon": "^2.5.1",
     "@pinia/nuxt": "^1.0.2",
     "@unocss/nuxt": "^66.10.2",
     "nuxt": "^4.5.2",
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.5.1",
+    "@iconify-json/lucide": "^1.2.131",
     "@nuxt/eslint-config": "^1.17.0",
     "@playwright/test": "^1.63.0",
     "@types/node": "^24.0.0",

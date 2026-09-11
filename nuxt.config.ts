@@ -2,7 +2,16 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-09-11',
   devtools: { enabled: true },
 
-  modules: ['@pinia/nuxt', '@unocss/nuxt'],
+  modules: ['@pinia/nuxt', '@unocss/nuxt', '@nuxt/icon'],
+
+  /*
+   * Lucide, bundled rather than fetched: the set is installed locally via @iconify-json/lucide, so
+   * icons resolve offline and no request leaves the machine at runtime.
+   */
+  icon: {
+    mode: 'svg',
+    serverBundle: { collections: ['lucide'] },
+  },
 
   css: ['~/assets/css/styles.css'],
 

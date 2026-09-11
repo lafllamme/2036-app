@@ -62,6 +62,29 @@ describe('architecture boundaries', () => {
     expect(library, 'an event trigger reads an identity-composition indicator').not.toContain(`metric: '${composition}'`)
   })
 
+  it('never references a design token that does not exist', () => {
+    /*
+     * Regression: the design pass removed --red, --amber and --teal from styles.css while the entry
+     * flow still used them seven times. Invalid declarations fall back silently, so the logo lost its
+     * accent, the loading bar lost its fill and two party stances lost their colour — with no error
+     * anywhere. This test makes a deleted token fail loudly instead.
+     */
+    const stylesheet = readFileSync(resolve(projectRoot, 'app/assets/css/styles.css'), 'utf8')
+    const defined = new Set(Array.from(stylesheet.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm), match => match[1]))
+
+    // Set at runtime via :style bindings rather than declared in the stylesheet.
+    const runtimeProvided = new Set(['--party-color', '--party-accent', '--ticker-duration'])
+
+    for (const file of [...sourceFiles('app/components'), { path: 'app/assets/css/styles.css', source: stylesheet }]) {
+      for (const match of file.source.matchAll(/var\((--[a-z0-9-]+)\)/g)) {
+        const token = match[1]
+        if (!token || runtimeProvided.has(token))
+          continue
+        expect(defined, `${file.path} uses undefined token ${token}`).toContain(token)
+      }
+    }
+  })
+
   it('never uses unseeded randomness in world or simulation code', () => {
     const deterministicFiles = [...sourceFiles('app/world'), ...sourceFiles('app/simulation')]
 

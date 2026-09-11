@@ -32,7 +32,12 @@ Three rules follow. **Cost is never painted in the rejection colour** — "this 
 **Composition indicators the model deliberately does not judge** — `internationalShare` above all —
 are rendered grey, never positive or negative. And **party colours are identity, not judgement**:
 in the HUD they appear only as small round markers beside an abbreviation, never as a surface fill,
-because otherwise red would mean "SPD", "rejection" and "urgent" at the same time.
+because otherwise red would mean "SPD", "rejection" and "urgent" at the same time. The entry flow
+follows the same rule at a larger scale: a 2 px edge and the emblem ring, not a filled banner.
+
+The authored party colours were chosen as surface fills, so the darkest of them disappears when used
+as a hairline on a dark panel. Accent use therefore derives a lifted value rather than taking the raw
+colour: `--party-accent: color-mix(in oklab, var(--party-color), var(--ink) 34%)`.
 
 An earlier amber accent was removed entirely. It was carrying "pending", "selectable" and "FDP" at
 once, and the bordered amber button was the single most dated element in the interface.

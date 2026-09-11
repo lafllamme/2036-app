@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { defineConfig, devices } from '@playwright/test'
 
 const PORT = 2036
@@ -28,7 +29,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm dev --host 127.0.0.1 --port ${PORT}`,
+    command: 'pnpm dev',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     stdout: 'pipe',

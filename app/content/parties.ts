@@ -1,0 +1,277 @@
+import type {
+  CampaignPriorityDefinition,
+  EvidenceReference,
+  PartyDefinition,
+  PartyId,
+} from '../core/contracts'
+
+export const PARTY_CONTENT_AS_OF = '2026-09-11'
+export const LINDENHAFEN_COUNCIL_SEATS = 60
+
+export const PARTY_EVIDENCE: EvidenceReference[] = [
+  {
+    id: 'federal-election-result-2025',
+    publisher: 'Die Bundeswahlleiterin',
+    title: 'Bundestagswahl 2025 – endgültiges Ergebnis Deutschland',
+    url: 'https://www.bundeswahlleiterin.de/bundestagswahlen/2025/ergebnisse/bund-99.html',
+    publishedAt: '2025-03-14',
+    accessedAt: PARTY_CONTENT_AS_OF,
+    claimType: 'baseline',
+    applicability: 'Bundesweites Wahlergebnis als politischer Zeitkontext; keine Übertragung auf den fiktiven Stadtrat.',
+  },
+  {
+    id: 'bundestag-fraktionen-2026',
+    publisher: 'Deutscher Bundestag',
+    title: 'Fraktionen des 21. Deutschen Bundestages',
+    url: 'https://www.bundestag.de/parlament/fraktionen',
+    publishedAt: '2026-08-21',
+    accessedAt: PARTY_CONTENT_AS_OF,
+    claimType: 'baseline',
+    applicability: 'Fraktionslandschaft zum Stichtag; Lindenhafen verwendet eigene fiktive Ratsmandate.',
+  },
+  {
+    id: 'cdu-program-2025',
+    publisher: 'CDU Deutschlands',
+    title: 'Wahlprogramm von CDU und CSU zur Bundestagswahl 2025',
+    url: 'https://www.cdu.de/wahlprogramm-von-cdu-und-csu/',
+    publishedAt: null,
+    accessedAt: PARTY_CONTENT_AS_OF,
+    claimType: 'position',
+    applicability: 'Bundespolitische Positionen werden nur als Inspiration für kommunale, fiktive Politikpräferenzen verwendet.',
+    notes: 'Die offizielle Programmseite weist im ausgelesenen Dokument kein belastbares Veröffentlichungsdatum aus.',
+  },
+  {
+    id: 'afd-program-2025',
+    publisher: 'Alternative für Deutschland',
+    title: 'Bundestagswahlprogramm 2025',
+    url: 'https://www.afd.de/wahlprogramm25/',
+    publishedAt: null,
+    accessedAt: PARTY_CONTENT_AS_OF,
+    claimType: 'position',
+    applicability: 'Bundespolitische Positionen werden nur als Inspiration für kommunale, fiktive Politikpräferenzen verwendet.',
+    notes: 'Programmversion 2025; die offizielle Übersichtsseite weist kein belastbares Veröffentlichungsdatum aus.',
+  },
+  {
+    id: 'spd-program-2025',
+    publisher: 'SPD',
+    title: 'Mehr für Dich. Besser für Deutschland. – Regierungsprogramm 2025',
+    url: 'https://www.spd.de/fileadmin/Dokumente/Beschluesse/Programm/2025_SPD_Regierungsprogramm.pdf',
+    publishedAt: null,
+    accessedAt: PARTY_CONTENT_AS_OF,
+    claimType: 'position',
+    applicability: 'Bundespolitische Positionen werden nur als Inspiration für kommunale, fiktive Politikpräferenzen verwendet.',
+    notes: 'Offizielle Programmfassung zur Bundestagswahl 2025.',
+  },
+  {
+    id: 'greens-program-2025',
+    publisher: 'Bündnis 90/Die Grünen',
+    title: 'Zusammen wachsen – Regierungsprogramm 2025',
+    url: 'https://www.gruene.de/artikel/zusammen-wachsen',
+    publishedAt: null,
+    accessedAt: PARTY_CONTENT_AS_OF,
+    claimType: 'position',
+    applicability: 'Bundespolitische Positionen werden nur als Inspiration für kommunale, fiktive Politikpräferenzen verwendet.',
+    notes: 'Offizielle Programmseite zur Bundestagswahl 2025.',
+  },
+  {
+    id: 'left-program-2025',
+    publisher: 'Die Linke',
+    title: 'Alle wollen regieren. Wir wollen verändern. – Wahlprogramm 2025',
+    url: 'https://www.die-linke.de/bundestagswahl-2025/wahlprogramm/',
+    publishedAt: null,
+    accessedAt: PARTY_CONTENT_AS_OF,
+    claimType: 'position',
+    applicability: 'Bundespolitische Positionen werden nur als Inspiration für kommunale, fiktive Politikpräferenzen verwendet.',
+    notes: 'Offizielle Programmseite zur Bundestagswahl 2025.',
+  },
+  {
+    id: 'fdp-program-2025',
+    publisher: 'FDP',
+    title: 'Das Wahlprogramm der Freien Demokraten zur Bundestagswahl 2025',
+    url: 'https://www.fdp.de/das-wahlprogramm-der-freien-demokraten-zur-bundestagswahl-2025',
+    publishedAt: '2024-12-18',
+    accessedAt: PARTY_CONTENT_AS_OF,
+    claimType: 'position',
+    applicability: 'Bundespolitische Positionen werden nur als Inspiration für kommunale, fiktive Politikpräferenzen verwendet.',
+  },
+]
+
+export const CAMPAIGN_PRIORITIES: CampaignPriorityDefinition[] = [
+  { id: 'housing', name: 'Bezahlbares Wohnen', description: 'Mieten, Wohnungsangebot und Gebäudezustand ins Gleichgewicht bringen.' },
+  { id: 'employment', name: 'Gute Arbeit', description: 'Beschäftigung, Qualifikation und lokale Wirtschaft gemeinsam stärken.' },
+  { id: 'mobility', name: 'Mobile Stadt', description: 'Erreichbarkeit verbessern und Stau sowie Emissionen reduzieren.' },
+  { id: 'climate', name: 'Klimaresilienz', description: 'Energie, Stadtgrün und Schutz vor Hitze langfristig ausbauen.' },
+  { id: 'cohesion', name: 'Zusammenhalt', description: 'Teilhabe, Integration und Vertrauen in die Stadtgesellschaft fördern.' },
+  { id: 'fiscalHealth', name: 'Solider Haushalt', description: 'Handlungsfähigkeit erhalten und dauerhafte Folgekosten kontrollieren.' },
+]
+
+export const PARTIES: PartyDefinition[] = [
+  {
+    schemaVersion: 1,
+    id: 'cdu',
+    abbreviation: 'CDU',
+    name: 'Civile Demokratische Union',
+    color: '#24272b',
+    textColor: '#f4f0e6',
+    emblem: 'C',
+    summary: 'Eine konservativ-bürgerliche Kraft mit Fokus auf Verwaltung, Wirtschaft und kommunale Ordnung.',
+    strengths: ['Verwaltungsroutine', 'Wirtschaftsnetzwerke'],
+    tradeoffs: ['Langsame Kurswechsel', 'Kompromisse kosten Einfluss'],
+    focusPriorityIds: ['employment', 'fiscalHealth', 'housing'],
+    policyPositions: [
+      { policyId: 'housing-accelerator', stance: 'conditional', rationale: 'Schnellere Genehmigungen ja; Umfang und dauerhafte Kosten des kommunalen Wohnungsbaus bleiben Verhandlungssache.', sourceIds: ['cdu-program-2025'] },
+      { policyId: 'transit-network', stance: 'conditional', rationale: 'Infrastrukturinvestitionen werden unterstützt, wenn Finanzierung und Nutzen für Wirtschaft und Pendelverkehr gesichert sind.', sourceIds: ['cdu-program-2025'] },
+      { policyId: 'business-tax-balance', stance: 'support', rationale: 'Die zeitweise Entlastung passt zur wachstums- und unternehmensorientierten Programmlinie.', sourceIds: ['cdu-program-2025'] },
+    ],
+    axes: { fiscalRestraint: 0.6, marketVsPublic: 0.5, growthVsPreservation: 0.2, climateAmbition: -0.1, redistribution: -0.3, securityAuthority: 0.6, opennessIntegration: -0.3 },
+    redLines: [{ axis: 'securityAuthority', operator: '<', value: -0.6, reason: 'Abbau von Ordnungs- und Sicherheitsstrukturen wird nicht mitgetragen.' }],
+    stats: { councilSeats: 18, publicSupport: 30, organization: 78, negotiation: 72 },
+    sourceIds: ['cdu-program-2025', 'federal-election-result-2025', 'bundestag-fraktionen-2026'],
+    asOf: PARTY_CONTENT_AS_OF,
+  },
+  {
+    schemaVersion: 1,
+    id: 'afd',
+    abbreviation: 'AfD',
+    name: 'Alternative für Demokratie',
+    color: '#1d659f',
+    textColor: '#f4f0e6',
+    emblem: 'A',
+    summary: 'Eine nationalkonservative Protestkraft mit starkem Fokus auf Begrenzung, Ordnung und konfrontative Opposition.',
+    strengths: ['Hohe Mobilisierung', 'Klares Oppositionsprofil'],
+    tradeoffs: ['Begrenzte Mehrheitsoptionen', 'Konfliktreiche Ratsarbeit'],
+    focusPriorityIds: ['fiscalHealth', 'employment', 'cohesion'],
+    policyPositions: [
+      { policyId: 'housing-accelerator', stance: 'conditional', rationale: 'Bauvereinfachung wird befürwortet; der dauerhaft ausgeweitete kommunale Mitteleinsatz bleibt strittig.', sourceIds: ['afd-program-2025'] },
+      { policyId: 'transit-network', stance: 'oppose', rationale: 'Die gebündelte Vorlage priorisiert ÖPNV und Emissionssenkung stärker als die zugrunde gelegte Programmlinie.', sourceIds: ['afd-program-2025'] },
+      { policyId: 'business-tax-balance', stance: 'support', rationale: 'Steuerliche Entlastung und marktwirtschaftliche Anreize entsprechen der zugrunde gelegten Programmlinie.', sourceIds: ['afd-program-2025'] },
+    ],
+    axes: { fiscalRestraint: 0.5, marketVsPublic: 0.3, growthVsPreservation: 0.6, climateAmbition: -0.9, redistribution: -0.2, securityAuthority: 0.9, opennessIntegration: -0.9 },
+    redLines: [{ axis: 'opennessIntegration', operator: '>', value: 0.6, reason: 'Ausbau von Zuwanderungs- und Integrationsangeboten wird abgelehnt.' }],
+    stats: { councilSeats: 13, publicSupport: 22, organization: 73, negotiation: 34 },
+    sourceIds: ['afd-program-2025', 'federal-election-result-2025', 'bundestag-fraktionen-2026'],
+    asOf: PARTY_CONTENT_AS_OF,
+  },
+  {
+    schemaVersion: 1,
+    id: 'spd',
+    abbreviation: 'SPD',
+    name: 'Sozialer Progress Deutschland',
+    color: '#b52337',
+    textColor: '#f4f0e6',
+    emblem: 'S',
+    summary: 'Eine sozialdemokratische Kraft für bezahlbares Wohnen, öffentliche Dienste und breite Bündnisse.',
+    strengths: ['Sozialer Ausgleich', 'Kommunale Daseinsvorsorge'],
+    tradeoffs: ['Hohe laufende Kosten', 'Breite Bündnisse brauchen Zeit'],
+    focusPriorityIds: ['housing', 'employment', 'cohesion'],
+    policyPositions: [
+      { policyId: 'housing-accelerator', stance: 'support', rationale: 'Kommunaler Wohnungsbau, Mietentlastung und beschleunigte Verfahren entsprechen den dokumentierten Schwerpunkten.', sourceIds: ['spd-program-2025'] },
+      { policyId: 'transit-network', stance: 'support', rationale: 'Ein dichterer öffentlicher Verkehr passt zur investitions- und teilhabeorientierten Programmlinie.', sourceIds: ['spd-program-2025'] },
+      { policyId: 'business-tax-balance', stance: 'conditional', rationale: 'Wirtschaftsimpulse sind möglich, wenn Beschäftigungseffekte und kommunale Einnahmen abgesichert werden.', sourceIds: ['spd-program-2025'] },
+    ],
+    axes: { fiscalRestraint: -0.4, marketVsPublic: -0.5, growthVsPreservation: -0.4, climateAmbition: 0.3, redistribution: 0.6, securityAuthority: 0.1, opennessIntegration: 0.4 },
+    redLines: [{ axis: 'redistribution', operator: '<', value: -0.6, reason: 'Maßnahmen zulasten niedriger Einkommen werden nicht mitgetragen.' }],
+    stats: { councilSeats: 13, publicSupport: 22, organization: 76, negotiation: 82 },
+    sourceIds: ['spd-program-2025', 'federal-election-result-2025', 'bundestag-fraktionen-2026'],
+    asOf: PARTY_CONTENT_AS_OF,
+  },
+  {
+    schemaVersion: 1,
+    id: 'gruene',
+    abbreviation: 'GRÜNE',
+    name: 'Gemeinschaft für Regionale Umwelt, Nachhaltigkeit und Erneuerung',
+    color: '#286531',
+    textColor: '#f4f0e6',
+    emblem: 'G',
+    summary: 'Eine ökologisch-progressive Kraft für klimaneutrale Quartiere, öffentlichen Verkehr und Teilhabe.',
+    strengths: ['Verkehrswende', 'Klima-Investitionen'],
+    tradeoffs: ['Hoher Investitionsbedarf', 'Konflikte um Flächennutzung'],
+    focusPriorityIds: ['climate', 'mobility', 'cohesion'],
+    policyPositions: [
+      { policyId: 'housing-accelerator', stance: 'support', rationale: 'Mehr Wohnraum wird mit sozialer Bindung, Sanierung und flächensensibler Planung verbunden.', sourceIds: ['greens-program-2025'] },
+      { policyId: 'transit-network', stance: 'support', rationale: 'ÖPNV-Ausbau und Emissionssenkung entsprechen den dokumentierten Mobilitäts- und Klimaschwerpunkten.', sourceIds: ['greens-program-2025'] },
+      { policyId: 'business-tax-balance', stance: 'conditional', rationale: 'Eine Entlastung ist nur tragfähig, wenn Investitionen, Beschäftigung und ökologische Modernisierung zusammenwirken.', sourceIds: ['greens-program-2025'] },
+    ],
+    axes: { fiscalRestraint: -0.3, marketVsPublic: -0.3, growthVsPreservation: -0.2, climateAmbition: 0.9, redistribution: 0.4, securityAuthority: -0.5, opennessIntegration: 0.8 },
+    redLines: [{ axis: 'climateAmbition', operator: '<', value: -0.5, reason: 'Beschlüsse gegen die kommunalen Klimaziele werden nicht mitgetragen.' }],
+    stats: { councilSeats: 8, publicSupport: 13, organization: 67, negotiation: 71 },
+    sourceIds: ['greens-program-2025', 'federal-election-result-2025', 'bundestag-fraktionen-2026'],
+    asOf: PARTY_CONTENT_AS_OF,
+  },
+  {
+    schemaVersion: 1,
+    id: 'linke',
+    abbreviation: 'LINKE',
+    name: 'Lindenhafener Initiative für Neue Kommunale Entwicklung',
+    color: '#98295e',
+    textColor: '#f4f0e6',
+    emblem: 'L',
+    summary: 'Eine demokratisch-sozialistische Stadtallianz mit Schwerpunkt auf Mieten, Umverteilung und öffentlicher Infrastruktur.',
+    strengths: ['Mieterschutz', 'Öffentliche Infrastruktur'],
+    tradeoffs: ['Hoher Finanzierungsbedarf', 'Schmale Koalitionsbasis'],
+    focusPriorityIds: ['housing', 'cohesion', 'mobility'],
+    policyPositions: [
+      { policyId: 'housing-accelerator', stance: 'support', rationale: 'Kommunaler Wohnungsbau und dauerhaft bezahlbarer Bestand entsprechen den dokumentierten Schwerpunkten.', sourceIds: ['left-program-2025'] },
+      { policyId: 'transit-network', stance: 'support', rationale: 'Öffentliche Investitionen und Mobilität für alle entsprechen der Programmlinie.', sourceIds: ['left-program-2025'] },
+      { policyId: 'business-tax-balance', stance: 'oppose', rationale: 'Die Senkung kommunaler Unternehmenssteuern kollidiert mit der stärkeren Finanzierung öffentlicher Aufgaben.', sourceIds: ['left-program-2025'] },
+    ],
+    axes: { fiscalRestraint: -0.7, marketVsPublic: -0.9, growthVsPreservation: -0.3, climateAmbition: 0.6, redistribution: 0.9, securityAuthority: -0.7, opennessIntegration: 0.9 },
+    redLines: [{ axis: 'marketVsPublic', operator: '>', value: 0.6, reason: 'Privatisierung kommunaler Daseinsvorsorge wird abgelehnt.' }],
+    stats: { councilSeats: 5, publicSupport: 8, organization: 61, negotiation: 52 },
+    sourceIds: ['left-program-2025', 'federal-election-result-2025', 'bundestag-fraktionen-2026'],
+    asOf: PARTY_CONTENT_AS_OF,
+  },
+  {
+    schemaVersion: 1,
+    id: 'fdp',
+    abbreviation: 'FDP',
+    name: 'Forum Demokratischer Perspektiven',
+    color: '#f1cf3a',
+    textColor: '#11171b',
+    emblem: 'F',
+    summary: 'Eine marktliberale Reformkraft für Unternehmertum, digitale Verwaltung und fiskalische Begrenzung.',
+    strengths: ['Unternehmensdynamik', 'Verwaltungsmodernisierung'],
+    tradeoffs: ['Kleiner Ratseinfluss', 'Begrenzte soziale Puffer'],
+    focusPriorityIds: ['employment', 'fiscalHealth', 'mobility'],
+    policyPositions: [
+      { policyId: 'housing-accelerator', stance: 'conditional', rationale: 'Schnellere und digitale Verfahren werden unterstützt; ein dauerhaft großer kommunaler Finanzierungsanteil bleibt strittig.', sourceIds: ['fdp-program-2025'] },
+      { policyId: 'transit-network', stance: 'conditional', rationale: 'Investitionen werden an Technologieoffenheit, Effizienz und belastbare Finanzierung gebunden.', sourceIds: ['fdp-program-2025'] },
+      { policyId: 'business-tax-balance', stance: 'support', rationale: 'Die befristete Entlastung entspricht dem Schwerpunkt auf Wachstum, Investitionen und geringerer Belastung.', sourceIds: ['fdp-program-2025'] },
+    ],
+    axes: { fiscalRestraint: 0.8, marketVsPublic: 0.9, growthVsPreservation: -0.1, climateAmbition: 0, redistribution: -0.6, securityAuthority: 0, opennessIntegration: 0.3 },
+    redLines: [{ axis: 'fiscalRestraint', operator: '<', value: -0.7, reason: 'Dauerhaft schuldenfinanzierte Ausgabenprogramme werden abgelehnt.' }],
+    stats: { councilSeats: 3, publicSupport: 5, organization: 52, negotiation: 66 },
+    sourceIds: ['fdp-program-2025', 'federal-election-result-2025'],
+    asOf: PARTY_CONTENT_AS_OF,
+  },
+]
+
+export function getParty(partyId: PartyId): PartyDefinition {
+  const party = PARTIES.find(({ id }) => id === partyId)
+  if (!party)
+    throw new Error(`Unknown party: ${partyId}`)
+  return party
+}
+
+/**
+ * Build a value for every council party. The object literal is typed as a complete
+ * `Record<PartyId, T>`, so adding a party to `PartyId` fails to compile until it is handled here —
+ * which is what keeps seat maps and vote tallies exhaustive without a cast.
+ */
+export function mapParties<T>(select: (party: PartyDefinition) => T): Record<PartyId, T> {
+  return {
+    cdu: select(getParty('cdu')),
+    afd: select(getParty('afd')),
+    spd: select(getParty('spd')),
+    gruene: select(getParty('gruene')),
+    linke: select(getParty('linke')),
+    fdp: select(getParty('fdp')),
+  }
+}
+
+export function getPartyEvidence(sourceIds: string[]): EvidenceReference[] {
+  return sourceIds.flatMap((sourceId) => {
+    const source = PARTY_EVIDENCE.find(({ id }) => id === sourceId)
+    return source ? [source] : []
+  })
+}

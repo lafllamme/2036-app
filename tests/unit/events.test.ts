@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { EVENTS } from '../../src/content/events'
-import { advanceMonths, campaignFor, createInitialState, forecastsForEvent, negotiate, resolveDecision, snapshotOf } from '../../src/simulation/model'
-import { applyMeasures, rampFactor } from '../../src/simulation/events'
-import { BASELINE_METRICS, BASELINE_STOCKS } from '../../src/simulation/baseline'
+import { EVENTS } from '../../app/content/events'
+import { BASELINE_METRICS, BASELINE_STOCKS } from '../../app/simulation/baseline'
+import { applyMeasures, rampFactor } from '../../app/simulation/events'
+import { advanceMonths, campaignFor, createInitialState, forecastsForEvent, negotiate, resolveDecision, snapshotOf } from '../../app/simulation/model'
 
 describe('event library', () => {
   it('uses unique ids and gives every decision a default', () => {
-    expect(new Set(EVENTS.map((event) => event.id)).size).toBe(EVENTS.length)
+    expect(new Set(EVENTS.map(event => event.id)).size).toBe(EVENTS.length)
     for (const event of EVENTS) {
-      expect(new Set(event.options.map((option) => option.id)).size).toBe(event.options.length)
+      expect(new Set(event.options.map(option => option.id)).size).toBe(event.options.length)
       if (event.options.length > 0) {
         expect(event.defaultOptionId).toBeDefined()
-        expect(event.options.some((option) => option.id === event.defaultOptionId)).toBe(true)
+        expect(event.options.some(option => option.id === event.defaultOptionId)).toBe(true)
       }
     }
   })
@@ -46,8 +46,14 @@ describe('event library', () => {
     const metrics = { ...BASELINE_METRICS }
     const stocks = { ...BASELINE_STOCKS }
     const measure = {
-      key: 'test', sourceId: 'test', optionId: 'test', label: 'Test', category: 'safety' as const,
-      startedMonth: 0, monthlyCost: 0, applied: {},
+      key: 'test',
+      sourceId: 'test',
+      optionId: 'test',
+      label: 'Test',
+      category: 'safety' as const,
+      startedMonth: 0,
+      monthlyCost: 0,
+      applied: {},
       effects: [{ target: 'orderServiceFte' as const, mode: 'level' as const, delayMonths: 0, rampMonths: 4, min: 10, expected: 14, max: 18, confidence: 'high' as const }],
     }
     for (let month = 1; month <= 40; month += 1) applyMeasures([measure], metrics, stocks, month, [])
@@ -69,7 +75,8 @@ describe('event library', () => {
 
     expect(outcome.result).not.toBeNull()
     expect(snapshotOf(outcome.state).pendingDecisions).toHaveLength(0)
-    if (outcome.result && !outcome.result.passed) expect(outcome.state.perception.trust).toBeLessThan(trustBefore)
+    if (outcome.result && !outcome.result.passed)
+      expect(outcome.state.perception.trust).toBeLessThan(trustBefore)
   })
 })
 

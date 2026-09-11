@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { POLICIES } from '../../src/content/policies'
 import {
   LINDENHAFEN_COUNCIL_SEATS,
   PARTIES,
   PARTY_CONTENT_AS_OF,
   PARTY_EVIDENCE,
-} from '../../src/content/parties'
+} from '../../app/content/parties'
+import { POLICIES } from '../../app/content/policies'
 
 describe('fictional party content', () => {
   it('uses unique fictional identities with the intended German abbreviations', () => {
@@ -18,13 +18,13 @@ describe('fictional party content', () => {
   it('balances one complete fictional council and support baseline', () => {
     expect(PARTIES.reduce((sum, party) => sum + party.stats.councilSeats, 0)).toBe(LINDENHAFEN_COUNCIL_SEATS)
     expect(PARTIES.reduce((sum, party) => sum + party.stats.publicSupport, 0)).toBe(100)
-    expect(PARTIES.every((party) => party.stats.organization >= 0 && party.stats.organization <= 100)).toBe(true)
-    expect(PARTIES.every((party) => party.stats.negotiation >= 0 && party.stats.negotiation <= 100)).toBe(true)
+    expect(PARTIES.every(party => party.stats.organization >= 0 && party.stats.organization <= 100)).toBe(true)
+    expect(PARTIES.every(party => party.stats.negotiation >= 0 && party.stats.negotiation <= 100)).toBe(true)
   })
 
   it('maps every party position to a policy and dated official evidence', () => {
     const policyIds = new Set(POLICIES.map(({ id }) => id))
-    const evidenceById = new Map(PARTY_EVIDENCE.map((source) => [source.id, source]))
+    const evidenceById = new Map(PARTY_EVIDENCE.map(source => [source.id, source]))
 
     for (const party of PARTIES) {
       expect(party.asOf).toBe(PARTY_CONTENT_AS_OF)

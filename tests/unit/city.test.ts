@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { generateCity } from '../../src/world/generation/generateCity'
+import { generateCity } from '../../app/world/generation/generateCity'
 
-describe('Lindenhafen generator', () => {
+describe('lindenhafen generator', () => {
   it('is deterministic and produces the full vertical-slice density', () => {
     const first = generateCity(2036)
     const second = generateCity(2036)
@@ -13,14 +13,14 @@ describe('Lindenhafen generator', () => {
 
   it('uses stable unique entity IDs and keeps buildings out of the river', () => {
     const city = generateCity(2036)
-    const ids = city.buildings.map((building) => building.id)
+    const ids = city.buildings.map(building => building.id)
     expect(new Set(ids).size).toBe(ids.length)
-    expect(city.buildings.some((building) => building.x > -1_175 && building.x < -925)).toBe(false)
+    expect(city.buildings.some(building => building.x > -1_175 && building.x < -925)).toBe(false)
   })
 
   it('represents every planned district', () => {
     const city = generateCity(2036)
-    const districts = new Set(city.buildings.map((building) => building.districtId))
+    const districts = new Set(city.buildings.map(building => building.districtId))
     expect(districts.size).toBe(8)
   })
 })

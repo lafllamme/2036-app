@@ -8,8 +8,8 @@ The standard campaign uses expected policy effects deterministically. Range and 
 
 ## Anchored deviations
 
-Every target in `src/simulation/dynamics.ts` is expressed as a deviation from the January 2026 values
-in `src/simulation/baseline.ts`, not as an absolute formula. A city where nothing changes therefore
+Every target in `app/simulation/dynamics.ts` is expressed as a deviation from the January 2026 values
+in `app/simulation/baseline.ts`, not as an absolute formula. A city where nothing changes therefore
 stays where it is, and any movement in a number traces back to a decision, an event, or one of four
 deliberately authored structural drifts: social bindings expire, the investment backlog grows while
 maintenance is underfunded, per-capita service coverage dilutes as the city grows, and rent follows

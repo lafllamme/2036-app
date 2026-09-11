@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createRandomStream } from '../../src/core/rng'
+import { createRandomStream } from '../../app/core/rng'
 
 describe('named random streams', () => {
   it('repeats the same sequence for the same seed and namespace', () => {

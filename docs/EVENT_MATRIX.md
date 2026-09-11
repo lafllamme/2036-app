@@ -48,20 +48,20 @@ Per-category cooldowns prevent three burglary events in one quarter. The draw is
 ```ts
 type EventKind = 'incident' | 'decision' | 'external' | 'chain' | 'milestone'
 type EventCategory = 'safety' | 'housing' | 'social' | 'mobility'
-                   | 'environment' | 'economy' | 'finance' | 'governance'
+  | 'environment' | 'economy' | 'finance' | 'governance'
 
 interface EventDefinition {
   id: string
   schemaVersion: 1
   kind: EventKind
   category: EventCategory
-  title: string                    // German ticker headline
-  briefing: string                 // two to four sentences in the sheet
+  title: string // German ticker headline
+  briefing: string // two to four sentences in the sheet
   districtScope: DistrictId[] | 'city'
   trigger: EventTrigger
-  immediateEffects: IndicatorEffect[]   // incidents and externals
-  options: EventOption[]                // decisions
-  defaultOptionId?: string              // applied when the decision expires
+  immediateEffects: IndicatorEffect[] // incidents and externals
+  options: EventOption[] // decisions
+  defaultOptionId?: string // applied when the decision expires
   expiresInMonths: number
   sourceIds: string[]
 }
@@ -69,31 +69,31 @@ interface EventDefinition {
 interface EventTrigger {
   earliestMonth: number
   latestMonth: number
-  conditions: Condition[]          // all must hold
+  conditions: Condition[] // all must hold
   baseWeight: number
   cooldownMonths: number
   oncePerCampaign: boolean
-  requiresEventIds?: string[]      // chain parents
-  blockedByMeasureIds?: string[]   // a measure that prevents the situation
+  requiresEventIds?: string[] // chain parents
+  blockedByMeasureIds?: string[] // a measure that prevents the situation
 }
 
 interface Condition {
   indicator: IndicatorId
   operator: '<' | '<=' | '>' | '>='
   value: number
-  sustainedMonths?: number         // must hold for N consecutive months
+  sustainedMonths?: number // must hold for N consecutive months
 }
 
 interface EventOption {
   id: string
   label: string
-  rationale: string                // what the administration argues
-  oneOffCost: number               // € m
-  monthlyCost: number              // € m
+  rationale: string // what the administration argues
+  oneOffCost: number // € m
+  monthlyCost: number // € m
   administrativeLoad: number
-  axes: Partial<Record<AxisId, number>>       // −1..1 political content
-  salience: Partial<Record<AxisId, number>>   // 0..1 which axes actually matter here
-  effects: IndicatorEffect[]       // delay, ramp, min/expected/max, confidence
+  axes: Partial<Record<AxisId, number>> // −1..1 political content
+  salience: Partial<Record<AxisId, number>> // 0..1 which axes actually matter here
+  effects: IndicatorEffect[] // delay, ramp, min/expected/max, confidence
   unlocksEventIds?: string[]
   sourceIds: string[]
 }

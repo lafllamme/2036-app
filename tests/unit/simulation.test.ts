@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { advanceMonths, applyPolicy, createInitialState, snapshotOf } from '../../src/simulation/model'
+import { advanceMonths, applyPolicy, createInitialState, snapshotOf } from '../../app/simulation/model'
 
 describe('monthly simulation', () => {
   it('produces deterministic 24-month results', () => {
@@ -26,7 +26,7 @@ describe('monthly simulation', () => {
     expect(building.metrics.housingUnits).toBeGreaterThan(baseline.metrics.housingUnits)
     expect(building.metrics.averageRent).toBeLessThan(baseline.metrics.averageRent)
     expect(building.metrics.cityBudget).toBeLessThan(baseline.metrics.cityBudget)
-    expect(building.causalEdges.some((edge) => edge.from.includes('housing-accelerator'))).toBe(true)
+    expect(building.causalEdges.some(edge => edge.from.includes('housing-accelerator'))).toBe(true)
   })
 
   it('moves a metric only when something drove it', () => {
@@ -39,7 +39,7 @@ describe('monthly simulation', () => {
 
   it('keeps normalized scores and ticker history bounded', () => {
     const state = snapshotOf(advanceMonths(createInitialState(2036), 60))
-    expect(Object.values(state.health).every((score) => score >= 0 && score <= 100)).toBe(true)
+    expect(Object.values(state.health).every(score => score >= 0 && score <= 100)).toBe(true)
     expect(state.news.length).toBeLessThanOrEqual(14)
   })
 

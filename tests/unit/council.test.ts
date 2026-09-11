@@ -1,42 +1,47 @@
+import type { EventOption } from '../../app/core/contracts'
+import type { VoteContext } from '../../app/simulation/council'
 import { describe, expect, it } from 'vitest'
-import { castVote, forecastVote, supportFor, type VoteContext } from '../../src/simulation/council'
-import { createRandomStream } from '../../src/core/rng'
-import { PARTIES, getParty, mapParties } from '../../src/content/parties'
-import type { EventOption } from '../../src/core/contracts'
+import { getParty, mapParties, PARTIES } from '../../app/content/parties'
+import { createRandomStream } from '../../app/core/rng'
+import { castVote, forecastVote, supportFor } from '../../app/simulation/council'
 
-const seats = mapParties((party) => party.stats.councilSeats)
+const seats = mapParties(party => party.stats.councilSeats)
 const noSalience = mapParties(() => false)
 
-const context = (overrides: Partial<VoteContext> = {}): VoteContext => ({
-  parties: PARTIES,
-  seatsByParty: seats,
-  coalitionPartyIds: [],
-  playerPartyId: null,
-  playerNegotiation: 50,
-  relationships: {},
-  publicPressure: 0,
-  fiscalStress: 0,
-  salientCategories: noSalience,
-  ...overrides,
-})
+function context(overrides: Partial<VoteContext> = {}): VoteContext {
+  return {
+    parties: PARTIES,
+    seatsByParty: seats,
+    coalitionPartyIds: [],
+    playerPartyId: null,
+    playerNegotiation: 50,
+    relationships: {},
+    publicPressure: 0,
+    fiscalStress: 0,
+    salientCategories: noSalience,
+    ...overrides,
+  }
+}
 
-const option = (overrides: Partial<EventOption> = {}): EventOption => ({
-  id: 'test-option',
-  label: 'Testvorlage',
-  rationale: 'Test',
-  oneOffCost: 0,
-  monthlyCost: 0,
-  axes: {},
-  salience: {},
-  effects: [],
-  sourceIds: [],
-  ...overrides,
-})
+function option(overrides: Partial<EventOption> = {}): EventOption {
+  return {
+    id: 'test-option',
+    label: 'Testvorlage',
+    rationale: 'Test',
+    oneOffCost: 0,
+    monthlyCost: 0,
+    axes: {},
+    salience: {},
+    effects: [],
+    sourceIds: [],
+    ...overrides,
+  }
+}
 
 describe('council voting', () => {
   it('gives the most support to the party whose position is closest', () => {
     const climateMotion = option({ axes: { climateAmbition: 0.9 }, salience: { climateAmbition: 1 } })
-    const supports = PARTIES.map((party) => ({ id: party.id, support: supportFor(party, climateMotion, context()) }))
+    const supports = PARTIES.map(party => ({ id: party.id, support: supportFor(party, climateMotion, context()) }))
     const best = supports.reduce((top, entry) => (entry.support > top.support ? entry : top))
     expect(best.id).toBe('gruene')
   })

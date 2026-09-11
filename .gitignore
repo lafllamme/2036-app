@@ -8,3 +8,10 @@ playwright/.cache
 test-results
 *.tsbuildinfo
 .superpowers/
+
+# Nuxt
+.nuxt
+.output
+.data
+.nitro
+.cache

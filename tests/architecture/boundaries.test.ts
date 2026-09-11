@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -11,23 +11,23 @@ function filesBelow(directory: string): string[] {
   })
 }
 
-function sourceFiles(relativeDirectory: string): Array<{ path: string; source: string }> {
+function sourceFiles(relativeDirectory: string): Array<{ path: string, source: string }> {
   return filesBelow(resolve(projectRoot, relativeDirectory))
-    .filter((path) => /\.(ts|vue)$/.test(path))
-    .map((path) => ({ path, source: readFileSync(path, 'utf8') }))
+    .filter(path => /\.(?:ts|vue)$/.test(path))
+    .map(path => ({ path, source: readFileSync(path, 'utf8') }))
 }
 
 describe('architecture boundaries', () => {
   it('keeps simulation independent from Vue, Pinia, Three.js, and browser APIs', () => {
     const forbidden = [/from ['"]vue['"]/, /from ['"]pinia['"]/, /from ['"]three(?:\/[^'"]+)?['"]/, /\bwindow\b/, /\bdocument\b/]
 
-    for (const file of sourceFiles('src/simulation')) {
+    for (const file of sourceFiles('app/simulation')) {
       for (const pattern of forbidden) expect(file.source, `${file.path} contains ${pattern}`).not.toMatch(pattern)
     }
   })
 
   it('keeps Three.js imports inside the rendering boundary', () => {
-    const outsideRendering = sourceFiles('src').filter(({ path }) => !path.includes('/src/rendering/'))
+    const outsideRendering = sourceFiles('app').filter(({ path }) => !path.includes('/app/rendering/'))
 
     for (const file of outsideRendering) {
       expect(file.source, `${file.path} imports Three.js`).not.toMatch(/from ['"]three(?:\/[^'"]+)?['"]/)
@@ -37,12 +37,13 @@ describe('architecture boundaries', () => {
   it('never branches a simulation calculation on a party identifier', () => {
     // AGENTS.md: parties may only enter through their authored position vector and seat count.
     const partyIds = ['cdu', 'afd', 'spd', 'gruene', 'linke', 'fdp']
-    const engine = sourceFiles('src/simulation')
+    const engine = sourceFiles('app/simulation')
 
     for (const file of engine) {
       for (const partyId of partyIds) {
         expect(file.source, `${file.path} compares against the party id "${partyId}"`)
-          .not.toMatch(new RegExp(`(===|!==|case)\\s*['"]${partyId}['"]`))
+          .not
+          .toMatch(new RegExp(`(===|!==|case)\\s*['"]${partyId}['"]`))
       }
     }
   })
@@ -50,19 +51,19 @@ describe('architecture boundaries', () => {
   it('never lets an identity-composition indicator drive a score or a trigger', () => {
     // docs/METRICS.md: composition is displayed, never causal. Capacity is what moves outcomes.
     const composition = 'internationalShare'
-    const scoring = sourceFiles('src/simulation').filter(({ path }) => /dynamics|council|events/.test(path))
+    const scoring = sourceFiles('app/simulation').filter(({ path }) => /dynamics|council|events/.test(path))
 
     for (const file of scoring) {
       const healthSection = file.source.slice(file.source.indexOf('export function healthFromState'))
       expect(healthSection, `${file.path} scores on ${composition}`).not.toContain(composition)
     }
 
-    const library = readFileSync(resolve(projectRoot, 'src/content/events.ts'), 'utf8')
+    const library = readFileSync(resolve(projectRoot, 'app/content/events.ts'), 'utf8')
     expect(library, 'an event trigger reads an identity-composition indicator').not.toContain(`metric: '${composition}'`)
   })
 
   it('never uses unseeded randomness in world or simulation code', () => {
-    const deterministicFiles = [...sourceFiles('src/world'), ...sourceFiles('src/simulation')]
+    const deterministicFiles = [...sourceFiles('app/world'), ...sourceFiles('app/simulation')]
 
     for (const file of deterministicFiles) expect(file.source, `${file.path} uses Math.random`).not.toContain('Math.random(')
   })

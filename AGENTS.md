@@ -2,7 +2,7 @@
 
 - Read `PRODUCT.md` and `DESIGN.md` before changing gameplay or presentation.
 - Keep Vue/Pinia limited to UI state and serializable view models.
-- Keep Three.js inside `src/rendering` and runtime integration code.
+- Keep Three.js inside `app/rendering` and runtime integration code.
 - Keep simulation functions deterministic and independent from DOM, Vue, Pinia, and Three.js.
 - Never use party IDs as simulation modifiers. Parties may reference policies only.
 - Never use identity-composition indicators such as `internationalShare` in a health formula or an event trigger. Model contested causality through funded capacity; see `docs/METRICS.md`.

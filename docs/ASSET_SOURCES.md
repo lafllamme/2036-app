@@ -2,7 +2,7 @@
 
 | Asset | Creator | Source | License | Modification | Repository location |
 | --- | --- | --- | --- | --- | --- |
-| Procedural city geometry | 2036 project | Generated in repository | Project code | Runtime instancing | `src/rendering` |
+| Procedural city geometry | 2036 project | Generated in repository | Project code | Runtime instancing | `app/rendering` |
 | Supreme (display) | Indian Type Foundry | [Fontshare](https://www.fontshare.com/fonts/supreme) | Fontshare free-for-commercial-use licence | Weights 400–800 | `index.html` |
 | Switzer (body text) | Indian Type Foundry | [Fontshare](https://www.fontshare.com/fonts/switzer) | Fontshare free-for-commercial-use licence | Weights 400–700 | `index.html` |
 | Geist Mono (figures) | Vercel | [Google Fonts](https://fonts.google.com/specimen/Geist+Mono) | SIL Open Font License 1.1 | Weights 400–600 | `index.html` |

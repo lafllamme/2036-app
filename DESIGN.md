@@ -8,7 +8,7 @@ The city is the hero. The interface resembles a restrained municipal command sur
 
 | Role | Family | Source | Notes |
 | --- | --- | --- | --- |
-| Display | Bricolage Grotesque | Google Fonts | Width axis at 92 %, weight 700, tight tracking. Headlines, the wordmark, key figures. |
+| Display | Supreme | Fontshare | Weight 700, tight tracking. Headlines, the wordmark, key figures. |
 | Text | Switzer | Fontshare | Body copy, labels, briefings. |
 | Figures | Geist Mono | Google Fonts | Every number the player compares: money, seats, rates, dates. |
 

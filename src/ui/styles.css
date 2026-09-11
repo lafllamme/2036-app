@@ -10,8 +10,9 @@
   color-scheme: dark;
 
   /* Type */
-  --display: "Bricolage Grotesque", "Arial Narrow", system-ui, sans-serif;
-  --display-stretch: 92%;
+  --display: "Supreme", "Avenir Next", system-ui, sans-serif;
+  /* Supreme has no width axis — kept as a token so the display face stays swappable. */
+  --display-stretch: normal;
   --text: "Switzer", "Avenir Next", system-ui, sans-serif;
   --mono: "Geist Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 

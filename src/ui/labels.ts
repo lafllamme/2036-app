@@ -1,5 +1,7 @@
 import type { EffectTargetId, EventCategory } from '../core/contracts'
 
+export { formatNumber } from '../core/format'
+
 export const TARGET_LABELS: Record<string, string> = {
   population: 'Einwohner',
   households: 'Haushalte',
@@ -49,11 +51,6 @@ export const CATEGORY_LABELS: Record<EventCategory, string> = {
   economy: 'Wirtschaft',
   finance: 'Finanzen',
   governance: 'Verwaltung',
-}
-
-/** German decimal formatting. `toFixed` yields "28.0" where a German player expects "28,0". */
-export function formatNumber(value: number, digits = 0): string {
-  return new Intl.NumberFormat('de-DE', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)
 }
 
 export const POLICY_CATEGORY_LABELS: Record<string, string> = {

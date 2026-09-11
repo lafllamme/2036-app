@@ -3,7 +3,7 @@
 | Asset | Creator | Source | License | Modification | Repository location |
 | --- | --- | --- | --- | --- | --- |
 | Procedural city geometry | 2036 project | Generated in repository | Project code | Runtime instancing | `src/rendering` |
-| Bricolage Grotesque (display) | Ateliers Brut | [Google Fonts](https://fonts.google.com/specimen/Bricolage+Grotesque) | SIL Open Font License 1.1 | Variable axes `wdth 92`, `wght 400–800` | `index.html` |
+| Supreme (display) | Indian Type Foundry | [Fontshare](https://www.fontshare.com/fonts/supreme) | Fontshare free-for-commercial-use licence | Weights 400–800 | `index.html` |
 | Switzer (body text) | Indian Type Foundry | [Fontshare](https://www.fontshare.com/fonts/switzer) | Fontshare free-for-commercial-use licence | Weights 400–700 | `index.html` |
 | Geist Mono (figures) | Vercel | [Google Fonts](https://fonts.google.com/specimen/Geist+Mono) | SIL Open Font License 1.1 | Weights 400–600 | `index.html` |
 

@@ -18,6 +18,7 @@ import type {
 } from '../core/contracts'
 import { CAMPAIGN_LAST_MONTH } from '../core/campaign'
 import { createRandomStream } from '../core/rng'
+import { formatNumber } from '../core/format'
 import { getPolicy } from '../content/policies'
 import { getEvent } from '../content/events'
 import { PARTIES, getParty, mapParties } from '../content/parties'
@@ -363,15 +364,15 @@ function significantNews(state: SimulationState, month: number, metrics: CityMet
   const { year, monthOfYear } = dateForMonth(month)
 
   if (monthOfYear === 1) {
-    items.push({ id: `budget-${month}`, month, scope: 'city', urgency: 'important', headline: `HAUSHALT ${year}: ${metrics.cityBudget.toFixed(0)} Mio. € Spielraum, ${metrics.debt.toFixed(0)} Mio. € Kassenkredite` })
+    items.push({ id: `budget-${month}`, month, scope: 'city', urgency: 'important', headline: `HAUSHALT ${year}: ${formatNumber(metrics.cityBudget)} Mio. € Spielraum, ${formatNumber(metrics.debt)} Mio. € Kassenkredite` })
   }
   const completed = Math.round(metrics.housingUnits - previous.housingUnits)
   if (monthOfYear === 7 && completed !== 0) {
-    items.push({ id: `housing-${month}`, month, scope: 'city', urgency: 'normal', headline: `WOHNUNGSMARKT: Leerstand bei ${(vacancyRate(metrics) * 100).toFixed(1)} %, Angebotsmiete ${metrics.averageRent.toFixed(2)} €/m²` })
+    items.push({ id: `housing-${month}`, month, scope: 'city', urgency: 'normal', headline: `WOHNUNGSMARKT: Leerstand bei ${formatNumber(vacancyRate(metrics) * 100, 1)} %, Angebotsmiete ${formatNumber(metrics.averageRent, 2)} €/m²` })
   }
   if (month % 3 === 0) {
     const direction = metrics.satisfaction >= previous.satisfaction ? 'stabil' : 'rückläufig'
-    items.push({ id: `quarter-${month}`, month, scope: 'city', urgency: metrics.satisfaction < 48 ? 'breaking' : 'normal', headline: `QUARTALSBERICHT: Zufriedenheit ${metrics.satisfaction.toFixed(0)} (${direction}), Beschäftigung ${metrics.employment.toFixed(1)} %` })
+    items.push({ id: `quarter-${month}`, month, scope: 'city', urgency: metrics.satisfaction < 48 ? 'breaking' : 'normal', headline: `QUARTALSBERICHT: Zufriedenheit ${formatNumber(metrics.satisfaction)} (${direction}), Beschäftigung ${formatNumber(metrics.employment, 1)} %` })
   }
   return items
 }

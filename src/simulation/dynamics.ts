@@ -1,4 +1,5 @@
 import type { CausalEdge, CityMetrics, HealthScores, PerceptionState } from '../core/contracts'
+import { formatNumber } from '../core/format'
 import {
   BASELINE_BUSINESS_DENSITY,
   BASELINE_METRICS as BASE,
@@ -70,7 +71,7 @@ export function stepDynamics(
   const profitability = clamp(0.25 + (previous.averageRent - 11.4) / 2.6, 0.15, 2.4)
   const privateStarts = 36 * profitability
   metrics.unitsUnderConstruction += privateStarts
-  note('unitsUnderConstruction', privateStarts, `Privater Wohnungsbau reagiert auf ${previous.averageRent.toFixed(2)} €/m²`)
+  note('unitsUnderConstruction', privateStarts, `Privater Wohnungsbau reagiert auf ${formatNumber(previous.averageRent, 2)} €/m²`)
 
   // Price bindings expire on their own schedule. Doing nothing loses roughly 3 % of the bound
   // stock every year — the single largest silent loss in the campaign.
@@ -122,8 +123,8 @@ export function stepDynamics(
     'averageRent',
     metrics.averageRent - previous.averageRent,
     tension > 0
-      ? `Leerstand bei ${(currentVacancy * 100).toFixed(1)} % – Markt ist angespannt`
-      : `Leerstand bei ${(currentVacancy * 100).toFixed(1)} % – Markt entspannt sich`,
+      ? `Leerstand bei ${formatNumber(currentVacancy * 100, 1)} % – Markt ist angespannt`
+      : `Leerstand bei ${formatNumber(currentVacancy * 100, 1)} % – Markt entspannt sich`,
   )
 
   // --- Labour and economy ---------------------------------------------------
@@ -211,7 +212,7 @@ export function stepDynamics(
   metrics.cityBudget = previous.cityBudget + revenue - spending
   stocks.fiscalYearRevenue += revenue
   stocks.fiscalYearSpending += spending
-  note('cityBudget', revenue - spending, `Einnahmen ${revenue.toFixed(1)} Mio. € gegen Ausgaben ${spending.toFixed(1)} Mio. € (davon ${measureMonthlyCost.toFixed(1)} Mio. € beschlossene Maßnahmen)`)
+  note('cityBudget', revenue - spending, `Einnahmen ${formatNumber(revenue, 1)} Mio. € gegen Ausgaben ${formatNumber(spending, 1)} Mio. € (davon ${formatNumber(measureMonthlyCost, 1)} Mio. € beschlossene Maßnahmen)`)
 
   if (metrics.cityBudget < 0) {
     metrics.debt = previous.debt - metrics.cityBudget

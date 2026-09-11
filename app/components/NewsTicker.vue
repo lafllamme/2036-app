@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { useResizeObserver } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useGameStore } from '~/stores/game'
 
 const game = useGameStore()
@@ -27,15 +28,7 @@ function measure(): void {
   scrolls.value = cycle.scrollWidth > bar.clientWidth + 8
 }
 
-let observer: ResizeObserver | null = null
-onMounted(() => {
-  measure()
-  if (windowRef.value) {
-    observer = new ResizeObserver(() => measure())
-    observer.observe(windowRef.value)
-  }
-})
-onBeforeUnmount(() => observer?.disconnect())
+useResizeObserver(windowRef, () => measure())
 watch(items, () => void nextTick(measure))
 
 /** Constant reading speed regardless of how much history is in the loop. */

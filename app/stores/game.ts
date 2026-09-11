@@ -12,6 +12,7 @@ import type {
   VoteResult,
 } from '~/core/contracts'
 import type { RendererStats } from '~/rendering/CityRenderer'
+import { useIntervalFn } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, onScopeDispose, ref, shallowRef } from 'vue'
 import { getEvent } from '~/content/events'
@@ -49,6 +50,11 @@ export const useGameStore = defineStore('game', () => {
   const error = ref<string | null>(null)
   const saveStatus = ref('Nicht gespeichert')
   /*
+   * True while the worker owes us a snapshot. It drives the waiting sound and is the honest place
+   * for a future progress indicator; forecasts are excluded because they never commit a month.
+   */
+  const pendingCommand = ref(false)
+  /*
    * The simulation worker, the clock and IndexedDB are browser-only. The store itself is created
    * during server rendering because the entry flow reads from it, so everything that touches a
    * browser API is created behind `import.meta.client` and the rest of the store degrades to an
@@ -59,6 +65,8 @@ export const useGameStore = defineStore('game', () => {
   let previousTime = 0
 
   const send = (command: SimulationCommand): void => {
+    if (command.type !== 'REQUEST_FORECAST')
+      pendingCommand.value = true
     worker?.postMessage(command)
   }
 
@@ -66,6 +74,7 @@ export const useGameStore = defineStore('game', () => {
     if (data.type === 'ERROR') {
       error.value = data.message
       speed.value = 0
+      pendingCommand.value = false
       return
     }
     if (data.type === 'FORECAST') {
@@ -78,6 +87,7 @@ export const useGameStore = defineStore('game', () => {
     const previous = snapshot.value
     snapshot.value = data.snapshot
     ready.value = true
+    pendingCommand.value = false
     if (isCampaignComplete(data.snapshot.month))
       speed.value = 0
 
@@ -96,11 +106,12 @@ export const useGameStore = defineStore('game', () => {
     worker.onerror = () => {
       error.value = 'Die Simulation wurde angehalten. Lade die Stadt neu, um den letzten Stand wiederherzustellen.'
       speed.value = 0
+      pendingCommand.value = false
     }
     send({ type: 'INIT', seed: 2036 })
 
     previousTime = performance.now()
-    const timer = window.setInterval(() => {
+    useIntervalFn(() => {
       const now = performance.now()
       const elapsed = now - previousTime
       previousTime = now
@@ -113,10 +124,7 @@ export const useGameStore = defineStore('game', () => {
       }
     }, 250)
 
-    onScopeDispose(() => {
-      window.clearInterval(timer)
-      worker?.terminate()
-    })
+    onScopeDispose(() => worker?.terminate())
   }
 
   const currentDate = computed(() => {
@@ -338,6 +346,7 @@ export const useGameStore = defineStore('game', () => {
     ready,
     error,
     saveStatus,
+    pendingCommand,
     openDecisionId,
     openDecision,
     pendingDecisions,

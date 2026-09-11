@@ -20,5 +20,9 @@ An earlier version relied on `experimental.processCSSVariables` so the scanner c
 hidden inside CSS variables. Declaring the families explicitly is less fragile: a scan that finds
 nothing fails silently, with every face quietly degrading to a system fallback.
 
-No other third-party visual assets are included in the vertical slice. Additions require an entry
-before merge; assets with unclear licenses are rejected.
+On the web UI SFX synthesises its cues locally through Web Audio and fetches nothing, so no audio
+file enters the repository or the bundle and `docs/ASSET_PIPELINE.md` does not apply to it. The
+package also ships MP3 and Ogg renders for native targets; they are unused here.
+
+No other third-party visual or audio assets are included in the vertical slice. Additions require an
+entry before merge; assets with unclear licenses are rejected.

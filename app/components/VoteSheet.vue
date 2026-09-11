@@ -2,12 +2,14 @@
 import type { EventOption, PartyId, PolicyEffect } from '~/core/contracts'
 import { storeToRefs } from 'pinia'
 import { computed, watch } from 'vue'
+import { useSound } from '~/composables/useSound'
 import { PARTIES } from '~/content/parties'
 import { useGameStore } from '~/stores/game'
 import { CATEGORY_LABELS, CONFIDENCE_LABELS, effectTone, formatNumber, targetLabel } from '~/utils/labels'
 
 const game = useGameStore()
 const { openDecision, forecasts, snapshot } = storeToRefs(game)
+const sound = useSound()
 
 watch(openDecision, (next) => {
   if (next)
@@ -118,6 +120,34 @@ const singleOption = computed(() => {
   const definition = openDecision.value?.definition
   return definition?.options.length === 1 && definition.options[0]?.label === definition.title
 })
+
+/**
+ * Calling a vote on a motion that costs money is the moment the city commits its budget, so it
+ * gets the commerce cue rather than the neutral one. Only the sheet knows the option's price.
+ */
+function callVote(option: EventOption): void {
+  const definitionId = openDecision.value?.definition.id
+  if (!definitionId)
+    return
+  sound.play(option.oneOffCost > 0 || option.monthlyCost > 0 ? 'budget.committed' : 'vote.called')
+  game.resolveDecision(definitionId, option.id)
+}
+
+function startCampaign(optionId: string): void {
+  const definitionId = openDecision.value?.definition.id
+  if (!definitionId)
+    return
+  sound.play('vote.campaignSent')
+  game.campaignFor(definitionId, optionId)
+}
+
+function startNegotiation(partyId: PartyId): void {
+  const definitionId = openDecision.value?.definition.id
+  if (!definitionId)
+    return
+  sound.play('vote.negotiationSent')
+  game.negotiate(definitionId, partyId)
+}
 
 function negotiationHint(partyId: PartyId): string {
   const option = openDecision.value?.definition.options[0]
@@ -244,11 +274,11 @@ function negotiationHint(partyId: PartyId): string {
             type="button"
             class="quiet-button"
             :disabled="capital < 18 || openDecision.prepared.campaignedOptionIds.includes(option.id)"
-            @click="game.campaignFor(openDecision.definition.id, option.id)"
+            @click="startCampaign(option.id)"
           >
             {{ openDecision.prepared.campaignedOptionIds.includes(option.id) ? 'Kampagne läuft' : 'Öffentliche Kampagne · 18 Kapital' }}
           </button>
-          <button type="button" class="primary" @click="game.resolveDecision(openDecision.definition.id, option.id)">
+          <button type="button" class="primary" @click="callVote(option)">
             Abstimmen lassen
           </button>
         </div>
@@ -267,7 +297,7 @@ function negotiationHint(partyId: PartyId): string {
             class="quiet-button"
             :title="negotiationHint(party.id)"
             :disabled="capital < 12 || openDecision.prepared.negotiatedPartyIds.includes(party.id)"
-            @click="game.negotiate(openDecision.definition.id, party.id)"
+            @click="startNegotiation(party.id)"
           >
             <i :style="{ background: party.color }" />{{ party.abbreviation }}
             <template v-if="openDecision.prepared.negotiatedPartyIds.includes(party.id)">

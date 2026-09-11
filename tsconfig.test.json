@@ -30,6 +30,7 @@
     "eslint.config.js",
     "uno.config.ts",
     "tests/**/*.ts",
+    "app/audio/**/*.ts",
     "app/content/**/*.ts",
     "app/core/**/*.ts",
     "app/simulation/**/*.ts",

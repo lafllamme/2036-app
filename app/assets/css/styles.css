@@ -296,6 +296,41 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
 }
 .close-button:hover { color: var(--ink); }
 
+.icon-button {
+  display: grid; flex: none; place-items: center;
+  width: 32px; height: 32px; padding: 0;
+  border: 1px solid var(--hairline); border-radius: 50%;
+  background: transparent; color: var(--dim); font-size: 14px; cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+.icon-button:hover { border-color: var(--ink); color: var(--ink); }
+
+/* --- Settings ----------------------------------------------------------- */
+
+.settings-dialog h2 { margin: 6px 0 20px; font-family: var(--display); font-size: 25px; font-weight: 700; letter-spacing: -0.02em; }
+
+.settings-row {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
+  padding: 15px 0; border-top: 1px solid var(--rule);
+}
+.settings-label strong { display: block; font-family: var(--text); font-size: 13px; font-weight: 600; }
+.settings-label p { margin: 4px 0 0; max-width: 30ch; color: var(--dim); font-size: 11px; line-height: 1.45; }
+.settings-row .quiet-button { flex: none; min-width: 62px; }
+
+.settings-slider { display: flex; flex: none; align-items: center; gap: 11px; }
+.settings-slider b { min-width: 42px; font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; }
+.settings-slider input[type="range"] {
+  width: 116px; height: 2px; appearance: none; background: var(--hairline); border-radius: var(--r-pill); cursor: pointer;
+}
+.settings-slider input[type="range"]:disabled { opacity: 0.32; cursor: not-allowed; }
+.settings-slider input[type="range"]::-webkit-slider-thumb {
+  appearance: none; width: 13px; height: 13px; border: 0; border-radius: 50%; background: var(--ink); cursor: pointer;
+}
+.settings-slider input[type="range"]::-moz-range-thumb {
+  width: 13px; height: 13px; border: 0; border-radius: 50%; background: var(--ink); cursor: pointer;
+}
+.settings-dialog .source-note { margin-top: 17px; }
+
 .camera-help {
   position: absolute; bottom: 62px; left: 16px; z-index: 3;
   display: flex; gap: 15px; padding: 9px 15px; border-radius: var(--r-pill);
@@ -368,13 +403,13 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
   -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
 }
 
-.news-dialog, .vote-result {
+.news-dialog, .vote-result, .settings-dialog {
   position: relative; width: min(440px, 100%); padding: 26px 28px 22px;
   border-radius: var(--r-panel); background: var(--panel-strong);
   -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
   box-shadow: var(--shadow);
 }
-.news-dialog small, .vote-result small, .vote-sheet header small {
+.news-dialog small, .vote-result small, .settings-dialog small, .vote-sheet header small {
   display: block; color: var(--dim);
   font-family: var(--mono); font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase;
 }

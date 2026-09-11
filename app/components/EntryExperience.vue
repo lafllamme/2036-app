@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import type { PartyDefinition, PartyPolicyPosition } from '~/core/contracts'
+import type { CampaignPriorityId, PartyDefinition, PartyPolicyPosition } from '~/core/contracts'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
+import { useSound } from '~/composables/useSound'
+import { useSoundSettings } from '~/composables/useSoundSettings'
 import {
   CAMPAIGN_PRIORITIES,
   getParty,
@@ -12,6 +14,8 @@ import { getPolicy } from '~/content/policies'
 import { useGameStore } from '~/stores/game'
 
 const game = useGameStore()
+const settings = useSoundSettings()
+const sound = useSound()
 const {
   experienceStage,
   ready,
@@ -36,6 +40,19 @@ const stanceLabel: Record<PartyPolicyPosition['stance'], string> = {
 }
 
 const policyName = (policyId: string): string => getPolicy(policyId)?.name ?? policyId
+
+/**
+ * The store silently drops a fourth priority, so without this the click has no consequence a
+ * player can perceive at all. The refusal cue is the only feedback that moment has.
+ */
+function choosePriority(priorityId: CampaignPriorityId): void {
+  const chosen = selectedPriorityIds.value
+  if (chosen.length === 3 && !chosen.includes(priorityId)) {
+    sound.play('entry.priorityRejected')
+    return
+  }
+  game.togglePriority(priorityId)
+}
 
 function moveBannerFocus(event: KeyboardEvent, index: number): void {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key))
@@ -83,7 +100,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
             <button type="button" disabled>
               <Icon name="lucide:play" />Fortsetzen
             </button>
-            <button type="button" disabled>
+            <button type="button" @click="settings.openSettings()">
               <Icon name="lucide:settings" />Einstellungen
             </button>
           </div>
@@ -231,7 +248,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
               type="button"
               :class="{ selected: selectedPriorityIds.includes(priority.id) }"
               :aria-pressed="selectedPriorityIds.includes(priority.id)"
-              @click="game.togglePriority(priority.id)"
+              @click="choosePriority(priority.id)"
             >
               <span>
                 {{ selectedPriorityIds.includes(priority.id) ? 'Ausgewählt' : 'Priorität' }}

@@ -28,18 +28,26 @@ export function bindInteractionSounds(bus: AudioBus, root: Document = document):
   let lastHovered: HTMLElement | null = null
 
   /*
+   * Only a press unlocks. Hover and focus are not user activation, so asking the browser to open
+   * an AudioContext from one is refused — and asking early is worse than not asking, because the
+   * pointer crosses a button long before the first click.
+   *
    * unlock() has to start inside the trusted handler, and it is a no-op once open. Starting it
    * before the cue is what lets the bus defer that cue through the handshake instead of losing it.
    */
-  const emit = (event: 'ui.press' | 'ui.hover' | 'ui.focus'): void => {
+  const activate = (event: 'ui.press'): void => {
     void bus.unlock()
+    bus.play(event)
+  }
+
+  const emit = (event: 'ui.hover' | 'ui.focus'): void => {
     bus.play(event)
   }
 
   const stops = [
     useEventListener(root, 'pointerdown', (event: PointerEvent) => {
       if (control(event.target))
-        emit('ui.press')
+        activate('ui.press')
     }, true),
 
     useEventListener(root, 'pointerover', (event: PointerEvent) => {
@@ -61,7 +69,7 @@ export function bindInteractionSounds(bus: AudioBus, root: Document = document):
       if (event.key !== 'Enter' && event.key !== ' ')
         return
       if (control(event.target))
-        emit('ui.press')
+        activate('ui.press')
     }, true),
 
     useEventListener(root, 'focusin', (event: FocusEvent) => {

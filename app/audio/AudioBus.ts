@@ -63,8 +63,9 @@ export class AudioBus {
   }
 
   /**
-   * Call from the first trusted pointer or keyboard event. Repeat calls collapse onto the first
-   * attempt, so every listener in the app may call it without coordinating.
+   * Call from a trusted pointer or keyboard event. Concurrent calls collapse onto the attempt in
+   * flight, so every listener may call it without coordinating — but a *failed* attempt is never
+   * cached, because the next real gesture deserves a fresh try.
    */
   async unlock(): Promise<boolean> {
     if (this.unlocked)
@@ -82,6 +83,14 @@ export class AudioBus {
       const opened = await player.unlock()
       this.player = player
       this.unlocked = opened
+      /*
+       * A browser that refuses the context resolves false rather than throwing. Keeping that
+       * promise would make `??=` hand the same false to every later gesture and leave the bus
+       * permanently silent — which is exactly what happened when a hover raced ahead of the
+       * first click and spent the one attempt before any user activation existed.
+       */
+      if (!opened)
+        this.unlocking = null
       return opened
     }
     catch {

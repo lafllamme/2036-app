@@ -8,11 +8,12 @@ import { SILENT_BY_DESIGN, SOUND_CUES } from '~/audio/cues'
 
 const projectRoot = resolve(import.meta.dirname, '../..')
 
-function fakePlayer(): { player: UISFXPlayer, played: string[] } {
+function fakePlayer(unlockResults: boolean[] = []): { player: UISFXPlayer, played: string[] } {
   const played: string[] = []
+  let attempt = 0
   const handle: PlayingSFX = { stop: vi.fn(), ended: Promise.resolve() }
   const player: UISFXPlayer = {
-    unlock: async () => true,
+    unlock: async () => unlockResults[attempt++] ?? true,
     play: (cue) => {
       played.push(cue)
       return handle
@@ -136,6 +137,25 @@ describe('audioBus', () => {
     expect(played).toEqual([])
 
     bus.setEnabled(true)
+    bus.play('vote.passed')
+    expect(played).toEqual(['success'])
+  })
+
+  it('retries after a browser refuses the context instead of staying dead', async () => {
+    /*
+     * Regression, and the reason the interface was silent in a real browser. A refused context
+     * resolves false rather than throwing; caching that promise made every later gesture reuse
+     * the same refusal. A hover reached a button before the first click, spent the one attempt
+     * with no user activation behind it, and no click afterwards could ever open audio again.
+     */
+    const { player, played } = fakePlayer([false])
+    const bus = new AudioBus({ createPlayer: () => player })
+
+    expect(await bus.unlock()).toBe(false)
+    bus.play('vote.passed')
+    expect(played).toEqual([])
+
+    expect(await bus.unlock()).toBe(true)
     bus.play('vote.passed')
     expect(played).toEqual(['success'])
   })

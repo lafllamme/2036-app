@@ -11,12 +11,6 @@ export default defineNuxtConfig({
    * and "Switzer" exist on more than one service.
    */
   fonts: {
-    /*
-     * The design tokens hold the family names (`--display: "Supreme", …`), and the scanner only
-     * looks at literal `font-family` declarations. Without this it finds nothing, emits no
-     * @font-face at all, and the interface silently falls back to system faces.
-     */
-    experimental: { processCSSVariables: true },
     families: [
       { name: 'Supreme', provider: 'fontshare', weights: [400, 500, 700, 800] },
       { name: 'Switzer', provider: 'fontshare', weights: [400, 500, 600, 700] },

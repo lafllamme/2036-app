@@ -37,7 +37,9 @@ and an IndexedDB handle during setup, which runs on the server as soon as the en
 store. Everything browser-bound now sits behind `import.meta.client`, and the store degrades to an
 empty snapshot server-side.
 
-UnoCSS carries the design system as theme values and shortcuts (`ui-panel`, `ui-action`, `ui-label`).
+UnoCSS carries the design system as theme values and shortcuts (`ui-panel`, `ui-action`, `ui-label`),
+including the three typefaces. The stylesheet aliases the theme (`--display: var(--font-display)`)
+rather than restating the stacks, so a family is named in exactly one place.
 Bespoke pieces — the ticker marquee, the seat bar, container queries, backdrop-filter stacks — stay
 in `app/assets/css/styles.css`, because expressing them as utilities would make the templates harder
 to read without making the system more consistent.

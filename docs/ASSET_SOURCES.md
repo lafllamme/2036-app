@@ -11,10 +11,14 @@ Typefaces are self-hosted via `@nuxt/fonts`: the module downloads all three fami
 and serves them from `/_fonts/`, together with fallback metrics that prevent layout shift. No font
 request reaches a third party at runtime, and the interface keeps its type without a network.
 
-The scanner only reads literal `font-family` declarations. Because the family names live in the
-design tokens (`--display: "Supreme", …`), `experimental.processCSSVariables` has to stay enabled —
-without it the module finds nothing, emits no `@font-face` at all, and everything silently falls back
-to system faces.
+The three stacks are declared once, in `uno.config.ts`, and `app/assets/css/styles.css` aliases them
+(`--display: var(--font-display)`). `nuxt.config.ts` names the same families with their provider and
+weights, which is what the module acts on — it does not have to infer anything from the stylesheet,
+and it rewrites the theme variables to carry the generated fallback families.
+
+An earlier version relied on `experimental.processCSSVariables` so the scanner could see family names
+hidden inside CSS variables. Declaring the families explicitly is less fragile: a scan that finds
+nothing fails silently, with every face quietly degrading to a system fallback.
 
 No other third-party visual assets are included in the vertical slice. Additions require an entry
 before merge; assets with unclear licenses are rejected.

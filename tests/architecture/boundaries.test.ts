@@ -72,7 +72,13 @@ describe('architecture boundaries', () => {
     const stylesheet = readFileSync(resolve(projectRoot, 'app/assets/css/styles.css'), 'utf8')
     const defined = new Set(Array.from(stylesheet.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm), match => match[1]))
 
-    // Set at runtime via :style bindings rather than declared in the stylesheet.
+    // The typefaces live in the UnoCSS theme, which emits them as --font-<key>. Read the keys from
+    // the config rather than allow-listing them, so a renamed family still fails here.
+    const unoConfig = readFileSync(resolve(projectRoot, 'uno.config.ts'), 'utf8')
+    const fontBlock = unoConfig.slice(unoConfig.indexOf('font: {'), unoConfig.indexOf('radius: {'))
+    for (const match of fontBlock.matchAll(/^\s{6}([a-z]+):/gm)) defined.add(`--font-${match[1]}`)
+
+    // Set at runtime via :style bindings rather than declared anywhere.
     const runtimeProvided = new Set(['--party-color', '--party-accent', '--ticker-duration'])
 
     for (const file of [...sourceFiles('app/components'), { path: 'app/assets/css/styles.css', source: stylesheet }]) {

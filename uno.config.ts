@@ -3,6 +3,10 @@ import { defineConfig, presetWind4 } from 'unocss'
 /*
  * The design system lives here as theme values and shortcuts; see DESIGN.md for the rules.
  *
+ * The three typefaces are defined here and nowhere else. UnoCSS emits them as literal
+ * `font-family` declarations, which is what lets @nuxt/fonts discover and self-host them — a family
+ * name hidden inside a CSS variable is invisible to that scanner.
+ *
  * Bespoke pieces — the ticker marquee, the seat bar, container queries, backdrop-filter stacks —
  * stay in app/assets/css/styles.css, because expressing them as utilities would make the templates
  * harder to read without making the system more consistent.
@@ -28,6 +32,12 @@ export default defineConfig({
       inner: '14px',
     },
   },
+
+  /*
+   * Emitted unconditionally so the stylesheet can alias them and @nuxt/fonts always sees all three,
+   * even before a component happens to use the utility.
+   */
+  safelist: ['font-display', 'font-text', 'font-mono'],
 
   shortcuts: {
     /** The one surface primitive. Nothing may invent its own panel treatment. */

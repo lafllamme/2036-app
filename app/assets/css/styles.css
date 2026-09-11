@@ -9,12 +9,12 @@
 :root {
   color-scheme: dark;
 
-  /* Type */
-  --display: "Supreme", "Avenir Next", system-ui, sans-serif;
+  /* Type — the three stacks are defined once in uno.config.ts and aliased here. */
+  --display: var(--font-display);
   /* Supreme has no width axis — kept as a token so the display face stays swappable. */
   --display-stretch: normal;
-  --text: "Switzer", "Avenir Next", system-ui, sans-serif;
-  --mono: "Geist Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --text: var(--font-text);
+  --mono: var(--font-mono);
 
   /* Surface */
   --ink: #f6f3ec;

@@ -32,6 +32,8 @@ export default defineConfig({
     command: 'pnpm dev',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
+    // Nuxt's cold start in CI regularly exceeds Playwright's 60 s default.
+    timeout: 180_000,
     stdout: 'pipe',
     stderr: 'pipe',
   },

@@ -120,3 +120,31 @@ describe('motion preparation', () => {
     expect(forecast?.majorityProbability ?? 1).toBeLessThan(0.6)
   })
 })
+
+describe('modal arbitration', () => {
+  it('holds a newly raised motion back until the vote result is acknowledged', async () => {
+    // Regression: both overlays render a full-screen backdrop. Shown together they stacked, and the
+    // upper one swallowed every click — including "Nächster Monat", which hung the browser suite.
+    const { createPinia, setActivePinia } = await import('pinia')
+    setActivePinia(createPinia())
+    const { useGameStore } = await import('../../app/stores/game')
+    const game = useGameStore()
+
+    game.lastVoteResult = {
+      optionId: 'saf-burglary-order',
+      passed: true,
+      yesSeats: 34,
+      noSeats: 20,
+      abstainSeats: 6,
+      votes: [],
+      forecast: { expectedYesSeats: 34, expectedNoSeats: 20, majorityProbability: 0.8, parties: [] },
+    }
+    game.openDecisionSheet('saf-burglary-series')
+
+    expect(game.openDecisionId).toBe('saf-burglary-series')
+    expect(game.openDecision).toBeNull()
+
+    game.dismissVoteResult()
+    expect(game.openDecision?.definition.id).toBe('saf-burglary-series')
+  })
+})

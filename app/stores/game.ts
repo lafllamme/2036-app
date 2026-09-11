@@ -239,7 +239,10 @@ export const useGameStore = defineStore('game', () => {
     }
   }
   const openDecision = computed(() => {
-    if (!openDecisionId.value)
+    // A vote result and a newly raised motion can both become active in the same tick. They each
+    // render a full-screen backdrop, so showing them together stacks two overlays and the upper one
+    // swallows every click. The motion waits until the result has been acknowledged.
+    if (!openDecisionId.value || lastVoteResult.value)
       return null
     const definition = decisionDefinition(openDecisionId.value)
     if (!definition)

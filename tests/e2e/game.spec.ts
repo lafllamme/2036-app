@@ -63,6 +63,7 @@ test.describe('2036 vertical slice', () => {
     await expect(result).toContainText('Enthaltungen')
     await expect(result.locator('.vote-rows li')).toHaveCount(6)
     await result.getByRole('button', { name: 'Weiter' }).click()
+    await expect(result).toBeHidden()
 
     await page.getByRole('button', { name: 'Nächster Monat' }).click()
     await expect(page.getByText('FEB 2026', { exact: true })).toBeVisible()

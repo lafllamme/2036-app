@@ -5,9 +5,11 @@ import { SOUND_CUES } from './cues'
 /** The pack chosen for 2036: paper folds, soft brush, warm wood, quiet chimes. */
 export const DEFAULT_PACK: PackName = 'zen'
 /*
- * Full scale. The pack's own cues peak around -24 dBFS, so there is no headroom to reclaim here,
- * and anything below this puts hover under the noise floor of a laptop speaker. The slider exists
- * to go quieter; 100 % is the calibrated top.
+ * Full scale, and the pack's own balance underneath it. `zen` is the quietest of the twelve — a
+ * press peaks at about -25 dBFS against -22 for every other pack — and that restraint is the
+ * reason it suits this interface. Amplifying past it was tried and reverted: four times put a
+ * press at -13 dBFS and sharpened every transient into something harsh. The slider goes down from
+ * here; nothing goes up.
  */
 export const DEFAULT_VOLUME = 1
 

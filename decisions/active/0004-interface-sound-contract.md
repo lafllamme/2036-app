@@ -36,9 +36,9 @@ The bus is silent until the first trusted gesture unlocks it, and silent wheneve
 switched sound off. Callers never check either condition. A cue raised inside the unlock handshake
 itself waits for it rather than being dropped, because it belongs to the gesture that opened it.
 
-Level is the pack's business, not ours. Measurement at the audio destination showed the `zen` cues
-peaking around −35 dBFS for hover and −24 dBFS for an outcome; the master volume is the only gain
-the product sets.
+Level stays the pack's business. Measurement across all twelve packs showed `zen` to be the
+quietest — −25 dBFS on a press against −22 for every other pack, with hover at −35 — and that
+restraint is why it suits this interface.
 
 Sound preferences live in a `createGlobalState` composable backed by `localStorage`, deliberately
 outside Pinia.
@@ -76,6 +76,11 @@ campaign priority — it plays the cue explicitly.
 - Attenuating a cue on top of the pack's own mix is how the interface was silenced once already,
   at roughly −50 dBFS for hover with every cue firing correctly. A unit test now refuses any cue
   attenuated below half, and `docs/AUDIO.md` records the measured peaks.
+- A master gain stage was built and reverted. UI SFX clamps its own volume at 1, so reaching past
+  it meant redirecting `context.destination` through a `GainNode` the bus owns; at four times gain
+  a press measured −13 dBFS and every transient turned harsh. The pack's own balance is the ceiling
+  and the slider only goes down. When the music layer needs a shared bus it can be reintroduced
+  deliberately, at unity, rather than as a loudness fix.
 - `prefers-reduced-motion` does not mute the interface. Motion sensitivity is not noise sensitivity,
   and the specification's reduced-motion mode is about movement.
 - Music is not implemented. The bus owns the master gain so a music layer can join it later without

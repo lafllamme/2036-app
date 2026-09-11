@@ -80,18 +80,34 @@ campaign priority — it plays `blocked` explicitly.
 
 ## Levels
 
-Measured at the application's own audio destination in Chrome, not estimated: the `zen` cues peak
-at about **0.018 for hover** and **0.067 for a press or an outcome** — roughly −35 and −24 dBFS.
+Measured at the application's own audio destination in Chrome, not estimated.
 
-That balance belongs to the pack, and the master volume is the only gain that is ours to set. An
-earlier build attenuated hover to 0.3 and press to 0.55 on top of a 0.6 master, which put hover
-near −50 dBFS: every cue was firing correctly and the interface was inaudible on a laptop speaker.
-The master now defaults to full scale, only the `processing` loop is attenuated — it is the one cue
-that runs continuously — and a unit test refuses any cue attenuated below half.
+`zen` is the quietest of the library's twelve packs, and that restraint is the reason it suits this
+interface. At full volume:
 
-The volume preference is stored under `2036-sound-volume-v2`. The key was bumped once, because a
+| Pack | hover | press | success |
+| --- | --- | --- | --- |
+| every other pack | −29 dBFS | −22 dBFS | −20 dBFS |
+| `zen` | −35 dBFS | −25 dBFS | −24 dBFS |
+
+The product runs at the pack's own balance. A master gain stage of its own was built and reverted:
+UI SFX clamps its volume at 1, so reaching past it meant redirecting the library's `destination`
+through a `GainNode`, and four times gain — a press at −13 dBFS — sharpened every transient into
+something harsh. The volume slider goes down from full scale; nothing goes up.
+
+One earlier calibration is worth remembering, because it silenced the interface while every cue
+fired correctly: attenuating hover to 0.3 on top of a 0.6 master put it near −50 dBFS. A unit test
+now refuses any cue attenuated below half, and only the `processing` loop is attenuated at all,
+because it is the one cue that runs continuously.
+
+If the interface ever seems silent, check the mute before the level. It is stored under
+`2036-sound-enabled` and survives every reload, which is correct behaviour that reads exactly like
+a bug. The **Einstellungen** sheet is the honest place to look; the cue trace in development shows
+`played: false` for every cue while it is off.
+
+The volume preference is stored under `2036-sound-volume-v2`. That key was bumped once, because a
 stored preference outranks a changed default and everyone who had opened the earlier build would
-otherwise have kept the broken level permanently.
+otherwise have kept a miscalibrated level permanently.
 
 ## Player control
 

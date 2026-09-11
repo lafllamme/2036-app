@@ -2,7 +2,27 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-09-11',
   devtools: { enabled: true },
 
-  modules: ['@pinia/nuxt', '@unocss/nuxt', '@nuxt/icon'],
+  modules: ['@pinia/nuxt', '@unocss/nuxt', '@nuxt/icon', '@nuxt/fonts'],
+
+  /*
+   * Self-hosted typefaces. The module downloads the three families at build time and serves them
+   * from our own origin, so the interface never falls back to system faces without a network and no
+   * font request leaves the machine at runtime. Providers are named explicitly because "Supreme"
+   * and "Switzer" exist on more than one service.
+   */
+  fonts: {
+    /*
+     * The design tokens hold the family names (`--display: "Supreme", …`), and the scanner only
+     * looks at literal `font-family` declarations. Without this it finds nothing, emits no
+     * @font-face at all, and the interface silently falls back to system faces.
+     */
+    experimental: { processCSSVariables: true },
+    families: [
+      { name: 'Supreme', provider: 'fontshare', weights: [400, 500, 700, 800] },
+      { name: 'Switzer', provider: 'fontshare', weights: [400, 500, 600, 700] },
+      { name: 'Geist Mono', provider: 'google', weights: [400, 500, 600] },
+    ],
+  },
 
   /*
    * Lucide, bundled rather than fetched: the set is installed locally via @iconify-json/lucide, so
@@ -34,13 +54,6 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         { name: 'theme-color', content: '#090d10' },
         { name: 'description', content: '2036 — politische Stadtsimulation in Lindenhafen' },
-      ],
-      link: [
-        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        { rel: 'preconnect', href: 'https://api.fontshare.com' },
-        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..600&display=swap' },
-        { rel: 'stylesheet', href: 'https://api.fontshare.com/v2/css?f[]=supreme@400,500,700,800&f[]=switzer@400,500,600,700&display=swap' },
       ],
     },
   },

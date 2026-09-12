@@ -1,7 +1,7 @@
 import type { CityBlueprint } from '../../core/contracts'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../core/rng'
-import { FLAT } from '../shared'
+import { AXIS_Y, FLAT } from '../shared'
 
 /**
  * What the ground between the buildings is made of.
@@ -23,7 +23,9 @@ const SURFACE_Y = 0.18
 
 const PAVED = /* @__PURE__ */ new THREE.Color('#6b6357')
 const YARD = /* @__PURE__ */ new THREE.Color('#5c6450')
-const PARK = /* @__PURE__ */ new THREE.Color('#47663f')
+const PARK = /* @__PURE__ */ new THREE.Color('#4c6b41')
+/** How many overlapping lawns break up an empty block, so a park is not one flat tile. */
+const PARK_PATCHES = 5
 
 export function addCitySurfaces(scene: THREE.Scene, blueprint: CityBlueprint): void {
   const rng = createRandomStream(blueprint.definition.seed, 'surfaces')
@@ -41,8 +43,9 @@ export function addCitySurfaces(scene: THREE.Scene, blueprint: CityBlueprint): v
     counts.set(cell, (counts.get(cell) ?? 0) + 1)
   }
 
-  const cells: { x: number, z: number, colour: THREE.Color }[] = []
+  const patches: { x: number, z: number, width: number, depth: number, turn: number, colour: THREE.Color }[] = []
   const scratch = new THREE.Color()
+
   for (let row = 0; row < columns; row += 1) {
     for (let column = 0; column < columns; column += 1) {
       const x = -HALF_CITY + column * BLOCK_SIZE + BLOCK_SIZE / 2
@@ -52,29 +55,62 @@ export function addCitySurfaces(scene: THREE.Scene, blueprint: CityBlueprint): v
         continue
 
       const built = counts.get(row * columns + column) ?? 0
-      // Nine plots is a full block; an empty one is a park, and the ground says so.
-      const density = Math.min(1, built / 9)
-      const colour = built === 0
-        ? scratch.copy(PARK)
-        : scratch.copy(YARD).lerp(PAVED, density)
       // A block is never quite the colour of the one next to it.
       const shade = 0.9 + rng.next() * 0.2
-      cells.push({ x, z, colour: colour.clone().multiplyScalar(shade) })
+
+      if (built > 0) {
+        // Nine plots is a full block: the more of them are taken, the more of the block is paved.
+        const density = Math.min(1, built / 9)
+        patches.push({
+          x,
+          z,
+          width: BLOCK_SIZE - 6,
+          depth: BLOCK_SIZE - 6,
+          turn: 0,
+          colour: scratch.copy(YARD).lerp(PAVED, density).multiplyScalar(shade).clone(),
+        })
+        continue
+      }
+
+      /*
+       * An empty block is parkland, and one flat square of it is exactly what it looked like: a
+       * hard-edged green tile a hundred and eighty metres across. Five overlapping patches at their
+       * own angles and their own greens make a lawn with a shape instead of a tile.
+       */
+      patches.push({ x, z, width: BLOCK_SIZE - 6, depth: BLOCK_SIZE - 6, turn: 0, colour: scratch.copy(PARK).multiplyScalar(shade * 0.94).clone() })
+      for (let patch = 0; patch < PARK_PATCHES; patch += 1) {
+        patches.push({
+          x: x + rng.between(-38, 38),
+          z: z + rng.between(-38, 38),
+          width: rng.between(52, 104),
+          depth: rng.between(46, 96),
+          turn: rng.next() * Math.PI,
+          colour: scratch.copy(PARK).multiplyScalar(0.82 + rng.next() * 0.34).clone(),
+        })
+      }
     }
   }
 
   const mesh = new THREE.InstancedMesh(
-    new THREE.PlaneGeometry(BLOCK_SIZE - 6, BLOCK_SIZE - 6),
+    new THREE.PlaneGeometry(1, 1),
     new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.98, metalness: 0 }),
-    cells.length,
+    patches.length,
   )
   const matrix = new THREE.Matrix4()
   const position = new THREE.Vector3()
-  const scale = new THREE.Vector3(1, 1, 1)
-  cells.forEach((cell, index) => {
-    matrix.compose(position.set(cell.x, SURFACE_Y, cell.z), FLAT, scale)
+  const quaternion = new THREE.Quaternion()
+  const turn = new THREE.Quaternion()
+  const scale = new THREE.Vector3()
+  patches.forEach((patch, index) => {
+    // A patch is laid flat first and then turned on the ground, not the other way round.
+    quaternion.copy(FLAT).multiply(turn.setFromAxisAngle(AXIS_Y, patch.turn))
+    matrix.compose(
+      position.set(patch.x, SURFACE_Y + (patch.turn === 0 ? 0 : 0.06), patch.z),
+      quaternion,
+      scale.set(patch.width, patch.depth, 1),
+    )
     mesh.setMatrixAt(index, matrix)
-    mesh.setColorAt(index, cell.colour)
+    mesh.setColorAt(index, patch.colour)
   })
   mesh.receiveShadow = true
   mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)

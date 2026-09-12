@@ -234,7 +234,7 @@ export class CityRenderer {
     if (this.slowClock >= 1 / SLOW_UPDATE_HZ) {
       const distance = this.rig.distance
       updateAgents(this.world, this.animationElapsed, distance, this.city.trafficFactor)
-      this.atmosphere.update(this.slowClock)
+      this.atmosphere.update(this.slowClock, this.rig.controls.target, distance)
       this.world.outskirts.visible = distance > OUTSKIRTS_RANGE
       this.slowClock = 0
     }

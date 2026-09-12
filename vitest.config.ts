@@ -17,7 +17,6 @@ export default defineConfig({
      * more than once because of it. See the resource rules in AGENTS.md.
      */
     maxWorkers: 3,
-    minWorkers: 1,
     include: ['tests/unit/**/*.test.ts', 'tests/architecture/**/*.test.ts'],
     coverage: {
       provider: 'v8',

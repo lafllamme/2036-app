@@ -3,6 +3,7 @@ import type { StreetLights } from '../world/streetLights'
 import type { CelestialBody } from './celestialBody'
 import type { SkyVisuals } from './index'
 import * as THREE from 'three/webgpu'
+import { fitShadow } from './sun'
 
 /**
  * Everything that changes with the hour: the colour of the sky, where the sun and moon stand, how
@@ -24,8 +25,15 @@ const SUN_DISC = 0xFFFDF6
  * out darker than the sky behind it and read as a hole rather than as the sun.
  */
 const SUN_LOW = /* @__PURE__ */ new THREE.Color('#ffe2be')
-const NIGHT_AMBIENT = 0x2C3D55
+const NIGHT_AMBIENT = 0x364863
 const DAY_AMBIENT = /* @__PURE__ */ new THREE.Color('#d8e4e7')
+/**
+ * What the ground bounces back. At night it used to be the daytime olive, which under a hemisphere
+ * light turned into no bounce at all and left the streets and the parks solid black between the
+ * lamps — the city disappeared rather than going dark.
+ */
+const NIGHT_GROUND = 0x2A3446
+const DAY_GROUND = /* @__PURE__ */ new THREE.Color('#4a4439')
 /** Sun and moon ride well outside the ground plane, so they set at the horizon and not on the lawn. */
 const CELESTIAL_RADIUS = 3_400
 /** The lights themselves stay close enough in for a shadow camera to be worth having. */
@@ -48,7 +56,10 @@ export class Atmosphere {
   private readonly sunColour = new THREE.Color()
   private readonly bodyColour = new THREE.Color()
   private readonly hemisphereColour = new THREE.Color()
+  private readonly groundColour = new THREE.Color()
   private readonly direction = new THREE.Vector3()
+  /** Kept apart from `direction`, which `place` consumes by scaling it out to the sky dome. */
+  private readonly sunDirection = new THREE.Vector3()
 
   constructor(private readonly subjects: AtmosphereSubjects) {}
 
@@ -65,7 +76,7 @@ export class Atmosphere {
     this.nightLife = value
   }
 
-  update(delta: number): void {
+  update(delta: number, focus: THREE.Vector3, cameraDistance: number): void {
     const { scene, sky, buildingMaterials, streetLights } = this.subjects
 
     // Ease toward the store's reading. A large jump means the campaign was reset or skipped ahead.
@@ -100,7 +111,8 @@ export class Atmosphere {
      * black — the night tone is a decision the palette makes, not one the physics makes for us.
      */
     this.aim(angle, elevation)
-    sky.dome.sunPosition.value.copy(this.direction)
+    this.sunDirection.copy(this.direction)
+    sky.dome.sunPosition.value.copy(this.sunDirection)
     sky.dome.turbidity.value = 3.4 + horizonWarmth * 6.5
     sky.dome.rayleigh.value = 1.5 + horizonWarmth * 1.7
     sky.dome.nightFade.value = THREE.MathUtils.smoothstep(arc, -0.3, -0.02)
@@ -111,13 +123,17 @@ export class Atmosphere {
      * the sun going down at dusk rebuilt every pipeline in the city at once, which is where the drop
      * at the turn of the cycle came from.
      */
-    sky.sun.light.position.set(Math.cos(angle) * LIGHT_RADIUS, Math.max(-400, elevation * 1_050 + 120), Math.sin(angle) * LIGHT_RADIUS * 0.45)
+    fitShadow(sky.sun, focus, cameraDistance, this.sunDirection, LIGHT_RADIUS)
     sky.sun.light.intensity = 0.05 + daylight * 4.1
     sky.sun.light.color.copy(this.sunColour.setHex(SUN_WHITE).lerp(EMBER, horizonWarmth))
 
     // The moon rides opposite the sun and only lights the city once the sun has gone.
-    sky.moon.light.position.set(Math.cos(moonAngle) * LIGHT_RADIUS, Math.max(-400, -elevation * 900 + 140), Math.sin(moonAngle) * LIGHT_RADIUS * 0.45)
-    sky.moon.light.intensity = (1 - daylight) * 1.25
+    sky.moon.light.position.set(
+      focus.x + Math.cos(moonAngle) * LIGHT_RADIUS,
+      Math.max(140, -elevation * 900 + 220),
+      focus.z + Math.sin(moonAngle) * LIGHT_RADIUS * 0.45,
+    )
+    sky.moon.light.intensity = (1 - daylight) * 2.1
 
     /*
      * The bodies themselves ride the same angle as their lights, on a true hemisphere: at elevation
@@ -137,15 +153,20 @@ export class Atmosphere {
      * Night keeps its real length, so it has to stay readable: an ambient floor plus lit windows
      * carry the city through a December night instead of shortening it. See ADR-0005.
      */
-    sky.hemisphere.intensity = 0.86 + daylight * 1.5
+    sky.hemisphere.intensity = 1.55 + daylight * 0.85
     sky.hemisphere.color.copy(this.hemisphereColour.setHex(NIGHT_AMBIENT).lerp(DAY_AMBIENT, daylight))
+    sky.hemisphere.groundColor.copy(this.groundColour.setHex(NIGHT_GROUND).lerp(DAY_GROUND, daylight))
 
     const starlight = Math.max(0, 1 - daylight * 2.4)
     sky.stars.visible = starlight > 0.01
     sky.stars.material.opacity = starlight
 
-    // The city's own glow at night, carried on the shared atlas material rather than a lit mesh.
-    const glow = (1 - daylight) * (0.1 + this.nightLife * 0.14)
+    /*
+     * The city's own glow at night, carried on the shared atlas material rather than a lit mesh.
+     * It is deliberately faint: raised far enough to be read as lit windows it lights the whole
+     * façade evenly instead, and a building glowing uniformly from within reads as a lantern.
+     */
+    const glow = (1 - daylight) * (0.04 + this.nightLife * 0.06)
     for (const material of buildingMaterials)
       material.emissiveIntensity = glow
 
@@ -157,13 +178,13 @@ export class Atmosphere {
      * transparent quads with an opacity of zero are still two hundred and sixty quads blended over
      * the road, every frame of every daylight hour, for no pixels at all.
      */
-    const lamps = (1 - daylight) * (0.45 + this.nightLife * 0.55)
+    const lamps = (1 - daylight) * (0.55 + this.nightLife * 0.45)
     const lit = lamps > 0.012
     streetLights.heads.visible = lit
     streetLights.pools.visible = lit
     if (lit) {
       streetLights.heads.material.emissiveIntensity = lamps * 3.4
-      streetLights.pools.material.opacity = lamps * 0.5
+      streetLights.pools.material.opacity = lamps * 0.72
     }
   }
 

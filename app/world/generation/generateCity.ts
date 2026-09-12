@@ -1,5 +1,6 @@
 import type { BuildingRecord, BuildingType, CityBlueprint, RoadRecord, TreeRecord } from '../../core/contracts'
 import { createRandomStream } from '../../core/rng'
+import { cityDepth } from '../cityShape'
 import { districtAt, LINDENHAFEN } from '../model/lindenhafen'
 
 const HALF_CITY = 1_440
@@ -54,25 +55,47 @@ export function generateCity(seed = LINDENHAFEN.seed): CityBlueprint {
     roadIndex += 1
   }
 
-  const parcelXs = [-58, 0, 58] as const
-  const parcelZs = [-52, 0, 52] as const
+  /*
+   * Parcel grids, coarse to fine. A block near the centre is cut into nine plots and built out
+   * almost fully; one at the edge is cut into four and half of them stay empty. The city used to
+   * use the same nine-plot grid at the same density everywhere, which is what made it read as a
+   * uniform mat with a hard square edge rather than as a place with a middle.
+   */
+  const PARCEL_GRIDS = [
+    { offsets: [-63, -21, 21, 63], spread: 0.78 },
+    { offsets: [-52, 0, 52], spread: 1 },
+    { offsets: [-45, 45], spread: 1.3 },
+  ] as const
   let buildingIndex = 0
 
   for (let blockX = -HALF_CITY + BLOCK_SIZE / 2; blockX < HALF_CITY; blockX += BLOCK_SIZE) {
     for (let blockZ = -HALF_CITY + BLOCK_SIZE / 2; blockZ < HALF_CITY; blockZ += BLOCK_SIZE) {
       if (isRiver(blockX) || isPark(blockX, blockZ))
         continue
-      const districtId = districtAt(blockX, blockZ)
-      const density = districtId === 'vorstadt-west' ? 0.62 : districtId === 'hafen-industrie' ? 0.7 : 0.94
+      /*
+       * The city's own edge wanders, and the suburbs the renderer scatters read the same line. A
+       * block past it is countryside: nothing is laid out there, and the corners of the old square
+       * go with it.
+       */
+      const depth = cityDepth(blockX, blockZ, seed)
+      if (depth > 1)
+        continue
 
-      for (const offsetX of parcelXs) {
-        for (const offsetZ of parcelZs) {
+      const districtId = districtAt(blockX, blockZ)
+      const districtDensity = districtId === 'vorstadt-west' ? 0.72 : districtId === 'hafen-industrie' ? 0.76 : 0.97
+      // Dense in the middle, loose at the rim, with the last blocks half empty.
+      const density = districtDensity * (1 - 0.26 * depth ** 1.8)
+      const grid = PARCEL_GRIDS[depth < 0.48 ? 0 : depth < 0.88 ? 1 : 2] ?? PARCEL_GRIDS[1]
+      const { offsets: parcels, spread } = grid
+
+      for (const offsetX of parcels) {
+        for (const offsetZ of parcels) {
           const occupied = buildingRng.next() <= density
-          const x = blockX + offsetX + buildingRng.between(-5, 5)
-          const z = blockZ + offsetZ + buildingRng.between(-5, 5)
+          const x = blockX + offsetX + buildingRng.between(-6, 6)
+          const z = blockZ + offsetZ + buildingRng.between(-6, 6)
           const type = buildingTypeFor(districtId, buildingRng.next())
           const [minHeight, maxHeight] = baseHeight(type)
-          const centerBoost = Math.max(0, 1 - Math.hypot(x, z) / 1_200)
+          const centerBoost = Math.max(0, 1 - depth * 1.15)
           const height = buildingRng.between(minHeight, maxHeight) * (1 + centerBoost * (type === 'commercial' || type === 'modern' ? 0.8 : 0.25))
           const record: BuildingRecord = {
             id: occupied ? `b-${buildingIndex.toString(36)}` : `g-${growthSlots.length.toString(36)}`,
@@ -80,10 +103,12 @@ export function generateCity(seed = LINDENHAFEN.seed): CityBlueprint {
             type,
             x,
             z,
-            width: buildingRng.between(34, 48),
-            depth: buildingRng.between(32, 42),
+            width: buildingRng.between(34, 48) * spread,
+            depth: buildingRng.between(32, 42) * spread,
             height,
-            rotation: buildingRng.next() > 0.5 ? 0 : Math.PI,
+            // A free angle, not one of two: a street of buildings all square to the same axis is a
+            // grid you can feel even when the grid itself is hidden behind them.
+            rotation: buildingRng.between(-0.06, 0.06) + (buildingRng.next() > 0.5 ? 0 : Math.PI),
             condition: buildingRng.between(0.62, 0.98),
             occupancy: buildingRng.between(0.76, 0.99),
           }

@@ -1,9 +1,23 @@
 import type { BuildingRecord, CityBlueprint, SimulationSnapshot, SkyState } from '../core/contracts'
 import type { CityModels } from './cityModels'
-import type { CelestialBody, WorldVisuals } from './createWorld'
-import { MapControls } from 'three/addons/controls/MapControls.js'
+import type { SkyVisuals } from './sky/index'
+import type { WorldVisuals } from './world/index'
 import * as THREE from 'three/webgpu'
-import { createWorld } from './createWorld'
+import { CameraRig } from './cameraRig'
+import { BuildingPicker } from './picking'
+import { Atmosphere } from './sky/atmosphere'
+import { createSky } from './sky/index'
+import { updateAgents } from './world/agents'
+import { CityState } from './world/cityState'
+import { createWorld } from './world/index'
+
+/**
+ * The one place that owns a frame.
+ *
+ * It builds the scene out of the world and sky modules, hands the simulation's snapshots to the
+ * city and the campaign's clock to the atmosphere, and decides what is worth doing this frame and
+ * what is worth doing thirty times a second. Everything it draws is built somewhere else.
+ */
 
 export interface RendererStats {
   backend: string
@@ -23,80 +37,52 @@ export interface CityRendererOptions {
   onError: (message: string) => void
 }
 
-/** Palette constants, hoisted so the render loop allocates no colours at all. */
-const NIGHT_SKY = 0x0D1522
-const DAY_SKY = new THREE.Color('#94aebc')
-const EMBER = new THREE.Color('#c9764f')
-const SUN_WHITE = 0xFFF2D2
-const SUN_DISC = 0xFFFDF6
 /**
- * What the sun's own colour becomes as it sinks. It stays a very light warm white on purpose: the
- * sprite is blended over a sky that is brighter than any mid-tone, so a properly orange disc came
- * out darker than the sky behind it and read as a hole rather than as the sun.
+ * How often the things that are not the frame itself are brought up to date.
+ *
+ * The sky is handed a new reading four times a second, and traffic moves a couple of metres between
+ * frames; running either at 120 Hz spends CPU and a buffer upload on differences nobody can see.
+ * The camera, the controls and the draw stay on the frame, because those are what the player holds.
  */
-const SUN_LOW = new THREE.Color('#ffe2be')
-/** Sun and moon ride well outside the ground plane, so they set at the horizon and not on the lawn. */
-const CELESTIAL_RADIUS = 3_400
-const NIGHT_AMBIENT = 0x2C3D55
-const DAY_AMBIENT = new THREE.Color('#d8e4e7')
+const SLOW_UPDATE_HZ = 30
+/**
+ * A 2048² shadow pass for a sun that moves a fraction of a degree between frames is pure waste.
+ * Twelve times a second is indistinguishable and frees a shadow pass on four frames out of five.
+ */
+const SHADOW_HZ = 12
+/** Below this camera distance the suburbs are behind the skyline and two kilometres of haze. */
+const OUTSKIRTS_RANGE = 900
 
 export class CityRenderer {
   private readonly canvas: HTMLCanvasElement
   private readonly scene = new THREE.Scene()
-  private readonly camera = new THREE.PerspectiveCamera(46, 1, 2, 8_000)
   private readonly renderer: THREE.WebGPURenderer
-  private readonly controls: MapControls
-  private readonly visuals: WorldVisuals
-  private readonly raycaster = new THREE.Raycaster()
-  private readonly pointer = new THREE.Vector2()
+  private readonly rig: CameraRig
+  private readonly world: WorldVisuals
+  private readonly sky: SkyVisuals
+  private readonly atmosphere: Atmosphere
+  private readonly city: CityState
+  private readonly picker: BuildingPicker
   private readonly timer = new THREE.Timer()
-  private readonly onBuildingSelected: CityRendererOptions['onBuildingSelected']
+  private readonly resizeObserver: ResizeObserver
   private readonly onStats: CityRendererOptions['onStats']
   private readonly buildingCount: number
-  private readonly resizeObserver: ResizeObserver
-  private hovered: { mesh: THREE.InstancedMesh, index: number } | null = null
-  private selected: BuildingRecord | null = null
-  private focusTween: { started: number, fromTarget: THREE.Vector3, toTarget: THREE.Vector3, fromCamera: THREE.Vector3, toCamera: THREE.Vector3 } | null = null
+
   private frameCounter = 0
   private fps = 0
   private fpsWindowStart = performance.now()
   private animationElapsed = 0
-  private trafficFactor = 1
-  private readonly blueprint: CityBlueprint
-  /** Dwellings one rendered building stands for, so the skyline scales with the real stock. */
-  private readonly unitsPerBuilding: number
-  private nightLife = 0.67
-  private appliedBlight = -1
-  /** How many growth parcels the simulation has filled, kept so the warm-up can hand them back. */
-  private deliveredGrowth = 0
-  /** Where the sky should be, handed in by the store; `sky` eases toward it between updates. */
-  private skyTarget: SkyState = { hourOfDay: 12, elevation: 0.55, arc: 1, sweep: 0.5, phase: 'noon', temperature: 10 }
-  private sky = { elevation: 0.55, arc: 1, sweep: 0.5 }
-  /*
-   * Scratch instances reused every frame. Allocating inside the loop produced roughly 41 000
-   * throwaway objects per second at 60 fps, all of which the collector had to sweep.
-   */
-  private readonly scratchMatrix = new THREE.Matrix4()
-  private readonly scratchQuaternion = new THREE.Quaternion()
-  private readonly scratchPosition = new THREE.Vector3()
-  private readonly scratchScale = new THREE.Vector3(1, 1, 1)
-  private readonly axisY = new THREE.Vector3(0, 1, 0)
-  private readonly skyColour = new THREE.Color()
-  private readonly sunColour = new THREE.Color()
-  private readonly bodyColour = new THREE.Color()
-  private readonly hemisphereColour = new THREE.Color()
-  private readonly celestialDirection = new THREE.Vector3()
-  private readonly sunDirection = new THREE.Vector3()
-  /** Shadows are re-rendered on a slower cadence than the frame; the sun barely moves between them. */
+  private slowClock = 0
   private shadowClock = 0
+  /** When set, frames are skipped to hold this rate — used while the city is only a backdrop. */
+  private frameCap: number | null = null
+  private lastFrame = 0
 
   constructor(options: CityRendererOptions) {
     this.canvas = options.canvas
-    this.onBuildingSelected = options.onBuildingSelected
     this.onStats = options.onStats
     this.buildingCount = options.blueprint.buildings.length
-    this.blueprint = options.blueprint
-    this.unitsPerBuilding = 62_000 / Math.max(1, options.blueprint.buildings.length + options.blueprint.growthSlots.length)
+
     const forceWebGL = new URLSearchParams(window.location.search).has('webgl')
     this.renderer = new THREE.WebGPURenderer({ canvas: this.canvas, antialias: true, forceWebGL })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.65))
@@ -108,41 +94,32 @@ export class CityRenderer {
     this.renderer.info.autoReset = false
 
     this.scene.background = new THREE.Color('#94aebc')
-    this.scene.fog = new THREE.FogExp2('#91a8b1', 0.00022)
-    /*
-     * Low enough that the horizon sits inside the frame. The opening shot used to look almost
-     * straight down, which put the entire sky — and with it the sun, the moon and every hour of the
-     * day — outside the picture: the cycle was running the whole time and could not be seen.
-     */
-    this.camera.position.set(1_720, 1_030, 1_800)
+    this.scene.fog = new THREE.FogExp2('#91a8b1', 0.00026)
 
-    this.controls = new MapControls(this.camera, this.canvas)
-    this.controls.enableDamping = true
-    this.controls.dampingFactor = 0.075
-    this.controls.screenSpacePanning = false
-    this.controls.minDistance = 34
-    this.controls.maxDistance = 3_800
-    this.controls.maxPolarAngle = Math.PI * 0.475
-    this.controls.minPolarAngle = Math.PI * 0.09
-    this.controls.target.set(0, 0, 0)
-    this.controls.mouseButtons.LEFT = THREE.MOUSE.PAN
-    this.controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE
-    this.controls.touches.ONE = THREE.TOUCH.PAN
-    this.controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE
+    this.rig = new CameraRig(this.canvas)
+    this.world = createWorld(this.scene, options.blueprint, options.models)
+    this.sky = createSky(this.scene, options.blueprint.definition.seed)
+    this.atmosphere = new Atmosphere({
+      scene: this.scene,
+      sky: this.sky,
+      buildingMaterials: this.world.buildingMaterials,
+      streetLights: this.world.streetLights,
+    })
+    this.city = new CityState(options.blueprint, this.world)
+    this.picker = new BuildingPicker(this.canvas, this.rig.camera, this.world, {
+      onSelected: options.onBuildingSelected,
+      onFocus: building => this.rig.focusOn(building),
+    })
 
-    this.visuals = createWorld(this.scene, options.blueprint, options.models)
     this.resizeObserver = new ResizeObserver(() => this.resize())
     this.resizeObserver.observe(this.canvas)
-    this.canvas.addEventListener('pointermove', this.handlePointerMove)
-    this.canvas.addEventListener('pointerleave', this.handlePointerLeave)
-    this.canvas.addEventListener('click', this.handleClick)
 
     void this.renderer.init()
       .then(async () => {
         this.resize()
         await this.warmUp()
         this.renderer.setAnimationLoop(this.render)
-        options.onReady(this.getStats(options.blueprint.buildings.length))
+        options.onReady(this.getStats())
       })
       .catch((error: unknown) => {
         options.onError(error instanceof Error ? error.message : 'Der 3D-Renderer konnte nicht gestartet werden.')
@@ -156,126 +133,67 @@ export class CityRenderer {
    * appeared — which is the moment the player enters the city. That cost three frames of 95, 97 and
    * 57 ms, a visible lurch on the first second of the campaign. Compiling them here moves the whole
    * cost into the loading screen, where nothing is moving yet. `compileAsync` yields between objects
-   * rather than blocking, and the single forced frame afterwards covers the shadow pass, which is a
-   * second set of pipelines that compilation alone does not reach.
+   * rather than blocking, and the forced frame afterwards covers the shadow pass, which is a second
+   * set of pipelines that compilation alone does not reach.
    */
   private async warmUp(): Promise<void> {
-    const { growth, constructionSites, pedestrians } = this.visuals
+    const { growth, constructionSites, pedestrians, outskirts } = this.world
     const hidden = constructionSites.children.filter(site => !site.visible)
 
     growth.count = growth.instanceMatrix.count
     pedestrians.count = pedestrians.instanceMatrix.count
+    outskirts.visible = true
     for (const site of hidden) site.visible = true
 
     try {
-      await this.renderer.compileAsync(this.scene, this.camera)
-      this.visuals.sun.shadow.needsUpdate = true
-      this.renderer.render(this.scene, this.camera)
+      await this.renderer.compileAsync(this.scene, this.rig.camera)
+      this.sky.sun.light.shadow.needsUpdate = true
+      this.renderer.render(this.scene, this.rig.camera)
     }
     catch {
       // A failed warm-up costs a stutter, never the campaign: the real frames follow either way.
     }
     finally {
-      // The counts come back from the simulation's own figures, not from a snapshot of them taken
-      // before the await — a real snapshot can and does land while the compiler is working.
-      growth.count = this.deliveredGrowth
+      /*
+       * The counts come back from the simulation's own figures, not from a snapshot of them taken
+       * before the await — a real snapshot can and does land while the compiler is working.
+       */
+      growth.count = this.city.delivered
       pedestrians.count = 0
       for (const site of hidden) site.visible = false
-      this.visuals.sun.shadow.needsUpdate = true
+      this.sky.sun.light.shadow.needsUpdate = true
     }
   }
 
-  /**
-   * The sky follows campaign time, not the render loop. The store sends a reading roughly four times
-   * a second; the values below are eased between those updates so the sun sweeps smoothly, and they
-   * stop dead when the player pauses because the reading stops changing.
-   */
+  /** The sky follows campaign time, not the render loop: it stops dead when the player pauses. */
   setSky(state: SkyState): void {
-    this.skyTarget = state
+    this.atmosphere.setTarget(state)
   }
 
   /**
-   * The city reacts to the simulation here. Everything below reads the derived `cityVisuals` block
-   * of the snapshot, so the renderer never interprets raw indicators or policy identifiers itself.
+   * Hold the frame rate down while the city is only the backdrop to a menu. Nothing is being played
+   * there and the camera does not move, so half the frames are half the GPU for no visible loss.
    */
+  setFrameCap(fps: number | null): void {
+    this.frameCap = fps
+  }
+
   applySnapshot(snapshot: SimulationSnapshot): void {
-    const visuals = snapshot.cityVisuals
-    const slots = this.blueprint.growthSlots
-
-    this.trafficFactor = THREE.MathUtils.clamp(
-      0.62 + snapshot.metrics.employment / 230 - visuals.transitDensity * 0.22 + (snapshot.metrics.population / 120_000 - 1) * 0.6,
-      0.5,
-      1.25,
-    )
-    this.nightLife = visuals.nightLife
-
-    // Delivered housing fills the free parcels the generator left, from the centre outward.
-    const delivered = THREE.MathUtils.clamp(Math.round(visuals.completedUnitsSinceStart / this.unitsPerBuilding), 0, slots.length)
-    this.deliveredGrowth = delivered
-    this.visuals.growth.count = delivered
-
-    // Cranes stand on the next parcels in line, so building is visible before buildings are.
-    const sites = Math.min(visuals.constructionSites, this.visuals.constructionSites.children.length)
-    this.visuals.constructionSites.children.forEach((site, index) => {
-      const slot = slots[(delivered + index) % Math.max(1, slots.length)]
-      site.visible = index < sites && slot !== undefined
-      if (slot)
-        site.position.set(slot.x, 0, slot.z)
-    })
-
-    // Vacancy above the blight threshold drains colour out of a matching share of the stock.
-    if (Math.abs(visuals.blight - this.appliedBlight) > 0.02) {
-      this.appliedBlight = visuals.blight
-      const derelict = new THREE.Color('#6f6f68')
-      for (const mesh of this.visuals.buildingMeshes) {
-        const colors = this.visuals.buildingColors.get(mesh)
-        if (!colors)
-          continue
-        const affected = Math.floor(colors.length * visuals.blight)
-        colors.forEach((color, index) => {
-          mesh.setColorAt(index, index < affected ? color.clone().lerp(derelict, 0.55) : color)
-        })
-        if (mesh.instanceColor)
-          mesh.instanceColor.needsUpdate = true
-      }
-    }
-
-    // Green space is a stock the player can spend or build: fewer hectares, fewer and drier trees.
-    const greenery = THREE.MathUtils.clamp(visuals.greenery, 0.45, 1.3)
-    /*
-     * The stock is split across two meshes, one per tree model, so each is thinned against its own
-     * capacity. Setting a count past what a mesh actually holds hands the GPU an instance range
-     * longer than its buffers and every draw in the frame is rejected.
-     */
-    const share = Math.min(1, greenery)
-    for (const mesh of [this.visuals.treeCrowns, this.visuals.treeTrunks])
-      mesh.count = Math.round(mesh.instanceMatrix.count * share)
-    this.visuals.treeCrowns.material.color.copy(new THREE.Color('#8d8548').lerp(new THREE.Color('#ffffff'), THREE.MathUtils.clamp(greenery, 0, 1)))
+    this.city.apply(snapshot)
+    this.atmosphere.setNightLife(this.city.nightLife)
   }
 
   focusBuilding(buildingId: string): void {
-    const building = this.findBuilding(buildingId)
-    if (!building)
-      return
-    const target = new THREE.Vector3(building.x, building.height * 0.35, building.z)
-    const direction = this.camera.position.clone().sub(this.controls.target).normalize()
-    const distance = Math.max(95, building.height * 3.5)
-    this.focusTween = {
-      started: performance.now(),
-      fromTarget: this.controls.target.clone(),
-      toTarget: target,
-      fromCamera: this.camera.position.clone(),
-      toCamera: target.clone().add(direction.multiplyScalar(distance)).add(new THREE.Vector3(0, distance * 0.32, 0)),
-    }
+    const building = this.picker.find(buildingId)
+    if (building)
+      this.rig.focusOn(building)
   }
 
   dispose(): void {
     this.renderer.setAnimationLoop(null)
     this.resizeObserver.disconnect()
-    this.canvas.removeEventListener('pointermove', this.handlePointerMove)
-    this.canvas.removeEventListener('pointerleave', this.handlePointerLeave)
-    this.canvas.removeEventListener('click', this.handleClick)
-    this.controls.dispose()
+    this.picker.dispose()
+    this.rig.dispose()
     this.timer.dispose()
     this.renderer.dispose()
     this.scene.traverse((object) => {
@@ -287,303 +205,62 @@ export class CityRenderer {
     })
   }
 
-  private findBuilding(buildingId: string): BuildingRecord | undefined {
-    for (const records of this.visuals.buildingRecords.values()) {
-      const result = records.find(building => building.id === buildingId)
-      if (result)
-        return result
-    }
-    return undefined
-  }
-
   private resize(): void {
     const width = this.canvas.clientWidth
     const height = this.canvas.clientHeight
     if (width === 0 || height === 0)
       return
-    this.camera.aspect = width / height
-    this.camera.updateProjectionMatrix()
+    this.rig.resize(width, height)
     this.renderer.setSize(width, height, false)
   }
 
-  private readonly handlePointerMove = (event: PointerEvent): void => {
-    const rect = this.canvas.getBoundingClientRect()
-    this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-    this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
-    this.raycaster.setFromCamera(this.pointer, this.camera)
-    const intersections = this.raycaster.intersectObjects(this.visuals.buildingMeshes, false)
-    const hit = intersections[0]
-    const next = hit?.object instanceof THREE.InstancedMesh && hit.instanceId !== undefined ? { mesh: hit.object, index: hit.instanceId } : null
-    if (this.hovered && next && this.hovered.mesh === next.mesh && this.hovered.index === next.index)
-      return
-    this.restoreHover()
-    this.hovered = next
-    if (next) {
-      next.mesh.setColorAt(next.index, new THREE.Color('#f0c65a'))
-      if (next.mesh.instanceColor)
-        next.mesh.instanceColor.needsUpdate = true
-      this.canvas.style.cursor = 'pointer'
-    }
-    else {
-      this.canvas.style.cursor = 'grab'
-    }
-  }
-
-  private readonly handlePointerLeave = (): void => {
-    this.restoreHover()
-    this.canvas.style.cursor = 'grab'
-  }
-
-  private readonly handleClick = (): void => {
-    if (!this.hovered) {
-      this.selected = null
-      this.onBuildingSelected(null)
-      return
-    }
-    const records = this.visuals.buildingRecords.get(this.hovered.mesh)
-    const building = records?.[this.hovered.index] ?? null
-    this.selected = building
-    this.onBuildingSelected(building)
-    if (building)
-      this.focusBuilding(building.id)
-  }
-
-  private restoreHover(): void {
-    if (!this.hovered)
-      return
-    const colors = this.visuals.buildingColors.get(this.hovered.mesh)
-    const color = colors?.[this.hovered.index]
-    if (color) {
-      this.hovered.mesh.setColorAt(this.hovered.index, color)
-      if (this.hovered.mesh.instanceColor)
-        this.hovered.mesh.instanceColor.needsUpdate = true
-    }
-    this.hovered = null
-  }
-
-  private updateAgents(elapsed: number): void {
-    const matrix = this.scratchMatrix
-    const quaternion = this.scratchQuaternion
-    const position = this.scratchPosition
-    const citySpan = 2_880
-    const visibleCars = Math.floor(180 * this.trafficFactor)
-    this.visuals.cars.count = visibleCars
-    for (let index = 0; index < visibleCars; index += 1) {
-      const horizontal = index % 2 === 0
-      const lane = ((index * 7) % 16) - 8
-      const cross = lane * 180 + (index % 4 < 2 ? 8 : -8)
-      const direction = index % 3 === 0 ? -1 : 1
-      const progress = ((elapsed * (13 + (index % 7)) * direction + index * 93) % citySpan + citySpan) % citySpan - citySpan / 2
-      const x = horizontal ? progress : cross
-      const z = horizontal ? cross : progress
-      quaternion.setFromAxisAngle(this.axisY, horizontal ? 0 : Math.PI / 2)
-      matrix.compose(position.set(x, 2.15, z), quaternion, this.scratchScale)
-      this.visuals.cars.setMatrixAt(index, matrix)
-    }
-    this.visuals.cars.instanceMatrix.needsUpdate = true
-
-    /*
-     * Pedestrians are barely a pixel from a strategic camera height, so above it they are switched
-     * off entirely rather than animated into invisibility — 320 matrix writes and a buffer upload
-     * saved on every frame the player spends looking at the whole city.
-     */
-    const distance = this.camera.position.distanceTo(this.controls.target)
-    const walkers = distance > 1_100 ? 0 : 320
-    this.visuals.pedestrians.count = walkers
-    if (walkers === 0)
-      return
-
-    quaternion.identity()
-    for (let index = 0; index < walkers; index += 1) {
-      const horizontal = index % 2 === 0
-      const block = ((index * 11) % 16) - 8
-      const cross = block * 180 + (index % 4 < 2 ? 20 : -20)
-      const progress = ((elapsed * (1.2 + (index % 5) * 0.18) + index * 51) % citySpan) - citySpan / 2
-      const x = horizontal ? progress : cross
-      const z = horizontal ? cross : progress
-      matrix.compose(position.set(x, 2.25, z), quaternion, this.scratchScale)
-      this.visuals.pedestrians.setMatrixAt(index, matrix)
-    }
-    this.visuals.pedestrians.instanceMatrix.needsUpdate = true
-  }
-
-  private updateFocus(now: number): void {
-    if (!this.focusTween)
-      return
-    const raw = Math.min(1, (now - this.focusTween.started) / 1_150)
-    const eased = 1 - (1 - raw) ** 3
-    this.controls.target.lerpVectors(this.focusTween.fromTarget, this.focusTween.toTarget, eased)
-    this.camera.position.lerpVectors(this.focusTween.fromCamera, this.focusTween.toCamera, eased)
-    if (raw >= 1)
-      this.focusTween = null
-  }
-
-  private updateAtmosphere(delta: number): void {
-    // Ease toward the store's reading. A large jump means the campaign was reset or skipped ahead.
-    const ease = Math.min(1, delta * 3.2)
-    const jumped = Math.abs(this.skyTarget.sweep - this.sky.sweep) > 0.4
-    this.sky.elevation = jumped ? this.skyTarget.elevation : this.sky.elevation + (this.skyTarget.elevation - this.sky.elevation) * ease
-    this.sky.arc = jumped ? this.skyTarget.arc : this.sky.arc + (this.skyTarget.arc - this.sky.arc) * ease
-    this.sky.sweep = jumped ? this.skyTarget.sweep : this.sky.sweep + (this.skyTarget.sweep - this.sky.sweep) * ease
-
-    /*
-     * Two different heights, on purpose. `elevation` is where the sun really is — fourteen degrees
-     * up at noon in January — and everything positional reads it. `arc` is how far through the light
-     * the day has come, one at every noon of the year, and everything about brightness reads that:
-     * a December afternoon is low, not dim, and the city has to stay legible in winter.
-     */
-    const elevation = this.sky.elevation
-    const arc = this.sky.arc
-    const daylight = THREE.MathUtils.smoothstep(arc, -0.12, 0.28)
-    // Warmth peaks while the sun sits on the horizon and fades as it climbs.
-    const horizonWarmth = THREE.MathUtils.smoothstep(0.34 - Math.abs(arc), 0, 0.34) * THREE.MathUtils.smoothstep(arc, -0.3, 0.05)
-
-    /*
-     * Neither light is ever switched off, only dimmed to zero. Toggling a light's visibility changes
-     * the scene's lighting setup, and this renderer keys every material's shader on that setup — so
-     * the sun going down at dusk rebuilt every pipeline in the city at once, which is where the drop
-     * at the turn of the cycle came from.
-     */
-
-    // The sun sweeps east to west; below the horizon it keeps going so dawn arrives from the east.
-    const angle = Math.PI * (1 - this.sky.sweep)
-
-    const sky = this.skyColour.setHex(NIGHT_SKY).lerp(DAY_SKY, daylight).lerp(EMBER, horizonWarmth * 0.62)
-    this.scene.background = sky
-    if (this.scene.fog instanceof THREE.FogExp2)
-      this.scene.fog.color.copy(sky)
-
-    /*
-     * The scattered sky itself. Its direction vector is the same arc the sun body rides, so the warm
-     * band and the disc always agree, and it fades out below the horizon rather than going Preetham
-     * black — the night tone is a decision the palette makes, not one the physics makes for us.
-     */
-    const horizontal = Math.sqrt(Math.max(0, 1 - elevation * elevation))
-    this.sunDirection.set(Math.cos(angle) * horizontal, elevation, Math.sin(angle) * horizontal * 0.45).normalize()
-    this.visuals.sky.sunPosition.value.copy(this.sunDirection)
-    this.visuals.sky.turbidity.value = 3.4 + horizonWarmth * 6.5
-    this.visuals.sky.rayleigh.value = 1.5 + horizonWarmth * 1.7
-    this.visuals.sky.nightFade.value = THREE.MathUtils.smoothstep(arc, -0.3, -0.02)
-
-    const radius = 1_250
-    this.visuals.sun.position.set(Math.cos(angle) * radius, Math.max(-400, elevation * 1_050 + 120), Math.sin(angle) * radius * 0.45)
-    this.visuals.sun.intensity = 0.05 + daylight * 4.1
-    this.visuals.sun.color.copy(this.sunColour.setHex(SUN_WHITE).lerp(EMBER, horizonWarmth))
-
-    // The moon rides opposite the sun and only lights the city once the sun has gone.
-    const moonAngle = angle + Math.PI
-    this.visuals.moon.position.set(Math.cos(moonAngle) * radius, Math.max(-400, -elevation * 900 + 140), Math.sin(moonAngle) * radius * 0.45)
-    this.visuals.moon.intensity = (1 - daylight) * 1.25
-
-    /*
-     * The bodies themselves ride the same angle as their lights, on a true hemisphere: at elevation
-     * zero they sit exactly on the horizon rather than on the light's slightly raised arc, so the
-     * disc touches down where the warm band is. They fade out over the last few degrees instead of
-     * sinking on past it, because the ground plane ends before they do and nothing would hide them.
-     */
-    this.placeBody(this.visuals.sunBody, angle, elevation, THREE.MathUtils.smoothstep(arc, -0.09, 0.015))
-    this.visuals.sunBody.sprite.material.color.copy(this.bodyColour.setHex(SUN_DISC).lerp(SUN_LOW, horizonWarmth * 0.85))
-    // The sun swells as it nears the horizon, the way haze makes it look.
-    this.visuals.sunBody.sprite.scale.setScalar(520 + horizonWarmth * 210)
-
-    // A daylight moon is real but faint; at night it carries the sky on its own.
-    this.placeBody(
-      this.visuals.moonBody,
-      moonAngle,
-      -elevation,
-      THREE.MathUtils.smoothstep(-arc, -0.05, 0.05) * (0.2 + (1 - daylight) * 0.8),
-    )
-
-    /*
-     * Night keeps its real length, so it has to stay readable: an ambient floor plus lit windows
-     * carry the city through a December night instead of shortening it. See ADR-0005.
-     */
-    this.visuals.hemisphere.intensity = 0.86 + daylight * 1.5
-    this.visuals.hemisphere.color.copy(this.hemisphereColour.setHex(NIGHT_AMBIENT).lerp(DAY_AMBIENT, daylight))
-
-    this.visuals.stars.visible = daylight < 0.5
-    const starMaterial = this.visuals.stars.material
-    starMaterial.opacity = Math.max(0, 1 - daylight * 2.4)
-
-    /*
-     * The city's own glow at night. The kit's windows are geometry rather than a separate lit mesh,
-     * so the light is carried on the shared atlas material — see the night lighting pass for the
-     * window mask itself.
-     */
-    const glow = (1 - daylight) * (0.1 + this.nightLife * 0.14)
-    for (const material of this.visuals.buildingMaterials)
-      material.emissiveIntensity = glow
-
-    /*
-     * Street lighting comes on as the light goes, and how brightly depends on how the city is doing:
-     * a place that has lost its night life leaves half its lamps dark. Both are material properties
-     * on two instanced meshes, so the whole of it costs nothing per lamp.
-     */
-    const lamps = (1 - daylight) * (0.45 + this.nightLife * 0.55)
-    this.visuals.streetLights.heads.material.emissiveIntensity = lamps * 3.4
-    this.visuals.streetLights.pools.material.opacity = lamps * 0.5
-  }
-
-  /**
-   * Put one celestial body on the sky dome. `elevation` is its own, so the moon gets the sun's arc
-   * negated. The opacity is absolute: a body's own material is never read back and scaled, or the
-   * fade would compound itself frame after frame until the sky was empty.
-   */
-  private placeBody(body: CelestialBody, angle: number, elevation: number, opacity: number): void {
-    const visible = opacity > 0.004
-    body.sprite.visible = visible
-    if (!visible)
-      return
-    const horizontal = Math.sqrt(Math.max(0, 1 - elevation * elevation))
-    this.celestialDirection
-      .set(Math.cos(angle) * horizontal, elevation, Math.sin(angle) * horizontal * 0.45)
-      .normalize()
-      .multiplyScalar(CELESTIAL_RADIUS)
-    body.sprite.position.copy(this.celestialDirection)
-    body.sprite.material.opacity = opacity
-  }
-
   private readonly render = (): void => {
+    const now = performance.now()
+    if (this.frameCap !== null && now - this.lastFrame < 1_000 / this.frameCap)
+      return
+    this.lastFrame = now
+
     this.timer.update()
     const delta = Math.min(0.05, this.timer.getDelta())
     this.animationElapsed += delta
-    const now = performance.now()
-    /*
-     * A 2048² shadow pass every frame for a sun that moves a fraction of a degree between them is
-     * pure waste. Re-rendering it twelve times a second is indistinguishable and frees a full
-     * shadow pass on four frames out of five.
-     */
+
     this.shadowClock += delta
-    if (this.shadowClock >= 1 / 12) {
+    if (this.shadowClock >= 1 / SHADOW_HZ) {
       this.shadowClock = 0
-      this.visuals.sun.shadow.needsUpdate = true
+      this.sky.sun.light.shadow.needsUpdate = true
     }
 
-    this.updateAgents(this.animationElapsed)
-    this.updateFocus(now)
-    this.updateAtmosphere(delta)
-    this.visuals.skyRig.position.copy(this.camera.position)
-    this.controls.update()
+    this.slowClock += delta
+    if (this.slowClock >= 1 / SLOW_UPDATE_HZ) {
+      const distance = this.rig.distance
+      updateAgents(this.world, this.animationElapsed, distance, this.city.trafficFactor)
+      this.atmosphere.update(this.slowClock)
+      this.world.outskirts.visible = distance > OUTSKIRTS_RANGE
+      this.slowClock = 0
+    }
+
+    this.rig.update(now)
+    this.sky.rig.position.copy(this.rig.camera.position)
     this.renderer.info.reset()
-    this.renderer.render(this.scene, this.camera)
+    this.renderer.render(this.scene, this.rig.camera)
 
     this.frameCounter += 1
     if (now - this.fpsWindowStart >= 1_000) {
       this.fps = Math.round((this.frameCounter * 1_000) / (now - this.fpsWindowStart))
       this.frameCounter = 0
       this.fpsWindowStart = now
-      this.onStats(this.getStats(this.buildingCount))
+      this.onStats(this.getStats())
     }
   }
 
-  private getStats(buildings: number): RendererStats {
+  private getStats(): RendererStats {
     const info = this.renderer.info.render
     return {
       backend: this.renderer.backend?.constructor.name.replace('Backend', '') ?? 'WebGPU/WebGL2',
       fps: this.fps,
       drawCalls: info.drawCalls,
       triangles: info.triangles,
-      buildings,
+      buildings: this.buildingCount,
     }
   }
 }

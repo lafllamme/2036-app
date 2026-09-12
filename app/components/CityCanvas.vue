@@ -7,8 +7,10 @@ import { generateCity } from '~/world/generation/generateCity'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const game = useGameStore()
-const { snapshot, daylight } = storeToRefs(game)
+const { snapshot, daylight, experienceStage } = storeToRefs(game)
 let cityRenderer: CityRenderer | null = null
+
+const MENU_FRAME_CAP = 30
 
 onMounted(async () => {
   if (!canvas.value)
@@ -33,6 +35,7 @@ onMounted(async () => {
       onStats: (stats) => { game.rendererStats = stats },
       onError: (message) => { game.error = message },
     })
+    cityRenderer.setFrameCap(experienceStage.value === 'gameplay' ? null : MENU_FRAME_CAP)
     if (snapshot.value)
       cityRenderer.applySnapshot(snapshot.value)
   }
@@ -49,6 +52,14 @@ onMounted(async () => {
 watch(snapshot, (next) => {
   if (next)
     cityRenderer?.applySnapshot(next)
+})
+
+/*
+ * Behind the entry flow the city is a backdrop: nothing is being played, the camera does not move
+ * and the panels cover most of it. Half the frames there are half the GPU for no visible loss.
+ */
+watch(experienceStage, (stage) => {
+  cityRenderer?.setFrameCap(stage === 'gameplay' ? null : MENU_FRAME_CAP)
 })
 
 // The sky follows campaign time: this stops updating the moment the player pauses.

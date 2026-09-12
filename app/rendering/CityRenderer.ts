@@ -1,5 +1,5 @@
 import type { BuildingRecord, CityBlueprint, SimulationSnapshot, SkyState } from '../core/contracts'
-import type { WorldVisuals } from './createWorld'
+import type { CelestialBody, WorldVisuals } from './createWorld'
 import { MapControls } from 'three/addons/controls/MapControls.js'
 import * as THREE from 'three/webgpu'
 import { createWorld } from './createWorld'
@@ -26,6 +26,15 @@ const NIGHT_SKY = 0x0D1522
 const DAY_SKY = new THREE.Color('#94aebc')
 const EMBER = new THREE.Color('#c9764f')
 const SUN_WHITE = 0xFFF2D2
+const SUN_DISC = 0xFFFDF6
+/**
+ * What the sun's own colour becomes as it sinks. It stays a very light warm white on purpose: the
+ * sprite is blended over a sky that is brighter than any mid-tone, so a properly orange disc came
+ * out darker than the sky behind it and read as a hole rather than as the sun.
+ */
+const SUN_LOW = new THREE.Color('#ffe2be')
+/** Sun and moon ride well outside the ground plane, so they set at the horizon and not on the lawn. */
+const CELESTIAL_RADIUS = 3_400
 const NIGHT_AMBIENT = 0x2C3D55
 const DAY_AMBIENT = new THREE.Color('#d8e4e7')
 
@@ -56,9 +65,11 @@ export class CityRenderer {
   private readonly unitsPerBuilding: number
   private nightLife = 0.67
   private appliedBlight = -1
+  /** How many growth parcels the simulation has filled, kept so the warm-up can hand them back. */
+  private deliveredGrowth = 0
   /** Where the sky should be, handed in by the store; `sky` eases toward it between updates. */
-  private skyTarget: SkyState = { hourOfDay: 12, elevation: 1, sweep: 0.5, phase: 'noon', temperature: 10 }
-  private sky = { elevation: 1, sweep: 0.5 }
+  private skyTarget: SkyState = { hourOfDay: 12, elevation: 0.55, arc: 1, sweep: 0.5, phase: 'noon', temperature: 10 }
+  private sky = { elevation: 0.55, arc: 1, sweep: 0.5 }
   /*
    * Scratch instances reused every frame. Allocating inside the loop produced roughly 41 000
    * throwaway objects per second at 60 fps, all of which the collector had to sweep.
@@ -70,7 +81,10 @@ export class CityRenderer {
   private readonly axisY = new THREE.Vector3(0, 1, 0)
   private readonly skyColour = new THREE.Color()
   private readonly sunColour = new THREE.Color()
+  private readonly bodyColour = new THREE.Color()
   private readonly hemisphereColour = new THREE.Color()
+  private readonly celestialDirection = new THREE.Vector3()
+  private readonly sunDirection = new THREE.Vector3()
   /** Shadows are re-rendered on a slower cadence than the frame; the sun barely moves between them. */
   private shadowClock = 0
 
@@ -93,7 +107,12 @@ export class CityRenderer {
 
     this.scene.background = new THREE.Color('#94aebc')
     this.scene.fog = new THREE.FogExp2('#91a8b1', 0.00022)
-    this.camera.position.set(1_650, 1_350, 1_720)
+    /*
+     * Low enough that the horizon sits inside the frame. The opening shot used to look almost
+     * straight down, which put the entire sky — and with it the sun, the moon and every hour of the
+     * day — outside the picture: the cycle was running the whole time and could not be seen.
+     */
+    this.camera.position.set(1_720, 1_030, 1_800)
 
     this.controls = new MapControls(this.camera, this.canvas)
     this.controls.enableDamping = true
@@ -117,14 +136,51 @@ export class CityRenderer {
     this.canvas.addEventListener('click', this.handleClick)
 
     void this.renderer.init()
-      .then(() => {
+      .then(async () => {
         this.resize()
+        await this.warmUp()
         this.renderer.setAnimationLoop(this.render)
         options.onReady(this.getStats(options.blueprint.buildings.length))
       })
       .catch((error: unknown) => {
         options.onError(error instanceof Error ? error.message : 'Der 3D-Renderer konnte nicht gestartet werden.')
       })
+  }
+
+  /**
+   * Build every render pipeline the city will ever need, before the first frame is shown.
+   *
+   * New housing and the cranes start hidden, so their shaders were compiled at the moment they first
+   * appeared — which is the moment the player enters the city. That cost three frames of 95, 97 and
+   * 57 ms, a visible lurch on the first second of the campaign. Compiling them here moves the whole
+   * cost into the loading screen, where nothing is moving yet. `compileAsync` yields between objects
+   * rather than blocking, and the single forced frame afterwards covers the shadow pass, which is a
+   * second set of pipelines that compilation alone does not reach.
+   */
+  private async warmUp(): Promise<void> {
+    const { growth, constructionSites, pedestrians } = this.visuals
+    const hidden = constructionSites.children.filter(site => !site.visible)
+
+    growth.count = growth.instanceMatrix.count
+    pedestrians.count = pedestrians.instanceMatrix.count
+    for (const site of hidden) site.visible = true
+
+    try {
+      await this.renderer.compileAsync(this.scene, this.camera)
+      this.visuals.sun.shadow.needsUpdate = true
+      this.renderer.render(this.scene, this.camera)
+    }
+    catch {
+      // A failed warm-up costs a stutter, never the campaign: the real frames follow either way.
+    }
+    finally {
+      // The counts come back from the simulation's own figures, not from a snapshot of them taken
+      // before the await — a real snapshot can and does land while the compiler is working.
+      growth.count = this.deliveredGrowth
+      pedestrians.count = 0
+      for (const site of hidden) site.visible = false
+      this.visuals.sun.shadow.needsUpdate = true
+    }
   }
 
   /**
@@ -153,6 +209,7 @@ export class CityRenderer {
 
     // Delivered housing fills the free parcels the generator left, from the centre outward.
     const delivered = THREE.MathUtils.clamp(Math.round(visuals.completedUnitsSinceStart / this.unitsPerBuilding), 0, slots.length)
+    this.deliveredGrowth = delivered
     this.visuals.growth.count = delivered
 
     // Cranes stand on the next parcels in line, so building is visible before buildings are.
@@ -359,37 +416,77 @@ export class CityRenderer {
     const ease = Math.min(1, delta * 3.2)
     const jumped = Math.abs(this.skyTarget.sweep - this.sky.sweep) > 0.4
     this.sky.elevation = jumped ? this.skyTarget.elevation : this.sky.elevation + (this.skyTarget.elevation - this.sky.elevation) * ease
+    this.sky.arc = jumped ? this.skyTarget.arc : this.sky.arc + (this.skyTarget.arc - this.sky.arc) * ease
     this.sky.sweep = jumped ? this.skyTarget.sweep : this.sky.sweep + (this.skyTarget.sweep - this.sky.sweep) * ease
 
+    /*
+     * Two different heights, on purpose. `elevation` is where the sun really is — fourteen degrees
+     * up at noon in January — and everything positional reads it. `arc` is how far through the light
+     * the day has come, one at every noon of the year, and everything about brightness reads that:
+     * a December afternoon is low, not dim, and the city has to stay legible in winter.
+     */
     const elevation = this.sky.elevation
-    const daylight = THREE.MathUtils.smoothstep(elevation, -0.12, 0.28)
+    const arc = this.sky.arc
+    const daylight = THREE.MathUtils.smoothstep(arc, -0.12, 0.28)
     // Warmth peaks while the sun sits on the horizon and fades as it climbs.
-    const horizonWarmth = THREE.MathUtils.smoothstep(0.34 - Math.abs(elevation), 0, 0.34) * THREE.MathUtils.smoothstep(elevation, -0.3, 0.05)
+    const horizonWarmth = THREE.MathUtils.smoothstep(0.34 - Math.abs(arc), 0, 0.34) * THREE.MathUtils.smoothstep(arc, -0.3, 0.05)
+
+    // The sun sweeps east to west; below the horizon it keeps going so dawn arrives from the east.
+    const angle = Math.PI * (1 - this.sky.sweep)
 
     const sky = this.skyColour.setHex(NIGHT_SKY).lerp(DAY_SKY, daylight).lerp(EMBER, horizonWarmth * 0.62)
     this.scene.background = sky
     if (this.scene.fog instanceof THREE.FogExp2)
       this.scene.fog.color.copy(sky)
 
-    // The sun sweeps east to west; below the horizon it keeps going so dawn arrives from the east.
-    const angle = Math.PI * (1 - this.sky.sweep)
+    /*
+     * The scattered sky itself. Its direction vector is the same arc the sun body rides, so the warm
+     * band and the disc always agree, and it fades out below the horizon rather than going Preetham
+     * black — the night tone is a decision the palette makes, not one the physics makes for us.
+     */
+    const horizontal = Math.sqrt(Math.max(0, 1 - elevation * elevation))
+    this.sunDirection.set(Math.cos(angle) * horizontal, elevation, Math.sin(angle) * horizontal * 0.45).normalize()
+    this.visuals.sky.sunPosition.value.copy(this.sunDirection)
+    this.visuals.sky.turbidity.value = 3.4 + horizonWarmth * 6.5
+    this.visuals.sky.rayleigh.value = 1.5 + horizonWarmth * 1.7
+    this.visuals.sky.nightFade.value = THREE.MathUtils.smoothstep(arc, -0.3, -0.02)
+
     const radius = 1_250
     this.visuals.sun.position.set(Math.cos(angle) * radius, Math.max(-400, elevation * 1_050 + 120), Math.sin(angle) * radius * 0.45)
     this.visuals.sun.intensity = 0.05 + daylight * 4.1
     this.visuals.sun.color.copy(this.sunColour.setHex(SUN_WHITE).lerp(EMBER, horizonWarmth))
-    this.visuals.sun.visible = elevation > -0.16
+    this.visuals.sun.visible = arc > -0.16
 
     // The moon rides opposite the sun and only lights the city once the sun has gone.
     const moonAngle = angle + Math.PI
     this.visuals.moon.position.set(Math.cos(moonAngle) * radius, Math.max(-400, -elevation * 900 + 140), Math.sin(moonAngle) * radius * 0.45)
-    this.visuals.moon.intensity = (1 - daylight) * 0.85
-    this.visuals.moon.visible = elevation < 0.08
+    this.visuals.moon.intensity = (1 - daylight) * 1.25
+    this.visuals.moon.visible = arc < 0.08
+
+    /*
+     * The bodies themselves ride the same angle as their lights, on a true hemisphere: at elevation
+     * zero they sit exactly on the horizon rather than on the light's slightly raised arc, so the
+     * disc touches down where the warm band is. They fade out over the last few degrees instead of
+     * sinking on past it, because the ground plane ends before they do and nothing would hide them.
+     */
+    this.placeBody(this.visuals.sunBody, angle, elevation, THREE.MathUtils.smoothstep(arc, -0.09, 0.015))
+    this.visuals.sunBody.sprite.material.color.copy(this.bodyColour.setHex(SUN_DISC).lerp(SUN_LOW, horizonWarmth * 0.85))
+    // The sun swells as it nears the horizon, the way haze makes it look.
+    this.visuals.sunBody.sprite.scale.setScalar(520 + horizonWarmth * 210)
+
+    // A daylight moon is real but faint; at night it carries the sky on its own.
+    this.placeBody(
+      this.visuals.moonBody,
+      moonAngle,
+      -elevation,
+      THREE.MathUtils.smoothstep(-arc, -0.05, 0.05) * (0.2 + (1 - daylight) * 0.8),
+    )
 
     /*
      * Night keeps its real length, so it has to stay readable: an ambient floor plus lit windows
      * carry the city through a December night instead of shortening it. See ADR-0005.
      */
-    this.visuals.hemisphere.intensity = 0.42 + daylight * 1.95
+    this.visuals.hemisphere.intensity = 0.86 + daylight * 1.5
     this.visuals.hemisphere.color.copy(this.hemisphereColour.setHex(NIGHT_AMBIENT).lerp(DAY_AMBIENT, daylight))
 
     this.visuals.stars.visible = daylight < 0.5
@@ -398,6 +495,25 @@ export class CityRenderer {
 
     // Lit windows follow both the hour and how well the city is doing.
     this.visuals.windows.material.emissiveIntensity = (0.2 + (1 - daylight) * 3.1) * (0.45 + this.nightLife * 0.95)
+  }
+
+  /**
+   * Put one celestial body on the sky dome. `elevation` is its own, so the moon gets the sun's arc
+   * negated. The opacity is absolute: a body's own material is never read back and scaled, or the
+   * fade would compound itself frame after frame until the sky was empty.
+   */
+  private placeBody(body: CelestialBody, angle: number, elevation: number, opacity: number): void {
+    const visible = opacity > 0.004
+    body.sprite.visible = visible
+    if (!visible)
+      return
+    const horizontal = Math.sqrt(Math.max(0, 1 - elevation * elevation))
+    this.celestialDirection
+      .set(Math.cos(angle) * horizontal, elevation, Math.sin(angle) * horizontal * 0.45)
+      .normalize()
+      .multiplyScalar(CELESTIAL_RADIUS)
+    body.sprite.position.copy(this.celestialDirection)
+    body.sprite.material.opacity = opacity
   }
 
   private readonly render = (): void => {
@@ -419,6 +535,7 @@ export class CityRenderer {
     this.updateAgents(this.animationElapsed)
     this.updateFocus(now)
     this.updateAtmosphere(delta)
+    this.visuals.skyRig.position.copy(this.camera.position)
     this.controls.update()
     this.renderer.info.reset()
     this.renderer.render(this.scene, this.camera)

@@ -37,7 +37,8 @@ watch(daylight, (reading) => {
   cityRenderer?.setSky({
     hourOfDay: reading.hourOfDay,
     elevation: reading.elevation,
-    sweep: (reading.hourOfDay - reading.sunriseHour) / Math.max(0.5, reading.sunsetHour - reading.sunriseHour),
+    arc: reading.arc,
+    sweep: reading.sweep,
     phase: reading.phase,
     temperature: reading.temperature,
   })

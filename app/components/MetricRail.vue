@@ -71,7 +71,7 @@ const detail = computed(() => {
     { label: 'Stadtgrün', value: `${formatNumber(m.greenSpacePerCapita, 1)} m² / Kopf` },
     { label: 'Kassenkredite', value: `${formatNumber(m.debt)} Mio. €` },
     { label: 'Sanierungsstau', value: `${formatNumber(m.investmentBacklog)} Mio. €` },
-    { label: 'Tag im Monat', value: `${Math.floor(daylight.value.hourOfDay / 24 * 30) + 1} von 30` },
+    { label: 'Tag im Monat', value: `${daylight.value.dayOfMonth} von 30` },
     { label: 'Sonnenaufgang', value: formatClock(daylight.value.sunriseHour) },
     { label: 'Sonnenuntergang', value: formatClock(daylight.value.sunsetHour) },
     { label: 'Tageslänge', value: `${formatNumber(daylight.value.sunsetHour - daylight.value.sunriseHour, 1)} Stunden` },

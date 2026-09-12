@@ -1,4 +1,6 @@
 import type { BuildingRecord, CityBlueprint } from '../core/contracts'
+import { SkyMesh } from 'three/addons/objects/SkyMesh.js'
+import { uniform, vec4 } from 'three/tsl'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../core/rng'
 
@@ -18,11 +20,60 @@ export interface WorldVisuals {
   sun: THREE.DirectionalLight
   /** Rides opposite the sun and carries the city through the night. */
   moon: THREE.DirectionalLight
+  /** The bodies themselves: the lights are what the city sees, these are what the player sees. */
+  sunBody: CelestialBody
+  moonBody: CelestialBody
+  /** Preetham scattering: the sky's own colour, from the horizon band up to the zenith. */
+  sky: GameSky
+  /** Everything that belongs to the firmament, kept centred on the camera so it never comes closer. */
+  skyRig: THREE.Group
   hemisphere: THREE.HemisphereLight
   stars: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial>
 }
 
+/**
+ * The scattering sky with two knobs of our own bolted onto its node graph: how much of Preetham's
+ * radiance we actually keep, and how far it gives way to the painted night colour underneath.
+ */
+export type GameSky = SkyMesh & {
+  brightness: ScalarUniform
+  nightFade: ScalarUniform
+}
+
+type ScalarUniform = ReturnType<typeof scalarUniform>
+
+/** `uniform` infers cleanly from a plain number; naming the helper keeps the type readable above. */
+function scalarUniform(value: number) {
+  return uniform(value)
+}
+
+/**
+ * A single sprite carrying both the body and the light around it.
+ *
+ * It was two sprites — a hard disc and an additive halo — until the halo turned out never to reach
+ * the screen at all: this renderer's WebGPU path draws nothing for an additively blended sprite. One
+ * normally blended sprite whose texture already fades from a solid core into a wide bloom gives the
+ * same picture, in half the draw calls and with no blend mode that can silently swallow it.
+ */
+export interface CelestialBody {
+  sprite: THREE.Sprite
+}
+
 const MAX_CONSTRUCTION_SITES = 16
+/**
+ * The sky box sits inside the camera's far plane and centred on the camera, so this is a radius in
+ * the same world units as the city rather than the astronomical figure the Preetham example uses.
+ */
+const SKY_RADIUS = 7_000
+/** How much of the sun sprite is solid core before the bloom starts, and the same for the moon's face. */
+const SUN_CORE = 0.26
+const MOON_FACE = 0.34
+/**
+ * Preetham's model is written for a renderer exposed around 0.5 and the city is graded at 1.02, so
+ * the raw scattering clipped to flat white from horizon to zenith — no sun could stand out against
+ * it. Scaling its radiance leaves the grade of the city itself untouched.
+ */
+const SKY_BRIGHTNESS = 0.16
 
 /** Instanced meshes whose material the renderer animates directly, typed so no cast is needed. */
 type StandardInstancedMesh = THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>
@@ -332,7 +383,7 @@ function createAgents(scene: THREE.Scene): Pick<WorldVisuals, 'cars' | 'pedestri
  * A dome of points far outside the city. Only the upper hemisphere is populated, so the horizon
  * stays clean and no star ever appears below the rooftops.
  */
-function createStars(scene: THREE.Scene, seed: number): THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial> {
+function createStars(parent: THREE.Object3D, seed: number): THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial> {
   const rng = createRandomStream(seed, 'stars')
   const count = 900
   const positions = new Float32Array(count * 3)
@@ -349,11 +400,114 @@ function createStars(scene: THREE.Scene, seed: number): THREE.Points<THREE.Buffe
 
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-  const material = new THREE.PointsMaterial({ color: '#dfe7f2', size: 7, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false })
+  const material = new THREE.PointsMaterial({ color: '#dfe7f2', size: 7, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, fog: false })
   const stars = new THREE.Points(geometry, material)
   stars.frustumCulled = false
-  scene.add(stars)
+  parent.add(stars)
   return stars
+}
+
+/**
+ * The sun: a solid core out to a sixth of the sprite, then light thinning into the sky around it.
+ * Painting the bloom into the texture is what makes the sun read as a source rather than a sticker.
+ */
+function sunTexture(): THREE.CanvasTexture {
+  return paint((context, size) => {
+    const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)')
+    gradient.addColorStop(SUN_CORE, 'rgba(255, 255, 255, 1)')
+    for (let step = 1; step <= 20; step += 1) {
+      const k = step / 20
+      gradient.addColorStop(SUN_CORE + (1 - SUN_CORE) * k, `rgba(255, 255, 255, ${0.94 * (1 - k) ** 2.6})`)
+    }
+    context.fillStyle = gradient
+    context.fillRect(0, 0, size, size)
+  })
+}
+
+/**
+ * The moon's face, drawn once: a pale disc with a handful of soft maria and a faint halo beyond its
+ * rim. Seeded, so the same city always gets the same moon, and stylised rather than photographic —
+ * it is read at three degrees wide.
+ */
+function moonTexture(seed: number): THREE.CanvasTexture {
+  return paint((context, size) => {
+    const rng = createRandomStream(seed, 'moon')
+    const centre = size / 2
+    const face = size * MOON_FACE
+
+    // The glow first, so the face paints over it.
+    const glow = context.createRadialGradient(centre, centre, face * 0.9, centre, centre, centre)
+    glow.addColorStop(0, 'rgba(198, 214, 240, 0.42)')
+    glow.addColorStop(0.45, 'rgba(178, 196, 226, 0.12)')
+    glow.addColorStop(1, 'rgba(170, 190, 222, 0)')
+    context.fillStyle = glow
+    context.fillRect(0, 0, size, size)
+
+    const disc = context.createRadialGradient(centre, centre, 0, centre, centre, face)
+    disc.addColorStop(0, 'rgba(250, 250, 246, 1)')
+    disc.addColorStop(0.84, 'rgba(228, 230, 234, 1)')
+    disc.addColorStop(0.97, 'rgba(206, 212, 222, 1)')
+    disc.addColorStop(1, 'rgba(206, 212, 222, 0)')
+    context.fillStyle = disc
+    context.beginPath()
+    context.arc(centre, centre, face, 0, Math.PI * 2)
+    context.fill()
+
+    context.save()
+    context.beginPath()
+    context.arc(centre, centre, face * 0.98, 0, Math.PI * 2)
+    context.clip()
+    for (let index = 0; index < 9; index += 1) {
+      const angle = rng.next() * Math.PI * 2
+      const distance = rng.next() ** 0.6 * face * 0.72
+      const radius = face * (0.08 + rng.next() * 0.2)
+      const x = centre + Math.cos(angle) * distance
+      const y = centre + Math.sin(angle) * distance
+      const mare = context.createRadialGradient(x, y, 0, x, y, radius)
+      mare.addColorStop(0, 'rgba(158, 167, 181, 0.55)')
+      mare.addColorStop(1, 'rgba(158, 167, 181, 0)')
+      context.fillStyle = mare
+      context.beginPath()
+      context.arc(x, y, radius, 0, Math.PI * 2)
+      context.fill()
+    }
+    context.restore()
+  })
+}
+
+/** One square canvas, painted by the caller and handed back as a texture. */
+function paint(draw: (context: CanvasRenderingContext2D, size: number) => void): THREE.CanvasTexture {
+  const size = 256
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const context = canvas.getContext('2d')
+  if (context)
+    draw(context, size)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
+}
+
+/**
+ * Sun and moon are sprites, not spheres: at three degrees across a sphere is a disc anyway, and a
+ * sprite never turns its lit side away from the player. They sit outside the ground plane so they
+ * rise and set at the true horizon, write no depth, and are lit by nothing.
+ */
+function createCelestialBody(parent: THREE.Object3D, map: THREE.Texture, color: string, scale: number): CelestialBody {
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map,
+    color,
+    transparent: true,
+    depthWrite: false,
+    fog: false,
+    toneMapped: false,
+  }))
+  sprite.scale.setScalar(scale)
+  sprite.frustumCulled = false
+  parent.add(sprite)
+  return { sprite }
 }
 
 export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint): WorldVisuals {
@@ -369,7 +523,51 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint): World
 
   const hemisphere = new THREE.HemisphereLight('#d8e4e7', '#4a4439', 2.25)
   scene.add(hemisphere)
-  const stars = createStars(scene, blueprint.definition.seed)
+
+  /*
+   * The firmament rides with the camera. Panning across a city three kilometres wide would otherwise
+   * walk the player straight through a sky box that has to stay inside the camera's far plane, and
+   * the sun would slide across the horizon as the player scrolled — a sky is by definition the one
+   * thing that does not move when you do.
+   */
+  const skyRig = new THREE.Group()
+  skyRig.frustumCulled = false
+  scene.add(skyRig)
+
+  const sky = new SkyMesh() as GameSky
+  sky.scale.setScalar(SKY_RADIUS)
+  /*
+   * Preetham is written for a renderer exposed around 0.5 and the city is graded at 1.02, so the
+   * raw scattering clipped to flat white. Scaling its radiance inside the node graph keeps the grade
+   * of the city itself untouched, and the alpha lets the painted night colour take over below the
+   * horizon instead of the model's own near-black.
+   */
+  sky.brightness = scalarUniform(SKY_BRIGHTNESS)
+  sky.nightFade = scalarUniform(1)
+  // The node the mesh built is a vec4; the shipped types widen it until the swizzle is gone.
+  const scattering = sky.material.colorNode as ReturnType<typeof vec4> | null
+  if (scattering)
+    sky.material.colorNode = vec4(scattering.rgb.mul(sky.brightness), sky.nightFade)
+  sky.material.transparent = true
+  // The sun is a sprite we art-direct; the model's own disc only added a second, blinding one.
+  sky.showSunDisc.value = 0
+  sky.turbidity.value = 2.6
+  sky.rayleigh.value = 1.8
+  /*
+   * Mie scattering is the haze that piles up around the sun. At the model's default it swallowed a
+   * third of the sky in white whenever the player looked toward it, and no disc could be seen in
+   * front of that — the sun has to be brighter than its own glow to read as an object.
+   */
+  sky.mieCoefficient.value = 0.0022
+  sky.mieDirectionalG.value = 0.82
+  sky.cloudCoverage.value = 0.42
+  sky.cloudDensity.value = 0.34
+  sky.cloudScale.value = 0.00018
+  sky.cloudSpeed.value = 0.000012
+  sky.renderOrder = -1
+  skyRig.add(sky)
+
+  const stars = createStars(skyRig, blueprint.definition.seed)
   const sun = new THREE.DirectionalLight('#fff2d2', 4.2)
   sun.position.set(-700, 1_100, -420)
   sun.castShadow = true
@@ -390,5 +588,8 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint): World
   moon.position.set(700, 900, 420)
   scene.add(moon)
 
-  return { ...buildingVisuals, ...agents, ...trees, growth, constructionSites, sun, moon, hemisphere, stars }
+  const sunBody = createCelestialBody(skyRig, sunTexture(), '#fffdf6', 520)
+  const moonBody = createCelestialBody(skyRig, moonTexture(blueprint.definition.seed), '#eef3fa', 430)
+
+  return { ...buildingVisuals, ...agents, ...trees, growth, constructionSites, sun, moon, sunBody, moonBody, sky, skyRig, hemisphere, stars }
 }

@@ -1,13 +1,22 @@
 /**
  * Campaign time, daylight and weather readings. See decisions/active/0005-time-and-daylight.md.
  *
- * One month is one day: the month opens at midnight and closes at midnight, so the displayed time of
- * day is the true position within the month. Everything here is pure and deterministic — it takes a
- * month index and a progress fraction and returns numbers, with no clock, no DOM and no randomness.
+ * One month is one day: the month runs through a full twenty-four hours, so the displayed time of day
+ * is the true position within the month. Everything here is pure and deterministic — it takes a month
+ * index and a progress fraction and returns numbers, with no clock, no DOM and no randomness.
  */
 
 /** Minutes in a day, used to keep every conversion in one unit. */
 const MINUTES_PER_DAY = 1_440
+
+/**
+ * A month opens in the morning, not at midnight. January's sun rises at 08:21, so a month that began
+ * at 00:00 dropped the player into a black city and spent its first third there — the worst possible
+ * first frame for a game whose whole surface is a skyline. Nine o'clock puts every month's opening
+ * shot in low morning light, in December as in June, and the night still arrives in full, just at the
+ * end of the month where it belongs.
+ */
+export const MONTH_OPENS_AT_HOUR = 9
 
 /**
  * Lindenhafen sits on the German North Sea coast at roughly 53° N. These two curves reproduce that
@@ -20,6 +29,15 @@ const SOLAR_NOON_MEAN_HOURS = 12.97
 const SOLAR_NOON_AMPLITUDE_HOURS = 0.46
 /** The year's phase offset: the shortest day falls in December, not in January. */
 const SEASON_PHASE_MONTHS = 3.5
+
+/**
+ * How high the sun actually climbs. Lindenhafen sits at 53.5° N, so at noon the sun reaches about
+ * 14° above the horizon in January and 59° in June — it never passes overhead, not once in the
+ * decade. Without this the sun sat at the zenith every noon of the year, which is both wrong and
+ * invisible: a sun directly above the camera is a sun the player never sees.
+ */
+const LATITUDE_DEGREES = 53.5
+const AXIAL_TILT_DEGREES = 23.44
 
 /** Monthly mean temperature and the spread between night and afternoon, both in °C. */
 const TEMPERATURE_MEAN = 9.8
@@ -41,18 +59,41 @@ export type DayPhase
 export interface DaylightReading {
   /** Hours since midnight, 0 … 24. */
   hourOfDay: number
+  /** 1 … 30, counted from the month's progress rather than from the clock. */
+  dayOfMonth: number
   sunriseHour: number
   sunsetHour: number
   phase: DayPhase
   /** True while the sun is climbing toward solar noon. */
   rising: boolean
-  /** −1 below the horizon … 1 at the zenith, used by the renderer for the sun's arc. */
+  /**
+   * The sun's position on its full circle: 0 at sunrise, 0.5 at solar noon, 1 at sunset and 2 back at
+   * the next sunrise. Day and night have their own rates, because in January the city gets eight
+   * hours of one and sixteen of the other and the sun still has to be back in the east by morning.
+   */
+  sweep: number
+  /**
+   * How far through the light the day is: 1 at solar noon in any month, −1 at solar midnight. This
+   * is what brightness reads, because a December noon is still noon — the city has to be legible in
+   * winter, and the season shows in how long the day lasts rather than in a permanent dusk.
+   */
+  arc: number
+  /** The sine of the sun's true altitude, seasonal, used for every direction in the sky. */
   elevation: number
   temperature: number
 }
 
 function seasonal(monthOfYear: number, amplitude: number, phaseMonths: number): number {
   return amplitude * Math.sin((2 * Math.PI * (monthOfYear - phaseMonths)) / 12)
+}
+
+/**
+ * The sine of the sun's altitude at solar noon in the given month: the latitude's complement plus
+ * the declination of the day.
+ */
+export function noonElevation(monthOfYear: number): number {
+  const declination = seasonal(monthOfYear, AXIAL_TILT_DEGREES, SEASON_PHASE_MONTHS)
+  return Math.sin(((90 - LATITUDE_DEGREES + declination) * Math.PI) / 180)
 }
 
 /** Hours of daylight in the given calendar month, 1 = January. */
@@ -102,26 +143,50 @@ function phaseFor(hourOfDay: number, sunrise: number, sunset: number, noon: numb
 }
 
 /**
+ * Where the sun stands on its circle, stretched so that the day fills 0 … 1 and the night 1 … 2 no
+ * matter how unequal the two are. Without this the sun rose in the wrong corner every morning: an
+ * eight-hour December day and a sixteen-hour night cannot share one rate.
+ */
+function sweepFor(hourOfDay: number, sunrise: number, sunset: number): number {
+  const dayLength = Math.max(0.5, sunset - sunrise)
+  const nightLength = Math.max(0.5, 24 - dayLength)
+  if (hourOfDay >= sunrise && hourOfDay <= sunset)
+    return (hourOfDay - sunrise) / dayLength
+  const sinceSunset = hourOfDay > sunset ? hourOfDay - sunset : hourOfDay + 24 - sunset
+  return 1 + sinceSunset / nightLength
+}
+
+/**
  * Read the sky for a point in the campaign.
  *
  * @param monthOfYear 1 = January.
- * @param monthProgress 0 … 1 through the current month, which is also 00:00 … 24:00 of its day.
+ * @param monthProgress 0 … 1 through the current month, which is also 09:00 … 09:00 of its day.
  */
 export function readDaylight(monthOfYear: number, monthProgress: number, heatIsland = 0): DaylightReading {
-  const hourOfDay = Math.min(23.999, Math.max(0, monthProgress * 24))
+  const progress = Math.min(0.99999, Math.max(0, monthProgress))
+  const hourOfDay = (progress * 24 + MONTH_OPENS_AT_HOUR) % 24
   const sunrise = sunriseHour(monthOfYear)
   const sunset = sunsetHour(monthOfYear)
   const noon = solarNoonHour(monthOfYear)
-  const halfDay = Math.max(0.5, (sunset - sunrise) / 2)
+  const sweep = sweepFor(hourOfDay, sunrise, sunset)
+  const arc = Math.sin(Math.PI * sweep)
 
   return {
     hourOfDay,
+    dayOfMonth: Math.floor(progress * 30) + 1,
     sunriseHour: sunrise,
     sunsetHour: sunset,
     phase: phaseFor(hourOfDay, sunrise, sunset, noon),
-    rising: hourOfDay < noon,
-    // A cosine arc peaking at solar noon and crossing zero exactly at sunrise and sunset.
-    elevation: Math.cos((Math.PI * (hourOfDay - noon)) / (2 * halfDay)),
+    rising: sweep < 0.5,
+    sweep,
+    /*
+     * One sine over the whole circle: zero exactly at sunrise and sunset, one at solar noon, minus
+     * one in the middle of the night. Reading the arc off the sweep rather than off the clock is
+     * what keeps it continuous — a cosine of the hour kept oscillating past sunset and had the sun
+     * back at the horizon by midnight.
+     */
+    arc,
+    elevation: arc * noonElevation(monthOfYear),
     temperature: temperature(monthOfYear, hourOfDay, heatIsland),
   }
 }

@@ -260,9 +260,11 @@ export interface SimulationSnapshot {
 export interface SkyState {
   /** Hours since midnight, 0 … 24. */
   hourOfDay: number
-  /** −1 below the horizon … 1 at the zenith. */
+  /** The sine of the sun's true altitude: it peaks near 0.24 in January and 0.86 in June. */
   elevation: number
-  /** 0 at sunrise … 1 at sunset; drives the east-to-west sweep. */
+  /** 1 at solar noon in any month, −1 at solar midnight; this is what brightness reads. */
+  arc: number
+  /** 0 at sunrise … 1 at sunset and on to 2 at the next sunrise. */
   sweep: number
   phase: string
   temperature: number

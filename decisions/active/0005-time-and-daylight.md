@@ -38,6 +38,22 @@ perfectly readable; an unlit one is not.
 **Visual time derives from simulation progress, not from the render timer.** It freezes on pause and
 follows the speed multiplier.
 
+**A month opens at 09:00, not at midnight.** Mapping month progress straight onto 00:00 – 24:00 meant
+every campaign began in the dark and spent its first third there, and January's sun does not rise
+until 08:21. The month now opens in low morning light in every month of the year, runs through the
+day, and ends where a day ends. The night arrives in full; it just arrives late in the month.
+
+**The sun keeps the altitude of 53.5° N.** It peaks at about 14° above the horizon in January and 59°
+in June, and never passes overhead. Brightness is read from a separate normalised arc that reaches 1
+at every noon of the year, because a December noon is low, not dim, and the city has to stay legible
+in winter. Conflating the two put the sun at the zenith every noon — invisible to a camera that
+looks at a skyline, and wrong.
+
+**The sky is scattered, not painted.** `SkyMesh` (Preetham, as node material) carries the gradient,
+the horizon band and the clouds; sun and moon are single sprites on a rig centred on the camera. The
+model's radiance is scaled to the city's grade rather than the other way round, and it gives way to
+the palette's own night colour below the horizon.
+
 **The clock is text, not a dial.** Large time, month underneath, and the phase of the day as a word
 with a direction — "Nachmittag ↘ Untergang 16:38". Schedule I solves it the same way, and a dial at
 the size available in the top bar reads as ornament rather than information.

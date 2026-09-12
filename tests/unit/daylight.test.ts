@@ -2,11 +2,18 @@ import { describe, expect, it } from 'vitest'
 import {
   daylightHours,
   formatClock,
+  MONTH_OPENS_AT_HOUR,
   readDaylight,
+  solarNoonHour,
   sunriseHour,
   sunsetHour,
   temperature,
 } from '../../app/core/daylight'
+
+/** The progress through a month at which its day reaches the given hour on the clock. */
+function progressAt(hour: number): number {
+  return (((hour - MONTH_OPENS_AT_HOUR) % 24) + 24) % 24 / 24
+}
 
 describe('daylight', () => {
   it('gives a northern German city its real seasonal swing', () => {
@@ -28,26 +35,88 @@ describe('daylight', () => {
   })
 
   it('reads the sun as up between sunrise and sunset and down outside', () => {
-    const noon = readDaylight(1, 0.5)
-    const midnight = readDaylight(1, 0.02)
+    const noon = readDaylight(1, progressAt(12.5))
+    const midnight = readDaylight(1, progressAt(0.5))
     expect(noon.elevation).toBeGreaterThan(0)
     expect(midnight.elevation).toBeLessThan(0)
     expect(noon.phase).toBe('noon')
     expect(midnight.phase).toBe('night')
   })
 
+  it('puts the sun at its lowest in the middle of the night, not back at the horizon', () => {
+    // The arc used to be a cosine of the clock, which kept oscillating past sunset and had the
+    // January sun level with the horizon again at midnight, in the dark.
+    const solarMidnight = readDaylight(1, progressAt(0.53))
+    expect(solarMidnight.arc).toBeLessThan(-0.98)
+    expect(solarMidnight.elevation).toBeLessThan(0)
+  })
+
+  it('keeps the sun at the latitude it belongs to instead of putting it overhead', () => {
+    // 53.5° N: about fourteen degrees above the horizon at noon in January, fifty-nine in June.
+    const januaryNoon = Math.asin(readDaylight(1, progressAt(12.5)).elevation) * 180 / Math.PI
+    const juneNoon = Math.asin(readDaylight(6, progressAt(13.3)).elevation) * 180 / Math.PI
+    expect(januaryNoon).toBeGreaterThan(12)
+    expect(januaryNoon).toBeLessThan(17)
+    expect(juneNoon).toBeGreaterThan(54)
+    expect(juneNoon).toBeLessThan(61)
+  })
+
+  it('reads full brightness at noon in every month, however low the winter sun hangs', () => {
+    for (const month of [1, 4, 7, 10])
+      expect(readDaylight(month, progressAt(solarNoonHour(month))).arc).toBeGreaterThan(0.999)
+  })
+
   it('flips from rising to setting at solar noon', () => {
-    expect(readDaylight(7, 0.3).rising).toBe(true)
-    expect(readDaylight(7, 0.7).rising).toBe(false)
+    expect(readDaylight(7, progressAt(9)).rising).toBe(true)
+    expect(readDaylight(7, progressAt(17)).rising).toBe(false)
   })
 
   it('names sunrise and sunset as their own moments', () => {
-    const january = readDaylight(1, 0)
-    const atSunrise = readDaylight(1, sunriseHour(1) / 24)
-    const atSunset = readDaylight(1, sunsetHour(1) / 24)
-    expect(january.phase).toBe('night')
+    const atSunrise = readDaylight(1, progressAt(sunriseHour(1)))
+    const atSunset = readDaylight(1, progressAt(sunsetHour(1)))
+    const atMidnight = readDaylight(1, progressAt(0))
     expect(atSunrise.phase).toBe('sunrise')
     expect(atSunset.phase).toBe('sunset')
+    expect(atMidnight.phase).toBe('night')
+  })
+
+  it('opens every month in daylight, so no campaign ever starts in the dark', () => {
+    for (let month = 1; month <= 12; month += 1) {
+      const opening = readDaylight(month, 0)
+      expect(opening.hourOfDay).toBe(MONTH_OPENS_AT_HOUR)
+      expect(opening.phase).not.toBe('night')
+      expect(opening.elevation).toBeGreaterThan(0)
+      expect(opening.rising).toBe(true)
+    }
+  })
+
+  it('sweeps the sun once round the sky without a jump, however uneven day and night are', () => {
+    /*
+     * Day and night run at their own rates — eight hours against sixteen in December — so the sun
+     * has to be back in the east by sunrise. The sweep therefore has to climb steadily to 2 and
+     * come back to 0 at that one moment, and 0 and 2 are the same place in the sky.
+     */
+    let previous = readDaylight(12, 0).sweep
+    let wraps = 0
+    for (let step = 1; step <= 480; step += 1) {
+      const { sweep } = readDaylight(12, step / 480)
+      if (sweep < previous) {
+        wraps += 1
+        expect(previous).toBeGreaterThan(1.99)
+        expect(sweep).toBeLessThan(0.01)
+      }
+      else {
+        expect(sweep - previous).toBeLessThan(0.05)
+      }
+      previous = sweep
+    }
+    expect(wraps).toBe(1)
+  })
+
+  it('counts the day of the month off the month, not off the clock', () => {
+    expect(readDaylight(3, 0).dayOfMonth).toBe(1)
+    expect(readDaylight(3, 0.5).dayOfMonth).toBe(16)
+    expect(readDaylight(3, 0.999).dayOfMonth).toBe(30)
   })
 
   it('is coldest at night and warmest in the afternoon, and colder in winter than in summer', () => {

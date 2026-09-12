@@ -13,11 +13,20 @@ let cityRenderer: CityRenderer | null = null
 onMounted(async () => {
   if (!canvas.value)
     return
-  const { CityRenderer: Renderer } = await import('../rendering/CityRenderer')
+  const [{ CityRenderer: Renderer }, { loadCityModels }] = await Promise.all([
+    import('../rendering/CityRenderer'),
+    import('../rendering/cityModels'),
+  ])
   const blueprint = generateCity(2036)
+  // The kit has to be on hand before the first frame: a model arriving late is a building popping
+  // into a city the player is already looking at.
+  const models = await loadCityModels()
+  if (!canvas.value)
+    return
   cityRenderer = new Renderer({
     canvas: canvas.value,
     blueprint,
+    models,
     onBuildingSelected: (building) => { game.selectedBuilding = building },
     onReady: (stats) => { game.rendererStats = stats },
     onStats: (stats) => { game.rendererStats = stats },

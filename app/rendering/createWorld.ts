@@ -1,4 +1,5 @@
 import type { BuildingRecord, CityBlueprint } from '../core/contracts'
+import type { CityModel, CityModels } from './cityModels'
 import { SkyMesh } from 'three/addons/objects/SkyMesh.js'
 import { uniform, vec4 } from 'three/tsl'
 import * as THREE from 'three/webgpu'
@@ -8,7 +9,8 @@ export interface WorldVisuals {
   buildingMeshes: THREE.InstancedMesh[]
   buildingRecords: Map<THREE.InstancedMesh, BuildingRecord[]>
   buildingColors: Map<THREE.InstancedMesh, THREE.Color[]>
-  windows: StandardInstancedMesh
+  /** The two kit atlases. Night lighting is applied here rather than to a separate window mesh. */
+  buildingMaterials: THREE.MeshStandardMaterial[]
   cars: THREE.InstancedMesh
   pedestrians: THREE.InstancedMesh
   /** Finished new housing. `count` grows as the construction pipeline delivers. */
@@ -29,6 +31,13 @@ export interface WorldVisuals {
   skyRig: THREE.Group
   hemisphere: THREE.HemisphereLight
   stars: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial>
+  /** The city's own light at night: lamp heads that glow and the pools they throw on the asphalt. */
+  streetLights: StreetLights
+}
+
+export interface StreetLights {
+  heads: StandardInstancedMesh
+  pools: THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
 }
 
 /**
@@ -60,11 +69,32 @@ export interface CelestialBody {
 }
 
 const MAX_CONSTRUCTION_SITES = 16
+/** Street lighting: how far apart the lamps stand, how tall they are, how wide their pool falls. */
+const LAMP_SPACING = 110
+const LAMP_HEIGHT = 11
+const LAMP_POOL = 46
+/** Beyond this distance from the centre the city is built from the kit's low-detail models. */
+const DETAIL_RADIUS = 1_100
+const AXIS_Y = /* @__PURE__ */ new THREE.Vector3(0, 1, 0)
+const WHITE = /* @__PURE__ */ new THREE.Color('#ffffff')
+/** Lays a plane flat on the ground. */
+const FLAT = /* @__PURE__ */ new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2)
 /**
  * The sky box sits inside the camera's far plane and centred on the camera, so this is a radius in
  * the same world units as the city rather than the astronomical figure the Preetham example uses.
  */
 const SKY_RADIUS = 7_000
+/** The land reaches well past the point where haze has swallowed it, so it never shows an edge. */
+const GROUND_SPAN = 26_000
+const CITY_HALF = 1_500
+/**
+ * Two belts of filler blocks. The inner one is still town; the outer one is a thinning smudge that
+ * exists only to give the horizon something to be made of.
+ */
+const OUTSKIRT_RINGS = [
+  { inner: 1_500, outer: 2_900, count: 900, bias: 0.8, minHeight: 8, maxHeight: 26 },
+  { inner: 2_900, outer: 5_400, count: 700, bias: 1.5, minHeight: 6, maxHeight: 16 },
+] as const
 /** How much of the sun sprite is solid core before the bloom starts, and the same for the moon's face. */
 const SUN_CORE = 0.26
 const MOON_FACE = 0.34
@@ -78,16 +108,21 @@ const SKY_BRIGHTNESS = 0.16
 /** Instanced meshes whose material the renderer animates directly, typed so no cast is needed. */
 type StandardInstancedMesh = THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>
 
-const BUILDING_COLORS: Record<BuildingRecord['type'], string[]> = {
-  altbau: ['#b8896f', '#d3b095', '#a66f62', '#c8a878'],
-  modern: ['#8fa8aa', '#c1c7c3', '#718d91', '#dad6ca'],
-  residential: ['#d0b98d', '#b7c29b', '#c38e78', '#d7d0bb'],
-  commercial: ['#71868b', '#94a7a5', '#65767b', '#a6aaa0'],
-  industrial: ['#6b7473', '#8a8172', '#596a6e', '#84796c'],
-  civic: ['#c3b59e', '#8da7a2', '#b9c0b7', '#d0c3aa'],
-}
+function addGround(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): void {
+  /*
+   * The land runs far past the city. It used to be a 3 200 m square with the city filling 2 880 of
+   * them, so the edge of the world sat 160 m behind the last house and every low camera angle showed
+   * it: a plate under a dome. Now the ground outlives the fog, and the city dissolves into haze long
+   * before anything ends.
+   */
+  const hinterland = new THREE.Mesh(
+    new THREE.PlaneGeometry(GROUND_SPAN, GROUND_SPAN),
+    new THREE.MeshStandardMaterial({ color: '#47553f', roughness: 1 }),
+  )
+  hinterland.rotation.x = -Math.PI / 2
+  hinterland.position.y = -0.05
+  scene.add(hinterland)
 
-function addGround(scene: THREE.Scene): void {
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(3_200, 3_200),
     new THREE.MeshStandardMaterial({ color: '#52634f', roughness: 0.96, metalness: 0 }),
@@ -97,7 +132,7 @@ function addGround(scene: THREE.Scene): void {
   scene.add(ground)
 
   const river = new THREE.Mesh(
-    new THREE.PlaneGeometry(250, 3_200),
+    new THREE.PlaneGeometry(250, GROUND_SPAN),
     new THREE.MeshStandardMaterial({ color: '#315e70', roughness: 0.25, metalness: 0.08 }),
   )
   river.rotation.x = -Math.PI / 2
@@ -110,6 +145,80 @@ function addGround(scene: THREE.Scene): void {
     promenade.position.set(x, 0.55, 0)
     promenade.receiveShadow = true
     scene.add(promenade)
+  }
+
+  addOutskirts(scene, blueprint, models)
+}
+
+/**
+ * The city thins out instead of stopping. Two rings of plain blocks, unlit by any shadow and never
+ * touched by the simulation, carry the built-up area from the last real street out into the haze —
+ * decoration, which is why they are generated here from their own seeded stream and never appear in
+ * the blueprint the simulation reads.
+ */
+function addOutskirts(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): void {
+  const rng = createRandomStream(blueprint.definition.seed, 'outskirts')
+  const placements: { x: number, z: number, width: number, depth: number, height: number, tint: number }[] = []
+
+  for (const ring of OUTSKIRT_RINGS) {
+    for (let index = 0; index < ring.count; index += 1) {
+      const angle = rng.next() * Math.PI * 2
+      const radius = ring.inner + rng.next() ** ring.bias * (ring.outer - ring.inner)
+      // Snapped to the same block rhythm as the city, so the streets appear to carry on outward.
+      const x = Math.round((Math.cos(angle) * radius) / 90) * 90 + rng.between(-14, 14)
+      const z = Math.round((Math.sin(angle) * radius) / 90) * 90 + rng.between(-14, 14)
+      if (Math.abs(x) < CITY_HALF && Math.abs(z) < CITY_HALF)
+        continue
+      if (x > -1_240 && x < -860)
+        continue
+      placements.push({
+        x,
+        z,
+        width: rng.between(26, 62),
+        depth: rng.between(26, 58),
+        height: rng.between(ring.minHeight, ring.maxHeight),
+        tint: rng.next(),
+      })
+    }
+  }
+
+  /*
+   * The kit's own low-detail models carry the belts: a tenth of the triangles of the real thing, for
+   * buildings that are a few pixels tall behind two kilometres of haze. They cast no shadow and are
+   * never lit by the sun's shadow pass, which is most of what a distant building would otherwise
+   * cost. Sixteen hundred of them come to sixteen draw calls.
+   */
+  const pool = models.distant.length > 0 ? models.distant : models.houses
+  const buckets = new Map<string, typeof placements>()
+  placements.forEach((placement) => {
+    const model = pool[Math.floor(placement.tint * pool.length)] ?? pool[0]!
+    const bucket = buckets.get(model.id) ?? []
+    bucket.push(placement)
+    buckets.set(model.id, bucket)
+  })
+
+  const matrix = new THREE.Matrix4()
+  const position = new THREE.Vector3()
+  const quaternion = new THREE.Quaternion()
+  const scale = new THREE.Vector3()
+  for (const [id, bucket] of buckets) {
+    const model = pool.find(entry => entry.id === id) ?? pool[0]!
+    const mesh = new THREE.InstancedMesh(model.geometry, models.commercialMaterial, bucket.length)
+    const footprint = Math.max(0.001, Math.max(model.size.x, model.size.z))
+    bucket.forEach((placement, index) => {
+      const base = Math.max(placement.width, placement.depth) / footprint
+      const stretch = THREE.MathUtils.clamp(placement.height / Math.max(0.001, model.size.y * base), 0.7, 1.5)
+      matrix.compose(
+        position.set(placement.x, 0, placement.z),
+        quaternion.setFromAxisAngle(AXIS_Y, Math.round(rng.next() * 4) * (Math.PI / 2)),
+        scale.set(base, base * stretch, base),
+      )
+      mesh.setMatrixAt(index, matrix)
+      mesh.setColorAt(index, WHITE)
+    })
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+    mesh.computeBoundingSphere()
+    scene.add(mesh)
   }
 }
 
@@ -153,39 +262,89 @@ function addRoads(scene: THREE.Scene, blueprint: CityBlueprint): void {
   }
 }
 
-function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): Pick<WorldVisuals, 'buildingMeshes' | 'buildingRecords' | 'buildingColors' | 'windows'> {
-  const rng = createRandomStream(blueprint.definition.seed, 'render-colors')
-  const grouped = new Map<BuildingRecord['type'], BuildingRecord[]>()
+/**
+ * Choose a kit model for a building the simulation has already sized.
+ *
+ * The pick is driven by slenderness — height over footprint — so a parcel the simulation made tall
+ * and narrow gets a tower and a wide low one gets a house, and the massing keeps meaning what it
+ * meant before models existed. The seeded roll only breaks ties, so the same city always builds the
+ * same skyline.
+ */
+function pickModel(building: BuildingRecord, models: CityModels, roll: number): { model: CityModel, commercial: boolean } {
+  const footprint = Math.max(building.width, building.depth)
+  const wanted = building.height / footprint
+  const commercial = building.type === 'commercial' || building.type === 'modern' || building.type === 'civic' || building.type === 'industrial'
+  /*
+   * The city's own outer belt is built from the kit's low-detail models. A building out there is
+   * never close to the camera — the controls cannot orbit past the centre far enough for it to fill
+   * more than a few dozen pixels — and it drops a seventh of the scene's triangles for a difference
+   * nobody can see from a strategic view.
+   */
+  const distant = Math.hypot(building.x, building.z) > DETAIL_RADIUS && models.distant.length > 0
+  const pool = distant
+    ? models.distant
+    : commercial
+      ? (wanted > 1.15 ? models.towers : models.offices)
+      : models.houses
+  if (pool.length === 0)
+    return { model: models.houses[0] ?? models.offices[0]!, commercial }
+
+  // The three closest matches, then a seeded choice between them: right proportions, varied streets.
+  const ranked = [...pool].sort((a, b) => Math.abs(a.slenderness - wanted) - Math.abs(b.slenderness - wanted))
+  const shortlist = ranked.slice(0, Math.min(3, ranked.length))
+  return { model: shortlist[Math.floor(roll * shortlist.length)] ?? shortlist[0]!, commercial: commercial || distant }
+}
+
+/**
+ * Place one model on a parcel: scaled uniformly onto its footprint, then nudged vertically toward
+ * the height the simulation asked for. The nudge is clamped, because a model stretched past a third
+ * of its own proportions stops reading as a building and starts reading as a mistake.
+ */
+function placeModel(matrix: THREE.Matrix4, building: BuildingRecord, model: CityModel, position: THREE.Vector3, quaternion: THREE.Quaternion, scale: THREE.Vector3): void {
+  const footprint = Math.max(building.width, building.depth)
+  const base = footprint / Math.max(0.001, Math.max(model.size.x, model.size.z))
+  const stretch = THREE.MathUtils.clamp(building.height / Math.max(0.001, model.size.y * base), 0.78, 1.4)
+  matrix.compose(
+    position.set(building.x, 0.8, building.z),
+    quaternion.setFromAxisAngle(AXIS_Y, building.rotation),
+    scale.set(base, base * stretch, base),
+  )
+}
+
+function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): Pick<WorldVisuals, 'buildingMeshes' | 'buildingRecords' | 'buildingColors' | 'buildingMaterials'> {
+  const rng = createRandomStream(blueprint.definition.seed, 'render-models')
+  const grouped = new Map<string, { model: CityModel, commercial: boolean, records: BuildingRecord[] }>()
+
   for (const building of blueprint.buildings) {
-    const records = grouped.get(building.type) ?? []
-    records.push(building)
-    grouped.set(building.type, records)
+    const { model, commercial } = pickModel(building, models, rng.next())
+    const group = grouped.get(model.id) ?? { model, commercial, records: [] }
+    group.records.push(building)
+    grouped.set(model.id, group)
   }
 
   const buildingMeshes: THREE.InstancedMesh[] = []
   const buildingRecords = new Map<THREE.InstancedMesh, BuildingRecord[]>()
   const buildingColors = new Map<THREE.InstancedMesh, THREE.Color[]>()
-  const box = new THREE.BoxGeometry(1, 1, 1)
   const matrix = new THREE.Matrix4()
+  const position = new THREE.Vector3()
   const quaternion = new THREE.Quaternion()
+  const scale = new THREE.Vector3()
 
-  for (const [type, records] of grouped) {
-    const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: type === 'modern' ? 0.56 : 0.83, metalness: type === 'modern' ? 0.08 : 0.01, vertexColors: true })
-    const mesh = new THREE.InstancedMesh(box, material, records.length)
+  for (const { model, commercial, records } of grouped.values()) {
+    const material = commercial ? models.commercialMaterial : models.suburbanMaterial
+    const mesh = new THREE.InstancedMesh(model.geometry, material, records.length)
     const colors: THREE.Color[] = []
     records.forEach((building, index) => {
-      quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), building.rotation)
-      matrix.compose(
-        new THREE.Vector3(building.x, building.height / 2 + 0.8, building.z),
-        quaternion,
-        new THREE.Vector3(building.width, building.height, building.depth),
-      )
+      placeModel(matrix, building, model, position, quaternion, scale)
       mesh.setMatrixAt(index, matrix)
-      const palette = BUILDING_COLORS[type]
-      const source = palette[Math.floor(rng.next() * palette.length)] ?? palette[0] ?? '#aaaaaa'
-      const color = new THREE.Color(source).multiplyScalar(0.82 + building.condition * 0.18)
-      colors.push(color)
-      mesh.setColorAt(index, color)
+      /*
+       * The atlas carries the colour; this only weathers it, so a neglected block loses its shine.
+       * Tinting per building was tried and dropped: the kit's own palette is strong enough that a
+       * hue shift on top of it turned whole streets a single wrong colour instead of varying them.
+       */
+      const colour = new THREE.Color().setScalar(0.86 + building.condition * 0.14)
+      colors.push(colour)
+      mesh.setColorAt(index, colour)
     })
     mesh.castShadow = true
     mesh.receiveShadow = true
@@ -197,67 +356,30 @@ function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): Pick<Wor
     scene.add(mesh)
   }
 
-  const detailed = blueprint.buildings.filter(building => Math.abs(building.x) < 620 && Math.abs(building.z) < 860 && building.height > 16)
-  const windowCount = detailed.reduce((sum, building) => sum + Math.min(8, Math.max(3, Math.floor(building.height / 5))), 0)
-  const windowMaterial = new THREE.MeshStandardMaterial({ color: '#809ca1', emissive: '#203a41', emissiveIntensity: 0.28, roughness: 0.35 })
-  const windows = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 0.18), windowMaterial, windowCount)
-  let windowIndex = 0
-  for (const building of detailed) {
-    const floorCount = Math.min(8, Math.max(3, Math.floor(building.height / 5)))
-    for (let floor = 0; floor < floorCount; floor += 1) {
-      matrix.compose(
-        new THREE.Vector3(building.x, 4.2 + floor * 4.2, building.z + building.depth / 2 + 0.12),
-        new THREE.Quaternion(),
-        new THREE.Vector3(building.width * 0.64, 1.65, 1),
-      )
-      windows.setMatrixAt(windowIndex, matrix)
-      windowIndex += 1
-    }
-  }
-  scene.add(windows)
+  const buildingMaterials = [models.suburbanMaterial, models.commercialMaterial]
+    .filter((material): material is THREE.MeshStandardMaterial => material instanceof THREE.MeshStandardMaterial)
 
-  return { buildingMeshes, buildingRecords, buildingColors, windows }
-}
-
-function addRoofs(scene: THREE.Scene, blueprint: CityBlueprint): void {
-  const pitched = blueprint.buildings.filter(building => building.type === 'altbau' || building.type === 'residential')
-  const roof = new THREE.InstancedMesh(
-    new THREE.ConeGeometry(0.72, 0.34, 4),
-    new THREE.MeshStandardMaterial({ color: '#713f36', roughness: 0.92 }),
-    pitched.length,
-  )
-  const matrix = new THREE.Matrix4()
-  const quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4)
-  pitched.forEach((building, index) => {
-    matrix.compose(
-      new THREE.Vector3(building.x, building.height + 4.2, building.z),
-      quaternion,
-      new THREE.Vector3(building.width, 24, building.depth),
-    )
-    roof.setMatrixAt(index, matrix)
-  })
-  roof.castShadow = true
-  scene.add(roof)
+  return { buildingMeshes, buildingRecords, buildingColors, buildingMaterials }
 }
 
 /** New housing on the parcels the generator left free. Hidden until the pipeline delivers. */
-function createGrowth(scene: THREE.Scene, blueprint: CityBlueprint): THREE.InstancedMesh {
+function createGrowth(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): THREE.InstancedMesh {
   const slots = blueprint.growthSlots
-  const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.6, metalness: 0.05, vertexColors: true })
-  const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), material, Math.max(1, slots.length))
+  /*
+   * One model for the whole growth stock on purpose: delivered housing should read as new — the same
+   * contemporary block repeating down a street, visibly unlike the city it was dropped into.
+   */
+  const model = models.offices[3] ?? models.offices[0] ?? models.houses[0]!
+  const mesh = new THREE.InstancedMesh(model.geometry, models.commercialMaterial, Math.max(1, slots.length))
   const matrix = new THREE.Matrix4()
+  const position = new THREE.Vector3()
   const quaternion = new THREE.Quaternion()
-  const palette = ['#cdd3ce', '#b9c4bd', '#d8d2c3', '#a9b7b4']
+  const scale = new THREE.Vector3()
 
   slots.forEach((slot, index) => {
-    quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), slot.rotation)
-    matrix.compose(
-      new THREE.Vector3(slot.x, slot.height / 2 + 0.8, slot.z),
-      quaternion,
-      new THREE.Vector3(slot.width, slot.height, slot.depth),
-    )
+    placeModel(matrix, slot, model, position, quaternion, scale)
     mesh.setMatrixAt(index, matrix)
-    mesh.setColorAt(index, new THREE.Color(palette[index % palette.length]))
+    mesh.setColorAt(index, WHITE)
   })
   mesh.count = 0
   mesh.castShadow = true
@@ -295,28 +417,99 @@ function createConstructionSites(scene: THREE.Scene): THREE.Group {
   return group
 }
 
-function addTrees(scene: THREE.Scene, blueprint: CityBlueprint): Pick<WorldVisuals, 'treeTrunks' | 'treeCrowns'> {
-  const trunk = new THREE.InstancedMesh(
-    new THREE.CylinderGeometry(0.7, 0.95, 7, 6),
-    new THREE.MeshStandardMaterial({ color: '#554433', roughness: 1 }),
-    blueprint.trees.length,
-  )
-  const crown = new THREE.InstancedMesh(
-    new THREE.IcosahedronGeometry(4.8, 1),
-    new THREE.MeshStandardMaterial({ color: '#315943', roughness: 0.96 }),
-    blueprint.trees.length,
-  )
+function addTrees(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): Pick<WorldVisuals, 'treeTrunks' | 'treeCrowns'> {
+  /*
+   * The kit's trees, on their own copy of the atlas material: greenery is tinted as the city spends
+   * its green space, and the houses share that atlas — tinting it in place would have drained the
+   * colour out of every building in Lindenhafen along with the parks.
+   */
+  const material = models.suburbanMaterial.clone() as THREE.MeshStandardMaterial
+  material.vertexColors = true
+  const large = models.trees[0] ?? models.trees[1]
+  const small = models.trees[1] ?? models.trees[0]
+  const half = Math.ceil(blueprint.trees.length / 2)
+
+  function plant(model: CityModel | undefined, records: typeof blueprint.trees): StandardInstancedMesh {
+    const geometry = model?.geometry ?? new THREE.IcosahedronGeometry(4.8, 1)
+    const footprint = Math.max(0.001, Math.max(model?.size.x ?? 1, model?.size.z ?? 1))
+    const mesh = new THREE.InstancedMesh(geometry, material, Math.max(1, records.length))
+    const matrix = new THREE.Matrix4()
+    const position = new THREE.Vector3()
+    const quaternion = new THREE.Quaternion()
+    const scale = new THREE.Vector3()
+    records.forEach((tree, index) => {
+      const size = (9 / footprint) * tree.scale
+      matrix.compose(
+        position.set(tree.x, 0, tree.z),
+        quaternion.setFromAxisAngle(AXIS_Y, (index % 8) * (Math.PI / 4)),
+        scale.set(size, size, size),
+      )
+      mesh.setMatrixAt(index, matrix)
+      mesh.setColorAt(index, WHITE)
+    })
+    mesh.castShadow = true
+    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+    scene.add(mesh)
+    return mesh
+  }
+
+  return {
+    treeCrowns: plant(large, blueprint.trees.slice(0, half)),
+    treeTrunks: plant(small, blueprint.trees.slice(half)),
+  }
+}
+
+/**
+ * Lamps down the arterials. Every one is an instance of the same three shapes, so the whole of the
+ * city's night lighting is three draw calls and no actual lights — a real point light per lamp would
+ * mean two hundred and sixty of them in a forward renderer, and the look does not need it: a glowing
+ * head and a warm pool on the road read as street lighting from every distance the camera allows.
+ */
+function addStreetLights(scene: THREE.Scene, blueprint: CityBlueprint): StreetLights {
+  const positions: { x: number, z: number, alongZ: boolean }[] = []
+  for (const road of blueprint.roads) {
+    if (!road.arterial)
+      continue
+    const alongZ = road.axis === 'z'
+    const side = alongZ ? road.x : road.z
+    for (let along = -1_400; along <= 1_400; along += LAMP_SPACING) {
+      const offset = ((along / LAMP_SPACING) % 2 === 0 ? 1 : -1) * 17
+      positions.push(alongZ ? { x: side + offset, z: along, alongZ } : { x: along, z: side + offset, alongZ })
+    }
+  }
+
   const matrix = new THREE.Matrix4()
-  blueprint.trees.forEach((tree, index) => {
-    matrix.compose(new THREE.Vector3(tree.x, 3.5 * tree.scale, tree.z), new THREE.Quaternion(), new THREE.Vector3(tree.scale, tree.scale, tree.scale))
-    trunk.setMatrixAt(index, matrix)
-    matrix.compose(new THREE.Vector3(tree.x, 9 * tree.scale, tree.z), new THREE.Quaternion(), new THREE.Vector3(tree.scale, tree.scale, tree.scale))
-    crown.setMatrixAt(index, matrix)
+  const position = new THREE.Vector3()
+  const quaternion = new THREE.Quaternion()
+  const scale = new THREE.Vector3()
+  const box = new THREE.BoxGeometry(1, 1, 1)
+
+  const masts = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ color: '#3a3f42', roughness: 0.7, metalness: 0.3 }), positions.length)
+  const heads = new THREE.InstancedMesh(box, new THREE.MeshStandardMaterial({ color: '#2c2f31', emissive: '#ffcb7a', emissiveIntensity: 0, roughness: 0.4 }), positions.length) as StandardInstancedMesh
+  const pools = new THREE.InstancedMesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ map: glowTexture(), color: '#ffc478', transparent: true, opacity: 0, depthWrite: false, fog: false, toneMapped: false }),
+    positions.length,
+  ) as THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
+
+  positions.forEach((lamp, index) => {
+    const turn = lamp.alongZ ? 0 : Math.PI / 2
+    matrix.compose(position.set(lamp.x, LAMP_HEIGHT / 2, lamp.z), quaternion.setFromAxisAngle(AXIS_Y, turn), scale.set(0.9, LAMP_HEIGHT, 0.9))
+    masts.setMatrixAt(index, matrix)
+    matrix.compose(position.set(lamp.x, LAMP_HEIGHT, lamp.z), quaternion.setFromAxisAngle(AXIS_Y, turn), scale.set(4.2, 0.9, 1.4))
+    heads.setMatrixAt(index, matrix)
+    // Flat on the road, a touch above it so the asphalt does not fight it for the same depth.
+    matrix.compose(position.set(lamp.x, 0.92, lamp.z), FLAT, scale.set(LAMP_POOL, LAMP_POOL, 1))
+    pools.setMatrixAt(index, matrix)
   })
-  trunk.castShadow = true
-  crown.castShadow = true
-  scene.add(trunk, crown)
-  return { treeTrunks: trunk, treeCrowns: crown }
+
+  masts.castShadow = true
+  masts.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+  heads.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+  pools.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+  pools.renderOrder = 1
+  scene.add(masts, heads, pools)
+  return { heads, pools }
 }
 
 function addLandmarks(scene: THREE.Scene): void {
@@ -476,6 +669,19 @@ function moonTexture(seed: number): THREE.CanvasTexture {
   })
 }
 
+/** A soft round glow with no edge, used for the pool a street lamp throws on the road. */
+function glowTexture(): THREE.CanvasTexture {
+  return paint((context, size) => {
+    const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+    for (let step = 0; step <= 16; step += 1) {
+      const t = step / 16
+      gradient.addColorStop(t, `rgba(255, 255, 255, ${(1 - t) ** 2.4})`)
+    }
+    context.fillStyle = gradient
+    context.fillRect(0, 0, size, size)
+  })
+}
+
 /** One square canvas, painted by the caller and handed back as a texture. */
 function paint(draw: (context: CanvasRenderingContext2D, size: number) => void): THREE.CanvasTexture {
   const size = 256
@@ -510,14 +716,13 @@ function createCelestialBody(parent: THREE.Object3D, map: THREE.Texture, color: 
   return { sprite }
 }
 
-export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint): WorldVisuals {
-  addGround(scene)
+export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): WorldVisuals {
+  addGround(scene, blueprint, models)
   addRoads(scene, blueprint)
-  const buildingVisuals = createBuildings(scene, blueprint)
-  addRoofs(scene, blueprint)
-  const trees = addTrees(scene, blueprint)
+  const buildingVisuals = createBuildings(scene, blueprint, models)
+  const trees = addTrees(scene, blueprint, models)
   addLandmarks(scene)
-  const growth = createGrowth(scene, blueprint)
+  const growth = createGrowth(scene, blueprint, models)
   const constructionSites = createConstructionSites(scene)
   const agents = createAgents(scene)
 
@@ -568,6 +773,7 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint): World
   skyRig.add(sky)
 
   const stars = createStars(skyRig, blueprint.definition.seed)
+  const streetLights = addStreetLights(scene, blueprint)
   const sun = new THREE.DirectionalLight('#fff2d2', 4.2)
   sun.position.set(-700, 1_100, -420)
   sun.castShadow = true
@@ -591,5 +797,5 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint): World
   const sunBody = createCelestialBody(skyRig, sunTexture(), '#fffdf6', 520)
   const moonBody = createCelestialBody(skyRig, moonTexture(blueprint.definition.seed), '#eef3fa', 430)
 
-  return { ...buildingVisuals, ...agents, ...trees, growth, constructionSites, sun, moon, sunBody, moonBody, sky, skyRig, hemisphere, stars }
+  return { ...buildingVisuals, ...agents, ...trees, growth, constructionSites, sun, moon, sunBody, moonBody, sky, skyRig, hemisphere, stars, streetLights }
 }

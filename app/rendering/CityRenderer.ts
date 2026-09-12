@@ -1,4 +1,5 @@
 import type { BuildingRecord, CityBlueprint, SimulationSnapshot, SkyState } from '../core/contracts'
+import type { CityModels } from './cityModels'
 import type { CelestialBody, WorldVisuals } from './createWorld'
 import { MapControls } from 'three/addons/controls/MapControls.js'
 import * as THREE from 'three/webgpu'
@@ -15,6 +16,7 @@ export interface RendererStats {
 export interface CityRendererOptions {
   canvas: HTMLCanvasElement
   blueprint: CityBlueprint
+  models: CityModels
   onBuildingSelected: (building: BuildingRecord | null) => void
   onReady: (stats: RendererStats) => void
   onStats: (stats: RendererStats) => void
@@ -128,7 +130,7 @@ export class CityRenderer {
     this.controls.touches.ONE = THREE.TOUCH.PAN
     this.controls.touches.TWO = THREE.TOUCH.DOLLY_ROTATE
 
-    this.visuals = createWorld(this.scene, options.blueprint)
+    this.visuals = createWorld(this.scene, options.blueprint, options.models)
     this.resizeObserver = new ResizeObserver(() => this.resize())
     this.resizeObserver.observe(this.canvas)
     this.canvas.addEventListener('pointermove', this.handlePointerMove)
@@ -240,10 +242,15 @@ export class CityRenderer {
 
     // Green space is a stock the player can spend or build: fewer hectares, fewer and drier trees.
     const greenery = THREE.MathUtils.clamp(visuals.greenery, 0.45, 1.3)
-    const treeCount = Math.min(this.blueprint.trees.length, Math.round(this.blueprint.trees.length * Math.min(1, greenery)))
-    this.visuals.treeCrowns.count = treeCount
-    this.visuals.treeTrunks.count = treeCount
-    this.visuals.treeCrowns.material.color.copy(new THREE.Color('#6b6233').lerp(new THREE.Color('#315943'), THREE.MathUtils.clamp(greenery, 0, 1)))
+    /*
+     * The stock is split across two meshes, one per tree model, so each is thinned against its own
+     * capacity. Setting a count past what a mesh actually holds hands the GPU an instance range
+     * longer than its buffers and every draw in the frame is rejected.
+     */
+    const share = Math.min(1, greenery)
+    for (const mesh of [this.visuals.treeCrowns, this.visuals.treeTrunks])
+      mesh.count = Math.round(mesh.instanceMatrix.count * share)
+    this.visuals.treeCrowns.material.color.copy(new THREE.Color('#8d8548').lerp(new THREE.Color('#ffffff'), THREE.MathUtils.clamp(greenery, 0, 1)))
   }
 
   focusBuilding(buildingId: string): void {
@@ -431,6 +438,13 @@ export class CityRenderer {
     // Warmth peaks while the sun sits on the horizon and fades as it climbs.
     const horizonWarmth = THREE.MathUtils.smoothstep(0.34 - Math.abs(arc), 0, 0.34) * THREE.MathUtils.smoothstep(arc, -0.3, 0.05)
 
+    /*
+     * Neither light is ever switched off, only dimmed to zero. Toggling a light's visibility changes
+     * the scene's lighting setup, and this renderer keys every material's shader on that setup — so
+     * the sun going down at dusk rebuilt every pipeline in the city at once, which is where the drop
+     * at the turn of the cycle came from.
+     */
+
     // The sun sweeps east to west; below the horizon it keeps going so dawn arrives from the east.
     const angle = Math.PI * (1 - this.sky.sweep)
 
@@ -455,13 +469,11 @@ export class CityRenderer {
     this.visuals.sun.position.set(Math.cos(angle) * radius, Math.max(-400, elevation * 1_050 + 120), Math.sin(angle) * radius * 0.45)
     this.visuals.sun.intensity = 0.05 + daylight * 4.1
     this.visuals.sun.color.copy(this.sunColour.setHex(SUN_WHITE).lerp(EMBER, horizonWarmth))
-    this.visuals.sun.visible = arc > -0.16
 
     // The moon rides opposite the sun and only lights the city once the sun has gone.
     const moonAngle = angle + Math.PI
     this.visuals.moon.position.set(Math.cos(moonAngle) * radius, Math.max(-400, -elevation * 900 + 140), Math.sin(moonAngle) * radius * 0.45)
     this.visuals.moon.intensity = (1 - daylight) * 1.25
-    this.visuals.moon.visible = arc < 0.08
 
     /*
      * The bodies themselves ride the same angle as their lights, on a true hemisphere: at elevation
@@ -493,8 +505,23 @@ export class CityRenderer {
     const starMaterial = this.visuals.stars.material
     starMaterial.opacity = Math.max(0, 1 - daylight * 2.4)
 
-    // Lit windows follow both the hour and how well the city is doing.
-    this.visuals.windows.material.emissiveIntensity = (0.2 + (1 - daylight) * 3.1) * (0.45 + this.nightLife * 0.95)
+    /*
+     * The city's own glow at night. The kit's windows are geometry rather than a separate lit mesh,
+     * so the light is carried on the shared atlas material — see the night lighting pass for the
+     * window mask itself.
+     */
+    const glow = (1 - daylight) * (0.1 + this.nightLife * 0.14)
+    for (const material of this.visuals.buildingMaterials)
+      material.emissiveIntensity = glow
+
+    /*
+     * Street lighting comes on as the light goes, and how brightly depends on how the city is doing:
+     * a place that has lost its night life leaves half its lamps dark. Both are material properties
+     * on two instanced meshes, so the whole of it costs nothing per lamp.
+     */
+    const lamps = (1 - daylight) * (0.45 + this.nightLife * 0.55)
+    this.visuals.streetLights.heads.material.emissiveIntensity = lamps * 3.4
+    this.visuals.streetLights.pools.material.opacity = lamps * 0.5
   }
 
   /**

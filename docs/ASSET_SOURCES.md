@@ -42,3 +42,18 @@ und nicht im Build.
 **Lindenhafen ist erfunden.** Übernommen wird ausschließlich die Geometrie — keine Straßennamen,
 keine Adressen, keine Einrichtungen. Bezirke, Bevölkerung, Politik und jede Zahl der Simulation sind
 unsere eigenen und haben mit Bremen nichts zu tun.
+
+## Fahrzeuge, Menschen, Bepflanzung
+
+| Was | Quelle | Lizenz | Stand |
+| --- | --- | --- | --- |
+| 12 Fahrzeuge inkl. Polizei, Taxi, Rettungswagen, Müllwagen | Kenney Car Kit, kenney.nl | CC0 1.0 | 2026-09-13 |
+| 12 Figuren (6 weiblich, 6 männlich) mit unterschiedlichen Hauttönen und Kleidung | Kenney Mini Characters | CC0 1.0 | 2026-09-13 |
+| 9 Bäume, 2 Sträucher | Kenney Nature Kit | CC0 1.0 | 2026-09-13 |
+
+Die Kits liegen unter `public/models/{vehicles,people,nature}`. Fahrzeuge bestehen aus mehreren
+Meshes (Karosserie plus vier Räder) und der Nature Kit malt über Materialfarben statt über eine
+Textur — beides löst `app/rendering/cityModels.ts` beim Laden auf, indem es alle Meshes eines Modells
+verschmilzt und Materialfarben in Vertexfarben backt.
+
+Die Schiffe sind selbst gebaut: in keinem der Kits gibt es ein Boot.

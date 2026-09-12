@@ -1,8 +1,10 @@
 import type { CityBlueprint, RoadRecord } from '../../core/contracts'
 import type { Relief } from '../../world/relief'
+import type { CityModel, CityModels } from '../cityModels'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../core/rng'
-import { AXIS_Y } from '../shared'
+import { COMMON_VEHICLES } from '../cityModels'
+import { AXIS_Y, WHITE } from '../shared'
 
 /**
  * Traffic and pedestrians: the only things in the city that move on their own.
@@ -11,26 +13,40 @@ import { AXIS_Y } from '../shared'
  * either side of the centre, every 180 metres — which was fine while the city was a grid too and
  * became nonsense the moment it stopped being one: cars drove through blocks and along the backs of
  * houses. Each one now gets a street, a speed and a head start, and follows the polyline the map
- * gave us.
+ * gave us, at whatever height the ground is at that point.
  *
- * Both are distance-gated, because they are also the only things whose matrices have to be rewritten
- * and re-uploaded while they are on screen. What the player can no longer make out is not animated.
+ * One instanced mesh per model, so twelve kinds of car and twelve people are twenty-four draws no
+ * matter how many of them are on the road. Both are distance-gated: what the player can no longer
+ * make out is not animated, because animating it means rewriting and re-uploading its matrix.
  */
 
-const CAR_COUNT = 180
-const WALKER_COUNT = 320
+const CAR_COUNT = 220
+const WALKER_COUNT = 340
 /** Above these camera distances a car is a few pixels and a pedestrian is less than one. */
 const CAR_RANGE = 2_600
 const WALKER_RANGE = 1_100
 /** Only streets a car would actually be on; service roads and alleys carry the pedestrians. */
 const DRIVABLE_WIDTH = 8
+/** Nine in ten cars are ordinary. A city this size does not have one car in twelve on blue lights. */
+const RARE_VEHICLE_SHARE = 0.12
+/** How long a car and a person are in metres, so a kit model can be scaled onto the street. */
+const CAR_LENGTH = 4.4
+const BIG_CAR_LENGTH = 7.2
+const BIG_VEHICLES = new Set(['truck', 'delivery', 'ambulance', 'garbage-truck', 'van'])
+const PERSON_HEIGHT = 1.75
 
 export interface Agents {
-  cars: THREE.InstancedMesh
-  pedestrians: THREE.InstancedMesh
-  routes: Routes
+  cars: Fleet
+  pedestrians: Fleet
   /** Everything that moves has to follow the ground it moves over. */
   relief: Relief
+}
+
+/** One instanced mesh per model, and the travellers riding in it. */
+interface Fleet {
+  meshes: THREE.InstancedMesh[]
+  crews: Traveller[][]
+  routes: Route[]
 }
 
 /**
@@ -54,65 +70,90 @@ interface Traveller {
   reverse: boolean
 }
 
-export interface Routes {
-  driving: Route[]
-  walking: Route[]
-  cars: Traveller[]
-  walkers: Traveller[]
-}
-
-export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint): Agents {
-  const cars = new THREE.InstancedMesh(
-    new THREE.BoxGeometry(4.2, 1.6, 1.9),
-    new THREE.MeshStandardMaterial({ color: '#c54a3d', roughness: 0.5, metalness: 0.18, vertexColors: true }),
-    CAR_COUNT,
-  )
-  const carPalette = ['#c94b3e', '#d9d2c2', '#274f63', '#323638', '#d6a636', '#66715d']
-  for (let index = 0; index < CAR_COUNT; index += 1) cars.setColorAt(index, new THREE.Color(carPalette[index % carPalette.length]))
-  cars.castShadow = true
-  scene.add(cars)
-
-  const pedestrians = new THREE.InstancedMesh(
-    new THREE.CapsuleGeometry(0.28, 0.9, 3, 5),
-    new THREE.MeshStandardMaterial({ color: '#d6c9b5', roughness: 0.88, vertexColors: true }),
-    WALKER_COUNT,
-  )
-  const peoplePalette = ['#d85848', '#315d70', '#d6b258', '#39473d', '#efe5d1', '#895f74']
-  for (let index = 0; index < WALKER_COUNT; index += 1) pedestrians.setColorAt(index, new THREE.Color(peoplePalette[index % peoplePalette.length]))
-  pedestrians.castShadow = true
-  scene.add(pedestrians)
-
-  return { cars, pedestrians, routes: planRoutes(blueprint), relief: blueprint.relief }
-}
-
-function planRoutes(blueprint: CityBlueprint): Routes {
+export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): Agents {
   const rng = createRandomStream(blueprint.definition.seed, 'traffic')
-  const driving = blueprint.roads.filter(road => road.arterial || road.width >= DRIVABLE_WIDTH).map(measure).filter(route => route.length > 60)
+
+  const driving = blueprint.roads
+    .filter(road => road.arterial || road.width >= DRIVABLE_WIDTH)
+    .map(measure)
+    .filter(route => route.length > 60)
   const walking = blueprint.roads.map(measure).filter(route => route.length > 40)
 
-  const assign = (routes: Route[], count: number, speed: [number, number], lane: number): Traveller[] => {
-    const travellers: Traveller[] = []
-    if (routes.length === 0)
-      return travellers
-    for (let index = 0; index < count; index += 1) {
-      const route = Math.floor(rng.next() * routes.length)
-      travellers.push({
-        route,
-        phase: rng.next() * (routes[route]?.length ?? 1),
-        speed: rng.between(speed[0], speed[1]),
-        offset: rng.next() > 0.5 ? lane : -lane,
-        reverse: rng.next() > 0.5,
-      })
+  return {
+    cars: buildFleet(scene, driving, models.vehicles, models.vehicleMaterial, CAR_COUNT, rng, {
+      lane: 2.4,
+      speed: [8, 17],
+      scale: model => (BIG_VEHICLES.has(model.id) ? BIG_CAR_LENGTH : CAR_LENGTH) / Math.max(0.001, Math.max(model.size.x, model.size.z)),
+      weight: model => COMMON_VEHICLES.includes(model.id) ? 1 - RARE_VEHICLE_SHARE : RARE_VEHICLE_SHARE,
+    }),
+    pedestrians: buildFleet(scene, walking, models.people, models.peopleMaterial, WALKER_COUNT, rng, {
+      lane: 4.6,
+      speed: [1.1, 1.9],
+      scale: model => PERSON_HEIGHT / Math.max(0.001, model.size.y),
+      weight: () => 1,
+    }),
+    relief: blueprint.relief,
+  }
+}
+
+interface FleetPlan {
+  lane: number
+  speed: [number, number]
+  scale: (model: CityModel) => number
+  weight: (model: CityModel) => number
+}
+
+function buildFleet(
+  scene: THREE.Scene,
+  routes: Route[],
+  models: CityModel[],
+  material: THREE.Material,
+  count: number,
+  rng: { next: () => number, between: (a: number, b: number) => number },
+  plan: FleetPlan,
+): Fleet {
+  const meshes: THREE.InstancedMesh[] = []
+  const crews: Traveller[][] = []
+  if (models.length === 0 || routes.length === 0)
+    return { meshes, crews, routes }
+
+  // Weighted draw, so the ambulances stay rare without having to hand-place any of them.
+  const weights = models.map(plan.weight)
+  const total = weights.reduce((sum, weight) => sum + weight, 0)
+  const assigned: Traveller[][] = models.map(() => [])
+  for (let index = 0; index < count; index += 1) {
+    let roll = rng.next() * total
+    let chosen = 0
+    while (chosen < weights.length - 1 && roll > weights[chosen]!) {
+      roll -= weights[chosen]!
+      chosen += 1
     }
-    return travellers
+    const route = Math.floor(rng.next() * routes.length)
+    assigned[chosen]!.push({
+      route,
+      phase: rng.next() * (routes[route]?.length ?? 1),
+      speed: rng.between(plan.speed[0], plan.speed[1]),
+      offset: rng.next() > 0.5 ? plan.lane : -plan.lane,
+      reverse: rng.next() > 0.5,
+    })
   }
 
-  return {
-    driving,
-    walking,
-    cars: assign(driving, CAR_COUNT, [9, 17], 2.2),
-    walkers: assign(walking, WALKER_COUNT, [1.1, 1.9], 4.4),
-  }
+  models.forEach((model, index) => {
+    const crew = assigned[index]!
+    if (crew.length === 0)
+      return
+    const geometry = model.geometry.clone()
+    geometry.scale(plan.scale(model), plan.scale(model), plan.scale(model))
+    const mesh = new THREE.InstancedMesh(geometry, material, crew.length)
+    for (let instance = 0; instance < crew.length; instance += 1) mesh.setColorAt(instance, WHITE)
+    mesh.castShadow = true
+    mesh.frustumCulled = false
+    scene.add(mesh)
+    meshes.push(mesh)
+    crews.push(crew)
+  })
+
+  return { meshes, crews, routes }
 }
 
 /** Running totals along a street, computed once. */
@@ -143,26 +184,26 @@ const scale = /* @__PURE__ */ new THREE.Vector3(1, 1, 1)
  * than as a pause.
  */
 export function updateAgents(agents: Agents, elapsed: number, cameraDistance: number, trafficFactor: number): void {
-  const { routes } = agents
+  drive(agents.cars, elapsed, agents.relief, 0.05, cameraDistance > CAR_RANGE ? 0 : Math.min(1, trafficFactor))
+  drive(agents.pedestrians, elapsed, agents.relief, 0.02, cameraDistance > WALKER_RANGE ? 0 : 1)
+}
 
-  const visibleCars = cameraDistance > CAR_RANGE ? 0 : Math.min(routes.cars.length, Math.floor(CAR_COUNT * trafficFactor))
-  agents.cars.count = visibleCars
-  for (let index = 0; index < visibleCars; index += 1)
-    place(agents.cars, index, routes.driving, routes.cars[index]!, elapsed, 0.85, agents.relief)
-  if (visibleCars > 0)
-    agents.cars.instanceMatrix.needsUpdate = true
-
-  const walkers = cameraDistance > WALKER_RANGE ? 0 : Math.min(routes.walkers.length, WALKER_COUNT)
-  agents.pedestrians.count = walkers
-  if (walkers === 0)
-    return
-  for (let index = 0; index < walkers; index += 1)
-    place(agents.pedestrians, index, routes.walking, routes.walkers[index]!, elapsed, 0.95, agents.relief)
-  agents.pedestrians.instanceMatrix.needsUpdate = true
+function drive(fleet: Fleet, elapsed: number, relief: Relief, lift: number, share: number): void {
+  for (let index = 0; index < fleet.meshes.length; index += 1) {
+    const mesh = fleet.meshes[index]!
+    const crew = fleet.crews[index]!
+    const visible = Math.round(crew.length * share)
+    mesh.count = visible
+    if (visible === 0)
+      continue
+    for (let instance = 0; instance < visible; instance += 1)
+      place(mesh, instance, fleet.routes, crew[instance]!, elapsed, lift, relief)
+    mesh.instanceMatrix.needsUpdate = true
+  }
 }
 
 /** Put one traveller where it has got to by now, facing the way it is going. */
-function place(mesh: THREE.InstancedMesh, index: number, routes: Route[], traveller: Traveller, elapsed: number, height: number, relief: Relief): void {
+function place(mesh: THREE.InstancedMesh, index: number, routes: Route[], traveller: Traveller, elapsed: number, lift: number, relief: Relief): void {
   const route = routes[traveller.route]
   if (!route || route.length <= 0)
     return
@@ -184,11 +225,7 @@ function place(mesh: THREE.InstancedMesh, index: number, routes: Route[], travel
   const x = ax + (bx - ax) * t - uz * side
   const z = az + (bz - az) * t + ux * side
   quaternion.setFromAxisAngle(AXIS_Y, Math.atan2(traveller.reverse ? -ux : ux, traveller.reverse ? -uz : uz))
-  matrix.compose(
-    position.set(x, relief.height(x, z) + height, z),
-    quaternion,
-    scale,
-  )
+  matrix.compose(position.set(x, relief.height(x, z) + lift, z), quaternion, scale)
   mesh.setMatrixAt(index, matrix)
 }
 

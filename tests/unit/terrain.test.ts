@@ -1,20 +1,33 @@
 import { describe, expect, it } from 'vitest'
-import { CITY_FLAT_RADIUS, terrainHeight } from '../../app/world/terrain'
+import { CITY_FLAT_RADIUS, groundVariation, terrainHeight } from '../../app/world/terrain'
 
-describe('terrain', () => {
-  it('leaves the ground the city is built on dead flat', () => {
-    // Every parcel, road and building the simulation places assumes y = 0.
-    for (const [x, z] of [[0, 0], [1_400, 0], [0, -1_430], [1_000, 1_000], [-1_430, 900]] as const)
+/**
+ * `terrainHeight` is only the open country. Inside the city the ground comes from the relief the
+ * converter derived from the water; `Relief` blends the two. What is tested here is that the country
+ * stays out of the city's way and still has hills in it.
+ */
+describe('open country', () => {
+  it('stays flat under the city, so the city keeps its own relief', () => {
+    for (const [x, z] of [[0, 0], [900, 0], [0, -1_200], [800, 800]] as const)
       expect(terrainHeight(x, z, 2_036)).toBe(0)
+    expect(terrainHeight(CITY_FLAT_RADIUS - 10, 0, 2_036)).toBe(0)
   })
 
-  it('starts to rise only once it is past the built-up area', () => {
-    expect(terrainHeight(CITY_FLAT_RADIUS - 10, 0, 2_036)).toBe(0)
+  it('has risen well before the city relief has finished fading out', () => {
+    /*
+     * The two have to overlap. When the hills began a kilometre past the city's edge, neither was
+     * doing anything in between and a trough ran right round the city.
+     */
     let highest = 0
-    for (let angle = 0; angle < Math.PI * 2; angle += 0.2) {
-      const radius = 6_000
-      highest = Math.max(highest, terrainHeight(Math.cos(angle) * radius, Math.sin(angle) * radius, 2_036))
-    }
+    for (let angle = 0; angle < Math.PI * 2; angle += 0.2)
+      highest = Math.max(highest, terrainHeight(Math.cos(angle) * 2_000, Math.sin(angle) * 2_000, 2_036))
+    expect(highest).toBeGreaterThan(4)
+  })
+
+  it('makes real hills further out', () => {
+    let highest = 0
+    for (let angle = 0; angle < Math.PI * 2; angle += 0.2)
+      highest = Math.max(highest, terrainHeight(Math.cos(angle) * 6_000, Math.sin(angle) * 6_000, 2_036))
     expect(highest).toBeGreaterThan(40)
   })
 
@@ -24,12 +37,6 @@ describe('terrain', () => {
       const z = ((index * 613) % 20_000) - 10_000
       expect(terrainHeight(x, z, 2_036)).toBeGreaterThanOrEqual(0)
     }
-  })
-
-  it('keeps the river in a valley however far it runs', () => {
-    // Water does not climb a hill, and a river cut through one looks wrong from the first frame.
-    for (const z of [-9_000, -4_000, 4_000, 9_000])
-      expect(terrainHeight(-1_050, z, 2_036)).toBe(0)
   })
 
   it('is deterministic, and a different seed gives different land', () => {
@@ -47,5 +54,9 @@ describe('terrain', () => {
       previous = height
     }
     expect(biggestStep).toBeLessThan(6)
+  })
+
+  it('varies its colour from place to place', () => {
+    expect(groundVariation(0, 0, 2_036)).not.toBe(groundVariation(3_000, 1_400, 2_036))
   })
 })

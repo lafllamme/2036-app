@@ -21,8 +21,16 @@ const TILES = 4
 const CITY_EXTENT = 1_500
 /** How far a roof draws in from the wall below it. A pitched roof is a truncated pyramid. */
 const ROOF_INSET = 2.4
-/** How far a building's walls are buried, so no footprint corner ends up hanging over a slope. */
-const SKIRT = 4
+/**
+ * How far a building's walls are buried.
+ *
+ * The ground mesh interpolates in straight lines between vertices tens of metres apart, so a
+ * building placed at its centre's height can sit several metres above the surface at one corner. A
+ * skirt buried in the hillside costs two triangles an edge and there is never a gap.
+ */
+const SKIRT = 12
+/** The low wall a flat roof stops at. */
+const PARAPET = 0.9
 
 const WALL_COLOURS: Record<BuildingType, string[]> = {
   altbau: ['#b09480', '#c2a687', '#9c8271', '#ab8871', '#bda593'],
@@ -167,7 +175,7 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
   tile.colours.push(wall)
 
   // ---- walls ----
-  let along = 0
+  const storeys = Math.max(1, Math.round((wallTop - ground) / STOREY_HEIGHT))
   for (let i = 0; i < corners; i += 1) {
     const j = (i + 1) % corners
     const ax = ring[i * 2]!
@@ -181,16 +189,23 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
     // Counter-clockwise in x/z means the outward normal is the edge turned to the right.
     const nx = -(bz - az) / span
     const nz = (bx - ax) / span
-    const u0 = along / BAY_WIDTH
-    const u1 = (along + span) / BAY_WIDTH
-    const v = (wallTop - base) / STOREY_HEIGHT
-    along += span
+    /*
+     * Whole window bays along the wall and whole storeys up it. The texture is one storey by one bay,
+     * so anything else cuts a window in half at the corner or at the roof — and it did both: `v` used
+     * to run from the bottom of the buried skirt, which put the ground-floor row underground and
+     * every row above it a third of a storey out.
+     */
+    const bays = Math.max(1, Math.round(span / BAY_WIDTH))
+    const u0 = 0
+    const u1 = bays
+    const vTop = storeys
+    const vBase = -(SKIRT * storeys) / Math.max(0.001, wallTop - ground)
 
     const vertex = tile.position.length / 3
-    push(tile, ax, base, az, nx, nz, u0, 0, wall)
-    push(tile, bx, base, bz, nx, nz, u1, 0, wall)
-    push(tile, bx, wallTop, bz, nx, nz, u1, v, wall)
-    push(tile, ax, wallTop, az, nx, nz, u0, v, wall)
+    push(tile, ax, base, az, nx, nz, u0, vBase, wall)
+    push(tile, bx, base, bz, nx, nz, u1, vBase, wall)
+    push(tile, bx, wallTop, bz, nx, nz, u1, vTop, wall)
+    push(tile, ax, wallTop, az, nx, nz, u0, vTop, wall)
     // Wound so the outward face is the one that is kept: a ring that is counter-clockwise on the
     // map is clockwise to a camera looking down at it, and the whole city was inside out.
     tile.wallIndex.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2)
@@ -219,6 +234,29 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
       push(tile, cx, capHeight, cz, nx, nz, 0, 0, roof)
       push(tile, dx, capHeight, dz, nx, nz, 0, 0, roof)
       tile.roofIndex.push(base, base + 2, base + 1, base, base + 3, base + 2)
+    }
+  }
+
+  /*
+   * A parapet: the low wall a flat roof stops at. Without it a big block is a slab with a lid, which
+   * is exactly how the towers read — the roof edge is most of what tells you a building has a top.
+   */
+  if (building.roofHeight <= 0.4 && building.height > 9) {
+    for (let i = 0; i < corners; i += 1) {
+      const j = (i + 1) % corners
+      const vertex = tile.position.length / 3
+      const ax = ring[i * 2]!
+      const az = ring[i * 2 + 1]!
+      const bx = ring[j * 2]!
+      const bz = ring[j * 2 + 1]!
+      const span = Math.hypot(bx - ax, bz - az) || 1
+      const nx = -(bz - az) / span
+      const nz = (bx - ax) / span
+      push(tile, ax, wallTop, az, nx, nz, 0, 0, roof)
+      push(tile, bx, wallTop, bz, nx, nz, 0, 0, roof)
+      push(tile, bx, wallTop + PARAPET, bz, nx, nz, 0, 0, roof)
+      push(tile, ax, wallTop + PARAPET, az, nx, nz, 0, 0, roof)
+      tile.roofIndex.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2)
     }
   }
 

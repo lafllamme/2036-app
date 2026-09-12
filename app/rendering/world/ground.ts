@@ -1,4 +1,5 @@
 import type { AreaKind, CityBlueprint } from '../../core/contracts'
+import type { Relief } from '../../world/relief'
 import * as THREE from 'three/webgpu'
 import { groundTexture } from './groundTexture'
 
@@ -14,8 +15,11 @@ import { groundTexture } from './groundTexture'
 
 /** The land reaches well past the point where haze has swallowed it, so it never shows an edge. */
 const GROUND_SPAN = 22_000
-/** Enough to carry hills two kilometres wide without faceting; 62k triangles for the whole country. */
-const GROUND_SEGMENTS = 176
+/** The city's own plate: three and a half kilometres at a vertex every twenty metres. */
+const CITY_PLATE = 3_600
+const CITY_SEGMENTS = 180
+/** The country around it, warped so its cells are finest where they meet the city. */
+const COUNTRY_SEGMENTS = 120
 /**
  * Land use sits just above the ground and below the roads.
  *
@@ -39,55 +43,89 @@ const AREA_COLOURS: Record<AreaKind, string> = {
 
 export function addGround(scene: THREE.Scene, blueprint: CityBlueprint): void {
   const relief = blueprint.relief
-  /*
-   * Fine where the city is, coarse where the country is. A uniform grid over twenty kilometres would
-   * have to be four thousand cells across to resolve a two-metre terrace in the middle of town.
-   */
-  const geometry = new THREE.PlaneGeometry(GROUND_SPAN, GROUND_SPAN, GROUND_SEGMENTS, GROUND_SEGMENTS)
-  warpTowardCentre(geometry)
-  const position = geometry.attributes.position as THREE.BufferAttribute
-  for (let index = 0; index < position.count; index += 1) {
-    // The plane is built in its own XY and laid flat afterwards, so its y is the world's z.
-    position.setZ(index, relief.height(position.getX(index), position.getY(index)))
-  }
-  geometry.computeVertexNormals()
-
-  const texture = groundTexture()
+  const material = new THREE.MeshStandardMaterial({ map: groundTexture(), color: '#59674a', roughness: 0.97, metalness: 0 })
+  const texture = material.map!
   texture.repeat.set(GROUND_SPAN / 60, GROUND_SPAN / 60)
-  const ground = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
-    map: texture,
-    color: '#59674a',
-    roughness: 0.97,
-    metalness: 0,
-  }))
-  ground.rotation.x = -Math.PI / 2
-  ground.receiveShadow = true
-  scene.add(ground)
+
+  /*
+   * Two meshes, because one cannot be both. The city needs a vertex every twenty metres — the relief
+   * runs to forty-odd metres over a few hundred, and a coarser grid leaves buildings hanging over a
+   * slope the ground does not have there. The country needs to reach the horizon, where a vertex
+   * every twenty metres would be four thousand cells across.
+   *
+   * The ring's hole is a cell smaller than the inner plane, so the two overlap rather than meet;
+   * a shared edge between grids of different densities is a crack, an overlap is not. Both read the
+   * same relief, so in the overlap they agree to the centimetre.
+   */
+  scene.add(plate(relief, material, CITY_PLATE, CITY_SEGMENTS, 0.02, null))
+  scene.add(plate(relief, material, GROUND_SPAN, COUNTRY_SEGMENTS, 0, CITY_PLATE / 2 - GROUND_SPAN / COUNTRY_SEGMENTS))
 
   addAreas(scene, blueprint)
 }
 
 /**
- * Pull the grid's cells toward the middle so the city gets most of them.
+ * A square of ground.
  *
- * A plane's vertices are evenly spaced, which over twenty-two kilometres puts one every hundred and
- * twenty-five metres — far too coarse for ground the player stands on. Raising the normalised
- * distance to a power redistributes them: about a cell every twenty metres over the city, and still
- * enough left over for hills two kilometres wide.
+ * `hole` skips every quad that lies entirely inside that half-extent, which is what turns the
+ * country plate into a ring. `warp` pulls the country's vertices toward the middle so what is left
+ * of it is finest where it meets the city.
  */
-function warpTowardCentre(geometry: THREE.PlaneGeometry): void {
-  const position = geometry.attributes.position as THREE.BufferAttribute
-  const half = GROUND_SPAN / 2
-  for (let index = 0; index < position.count; index += 1) {
-    for (const axis of ['X', 'Y'] as const) {
-      const value = axis === 'X' ? position.getX(index) : position.getY(index)
-      const t = Math.abs(value) / half
-      const warped = t ** 2.6 * half * Math.sign(value)
-      if (axis === 'X')
-        position.setX(index, warped)
-      else position.setY(index, warped)
+function plate(relief: Relief, material: THREE.Material, span: number, segments: number, lift: number, hole: number | null): THREE.Mesh {
+  const step = span / segments
+  const half = span / 2
+  const position: number[] = []
+  const uv: number[] = []
+  const index: number[] = []
+  const map = new Map<number, number>()
+
+  const vertexAt = (column: number, row: number): number => {
+    const key = row * (segments + 1) + column
+    const existing = map.get(key)
+    if (existing !== undefined)
+      return existing
+    const x = warp(-half + column * step, half, hole !== null)
+    const z = warp(-half + row * step, half, hole !== null)
+    const at = position.length / 3
+    position.push(x, relief.height(x, z) + lift, z)
+    uv.push((x + half) / span, (z + half) / span)
+    map.set(key, at)
+    return at
+  }
+
+  for (let row = 0; row < segments; row += 1) {
+    for (let column = 0; column < segments; column += 1) {
+      const x0 = warp(-half + column * step, half, hole !== null)
+      const x1 = warp(-half + (column + 1) * step, half, hole !== null)
+      const z0 = warp(-half + row * step, half, hole !== null)
+      const z1 = warp(-half + (row + 1) * step, half, hole !== null)
+      if (hole !== null && Math.max(Math.abs(x0), Math.abs(x1)) < hole && Math.max(Math.abs(z0), Math.abs(z1)) < hole)
+        continue
+      const a = vertexAt(column, row)
+      const b = vertexAt(column + 1, row)
+      const c = vertexAt(column, row + 1)
+      const d = vertexAt(column + 1, row + 1)
+      index.push(a, c, b, b, c, d)
     }
   }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3))
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+  geometry.setIndex(index)
+  geometry.computeVertexNormals()
+  geometry.computeBoundingSphere()
+
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.receiveShadow = true
+  return mesh
+}
+
+/** Cells pulled toward the middle, so the country plate is finest where the city ends. */
+function warp(value: number, half: number, enabled: boolean): number {
+  if (!enabled)
+    return value
+  const t = Math.abs(value) / half
+  return t ** 1.7 * half * Math.sign(value)
 }
 
 /**
@@ -106,6 +144,9 @@ function addAreas(scene: THREE.Scene, blueprint: CityBlueprint): void {
   const contour: THREE.Vector2[] = []
 
   blueprint.areas.forEach((area, order) => {
+    // Water has its own surface, its own material and its own movement; see `water.ts`.
+    if (area.kind === 'water')
+      return
     const ring = area.polygon
     const corners = ring.length / 2
     if (corners < 3)

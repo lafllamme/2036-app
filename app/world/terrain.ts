@@ -1,23 +1,24 @@
 /**
- * The land Lindenhafen sits in.
+ * The open country around Lindenhafen.
  *
- * The city itself is flat and stays flat: every parcel, road and building the simulation places
- * assumes y = 0, and a hill under a housing block would be a rendering decision quietly overruling
- * a simulation one. The ground only starts to rise once it is past the built-up area, which is also
- * the point at which a flat plate stopped being believable and became a visible edge of the world.
+ * This is only half of the ground. Inside the city the height comes from the relief the converter
+ * worked out from where the water is — see `relief.ts`, which blends the two. What is here is what
+ * lies beyond: hills that start where the city's own relief runs out and carry on to the horizon.
  *
  * Pure and seeded, so the terrain mesh and anything standing on it agree on the height without
  * having to pass a heightmap around.
  */
 
 /** Inside this radius the ground is dead flat, because the city is built on it. */
-export const CITY_FLAT_RADIUS = 1_750
-/** The distance over which the land is allowed to work its way up from flat. */
-const TERRAIN_RAMP = 1_600
-
-/** Where the river runs, and how wide a valley it keeps for itself. */
-const RIVER_CENTRE_X = -1_050
-const RIVER_VALLEY = 620
+export const CITY_FLAT_RADIUS = 1_450
+/**
+ * The distance over which the land works its way up from flat.
+ *
+ * It starts inside the extract on purpose. The city's own relief fades out at its edge, and if the
+ * country's hills only began well beyond that, the two never overlapped and left a trough a
+ * kilometre wide running right round the city.
+ */
+const TERRAIN_RAMP = 900
 
 const HILL_SCALE = 2_600
 const HILL_HEIGHT = 260
@@ -63,11 +64,7 @@ export function groundVariation(x: number, z: number, seed: number): number {
   return fbm(x / 1_450, z / 1_450, seed + 31)
 }
 
-/**
- * Height of the land at a point, in metres. Zero everywhere the city stands, and zero along the
- * river's valley however far it runs — water does not climb a hill, and a river cut through one
- * looks wrong from the first frame.
- */
+/** Height of the open country at a point, in metres. Zero anywhere the city's own relief covers. */
 export function terrainHeight(x: number, z: number, seed: number): number {
   const distance = Math.hypot(x, z)
   const ramp = smoothstep(CITY_FLAT_RADIUS, CITY_FLAT_RADIUS + TERRAIN_RAMP, distance)
@@ -76,7 +73,6 @@ export function terrainHeight(x: number, z: number, seed: number): number {
 
   const hills = (fbm(x / HILL_SCALE, z / HILL_SCALE, seed) - 0.42) * HILL_HEIGHT
   const detail = (fbm(x / DETAIL_SCALE, z / DETAIL_SCALE, seed + 7) - 0.5) * DETAIL_HEIGHT
-  const valley = smoothstep(0, RIVER_VALLEY, Math.abs(x - RIVER_CENTRE_X))
 
-  return Math.max(0, hills + detail) * ramp * valley
+  return Math.max(0, hills + detail) * ramp
 }

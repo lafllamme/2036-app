@@ -109,6 +109,8 @@ export interface CityBlueprint {
   trees: TreeRecord[]
   /** How high the ground is, everywhere. Every part of the city is placed on it. */
   relief: Relief
+  /** The deep channel down the middle of the water, for anything that floats. */
+  waterway: number[]
 }
 
 /**

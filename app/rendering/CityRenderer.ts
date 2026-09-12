@@ -10,6 +10,8 @@ import { createSky } from './sky/index'
 import { updateAgents } from './world/agents'
 import { CityState } from './world/cityState'
 import { createWorld } from './world/index'
+import { updateShips } from './world/ships'
+import { updateWater } from './world/water'
 
 /**
  * The one place that owns a frame.
@@ -137,11 +139,12 @@ export class CityRenderer {
    * set of pipelines that compilation alone does not reach.
    */
   private async warmUp(): Promise<void> {
-    const { growth, constructionSites, pedestrians, outskirts } = this.world
+    const { growth, constructionSites, outskirts } = this.world
     const hidden = constructionSites.children.filter(site => !site.visible)
 
     growth.count = growth.instanceMatrix.count
-    pedestrians.count = pedestrians.instanceMatrix.count
+    for (const mesh of [...this.world.agents.cars.meshes, ...this.world.agents.pedestrians.meshes])
+      mesh.count = mesh.instanceMatrix.count
     outskirts.visible = true
     for (const site of hidden) site.visible = true
 
@@ -159,7 +162,8 @@ export class CityRenderer {
        * before the await — a real snapshot can and does land while the compiler is working.
        */
       growth.count = this.city.delivered
-      pedestrians.count = 0
+      for (const mesh of [...this.world.agents.cars.meshes, ...this.world.agents.pedestrians.meshes])
+        mesh.count = 0
       for (const site of hidden) site.visible = false
       this.sky.sun.light.shadow.needsUpdate = true
     }
@@ -233,9 +237,11 @@ export class CityRenderer {
     this.slowClock += delta
     if (this.slowClock >= 1 / SLOW_UPDATE_HZ) {
       const distance = this.rig.distance
-      updateAgents(this.world, this.animationElapsed, distance, this.city.trafficFactor)
+      updateAgents(this.world.agents, this.animationElapsed, distance, this.city.trafficFactor)
       this.atmosphere.update(this.slowClock, this.rig.controls.target, distance)
       this.world.outskirts.visible = distance > OUTSKIRTS_RANGE
+      updateShips(this.world.ships, this.animationElapsed)
+      updateWater(this.world.water, this.animationElapsed)
       this.slowClock = 0
     }
 

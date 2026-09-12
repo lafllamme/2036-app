@@ -1,41 +1,57 @@
 import type { CityBlueprint } from '../../core/contracts'
-import type { CityModel, CityModels } from '../cityModels'
+import type { CityModels } from '../cityModels'
 import type { StandardInstancedMesh } from '../shared'
 import * as THREE from 'three/webgpu'
+import { createRandomStream } from '../../core/rng'
 import { AXIS_Y, WHITE } from '../shared'
 
-/** Greenery, split across the kit's two tree models so each can be thinned against its own stock. */
+/**
+ * Planting, from the nature kit rather than the city kit.
+ *
+ * The city kit's trees are forty-two triangles and read as blobs from anywhere closer than the
+ * strategic camera. These are a hundred and thirty and have a trunk, and because the kit paints with
+ * material colours rather than a texture, those colours are already baked into vertex colours by the
+ * loader — so a whole mixed wood still draws from one material.
+ *
+ * Two meshes, split by model, because the simulation thins the stock as the city spends its green
+ * space and each mesh has to be thinned against its own capacity.
+ */
 export interface CityTrees {
   treeCrowns: StandardInstancedMesh
   treeTrunks: StandardInstancedMesh
 }
 
+/** Roughly how tall a grown tree is, in metres. The kit's own models are about two units. */
+const TREE_HEIGHT = 11
+
 export function addTrees(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): CityTrees {
+  const rng = createRandomStream(blueprint.definition.seed, 'planting')
   /*
-   * The kit's trees, on their own copy of the atlas material: greenery is tinted as the city spends
-   * its green space, and the houses share that atlas — tinting it in place would have drained the
-   * colour out of every building in Lindenhafen along with the parks.
+   * Its own copy of the material: greenery is tinted as the city spends its green space, and the
+   * material is shared with nothing else, so the tint cannot leak into anything but the planting.
    */
-  const material = models.suburbanMaterial.clone() as THREE.MeshStandardMaterial
+  const material = models.natureMaterial.clone()
   material.vertexColors = true
-  const large = models.trees[0] ?? models.trees[1]
-  const small = models.trees[1] ?? models.trees[0]
+
+  const pool = models.trees
   const half = Math.ceil(blueprint.trees.length / 2)
 
-  function plant(model: CityModel | undefined, records: typeof blueprint.trees): StandardInstancedMesh {
+  function plant(records: typeof blueprint.trees, from: number): StandardInstancedMesh {
+    const model = pool[from % Math.max(1, pool.length)]
     const geometry = model?.geometry ?? new THREE.IcosahedronGeometry(4.8, 1)
-    const footprint = Math.max(0.001, Math.max(model?.size.x ?? 1, model?.size.z ?? 1))
-    const mesh = new THREE.InstancedMesh(geometry, material, Math.max(1, records.length))
+    const mesh = new THREE.InstancedMesh(geometry, material, Math.max(1, records.length)) as StandardInstancedMesh
     const matrix = new THREE.Matrix4()
     const position = new THREE.Vector3()
     const quaternion = new THREE.Quaternion()
     const scale = new THREE.Vector3()
+    const base = TREE_HEIGHT / Math.max(0.001, model?.size.y ?? 1)
+
     records.forEach((tree, index) => {
-      const size = (9 / footprint) * tree.scale
+      const size = base * tree.scale
       matrix.compose(
         position.set(tree.x, blueprint.relief.height(tree.x, tree.z), tree.z),
-        quaternion.setFromAxisAngle(AXIS_Y, (index % 8) * (Math.PI / 4)),
-        scale.set(size, size, size),
+        quaternion.setFromAxisAngle(AXIS_Y, rng.next() * Math.PI * 2),
+        scale.set(size, size * rng.between(0.85, 1.2), size),
       )
       mesh.setMatrixAt(index, matrix)
       mesh.setColorAt(index, WHITE)
@@ -47,14 +63,7 @@ export function addTrees(scene: THREE.Scene, blueprint: CityBlueprint, models: C
   }
 
   return {
-    treeCrowns: plant(large, blueprint.trees.slice(0, half)),
-    treeTrunks: plant(small, blueprint.trees.slice(half)),
+    treeCrowns: plant(blueprint.trees.slice(0, half), 0),
+    treeTrunks: plant(blueprint.trees.slice(half), 1),
   }
 }
-
-/**
- * Lamps down the arterials. Every one is an instance of the same three shapes, so the whole of the
- * city's night lighting is three draw calls and no actual lights — a real point light per lamp would
- * mean two hundred and sixty of them in a forward renderer, and the look does not need it: a glowing
- * head and a warm pool on the road read as street lighting from every distance the camera allows.
- */

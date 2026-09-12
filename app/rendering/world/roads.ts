@@ -50,9 +50,9 @@ export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint): void {
 /**
  * Lay a flat ribbon along every path.
  *
- * The offset at a point is the bisector of the segments either side of it, lengthened by how sharp
- * the bend is. Without that correction the outer edge of a corner pinches in and the road narrows
- * exactly where it should not.
+ * The offset at a point is the bisector of the two segments meeting there, lengthened by how sharp
+ * the bend is — a mitre. Without that correction the outer edge of a corner pinches in and the road
+ * narrows exactly where it should not; the lengthening is capped, because at a hairpin it runs away.
  */
 function ribbon(relief: Relief, roads: RoadRecord[], y: number, material: THREE.Material, widthScale: number): THREE.Mesh {
   const position: number[] = []
@@ -74,12 +74,24 @@ function ribbon(relief: Relief, roads: RoadRecord[], y: number, material: THREE.
       const z = points[i * 2 + 1]!
       const previous = i > 0 ? i - 1 : 0
       const next = i < count - 1 ? i + 1 : count - 1
-      const dx = points[next * 2]! - points[previous * 2]!
-      const dz = points[next * 2 + 1]! - points[previous * 2 + 1]!
+      const inX = x - points[previous * 2]!
+      const inZ = z - points[previous * 2 + 1]!
+      const outX = points[next * 2]! - x
+      const outZ = points[next * 2 + 1]! - z
+      const inLength = Math.hypot(inX, inZ) || 1
+      const outLength = Math.hypot(outX, outZ) || 1
+      const dx = inX / inLength + outX / outLength
+      const dz = inZ / inLength + outZ / outLength
       const length = Math.hypot(dx, dz) || 1
+      /*
+       * The mitre: how much wider the offset has to be so the outer edge still passes the corner at
+       * the road's own width. It is the reciprocal of the cosine of half the turn, which at a
+       * hairpin goes to infinity — hence the cap.
+       */
+      const mitre = Math.min(2.4, 1 / Math.max(0.42, length / 2))
       // Perpendicular to the direction of travel, in the ground plane.
-      const ox = (-dz / length) * half
-      const oz = (dx / length) * half
+      const ox = (-dz / length) * half * mitre
+      const oz = (dx / length) * half * mitre
 
       if (i > 0)
         along += Math.hypot(x - points[previous * 2]!, z - points[previous * 2 + 1]!)

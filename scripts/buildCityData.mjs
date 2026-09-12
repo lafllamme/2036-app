@@ -227,6 +227,115 @@ function orientedBox(ring) {
 }
 
 /**
+ * Fill the holes the map leaves.
+ *
+ * OpenStreetMap is thorough about the buildings people live in and vague about everything else —
+ * yards, workshops, depots, the low stuff behind a tower. Zoomed in, whole blocks come out as lawn
+ * with three office slabs standing on it, which is neither what is there nor what a city looks like.
+ *
+ * Anywhere inside the extract with no building, no water and no parkland gets a plausible one, sized
+ * and angled like its neighbours and never on a street. This is the point where Lindenhafen stops
+ * being Bremen: the ground plan is the real one, the infill is ours.
+ */
+const FILL_STEP = 24
+const FILL_CLEARANCE = 22
+
+function fillGaps(buildings, roads, areas) {
+  const cell = 40
+  const key = (x, z) => `${Math.floor(x / cell)}:${Math.floor(z / cell)}`
+  const occupied = new Map()
+  for (const building of buildings) {
+    const at = key(building.x, building.z)
+    const list = occupied.get(at) ?? []
+    list.push(building)
+    occupied.set(at, list)
+  }
+
+  const onRoad = new Set()
+  for (const road of roads) {
+    for (let i = 0; i < road.p.length - 2; i += 2) {
+      const span = Math.hypot(road.p[i + 2] - road.p[i], road.p[i + 3] - road.p[i + 1])
+      const steps = Math.max(1, Math.ceil(span / 8))
+      for (let step = 0; step <= steps; step += 1) {
+        const t = step / steps
+        onRoad.add(key(road.p[i] + (road.p[i + 2] - road.p[i]) * t, road.p[i + 1] + (road.p[i + 3] - road.p[i + 1]) * t))
+      }
+    }
+  }
+
+  const keepClear = areas.filter(area => ['water', 'park', 'pitch', 'forest'].includes(area.k)).map(area => area.p)
+  const added = []
+  let seed = 1
+
+  const nearby = (x, z) => {
+    const found = []
+    const cx = Math.floor(x / cell)
+    const cz = Math.floor(z / cell)
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dz = -1; dz <= 1; dz += 1)
+        found.push(...(occupied.get(`${cx + dx}:${cz + dz}`) ?? []))
+    }
+    return found
+  }
+
+  for (let x = -EXTENT + FILL_STEP; x < EXTENT; x += FILL_STEP) {
+    for (let z = -EXTENT + FILL_STEP; z < EXTENT; z += FILL_STEP) {
+      const random = () => {
+        seed = (seed * 1_664_525 + 1_013_904_223) % 4_294_967_296
+        return seed / 4_294_967_296
+      }
+      const px = x + (random() - 0.5) * 14
+      const pz = z + (random() - 0.5) * 14
+
+      const neighbours = nearby(px, pz)
+      if (neighbours.some(other => Math.hypot(other.x - px, other.z - pz) < FILL_CLEARANCE))
+        continue
+      if (onRoad.has(key(px, pz)))
+        continue
+      // Nothing is built in the water, in a park or on a pitch.
+      if (keepClear.some(ring => contains(ring, px, pz)))
+        continue
+
+      /*
+       * Take the neighbourhood's word for what belongs here. Where there is nothing to go on — the
+       * far edge of the extract — it is a low workshop, which is what the edge of a city is made of.
+       */
+      const context = nearby(px, pz).concat(added.slice(-40).filter(other => Math.hypot(other.x - px, other.z - pz) < 180))
+      const height = context.length > 0
+        ? context.reduce((sum, other) => sum + other.h, 0) / context.length * (0.6 + random() * 0.5)
+        : 6 + random() * 5
+      const angle = context.length > 0 ? context[0].a : (random() - 0.5) * Math.PI
+      const width = 13 + random() * 13
+      const depth = 11 + random() * 12
+
+      const rotated = []
+      const cos = Math.cos(angle)
+      const sin = Math.sin(angle)
+      for (const [ox, oz] of [[-width / 2, -depth / 2], [width / 2, -depth / 2], [width / 2, depth / 2], [-width / 2, depth / 2]])
+        rotated.push(round(px + ox * cos - oz * sin), round(pz + ox * sin + oz * cos))
+
+      const entry = {
+        p: rotated,
+        h: round(Math.max(4, Math.min(height, 26))),
+        r: random() > 0.45 ? round(2.4 + random() * 2.2) : 0,
+        t: height > 16 ? 'commercial' : 'residential',
+        x: round(px),
+        z: round(pz),
+        w: round(width),
+        d: round(depth),
+        a: Math.round(angle * 1_000) / 1_000,
+      }
+      added.push(entry)
+      const at = key(px, pz)
+      const list = occupied.get(at) ?? []
+      list.push(entry)
+      occupied.set(at, list)
+    }
+  }
+  return added
+}
+
+/**
  * The lie of the land inside the city, worked out from where its water is.
  *
  * A river city is flat on its floodplain and rises away from it — Bremen does exactly this, and so
@@ -237,9 +346,9 @@ function orientedBox(ring) {
  * A 128² grid over three kilometres is a cell every twenty-three metres, which is finer than any
  * slope the eye can pick out at this scale, and nine thousand numbers in the file.
  */
-const RELIEF_SIZE = 128
-const RELIEF_RISE = 9.5
-const RELIEF_REACH = 620
+const RELIEF_SIZE = 160
+const RELIEF_RISE = 44
+const RELIEF_REACH = 980
 
 function buildRelief(areas) {
   const cell = (EXTENT * 2) / RELIEF_SIZE
@@ -290,12 +399,148 @@ function buildRelief(areas) {
       const distance = water[row * RELIEF_SIZE + column]
       const t = Math.min(1, distance / RELIEF_REACH)
       const eased = t * t * (3 - 2 * t)
-      // Enough noise that the terraces wander; never enough to fold back toward the river.
-      const grain = 0.72 + 0.28 * valueNoise(column / 11, row / 11)
-      data.push(Math.round(eased * RELIEF_RISE * grain * 10) / 10)
+      /*
+       * Three octaves, so the land away from the river is hills rather than a ramp: a broad rise
+       * with ridges and hollows on it. The distance term still multiplies everything, which is what
+       * keeps the floodplain flat and stops a hill ever forming in the middle of the water.
+       */
+      const broad = valueNoise(column / 26, row / 26)
+      const ridges = valueNoise(column / 11 + 31, row / 11 - 17)
+      const grain = valueNoise(column / 4.5 - 7, row / 4.5 + 23)
+      const shape = broad * 0.56 + ridges * 0.31 + grain * 0.13
+      data.push(Math.round(eased * RELIEF_RISE * (0.28 + shape * 1.15) * 10) / 10)
     }
   }
   return { size: RELIEF_SIZE, extent: EXTENT, data }
+}
+
+/**
+ * The deep channel, traced down the middle of the water.
+ *
+ * The same distance transform run the other way round — how far a water cell is from dry land —
+ * peaks along the middle of the river. Walking the long axis of the water and taking the deepest
+ * cell in each slab gives a line a ship can follow without ever touching a bank.
+ */
+function buildWaterway(areas) {
+  const cell = (EXTENT * 2) / RELIEF_SIZE
+  const rings = areas.filter(area => area.k === 'water').map(area => area.p)
+  if (rings.length === 0)
+    return []
+
+  const depth = new Float64Array(RELIEF_SIZE * RELIEF_SIZE).fill(Infinity)
+  const wet = new Uint8Array(RELIEF_SIZE * RELIEF_SIZE)
+  for (let row = 0; row < RELIEF_SIZE; row += 1) {
+    for (let column = 0; column < RELIEF_SIZE; column += 1) {
+      const x = -EXTENT + (column + 0.5) * cell
+      const z = -EXTENT + (row + 0.5) * cell
+      const inside = rings.some(ring => contains(ring, x, z))
+      wet[row * RELIEF_SIZE + column] = inside ? 1 : 0
+      if (!inside)
+        depth[row * RELIEF_SIZE + column] = 0
+    }
+  }
+  sweep(depth, cell)
+
+  // The water's long axis, from the spread of its cells.
+  let sumX = 0
+  let sumZ = 0
+  let count = 0
+  for (let row = 0; row < RELIEF_SIZE; row += 1) {
+    for (let column = 0; column < RELIEF_SIZE; column += 1) {
+      if (!wet[row * RELIEF_SIZE + column])
+        continue
+      sumX += column
+      sumZ += row
+      count += 1
+    }
+  }
+  if (count < 20)
+    return []
+  const meanX = sumX / count
+  const meanZ = sumZ / count
+  let xx = 0
+  let zz = 0
+  let xz = 0
+  for (let row = 0; row < RELIEF_SIZE; row += 1) {
+    for (let column = 0; column < RELIEF_SIZE; column += 1) {
+      if (!wet[row * RELIEF_SIZE + column])
+        continue
+      xx += (column - meanX) ** 2
+      zz += (row - meanZ) ** 2
+      xz += (column - meanX) * (row - meanZ)
+    }
+  }
+  const angle = 0.5 * Math.atan2(2 * xz, xx - zz)
+  const ux = Math.cos(angle)
+  const uz = Math.sin(angle)
+
+  // Deepest cell in each slab along that axis.
+  const slabs = new Map()
+  for (let row = 0; row < RELIEF_SIZE; row += 1) {
+    for (let column = 0; column < RELIEF_SIZE; column += 1) {
+      if (!wet[row * RELIEF_SIZE + column])
+        continue
+      const along = Math.round(((column - meanX) * ux + (row - meanZ) * uz) / 2)
+      const here = depth[row * RELIEF_SIZE + column]
+      const best = slabs.get(along)
+      if (!best || here > best.depth)
+        slabs.set(along, { column, row, depth: here })
+    }
+  }
+
+  const path = []
+  for (const key of [...slabs.keys()].sort((a, b) => a - b)) {
+    const { column, row, depth: deep } = slabs.get(key)
+    // A barge needs room either side; anything narrower is a creek, not a waterway.
+    if (deep < 22)
+      continue
+    path.push(round(-EXTENT + (column + 0.5) * cell), round(-EXTENT + (row + 0.5) * cell))
+  }
+  return path.length >= 8 ? [{ p: smoothPath(path) }] : []
+}
+
+/** Two chamfer sweeps, forward and backward. Close enough to a Euclidean distance for this. */
+function sweep(field, cell) {
+  const step = (row, column, dr, dc, cost) => {
+    const from = (row + dr) * RELIEF_SIZE + (column + dc)
+    const to = row * RELIEF_SIZE + column
+    if (field[from] + cost < field[to])
+      field[to] = field[from] + cost
+  }
+  for (let row = 0; row < RELIEF_SIZE; row += 1) {
+    for (let column = 0; column < RELIEF_SIZE; column += 1) {
+      if (row > 0)
+        step(row, column, -1, 0, cell)
+      if (column > 0)
+        step(row, column, 0, -1, cell)
+      if (row > 0 && column > 0)
+        step(row, column, -1, -1, cell * 1.41421)
+    }
+  }
+  for (let row = RELIEF_SIZE - 1; row >= 0; row -= 1) {
+    for (let column = RELIEF_SIZE - 1; column >= 0; column -= 1) {
+      if (row < RELIEF_SIZE - 1)
+        step(row, column, 1, 0, cell)
+      if (column < RELIEF_SIZE - 1)
+        step(row, column, 0, 1, cell)
+      if (row < RELIEF_SIZE - 1 && column < RELIEF_SIZE - 1)
+        step(row, column, 1, 1, cell * 1.41421)
+    }
+  }
+}
+
+/** Three passes of a moving average, so a ship does not steer in steps of a grid cell. */
+function smoothPath(path) {
+  let current = path
+  for (let pass = 0; pass < 3; pass += 1) {
+    const next = current.slice()
+    for (let i = 2; i < current.length - 2; i += 2) {
+      next[i] = round((current[i - 2] + current[i] * 2 + current[i + 2]) / 4)
+      next[i + 1] = round((current[i - 1] + current[i + 1] * 2 + current[i + 3]) / 4)
+    }
+    current = next
+  }
+  return current
 }
 
 /** Point in ring, by ray casting. */
@@ -396,11 +641,15 @@ for (const element of raw.elements) {
 // Big pieces of land go down first, so a park inside an industrial estate still reads as a park.
 areas.sort((a, b) => Math.abs(signedArea(b.p)) - Math.abs(signedArea(a.p)))
 
+const filled = fillGaps(buildings, roads, areas)
+buildings.push(...filled)
+
 const city = {
   source: 'OpenStreetMap contributors (ODbL) — Bremen, 3 × 3 km around the Altstadt',
   origin: ORIGIN,
   extent: EXTENT,
   relief: buildRelief(areas),
+  waterways: buildWaterway(areas),
   buildings,
   roads,
   rails,
@@ -412,6 +661,7 @@ mkdirSync(dirname(out), { recursive: true })
 writeFileSync(out, JSON.stringify(city))
 
 const vertices = buildings.reduce((n, b) => n + b.p.length / 2, 0)
-console.log(`${buildings.length} buildings (${vertices} vertices), ${roads.length} roads, ${rails.length} rails, ${areas.length} areas`)
+console.log(`${buildings.length} buildings (${filled.length} filled in, ${vertices} vertices), ${roads.length} roads, ${rails.length} rails, ${areas.length} areas`)
+console.log(`waterway ${city.waterways[0]?.p.length ? city.waterways[0].p.length / 2 : 0} points`)
 console.log(`relief ${city.relief.size}² cells, ${Math.max(...city.relief.data).toFixed(1)} m at its highest`)
 console.log(`${out} — ${(readFileSync(out).length / 1024 / 1024).toFixed(2)} MB`)

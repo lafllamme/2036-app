@@ -3,8 +3,10 @@ import type { CityBlueprint } from '../../core/contracts'
 import type { CityModels } from '../cityModels'
 import type { Agents } from './agents'
 import type { CityBuildings } from './buildings'
+import type { Ships } from './ships'
 import type { StreetLights } from './streetLights'
 import type { CityTrees } from './trees'
+import type { Water } from './water'
 import { createAgents } from './agents'
 import { createBuildings } from './buildings'
 import { createConstructionSites } from './construction'
@@ -12,8 +14,10 @@ import { addGround } from './ground'
 import { createGrowth } from './growth'
 import { addOutskirts } from './outskirts'
 import { addRoads } from './roads'
+import { addShips } from './ships'
 import { addStreetLights } from './streetLights'
 import { addTrees } from './trees'
+import { addWater } from './water'
 
 /**
  * Lindenhafen as geometry. Each part is built by its own module and this is the only place that
@@ -22,12 +26,15 @@ import { addTrees } from './trees'
  * Nothing here is ever read by the simulation. It reads the blueprint and the kit, and hands back
  * the handful of objects the renderer needs to keep up with what the simulation decides later.
  */
-export interface WorldVisuals extends CityBuildings, CityTrees, Agents {
+export interface WorldVisuals extends CityBuildings, CityTrees {
+  agents: Agents
   /** Finished new housing. `count` grows as the construction pipeline delivers. */
   growth: THREE.InstancedMesh
   /** One crane per site, parked on the next growth parcels so building precedes buildings. */
   constructionSites: THREE.Group
   streetLights: StreetLights
+  water: Water | null
+  ships: Ships | null
   /**
    * Suburbs and villages, in one group so they can be switched off wholesale. From inside the city
    * they are behind two kilometres of haze and the far side of the skyline, and never worth a draw.
@@ -45,10 +52,12 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
   return {
     ...createBuildings(scene, blueprint),
     ...addTrees(scene, blueprint, models),
-    ...createAgents(scene, blueprint),
+    agents: createAgents(scene, blueprint, models),
     growth: createGrowth(scene, blueprint, models),
     constructionSites: createConstructionSites(scene),
     streetLights: addStreetLights(scene, blueprint),
+    water: addWater(scene, blueprint),
+    ships: addShips(scene, blueprint),
     outskirts,
   }
 }

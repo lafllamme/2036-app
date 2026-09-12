@@ -26,6 +26,7 @@ interface RawCity {
   source: string
   extent: number
   relief: ReliefField
+  waterways: { p: number[] }[]
   buildings: { p: number[], h: number, r: number, t: BuildingType, x: number, z: number, w: number, d: number, a: number }[]
   roads: { p: number[], w: number, a: number }[]
   rails: { p: number[] }[]
@@ -93,6 +94,7 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
     areas,
     trees: plantTrees(areas, seed),
     relief: new Relief(raw.relief, seed),
+    waterway: raw.waterways[0]?.p ?? [],
   }
 }
 

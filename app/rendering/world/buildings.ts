@@ -21,6 +21,8 @@ const TILES = 4
 const CITY_EXTENT = 1_500
 /** How far a roof draws in from the wall below it. A pitched roof is a truncated pyramid. */
 const ROOF_INSET = 2.4
+/** How far a building's walls are buried, so no footprint corner ends up hanging over a slope. */
+const SKIRT = 4
 
 const WALL_COLOURS: Record<BuildingType, string[]> = {
   altbau: ['#b09480', '#c2a687', '#9c8271', '#ab8871', '#bda593'],
@@ -67,6 +69,7 @@ interface Tile {
 
 export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): CityBuildings {
   const rng = createRandomStream(blueprint.definition.seed, 'facades')
+  const relief = blueprint.relief
   const tiles: Tile[] = Array.from({ length: TILES * TILES }, () => ({
     records: [],
     position: [],
@@ -82,7 +85,7 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
   for (const building of blueprint.buildings) {
     const tile = tiles[tileOf(building.x, building.z)]
     if (tile)
-      extrude(tile, building, rng)
+      extrude(tile, building, rng, relief.height(building.x, building.z))
   }
 
   const wallMaterial = new THREE.MeshStandardMaterial({
@@ -144,14 +147,20 @@ function tileOf(x: number, z: number): number {
  * and lifted. It is not what a roof is, but at every distance the camera can reach it is what one
  * looks like, and it costs two triangles an edge instead of a hip-and-valley solver.
  */
-function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number }): void {
+function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number }, ground: number): void {
   const ring = building.footprint
   const corners = ring.length / 2
   if (corners < 3)
     return
 
   const start = tile.position.length / 3
-  const wallTop = Math.max(2, building.height - building.roofHeight)
+  /*
+   * The walls start below the ground rather than on it. The terrain mesh is coarser than a footprint
+   * is wide, so a building placed exactly at its centre's height leaves a gap on the uphill corner;
+   * a skirt buried in the hillside costs two triangles an edge and there is never a gap.
+   */
+  const base = ground - SKIRT
+  const wallTop = ground + Math.max(2, building.height - building.roofHeight)
   const wall = pick(WALL_COLOURS[building.type], rng).clone().multiplyScalar(0.84 + building.condition * 0.16)
   const roof = pick(ROOF_COLOURS[building.type], rng)
   tile.records.push(building)
@@ -174,22 +183,22 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
     const nz = (bx - ax) / span
     const u0 = along / BAY_WIDTH
     const u1 = (along + span) / BAY_WIDTH
-    const v = wallTop / STOREY_HEIGHT
+    const v = (wallTop - base) / STOREY_HEIGHT
     along += span
 
-    const base = tile.position.length / 3
-    push(tile, ax, 0, az, nx, nz, u0, 0, wall)
-    push(tile, bx, 0, bz, nx, nz, u1, 0, wall)
+    const vertex = tile.position.length / 3
+    push(tile, ax, base, az, nx, nz, u0, 0, wall)
+    push(tile, bx, base, bz, nx, nz, u1, 0, wall)
     push(tile, bx, wallTop, bz, nx, nz, u1, v, wall)
     push(tile, ax, wallTop, az, nx, nz, u0, v, wall)
     // Wound so the outward face is the one that is kept: a ring that is counter-clockwise on the
     // map is clockwise to a camera looking down at it, and the whole city was inside out.
-    tile.wallIndex.push(base, base + 2, base + 1, base, base + 3, base + 2)
+    tile.wallIndex.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2)
   }
 
   // ---- roof ----
   const cap = building.roofHeight > 0.4 ? inset(ring, ROOF_INSET) : ring
-  const capHeight = building.height
+  const capHeight = ground + building.height
   if (building.roofHeight > 0.4) {
     for (let i = 0; i < corners; i += 1) {
       const j = (i + 1) % corners

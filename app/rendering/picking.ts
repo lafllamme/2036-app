@@ -5,11 +5,19 @@ import * as THREE from 'three/webgpu'
 /**
  * Which building the pointer is on, and what that looks like.
  *
- * Hover is drawn by writing the instance's colour rather than by a second pass or an outline, so
- * pointing at a building costs one buffer update and nothing per frame.
+ * Hover is drawn by writing the building's own vertex colours rather than by a second pass or an
+ * outline, so pointing at one costs a single buffer update and nothing per frame.
+ *
+ * The two buttons do different things on purpose. The left button pans the map, so a pan that
+ * happens to end over a building must not count as clicking it — that is what made the camera dive
+ * into a building every time the player dragged across the city. A press that moves further than a
+ * few pixels is a drag and selects nothing at all. A left click that stays put opens the building;
+ * a right click flies the camera to it.
  */
 
 const HOVER = /* @__PURE__ */ new THREE.Color('#f0c65a')
+/** How far the pointer may travel between press and release and still count as a click, in pixels. */
+const DRAG_SLOP = 5
 
 export interface PickerCallbacks {
   onSelected: (building: BuildingRecord | null) => void
@@ -32,6 +40,7 @@ export class BuildingPicker {
   private readonly raycaster = new THREE.Raycaster()
   private readonly pointer = new THREE.Vector2()
   private hovered: { mesh: THREE.Mesh, index: number } | null = null
+  private pressed: { x: number, y: number, button: number } | null = null
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -41,13 +50,17 @@ export class BuildingPicker {
   ) {
     this.canvas.addEventListener('pointermove', this.handlePointerMove)
     this.canvas.addEventListener('pointerleave', this.handlePointerLeave)
-    this.canvas.addEventListener('click', this.handleClick)
+    this.canvas.addEventListener('pointerdown', this.handlePointerDown)
+    this.canvas.addEventListener('pointerup', this.handlePointerUp)
+    this.canvas.addEventListener('contextmenu', this.handleContextMenu)
   }
 
   dispose(): void {
     this.canvas.removeEventListener('pointermove', this.handlePointerMove)
     this.canvas.removeEventListener('pointerleave', this.handlePointerLeave)
-    this.canvas.removeEventListener('click', this.handleClick)
+    this.canvas.removeEventListener('pointerdown', this.handlePointerDown)
+    this.canvas.removeEventListener('pointerup', this.handlePointerUp)
+    this.canvas.removeEventListener('contextmenu', this.handleContextMenu)
   }
 
   find(buildingId: string): BuildingRecord | undefined {
@@ -89,7 +102,19 @@ export class BuildingPicker {
     this.canvas.style.cursor = 'grab'
   }
 
-  private readonly handleClick = (): void => {
+  private readonly handlePointerDown = (event: PointerEvent): void => {
+    this.pressed = { x: event.clientX, y: event.clientY, button: event.button }
+  }
+
+  private readonly handlePointerUp = (event: PointerEvent): void => {
+    const pressed = this.pressed
+    this.pressed = null
+    if (!pressed || pressed.button !== event.button)
+      return
+    // A press that travelled is a pan or an orbit. It is not a click on anything.
+    if (Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > DRAG_SLOP)
+      return
+
     const hovered = this.hovered
     if (!hovered) {
       this.callbacks.onSelected(null)
@@ -97,8 +122,14 @@ export class BuildingPicker {
     }
     const building = this.buildings.buildingRecords.get(hovered.mesh)?.[hovered.index] ?? null
     this.callbacks.onSelected(building)
-    if (building)
+    // Only the right button moves the camera. The left one opens the building and leaves the view be.
+    if (building && event.button === 2)
       this.callbacks.onFocus(building)
+  }
+
+  /** The right button belongs to the game; the browser's own menu would land on top of the city. */
+  private readonly handleContextMenu = (event: Event): void => {
+    event.preventDefault()
   }
 
   private restore(): void {

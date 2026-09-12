@@ -1,6 +1,8 @@
 import type { AreaKind, BuildingRecord, BuildingType, CityBlueprint, RoadRecord, TreeRecord } from '../core/contracts'
+import type { ReliefField } from './relief'
 import { createRandomStream } from '../core/rng'
 import { districtAt, LINDENHAFEN } from './model/lindenhafen'
+import { Relief } from './relief'
 
 /**
  * Lindenhafen's ground plan, read from a real one.
@@ -23,6 +25,7 @@ const DATA_URL = '/city/lindenhafen.json'
 interface RawCity {
   source: string
   extent: number
+  relief: ReliefField
   buildings: { p: number[], h: number, r: number, t: BuildingType, x: number, z: number, w: number, d: number, a: number }[]
   roads: { p: number[], w: number, a: number }[]
   rails: { p: number[] }[]
@@ -89,6 +92,7 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
     })),
     areas,
     trees: plantTrees(areas, seed),
+    relief: new Relief(raw.relief, seed),
   }
 }
 

@@ -55,7 +55,7 @@ export class CityState {
       const slot = slots[(this.delivered + index) % Math.max(1, slots.length)]
       site.visible = index < sites && slot !== undefined
       if (slot)
-        site.position.set(slot.x, 0, slot.z)
+        site.position.set(slot.x, this.blueprint.relief.height(slot.x, slot.z), slot.z)
     })
 
     this.applyBlight(city.blight)

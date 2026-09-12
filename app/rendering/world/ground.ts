@@ -1,6 +1,5 @@
 import type { AreaKind, CityBlueprint } from '../../core/contracts'
 import * as THREE from 'three/webgpu'
-import { terrainHeight } from '../../world/terrain'
 import { groundTexture } from './groundTexture'
 
 /**
@@ -15,8 +14,8 @@ import { groundTexture } from './groundTexture'
 
 /** The land reaches well past the point where haze has swallowed it, so it never shows an edge. */
 const GROUND_SPAN = 22_000
-/** Enough to carry hills two kilometres wide without faceting; 28k triangles for the whole country. */
-const GROUND_SEGMENTS = 120
+/** Enough to carry hills two kilometres wide without faceting; 62k triangles for the whole country. */
+const GROUND_SEGMENTS = 176
 /**
  * Land use sits just above the ground and below the roads.
  *
@@ -39,12 +38,17 @@ const AREA_COLOURS: Record<AreaKind, string> = {
 }
 
 export function addGround(scene: THREE.Scene, blueprint: CityBlueprint): void {
-  const seed = blueprint.definition.seed
+  const relief = blueprint.relief
+  /*
+   * Fine where the city is, coarse where the country is. A uniform grid over twenty kilometres would
+   * have to be four thousand cells across to resolve a two-metre terrace in the middle of town.
+   */
   const geometry = new THREE.PlaneGeometry(GROUND_SPAN, GROUND_SPAN, GROUND_SEGMENTS, GROUND_SEGMENTS)
+  warpTowardCentre(geometry)
   const position = geometry.attributes.position as THREE.BufferAttribute
   for (let index = 0; index < position.count; index += 1) {
     // The plane is built in its own XY and laid flat afterwards, so its y is the world's z.
-    position.setZ(index, terrainHeight(position.getX(index), position.getY(index), seed))
+    position.setZ(index, relief.height(position.getX(index), position.getY(index)))
   }
   geometry.computeVertexNormals()
 
@@ -61,6 +65,29 @@ export function addGround(scene: THREE.Scene, blueprint: CityBlueprint): void {
   scene.add(ground)
 
   addAreas(scene, blueprint)
+}
+
+/**
+ * Pull the grid's cells toward the middle so the city gets most of them.
+ *
+ * A plane's vertices are evenly spaced, which over twenty-two kilometres puts one every hundred and
+ * twenty-five metres — far too coarse for ground the player stands on. Raising the normalised
+ * distance to a power redistributes them: about a cell every twenty metres over the city, and still
+ * enough left over for hills two kilometres wide.
+ */
+function warpTowardCentre(geometry: THREE.PlaneGeometry): void {
+  const position = geometry.attributes.position as THREE.BufferAttribute
+  const half = GROUND_SPAN / 2
+  for (let index = 0; index < position.count; index += 1) {
+    for (const axis of ['X', 'Y'] as const) {
+      const value = axis === 'X' ? position.getX(index) : position.getY(index)
+      const t = Math.abs(value) / half
+      const warped = t ** 2.6 * half * Math.sign(value)
+      if (axis === 'X')
+        position.setX(index, warped)
+      else position.setY(index, warped)
+    }
+  }
 }
 
 /**
@@ -99,7 +126,7 @@ function addAreas(scene: THREE.Scene, blueprint: CityBlueprint): void {
      */
     const y = AREA_Y + order * AREA_STEP
     for (let i = 0; i < ring.length; i += 2) {
-      position.push(ring[i]!, y, ring[i + 1]!)
+      position.push(ring[i]!, y + blueprint.relief.height(ring[i]!, ring[i + 1]!), ring[i + 1]!)
       normal.push(0, 1, 0)
       uv.push(ring[i]! / 22, ring[i + 1]! / 22)
       colour.push(tint.r, tint.g, tint.b)

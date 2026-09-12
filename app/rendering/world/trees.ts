@@ -33,7 +33,7 @@ export function addTrees(scene: THREE.Scene, blueprint: CityBlueprint, models: C
     records.forEach((tree, index) => {
       const size = (9 / footprint) * tree.scale
       matrix.compose(
-        position.set(tree.x, 0, tree.z),
+        position.set(tree.x, blueprint.relief.height(tree.x, tree.z), tree.z),
         quaternion.setFromAxisAngle(AXIS_Y, (index % 8) * (Math.PI / 4)),
         scale.set(size, size, size),
       )

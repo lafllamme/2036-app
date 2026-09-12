@@ -145,7 +145,7 @@ function restart(): void {
         </section>
 
         <section class="camera-help panel" aria-label="Kamerasteuerung">
-          <span><b>LINKS</b> verschieben</span><span><b>RECHTS</b> drehen</span><span><b>RAD</b> zoomen</span>
+          <span><b>LINKS</b> verschieben</span><span><b>RECHTS</b> drehen</span><span><b>RAD</b> zoomen</span><span><b>RECHTSKLICK</b> anfliegen</span>
         </section>
 
         <section class="time-controls panel" aria-label="Zeitsteuerung">

@@ -2,7 +2,6 @@ import type { CityBlueprint } from '../../core/contracts'
 import type { CityModels } from '../cityModels'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../core/rng'
-import { terrainHeight } from '../../world/terrain'
 import { AXIS_Y, WHITE } from '../shared'
 
 /**
@@ -114,7 +113,7 @@ export function addOutskirts(blueprint: CityBlueprint, models: CityModels): THRE
       const stretch = THREE.MathUtils.clamp(placement.height / Math.max(0.001, model.size.y * base), 0.7, 1.5)
       matrix.compose(
         // Standing on the land rather than floating over it: the hills are real geometry out here.
-        position.set(placement.x, terrainHeight(placement.x, placement.z, seed), placement.z),
+        position.set(placement.x, blueprint.relief.height(placement.x, placement.z), placement.z),
         quaternion.setFromAxisAngle(AXIS_Y, Math.round(placement.pick * 4) * (Math.PI / 2)),
         scale.set(base, base * stretch, base),
       )

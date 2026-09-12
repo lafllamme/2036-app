@@ -74,12 +74,13 @@ export function addStreetLights(scene: THREE.Scene, blueprint: CityBlueprint): S
   ) as THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
 
   positions.forEach((lamp, index) => {
-    matrix.compose(position.set(lamp.x, LAMP_HEIGHT / 2, lamp.z), quaternion.setFromAxisAngle(AXIS_Y, lamp.angle), scale.set(0.7, LAMP_HEIGHT, 0.7))
+    const ground = blueprint.relief.height(lamp.x, lamp.z)
+    matrix.compose(position.set(lamp.x, ground + LAMP_HEIGHT / 2, lamp.z), quaternion.setFromAxisAngle(AXIS_Y, lamp.angle), scale.set(0.7, LAMP_HEIGHT, 0.7))
     masts.setMatrixAt(index, matrix)
-    matrix.compose(position.set(lamp.x, LAMP_HEIGHT, lamp.z), quaternion.setFromAxisAngle(AXIS_Y, lamp.angle), scale.set(3.4, 0.7, 1.1))
+    matrix.compose(position.set(lamp.x, ground + LAMP_HEIGHT, lamp.z), quaternion.setFromAxisAngle(AXIS_Y, lamp.angle), scale.set(3.4, 0.7, 1.1))
     heads.setMatrixAt(index, matrix)
     // Flat on the road, a touch above it so the asphalt does not fight it for the same depth.
-    matrix.compose(position.set(lamp.x, 0.34, lamp.z), FLAT, scale.set(LAMP_POOL, LAMP_POOL, 1))
+    matrix.compose(position.set(lamp.x, ground + 0.34, lamp.z), FLAT, scale.set(LAMP_POOL, LAMP_POOL, 1))
     pools.setMatrixAt(index, matrix)
   })
 

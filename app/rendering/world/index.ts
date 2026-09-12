@@ -45,7 +45,7 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
   return {
     ...createBuildings(scene, blueprint),
     ...addTrees(scene, blueprint, models),
-    ...createAgents(scene),
+    ...createAgents(scene, blueprint),
     growth: createGrowth(scene, blueprint, models),
     constructionSites: createConstructionSites(scene),
     streetLights: addStreetLights(scene, blueprint),

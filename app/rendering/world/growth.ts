@@ -25,7 +25,7 @@ export function createGrowth(scene: THREE.Scene, blueprint: CityBlueprint, model
     const base = slot.width / footprint
     const stretch = THREE.MathUtils.clamp(slot.height / Math.max(0.001, model.size.y * base), 0.8, 1.5)
     matrix.compose(
-      position.set(slot.x, 0, slot.z),
+      position.set(slot.x, blueprint.relief.height(slot.x, slot.z), slot.z),
       quaternion.setFromAxisAngle(AXIS_Y, slot.rotation),
       scale.set(base, base * stretch, base),
     )

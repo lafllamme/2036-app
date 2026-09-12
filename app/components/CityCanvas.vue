@@ -75,11 +75,6 @@ watch(daylight, (reading) => {
   })
 }, { immediate: true })
 
-watch(() => game.selectedBuilding?.id, (buildingId) => {
-  if (buildingId)
-    cityRenderer?.focusBuilding(buildingId)
-})
-
 onBeforeUnmount(() => cityRenderer?.dispose())
 </script>
 

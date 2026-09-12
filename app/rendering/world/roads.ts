@@ -1,4 +1,5 @@
 import type { CityBlueprint, RoadRecord } from '../../core/contracts'
+import type { Relief } from '../../world/relief'
 import * as THREE from 'three/webgpu'
 
 /**
@@ -26,7 +27,8 @@ const DASH = 9
 const GAP = 7
 
 export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint): void {
-  scene.add(ribbon(blueprint.roads, ROAD_Y, new THREE.MeshStandardMaterial({
+  const relief = blueprint.relief
+  scene.add(ribbon(relief, blueprint.roads, ROAD_Y, new THREE.MeshStandardMaterial({
     color: '#33383b',
     roughness: 0.95,
     metalness: 0,
@@ -34,8 +36,8 @@ export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint): void {
     polygonOffsetFactor: -3,
     polygonOffsetUnits: -3,
   }), 1))
-  scene.add(markings(blueprint.roads))
-  scene.add(ribbon(blueprint.rails, ROAD_Y, new THREE.MeshStandardMaterial({
+  scene.add(markings(relief, blueprint.roads))
+  scene.add(ribbon(relief, blueprint.rails, ROAD_Y, new THREE.MeshStandardMaterial({
     color: '#473f36',
     roughness: 0.9,
     metalness: 0.1,
@@ -52,7 +54,7 @@ export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint): void {
  * the bend is. Without that correction the outer edge of a corner pinches in and the road narrows
  * exactly where it should not.
  */
-function ribbon(roads: RoadRecord[], y: number, material: THREE.Material, widthScale: number): THREE.Mesh {
+function ribbon(relief: Relief, roads: RoadRecord[], y: number, material: THREE.Material, widthScale: number): THREE.Mesh {
   const position: number[] = []
   const normal: number[] = []
   const uv: number[] = []
@@ -82,7 +84,8 @@ function ribbon(roads: RoadRecord[], y: number, material: THREE.Material, widthS
       if (i > 0)
         along += Math.hypot(x - points[previous * 2]!, z - points[previous * 2 + 1]!)
 
-      position.push(x + ox, y, z + oz, x - ox, y, z - oz)
+      // Both kerbs follow the ground, so a street on a slope is on the slope rather than through it.
+      position.push(x + ox, y + relief.height(x + ox, z + oz), z + oz, x - ox, y + relief.height(x - ox, z - oz), z - oz)
       normal.push(0, 1, 0, 0, 1, 0)
       uv.push(0, along / 8, 1, along / 8)
 
@@ -106,7 +109,7 @@ function ribbon(roads: RoadRecord[], y: number, material: THREE.Material, widthS
 }
 
 /** A dashed centre line, and only on the streets wide enough to have one. */
-function markings(roads: RoadRecord[]): THREE.Mesh {
+function markings(relief: Relief, roads: RoadRecord[]): THREE.Mesh {
   const position: number[] = []
   const normal: number[] = []
   const index: number[] = []
@@ -135,7 +138,9 @@ function markings(roads: RoadRecord[]): THREE.Mesh {
         const ex = ax + ux * (t + DASH)
         const ez = az + uz * (t + DASH)
         const base = position.length / 3
-        position.push(sx + ox, MARKING_Y, sz + oz, sx - ox, MARKING_Y, sz - oz, ex + ox, MARKING_Y, ez + oz, ex - ox, MARKING_Y, ez - oz)
+        const sy = MARKING_Y + relief.height(sx, sz)
+        const ey = MARKING_Y + relief.height(ex, ez)
+        position.push(sx + ox, sy, sz + oz, sx - ox, sy, sz - oz, ex + ox, ey, ez + oz, ex - ox, ey, ez - oz)
         normal.push(0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0)
         index.push(base, base + 2, base + 1, base + 1, base + 2, base + 3)
       }

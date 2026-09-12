@@ -1,3 +1,5 @@
+import type { Relief } from '../world/relief'
+
 export type DistrictId
   = | 'innenstadt'
     | 'bahnhof'
@@ -105,6 +107,8 @@ export interface CityBlueprint {
   rails: RoadRecord[]
   areas: AreaRecord[]
   trees: TreeRecord[]
+  /** How high the ground is, everywhere. Every part of the city is placed on it. */
+  relief: Relief
 }
 
 /**

@@ -226,6 +226,106 @@ function orientedBox(ring) {
   return best
 }
 
+/**
+ * The lie of the land inside the city, worked out from where its water is.
+ *
+ * A river city is flat on its floodplain and rises away from it — Bremen does exactly this, and so
+ * does every other city on a river. Rather than inventing hills and having them cut through the
+ * Weser, the relief is a distance field: zero on the water and on the bank beside it, climbing to a
+ * few metres at the far edge, roughened by noise so it is not a cone.
+ *
+ * A 128² grid over three kilometres is a cell every twenty-three metres, which is finer than any
+ * slope the eye can pick out at this scale, and nine thousand numbers in the file.
+ */
+const RELIEF_SIZE = 128
+const RELIEF_RISE = 9.5
+const RELIEF_REACH = 620
+
+function buildRelief(areas) {
+  const cell = (EXTENT * 2) / RELIEF_SIZE
+  const water = new Float64Array(RELIEF_SIZE * RELIEF_SIZE).fill(Infinity)
+  const rings = areas.filter(area => area.k === 'water').map(area => area.p)
+
+  // Seed the field: every cell whose centre is in the water starts at zero.
+  for (let row = 0; row < RELIEF_SIZE; row += 1) {
+    for (let column = 0; column < RELIEF_SIZE; column += 1) {
+      const x = -EXTENT + (column + 0.5) * cell
+      const z = -EXTENT + (row + 0.5) * cell
+      if (rings.some(ring => contains(ring, x, z)))
+        water[row * RELIEF_SIZE + column] = 0
+    }
+  }
+
+  // Two sweeps of a chamfer distance transform: forward, then backward. Close enough to Euclidean.
+  const step = (row, column, dr, dc, cost) => {
+    const from = (row + dr) * RELIEF_SIZE + (column + dc)
+    const to = row * RELIEF_SIZE + column
+    if (water[from] + cost < water[to])
+      water[to] = water[from] + cost
+  }
+  for (let row = 0; row < RELIEF_SIZE; row += 1) {
+    for (let column = 0; column < RELIEF_SIZE; column += 1) {
+      if (row > 0)
+        step(row, column, -1, 0, cell)
+      if (column > 0)
+        step(row, column, 0, -1, cell)
+      if (row > 0 && column > 0)
+        step(row, column, -1, -1, cell * 1.41421)
+    }
+  }
+  for (let row = RELIEF_SIZE - 1; row >= 0; row -= 1) {
+    for (let column = RELIEF_SIZE - 1; column >= 0; column -= 1) {
+      if (row < RELIEF_SIZE - 1)
+        step(row, column, 1, 0, cell)
+      if (column < RELIEF_SIZE - 1)
+        step(row, column, 0, 1, cell)
+      if (row < RELIEF_SIZE - 1 && column < RELIEF_SIZE - 1)
+        step(row, column, 1, 1, cell * 1.41421)
+    }
+  }
+
+  const data = []
+  for (let row = 0; row < RELIEF_SIZE; row += 1) {
+    for (let column = 0; column < RELIEF_SIZE; column += 1) {
+      const distance = water[row * RELIEF_SIZE + column]
+      const t = Math.min(1, distance / RELIEF_REACH)
+      const eased = t * t * (3 - 2 * t)
+      // Enough noise that the terraces wander; never enough to fold back toward the river.
+      const grain = 0.72 + 0.28 * valueNoise(column / 11, row / 11)
+      data.push(Math.round(eased * RELIEF_RISE * grain * 10) / 10)
+    }
+  }
+  return { size: RELIEF_SIZE, extent: EXTENT, data }
+}
+
+/** Point in ring, by ray casting. */
+function contains(ring, x, z) {
+  let inside = false
+  for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
+    const zi = ring[i + 1]
+    const zj = ring[j + 1]
+    if ((zi > z) === (zj > z))
+      continue
+    if (x < ring[j] + ((z - zj) / (zi - zj)) * (ring[i] - ring[j]))
+      inside = !inside
+  }
+  return inside
+}
+
+function valueNoise(x, y) {
+  const x0 = Math.floor(x)
+  const y0 = Math.floor(y)
+  const fx = (x - x0) * (x - x0) * (3 - 2 * (x - x0))
+  const fy = (y - y0) * (y - y0) * (3 - 2 * (y - y0))
+  const at = (a, b) => {
+    const h = Math.sin(a * 127.1 + b * 311.7) * 43_758.5453
+    return h - Math.floor(h)
+  }
+  const top = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * fx
+  const bottom = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * fx
+  return top + (bottom - top) * fy
+}
+
 // ---------------------------------------------------------------------------
 
 const input = process.argv[2]
@@ -300,6 +400,7 @@ const city = {
   source: 'OpenStreetMap contributors (ODbL) — Bremen, 3 × 3 km around the Altstadt',
   origin: ORIGIN,
   extent: EXTENT,
+  relief: buildRelief(areas),
   buildings,
   roads,
   rails,
@@ -312,4 +413,5 @@ writeFileSync(out, JSON.stringify(city))
 
 const vertices = buildings.reduce((n, b) => n + b.p.length / 2, 0)
 console.log(`${buildings.length} buildings (${vertices} vertices), ${roads.length} roads, ${rails.length} rails, ${areas.length} areas`)
+console.log(`relief ${city.relief.size}² cells, ${Math.max(...city.relief.data).toFixed(1)} m at its highest`)
 console.log(`${out} — ${(readFileSync(out).length / 1024 / 1024).toFixed(2)} MB`)

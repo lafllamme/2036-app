@@ -74,18 +74,36 @@ function describe(url: string, cause: unknown): string {
   return `${url} (nicht erreichbar)`
 }
 
-/** The atlas a kit shares across all of its models, loaded once and filtered like the pixel art it is. */
+/**
+ * The atlas a kit shares across all of its models, loaded once and filtered like the pixel art it is.
+ *
+ * Fetched rather than handed to `TextureLoader`, which loads an `<img>`: an image element reports a
+ * failure as a bare event with no status at all, so a missing file and a dev server answering with
+ * its own HTML page were indistinguishable, and both arrived as "nicht erreichbar". The content type
+ * is checked for exactly that reason — a 200 carrying `text/html` is the shape a public file takes
+ * when the server does not know about it.
+ */
 async function loadAtlas(kit: string): Promise<THREE.Texture> {
   const url = `${MODELS_BASE}/${kit}/Textures/colormap.png`
-  const texture = await new THREE.TextureLoader().loadAsync(url).catch((cause: unknown) => {
-    throw new Error(describe(url, cause))
+  const response = await fetch(url).catch((cause: unknown) => {
+    throw new Error(`${url} (${cause instanceof Error ? cause.message : 'nicht erreichbar'})`)
   })
+  if (!response.ok)
+    throw new Error(`${url} (HTTP ${response.status})`)
+
+  const type = response.headers.get('content-type') ?? ''
+  if (!type.startsWith('image/'))
+    throw new Error(`${url} liefert ${type || 'unbekannten Inhalt'} statt eines Bildes — der Dev-Server kennt die Datei nicht, ein Neustart baut sein Verzeichnis neu auf`)
+
+  const bitmap = await createImageBitmap(await response.blob())
+  const texture = new THREE.Texture(bitmap)
   texture.colorSpace = THREE.SRGBColorSpace
   // glTF UVs have their origin at the top left, and the palette is read by exact texel.
   texture.flipY = false
   texture.magFilter = THREE.NearestFilter
   texture.minFilter = THREE.LinearMipmapLinearFilter
   texture.anisotropy = 4
+  texture.needsUpdate = true
   return texture
 }
 

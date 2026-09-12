@@ -162,11 +162,12 @@ export class Atmosphere {
     sky.stars.material.opacity = starlight
 
     /*
-     * The city's own glow at night, carried on the shared atlas material rather than a lit mesh.
-     * It is deliberately faint: raised far enough to be read as lit windows it lights the whole
-     * façade evenly instead, and a building glowing uniformly from within reads as a lantern.
+     * Lit windows. This can finally be strong: the emissive is masked to the glass by the façade's
+     * own light map, so raising it lights the windows rather than the whole wall. It used to be a
+     * flat emissive on the entire building, which is why it had to stay so faint to avoid turning
+     * every house into a lantern — and why the night had nothing in it.
      */
-    const glow = (1 - daylight) * (0.04 + this.nightLife * 0.06)
+    const glow = (1 - daylight) * (0.8 + this.nightLife * 1.7)
     for (const material of buildingMaterials)
       material.emissiveIntensity = glow
 

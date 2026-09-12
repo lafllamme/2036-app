@@ -26,3 +26,19 @@ package also ships MP3 and Ogg renders for native targets; they are unused here.
 
 No other third-party visual or audio assets are included in the vertical slice. Additions require an
 entry before merge; assets with unclear licenses are rejected.
+
+## Stadtgrundriss
+
+| Was | Quelle | Lizenz | Stand |
+| --- | --- | --- | --- |
+| Gebäudegrundrisse, Straßennetz, Gewässer, Flächennutzung | OpenStreetMap, Ausschnitt Bremen 3 × 3 km um 53.0758 N / 8.8072 O | ODbL 1.0 — Namensnennung erforderlich | 2026-09-12 |
+| Gebäudemodelle für Neubau, Bäume | Kenney City Kit (Suburban / Commercial), kenney.nl | CC0 1.0 — gemeinfrei | 2026-09-12 |
+
+Die Namensnennung für OpenStreetMap steht auf dem Titelbildschirm. Der Ausschnitt wird mit der
+Overpass-Abfrage in `docs/CITY_DATA.md` geholt und mit `scripts/buildCityData.mjs` in
+`public/city/lindenhafen.json` übersetzt. Das Ergebnis ist eingecheckt; der Schritt läuft von Hand
+und nicht im Build.
+
+**Lindenhafen ist erfunden.** Übernommen wird ausschließlich die Geometrie — keine Straßennamen,
+keine Adressen, keine Einrichtungen. Bezirke, Bevölkerung, Politik und jede Zahl der Simulation sind
+unsere eigenen und haben mit Bremen nichts zu tun.

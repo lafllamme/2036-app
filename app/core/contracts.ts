@@ -48,6 +48,7 @@ export interface BuildingRecord {
   id: string
   districtId: DistrictId
   type: BuildingType
+  /** The footprint's centre, and the smallest rectangle around it. The simulation reads these. */
   x: number
   z: number
   width: number
@@ -56,16 +57,32 @@ export interface BuildingRecord {
   rotation: number
   condition: number
   occupancy: number
+  /**
+   * The real outline, as x,z pairs in metres, wound counter-clockwise. This is what is drawn — a
+   * rectangle is what the city was made of when it was generated from a grid, and it is precisely
+   * what made it read as one.
+   */
+  footprint: number[]
+  /** How much of `height` is roof rather than wall. Zero for a flat roof. */
+  roofHeight: number
 }
 
 export interface RoadRecord {
   id: string
-  x: number
-  z: number
+  /** The centre line, as x,z pairs in metres. Real streets bend, fork and meet at odd angles. */
+  path: number[]
   width: number
-  depth: number
-  axis: 'x' | 'z'
   arterial: boolean
+}
+
+/** A piece of ground that is not plain land: water, parkland, a rail yard, a works. */
+export type AreaKind = 'water' | 'park' | 'pitch' | 'forest' | 'grass' | 'industrial' | 'commercial' | 'construction'
+
+export interface AreaRecord {
+  id: string
+  kind: AreaKind
+  /** A closed ring, x,z pairs in metres, wound counter-clockwise. */
+  polygon: number[]
 }
 
 export interface TreeRecord {
@@ -84,6 +101,9 @@ export interface CityBlueprint {
    */
   growthSlots: BuildingRecord[]
   roads: RoadRecord[]
+  /** Rail lines, drawn as track rather than as road. */
+  rails: RoadRecord[]
+  areas: AreaRecord[]
   trees: TreeRecord[]
 }
 

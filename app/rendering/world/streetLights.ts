@@ -11,7 +11,10 @@ export interface StreetLights {
 }
 
 /** Street lighting: how far apart the lamps stand, how tall they are, how wide their pool falls. */
-const LAMP_SPACING = 110
+const LAMP_SPACING = 42
+/** Only the streets a city would actually light down their whole length. */
+const LAMP_MIN_WIDTH = 9
+const LAMP_LIMIT = 900
 const LAMP_HEIGHT = 11
 const LAMP_POOL = 46
 
@@ -22,16 +25,38 @@ const LAMP_POOL = 46
  * head and a warm pool on the road read as street lighting from every distance the camera allows.
  */
 export function addStreetLights(scene: THREE.Scene, blueprint: CityBlueprint): StreetLights {
-  const positions: { x: number, z: number, alongZ: boolean }[] = []
+  /*
+   * Lamps walk the real street network now rather than a grid of arterials: every so many metres
+   * along a street wide enough to be lit, offset to alternating kerbs. A city's night shape is its
+   * street plan picked out in orange, so it has to follow the streets it actually has.
+   */
+  const positions: { x: number, z: number, angle: number }[] = []
   for (const road of blueprint.roads) {
-    if (!road.arterial)
+    if (!road.arterial && road.width < LAMP_MIN_WIDTH)
       continue
-    const alongZ = road.axis === 'z'
-    const side = alongZ ? road.x : road.z
-    for (let along = -1_400; along <= 1_400; along += LAMP_SPACING) {
-      const offset = ((along / LAMP_SPACING) % 2 === 0 ? 1 : -1) * 17
-      positions.push(alongZ ? { x: side + offset, z: along, alongZ } : { x: along, z: side + offset, alongZ })
+    const points = road.path
+    let carried = 0
+    let side = 1
+    for (let i = 0; i < points.length / 2 - 1; i += 1) {
+      const ax = points[i * 2]!
+      const az = points[i * 2 + 1]!
+      const bx = points[(i + 1) * 2]!
+      const bz = points[(i + 1) * 2 + 1]!
+      const span = Math.hypot(bx - ax, bz - az)
+      if (span < 0.5)
+        continue
+      const ux = (bx - ax) / span
+      const uz = (bz - az) / span
+      const angle = Math.atan2(ux, uz)
+      for (let t = LAMP_SPACING - carried; t < span; t += LAMP_SPACING) {
+        const offset = (road.width / 2 + 1.6) * side
+        positions.push({ x: ax + ux * t - uz * offset, z: az + uz * t + ux * offset, angle })
+        side = -side
+      }
+      carried = (carried + span) % LAMP_SPACING
     }
+    if (positions.length > LAMP_LIMIT)
+      break
   }
 
   const matrix = new THREE.Matrix4()
@@ -49,13 +74,12 @@ export function addStreetLights(scene: THREE.Scene, blueprint: CityBlueprint): S
   ) as THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
 
   positions.forEach((lamp, index) => {
-    const turn = lamp.alongZ ? 0 : Math.PI / 2
-    matrix.compose(position.set(lamp.x, LAMP_HEIGHT / 2, lamp.z), quaternion.setFromAxisAngle(AXIS_Y, turn), scale.set(0.9, LAMP_HEIGHT, 0.9))
+    matrix.compose(position.set(lamp.x, LAMP_HEIGHT / 2, lamp.z), quaternion.setFromAxisAngle(AXIS_Y, lamp.angle), scale.set(0.7, LAMP_HEIGHT, 0.7))
     masts.setMatrixAt(index, matrix)
-    matrix.compose(position.set(lamp.x, LAMP_HEIGHT, lamp.z), quaternion.setFromAxisAngle(AXIS_Y, turn), scale.set(4.2, 0.9, 1.4))
+    matrix.compose(position.set(lamp.x, LAMP_HEIGHT, lamp.z), quaternion.setFromAxisAngle(AXIS_Y, lamp.angle), scale.set(3.4, 0.7, 1.1))
     heads.setMatrixAt(index, matrix)
     // Flat on the road, a touch above it so the asphalt does not fight it for the same depth.
-    matrix.compose(position.set(lamp.x, 0.92, lamp.z), FLAT, scale.set(LAMP_POOL, LAMP_POOL, 1))
+    matrix.compose(position.set(lamp.x, 0.34, lamp.z), FLAT, scale.set(LAMP_POOL, LAMP_POOL, 1))
     pools.setMatrixAt(index, matrix)
   })
 

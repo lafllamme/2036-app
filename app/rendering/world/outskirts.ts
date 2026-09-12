@@ -2,10 +2,18 @@ import type { CityBlueprint } from '../../core/contracts'
 import type { CityModels } from '../cityModels'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../core/rng'
-import { CITY_FLAT_RADIUS, terrainHeight } from '../../world/terrain'
+import { terrainHeight } from '../../world/terrain'
 import { AXIS_Y, WHITE } from '../shared'
-import { RIVER_X } from './ground'
 
+/**
+ * Where the map's own data stops and filler begins.
+ *
+ * The extract is three kilometres square, so the real city reaches 1 500 m along the axes and 2 120
+ * into the corners. The belt starts outside all of it, and anything that lands back inside the
+ * square is dropped — a filler house standing in a real street is worse than an empty field.
+ */
+const EXTRACT_HALF = 1_500
+const CITY_FLAT_RADIUS = 2_200
 /** How the built-up area gives way: a suburban belt with the city's street rhythm, then villages. */
 const SUBURB_COUNT = 850
 const SUBURB_DEPTH = 950
@@ -41,8 +49,8 @@ export function addOutskirts(blueprint: CityBlueprint, models: CityModels): THRE
   )
 
   function add(x: number, z: number, minHeight: number, maxHeight: number): void {
-    // Nothing is built in the river or on its far bank's promenade.
-    if (x > RIVER_X - 190 && x < RIVER_X + 190)
+    // Never inside the ground plan the map actually gave us.
+    if (Math.abs(x) < EXTRACT_HALF && Math.abs(z) < EXTRACT_HALF)
       return
     placements.push({
       x,

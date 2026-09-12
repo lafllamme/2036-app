@@ -3,7 +3,7 @@ import type { CityRenderer } from '~/rendering/CityRenderer'
 import { storeToRefs } from 'pinia'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useGameStore } from '~/stores/game'
-import { generateCity } from '~/world/generation/generateCity'
+import { loadCityBlueprint } from '~/world/cityData'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const game = useGameStore()
@@ -20,10 +20,11 @@ onMounted(async () => {
       import('../rendering/CityRenderer'),
       import('../rendering/cityModels'),
     ])
-    const blueprint = generateCity(2036)
-    // The kit has to be on hand before the first frame: a model arriving late is a building popping
-    // into a city the player is already looking at.
-    const models = await loadCityModels()
+    /*
+     * The ground plan and the kit both have to be on hand before the first frame: a model arriving
+     * late is a building popping into a city the player is already looking at.
+     */
+    const [blueprint, models] = await Promise.all([loadCityBlueprint(2036), loadCityModels()])
     if (!canvas.value)
       return
     cityRenderer = new Renderer({

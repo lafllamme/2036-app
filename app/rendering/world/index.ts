@@ -7,11 +7,9 @@ import type { StreetLights } from './streetLights'
 import type { CityTrees } from './trees'
 import { createAgents } from './agents'
 import { createBuildings } from './buildings'
-import { addCitySurfaces } from './citySurfaces'
 import { createConstructionSites } from './construction'
 import { addGround } from './ground'
 import { createGrowth } from './growth'
-import { addLandmarks } from './landmarks'
 import { addOutskirts } from './outskirts'
 import { addRoads } from './roads'
 import { addStreetLights } from './streetLights'
@@ -39,15 +37,13 @@ export interface WorldVisuals extends CityBuildings, CityTrees, Agents {
 
 export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): WorldVisuals {
   addGround(scene, blueprint)
-  addCitySurfaces(scene, blueprint)
   addRoads(scene, blueprint)
-  addLandmarks(scene)
 
   const outskirts = addOutskirts(blueprint, models)
   scene.add(outskirts)
 
   return {
-    ...createBuildings(scene, blueprint, models),
+    ...createBuildings(scene, blueprint),
     ...addTrees(scene, blueprint, models),
     ...createAgents(scene),
     growth: createGrowth(scene, blueprint, models),

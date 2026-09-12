@@ -110,6 +110,10 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
             <span>{{ cityReady ? '100 %' : 'Lädt …' }}</span>
           </div>
         </footer>
+        <!-- The ground plan is real map data, and its licence asks to be told about it. -->
+        <p class="title-attribution">
+          Stadtgrundriss auf Basis von Kartendaten der OpenStreetMap-Mitwirkenden (ODbL)
+        </p>
       </section>
 
       <section v-else-if="experienceStage === 'partyHall'" key="party-hall" class="entry-screen party-hall" aria-labelledby="party-hall-title">
@@ -430,6 +434,15 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   letter-spacing: 0.04em;
 }
 .title-actions { margin-top: 46px; }
+
+.title-attribution {
+  margin: 0.9rem 0 0;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--ink), transparent 62%);
+  text-align: center;
+}
 
 /* The footer is its own row with a rule above it: nothing overlaps the load state any more. */
 .title-foot {

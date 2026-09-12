@@ -1,6 +1,7 @@
 import type { CityBlueprint, SimulationSnapshot } from '../../core/contracts'
 import type { WorldVisuals } from './index'
 import * as THREE from 'three/webgpu'
+import { paint } from '../picking'
 
 /**
  * The city reacting to the simulation.
@@ -72,10 +73,8 @@ export class CityState {
         continue
       const affected = Math.floor(colours.length * blight)
       colours.forEach((colour, index) => {
-        mesh.setColorAt(index, index < affected ? this.scratch.copy(colour).lerp(DERELICT, 0.55) : colour)
+        paint(this.visuals, mesh, index, index < affected ? this.scratch.copy(colour).lerp(DERELICT, 0.55) : colour)
       })
-      if (mesh.instanceColor)
-        mesh.instanceColor.needsUpdate = true
     }
   }
 

@@ -16,10 +16,22 @@ export interface PickerCallbacks {
   onFocus: (building: BuildingRecord) => void
 }
 
+/** Write one building's colour across the span of vertices it owns inside its tile. */
+export function paint(buildings: CityBuildings, mesh: THREE.Mesh, index: number, colour: THREE.Color): void {
+  const range = buildings.buildingRanges.get(mesh)?.[index]
+  const attribute = mesh.geometry.getAttribute('color') as THREE.BufferAttribute | undefined
+  if (!range || !attribute)
+    return
+  for (let vertex = range.start; vertex < range.start + range.count; vertex += 1)
+    attribute.setXYZ(vertex, colour.r, colour.g, colour.b)
+  attribute.addUpdateRange(range.start * 3, range.count * 3)
+  attribute.needsUpdate = true
+}
+
 export class BuildingPicker {
   private readonly raycaster = new THREE.Raycaster()
   private readonly pointer = new THREE.Vector2()
-  private hovered: { mesh: THREE.InstancedMesh, index: number } | null = null
+  private hovered: { mesh: THREE.Mesh, index: number } | null = null
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -52,20 +64,23 @@ export class BuildingPicker {
     this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
     this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
     this.raycaster.setFromCamera(this.pointer, this.camera)
+    /*
+     * The city is merged into a handful of tiles, so a hit gives back a triangle rather than an
+     * instance. The lookup from triangle to building is built once when the tile is; walking twelve
+     * thousand ranges per pointer move would be the only expensive thing in the frame.
+     */
     const hit = this.raycaster.intersectObjects(this.buildings.buildingMeshes, false)[0]
-    const next = hit?.object instanceof THREE.InstancedMesh && hit.instanceId !== undefined
-      ? { mesh: hit.object, index: hit.instanceId }
+    const owners = hit?.object instanceof THREE.Mesh ? this.buildings.buildingOfTriangle.get(hit.object) : undefined
+    const next = hit?.object instanceof THREE.Mesh && owners && typeof hit.faceIndex === 'number'
+      ? { mesh: hit.object, index: owners[hit.faceIndex] ?? 0 }
       : null
     if (this.hovered && next && this.hovered.mesh === next.mesh && this.hovered.index === next.index)
       return
 
     this.restore()
     this.hovered = next
-    if (next) {
-      next.mesh.setColorAt(next.index, HOVER)
-      if (next.mesh.instanceColor)
-        next.mesh.instanceColor.needsUpdate = true
-    }
+    if (next)
+      paint(this.buildings, next.mesh, next.index, HOVER)
     this.canvas.style.cursor = next ? 'pointer' : 'grab'
   }
 
@@ -75,12 +90,12 @@ export class BuildingPicker {
   }
 
   private readonly handleClick = (): void => {
-    if (!this.hovered) {
+    const hovered = this.hovered
+    if (!hovered) {
       this.callbacks.onSelected(null)
       return
     }
-    const records = this.buildings.buildingRecords.get(this.hovered.mesh)
-    const building = records?.[this.hovered.index] ?? null
+    const building = this.buildings.buildingRecords.get(hovered.mesh)?.[hovered.index] ?? null
     this.callbacks.onSelected(building)
     if (building)
       this.callbacks.onFocus(building)
@@ -90,11 +105,8 @@ export class BuildingPicker {
     if (!this.hovered)
       return
     const colour = this.buildings.buildingColors.get(this.hovered.mesh)?.[this.hovered.index]
-    if (colour) {
-      this.hovered.mesh.setColorAt(this.hovered.index, colour)
-      if (this.hovered.mesh.instanceColor)
-        this.hovered.mesh.instanceColor.needsUpdate = true
-    }
+    if (colour)
+      paint(this.buildings, this.hovered.mesh, this.hovered.index, colour)
     this.hovered = null
   }
 }

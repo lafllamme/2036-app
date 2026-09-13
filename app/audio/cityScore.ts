@@ -23,20 +23,20 @@ const TICK = 1.5
 /**
  * The tempo.
  *
- * Slow, but a tempo. The first version of this was chords and nothing else, and a pad with no pulse
- * under it is not music you can play to for hours — it is a drone, which is the exact thing the city
- * already has in its traffic and the exact thing this was meant to be the opposite of. What makes
- * something you can leave running is that it keeps time: a bar goes past, another one starts, and
- * the ear has something to sit on without having to listen.
+ * Slow enough to live under a city, fast enough to pull. The first version of this was chords and
+ * nothing else, and a pad with no pulse under it is not music you can play to for hours — it is a
+ * drone, which is the exact thing the city already has in its traffic.
  */
-const BPM = 68
+const BPM = 76
 const BEAT = 60 / BPM
 const BAR = BEAT * 4
 
 /**
  * The mode: D dorian, which is minor without the leading note that would pull it anywhere.
  *
- * As semitones over the root, across three octaves.
+ * As semitones over the root, across three octaves. Dorian rather than natural minor for the raised
+ * sixth: it is the one note that keeps a minor key from sounding sad rather than serious, and the
+ * difference between mystical and miserable is almost entirely that note.
  */
 const ROOT = 146.83
 const SCALE = [0, 2, 3, 5, 7, 9, 10, 12, 14, 15, 17, 19, 21, 22, 24]
@@ -58,14 +58,31 @@ const BARS_PER_CHANGE = 2
 
 /** How long the pad takes to come in and go out, as a share of the chord. */
 const SWELL = 0.35
-/** How often a single note is placed over the bar, and how long it rings. */
-const NOTE_CHANCE = 0.5
-const NOTE_DECAY = 3.2
+/** How long a melody note rings, and how much of the bar carries one at all. */
+const NOTE_DECAY = 3.4
+const NOTE_CHANCE = 0.45
 
-const PAD_GAIN = 0.035
-const NOTE_GAIN = 0.03
-const BASS_GAIN = 0.085
-const TICK_GAIN = 0.014
+/**
+ * The arpeggio: the thing that makes it move.
+ *
+ * A figure running through the chord at a steady eighth, quiet, plucked rather than bowed. This is
+ * the whole difference between a score you play along to and one you notice and turn off — chords
+ * and a bass give a piece a floor, but nothing in it is going anywhere until something repeats fast
+ * enough to be felt as motion.
+ *
+ * Its density follows the city: an empty street gets half the figure, a busy one gets all of it and
+ * the filter opens. See `setIntensity`.
+ */
+const ARP_STEP = 0.5
+const ARP_GAIN = 0.028
+const ARP_DECAY = 0.85
+
+const PAD_GAIN = 0.032
+const NOTE_GAIN = 0.032
+const BASS_GAIN = 0.08
+const TICK_GAIN = 0.012
+/** Where the arpeggio's filter sits at rest and how far the city can open it. */
+const ARP_CUTOFF: [number, number] = [1_100, 4_200]
 
 export class CityScore {
   private context: AudioContext | null = null
@@ -79,6 +96,18 @@ export class CityScore {
   private written = 0
   /** Which bar of the piece is being written. The progression is read off it. */
   private bar = 0
+  /** Where the arpeggio has got to, so it walks on rather than restarting every bar. */
+  private arp = 0
+  /** Which note of the current chord the line is sitting on. */
+  private melody = 2
+  /**
+   * How much is going on in the city, 0 … 1.
+   *
+   * The one thing outside the music that the music listens to. It thickens the arpeggio and opens
+   * its filter, so a quiet night is sparse and a busy street has something driving under it — the
+   * score is part of the game rather than something playing next to it.
+   */
+  private intensity = 0.3
   /** Where the last note was in the scale, so the next one is a step and not a leap. */
   private last = 7
 
@@ -132,6 +161,12 @@ export class CityScore {
     this.apply()
   }
 
+  /** How busy the city is, 0 … 1. Followed slowly: music that lurches with the camera is worse. */
+  setIntensity(value: number): void {
+    const wanted = Math.min(1, Math.max(0, value))
+    this.intensity += (wanted - this.intensity) * 0.25
+  }
+
   stop(): void {
     if (this.timer)
       clearInterval(this.timer)
@@ -162,6 +197,7 @@ export class CityScore {
       const at = Math.max(this.written, context.currentTime + 0.05)
       const chord = CHANGES[Math.floor(this.bar / BARS_PER_CHANGE) % CHANGES.length]!
       const fresh = this.bar % BARS_PER_CHANGE === 0
+      const drive = this.intensity
 
       /*
        * The pad is written once per change and held across both its bars, so it breathes over the
@@ -170,33 +206,64 @@ export class CityScore {
       if (fresh) {
         const held = BAR * BARS_PER_CHANGE
         for (const step of chord)
-          this.voice('triangle', this.pitch(step + 7), at, held, PAD_GAIN, held * SWELL, 900)
+          this.voice('triangle', this.pitch(step + 7), at, held, PAD_GAIN, held * SWELL, 900, 6)
+        // A fifth held under the whole change, two octaves down. This is the mystical part: an open
+        // interval that never moves is what makes a minor chord read as old rather than as sad.
+        this.voice('sine', this.pitch(chord[0]!) / 4, at, held, PAD_GAIN * 1.3, held * SWELL, 320, 0)
       }
 
       /*
-       * The pulse: the root of the chord, low, on the first and third beat.
+       * The pulse, slightly syncopated: one, the back half of two, and three.
        *
-       * This is the whole difference between music and a drone. It is not loud and it is not a
-       * drum — a short filtered note with a soft edge — but it is what the ear sits on, and it is
-       * why this can run for an hour without becoming the thing you turn off.
+       * Dead on one and three is a metronome. Pushing the middle one late is the difference between
+       * a piece that keeps time and a piece that has a gait.
        */
-      this.voice('sine', this.pitch(chord[0]!) / 2, at, BEAT * 1.6, BASS_GAIN, 0.04, 220)
-      this.voice('sine', this.pitch(chord[0]!) / 2, at + BEAT * 2, BEAT * 1.2, BASS_GAIN * 0.7, 0.04, 220)
+      this.voice('sine', this.pitch(chord[0]!) / 2, at, BEAT * 1.3, BASS_GAIN, 0.035, 220, 0)
+      this.voice('sine', this.pitch(chord[0]!) / 2, at + BEAT * 1.5, BEAT * 0.7, BASS_GAIN * 0.55, 0.03, 220, 0)
+      this.voice('sine', this.pitch(chord[0]!) / 2, at + BEAT * 2.5, BEAT * 1.2, BASS_GAIN * 0.75, 0.035, 220, 0)
+
+      /*
+       * The arpeggio. Up the chord and back down, an eighth at a time, skipping steps when the city
+       * is quiet so the figure thins out rather than stopping.
+       */
+      const ladder = [...chord, ...chord.slice(1, -1).reverse()]
+      for (let step = 0; step * ARP_STEP < 4; step += 1) {
+        if (Math.random() > 0.45 + drive * 0.55)
+          continue
+        const degree = ladder[(this.arp + step) % ladder.length]!
+        this.voice(
+          'triangle',
+          this.pitch(degree + 14),
+          at + step * ARP_STEP * BEAT,
+          ARP_DECAY,
+          ARP_GAIN * (0.7 + drive * 0.5),
+          0.008,
+          ARP_CUTOFF[0] + (ARP_CUTOFF[1] - ARP_CUTOFF[0]) * drive,
+          0,
+        )
+      }
+      this.arp += 3
 
       // And a brush on the off-beats, barely there: what keeps the bar from feeling empty.
       this.brush(at + BEAT * 1.5)
       this.brush(at + BEAT * 3.5, 0.7)
 
       /*
-       * A line over the top. Each note steps from wherever the last one was, which is what makes a
-       * sequence of choices sound like a melody rather than like a list, and it lands off the beat
-       * as often as on it.
+       * A line over the top, and only on notes that belong to the chord under it.
+       *
+       * It used to walk the scale freely, which is where the wrongness came from: a free walk lands
+       * on the second and the seventh as often as on anything else, and against a chord that does
+       * not contain them it is simply out of tune. It steps between chord tones now, with the odd
+       * passing note in between, so it is still a line rather than an arpeggio but it is never at
+       * odds with what is underneath it.
        */
-      for (const beat of [0.5, 1.5, 2.25, 3]) {
+      for (const beat of [0.5, 1.75, 3]) {
         if (Math.random() > NOTE_CHANCE)
           continue
-        this.last = Math.max(4, Math.min(SCALE.length - 1, this.last + Math.floor(Math.random() * 5) - 2))
-        this.voice('triangle', this.pitch(this.last), at + BEAT * beat, NOTE_DECAY, NOTE_GAIN, 0.1, 2_600)
+        const move = Math.random() < 0.7 ? (Math.random() < 0.5 ? -1 : 1) : 0
+        this.melody = Math.max(0, Math.min(chord.length - 1, this.melody + move))
+        const degree = chord[this.melody]! + (Math.random() < 0.25 ? 1 : 0)
+        this.voice('triangle', this.pitch(degree + 14), at + BEAT * beat, NOTE_DECAY, NOTE_GAIN, 0.08, 3_000, 0)
       }
 
       this.bar += 1
@@ -216,7 +283,7 @@ export class CityScore {
    * The filter is not decoration. A bare oscillator is a test tone however nice the notes are —
    * taking the top off it is most of the difference between a synthesiser and an instrument.
    */
-  private voice(shape: OscillatorType, frequency: number, at: number, length: number, peak: number, swell: number, cutoff: number): void {
+  private voice(shape: OscillatorType, frequency: number, at: number, length: number, peak: number, swell: number, cutoff: number, detune: number): void {
     const context = this.context
     if (!context || !this.reverb)
       return
@@ -225,11 +292,14 @@ export class CityScore {
     oscillator.type = shape
     oscillator.frequency.value = frequency
     /*
-     * A cent or two off, chosen once per note. Two voices at exactly the same frequency are one
-     * voice; a little apart they beat against each other, which is the whole of what makes a pad
-     * sound like more than one thing.
+     * A cent or two off, but only where it belongs.
+     *
+     * Two pad voices at exactly the same frequency are one voice; a little apart they beat against
+     * each other, which is most of what makes a pad sound like more than one thing. The same trick
+     * on a single exposed note is not warmth, it is being out of tune — which is what it sounded
+     * like, because that is what it was.
      */
-    oscillator.detune.value = (Math.random() - 0.5) * 9
+    oscillator.detune.value = (Math.random() - 0.5) * detune
 
     const filter = context.createBiquadFilter()
     filter.type = 'lowpass'

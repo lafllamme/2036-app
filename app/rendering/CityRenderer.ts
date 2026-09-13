@@ -6,6 +6,7 @@ import type { IncidentKind, Service } from './world/incidents'
 import type { WorldVisuals } from './world/index'
 import * as THREE from 'three/webgpu'
 import { useCityAmbience } from '../audio/cityAmbience'
+import { useCityScore } from '../audio/cityScore'
 import { CameraRig } from './cameraRig'
 import { BuildingPicker } from './picking'
 import { Atmosphere } from './sky/atmosphere'
@@ -389,6 +390,17 @@ export class CityRenderer {
        * rather than from a watcher because those numbers are the renderer's own — how much is
        * moving and how many blue lights are out — and nothing else knows them.
        */
+      /*
+       * And the score follows the same reading.
+       *
+       * How much is moving near the camera and whether anything is happening — the two things that
+       * make a street feel busy — thicken the arpeggio and open its filter. The music is part of the
+       * game rather than something playing next to it, and it is the only thing outside the score
+       * that the score listens to.
+       */
+      useCityScore().setIntensity(Math.min(1, this.world.agents.trafficNearby / 22
+      + this.world.agents.peopleNearby / 40
+      + (this.world.agents.incidents.length > 0 ? 0.2 : 0)))
       useCityAmbience().update({
         trafficNearby: this.world.agents.trafficNearby,
         peopleNearby: this.world.agents.peopleNearby,

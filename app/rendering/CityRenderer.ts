@@ -1,6 +1,7 @@
 import type { BuildingRecord, CityBlueprint, SimulationSnapshot, SkyState } from '../core/contracts'
 import type { CityModels } from './cityModels'
 import type { SkyVisuals } from './sky/index'
+import type { PersonAt } from './world/agents'
 import type { IncidentKind, Service } from './world/incidents'
 import type { WorldVisuals } from './world/index'
 import * as THREE from 'three/webgpu'
@@ -73,8 +74,13 @@ export interface CityRendererOptions {
   onReady: (stats: RendererStats) => void
   onStats: (stats: RendererStats) => void
   onError: (message: string) => void
-  /** Called once for every call the city raises. Optional: the city runs the same without it. */
+  /**
+   * Called whenever a call changes: raised, reached, over. Optional — the city runs the same without
+   * it, and nothing in the city ever reads what the interface does with it.
+   */
   onIncident?: (report: IncidentReport) => void
+  /** Somebody in the street was clicked on, or the click landed on nothing. */
+  onPersonSelected?: (person: PersonAt | null) => void
 }
 
 /**
@@ -195,9 +201,10 @@ export class CityRenderer {
       streetLights: this.world.streetLights,
     })
     this.city = new CityState(options.blueprint, this.world)
-    this.picker = new BuildingPicker(this.canvas, this.rig.camera, this.world, {
+    this.picker = new BuildingPicker(this.canvas, this.rig.camera, this.world, this.world.agents, {
       onSelected: options.onBuildingSelected,
       onFocus: building => this.rig.focusOn(building),
+      onPerson: person => options.onPersonSelected?.(person),
     })
 
     this.resizeObserver = new ResizeObserver(() => this.resize())

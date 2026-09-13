@@ -207,6 +207,37 @@ export interface Agents {
   peopleNearby: number
 }
 
+/**
+ * Who is standing at a given instance of a given mesh.
+ *
+ * The picker gets a mesh and an instance index out of a raycast and nothing else; this is the only
+ * way back from that to a person. Walks the two people fleets and no further — a car has no
+ * biography, and a parked one is not even an agent.
+ */
+export function personAt(agents: Agents, mesh: THREE.Object3D, instance: number): PersonAt | null {
+  for (const fleet of [agents.pedestrians, agents.cyclists]) {
+    const at = fleet.meshes.indexOf(mesh as THREE.InstancedMesh)
+    if (at < 0)
+      continue
+    const traveller = fleet.crews[at]?.[instance]
+    if (!traveller)
+      return null
+    const edge = agents.network.edges[traveller.edge]
+    if (!edge)
+      return null
+    // Its own scratch: this runs once per click, not once per instance per frame.
+    const where = { x: 0, y: 0, z: 0, ux: 0, uz: 1 }
+    sampleEdge(edge, THREE.MathUtils.clamp(traveller.along, 0, edge.length), where)
+    return { citizen: traveller.citizen, x: where.x, z: where.z }
+  }
+  return null
+}
+
+/** Every mesh a person could be picked out of, for the raycast to aim at. */
+export function peopleMeshes(agents: Agents): THREE.InstancedMesh[] {
+  return [...agents.pedestrians.meshes, ...agents.cyclists.meshes]
+}
+
 /** One instanced mesh per model, and the travellers riding in it. */
 interface Fleet {
   meshes: THREE.InstancedMesh[]
@@ -250,6 +281,21 @@ interface Traveller {
   responding: boolean
   /** Its own phase in the walk, so a crowd does not step in time. */
   gait: number
+  /**
+   * Which person this is, for the one question the interface asks of a figure in the street.
+   *
+   * A number and nothing else. Who they are is derived from it on demand in `world/citizens.ts`, so
+   * a city of five hundred people costs five hundred integers rather than five hundred biographies,
+   * and the answer is the same every time it is asked.
+   */
+  citizen: number
+}
+
+/** Where a figure is and who it is, which is everything the interface needs to name one. */
+export interface PersonAt {
+  citizen: number
+  x: number
+  z: number
 }
 
 export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels, network: RoadNetwork, signals: SignalPlan): Agents {
@@ -290,6 +336,7 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
     // They are pedalling, not walking: no bob, and they are not what a crowd sounds like.
     stride: false,
     people: true,
+    citizenBase: 0,
     mount: { geometry: bicycleGeometry(), material: bicycleMaterial(), drop: SADDLE },
   })
 
@@ -305,6 +352,7 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
       weight: () => 1,
       service: () => 'none' as Service,
       people: true,
+      citizenBase: CYCLIST_COUNT,
     }),
     network,
     signals,
@@ -357,6 +405,8 @@ interface FleetPlan {
   stride?: boolean
   /** Whether this fleet is made of people, and so is tinted across a range of complexions. */
   people?: boolean
+  /** Where this fleet's block of citizen numbers starts, so no two fleets share a person. */
+  citizenBase?: number
   mount?: { geometry: THREE.BufferGeometry, material: THREE.Material, drop: number }
 }
 
@@ -429,6 +479,12 @@ function buildFleet(
       callout: null,
       responding: false,
       gait: draw() * Math.PI * 2,
+      /*
+       * Unique across the whole city, not within a fleet: the pedestrians and the cyclists are two
+       * fleets and one population, and a walker and a rider must never turn out to be the same
+       * person. `plan.citizenBase` is where this fleet's block of numbers starts.
+       */
+      citizen: (plan.citizenBase ?? 0) + index,
     }
     assigned[chosen]!.push(traveller)
     all.push(traveller)

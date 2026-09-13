@@ -23,6 +23,7 @@ const {
   selectedBuilding,
   selectedNews,
   selectedReport,
+  selectedCitizen,
   rendererStats,
 } = storeToRefs(game)
 const selectedParty = computed(() => selectedPartyId.value ? getParty(selectedPartyId.value) : null)
@@ -226,6 +227,37 @@ function restart(): void {
             <div><dt>Zustand</dt><dd>{{ (selectedBuilding.condition * 100).toFixed(0) }} %</dd></div>
             <div><dt>Auslastung</dt><dd>{{ (selectedBuilding.occupancy * 100).toFixed(0) }} %</dd></div>
           </dl>
+        </section>
+
+        <!--
+          Somebody in the street.
+
+          Everyone walking or riding in Lindenhafen has a name, an age, a job and a family history,
+          none of it stored and all of it derived from the number of the figure you happened to point
+          at — so there are five hundred people in the city and none of them cost anything until you
+          look. None of it is read back by anything: see `app/world/citizens.ts`.
+        -->
+        <section v-if="selectedCitizen" class="selection-card citizen-card panel">
+          <button type="button" aria-label="Auswahl schließen" @click="game.selectedCitizen = null">
+            ×
+          </button>
+          <small>Passantin oder Passant</small>
+          <h2>{{ selectedCitizen.name }}</h2>
+          <dl>
+            <div><dt>Alter</dt><dd>{{ selectedCitizen.age }}</dd></div>
+            <div><dt>Tätigkeit</dt><dd>{{ selectedCitizen.job }}</dd></div>
+            <div>
+              <dt>Herkunft</dt>
+              <dd>{{ selectedCitizen.origin.country }}</dd>
+            </div>
+            <div>
+              <dt>{{ selectedCitizen.origin.born === 'here' ? 'Geboren in' : 'In Lindenhafen seit' }}</dt>
+              <dd>{{ selectedCitizen.origin.born === 'here' ? 'Lindenhafen' : selectedCitizen.since }}</dd>
+            </div>
+          </dl>
+          <p class="dialog-note">
+            Herkunft und Tätigkeit sind Merkmale und keine Werte: sie gehen in keine Bewertung, keinen Auslöser und keine Kennzahl ein.
+          </p>
         </section>
 
         <section class="camera-help panel" aria-label="Kamerasteuerung">

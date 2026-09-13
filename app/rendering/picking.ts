@@ -1,6 +1,8 @@
 import type { BuildingRecord } from '../core/contracts'
+import type { Agents, PersonAt } from './world/agents'
 import type { CityBuildings } from './world/buildings'
 import * as THREE from 'three/webgpu'
+import { peopleMeshes, personAt } from './world/agents'
 
 /**
  * Which building the pointer is on, and what that looks like.
@@ -22,6 +24,8 @@ const DRAG_SLOP = 5
 export interface PickerCallbacks {
   onSelected: (building: BuildingRecord | null) => void
   onFocus: (building: BuildingRecord) => void
+  /** Somebody in the street was pointed at. Null clears whoever was.  */
+  onPerson: (person: PersonAt | null) => void
 }
 
 /** Write one building's colour across the span of vertices it owns inside its tile. */
@@ -40,12 +44,15 @@ export class BuildingPicker {
   private readonly raycaster = new THREE.Raycaster()
   private readonly pointer = new THREE.Vector2()
   private hovered: { mesh: THREE.Mesh, index: number } | null = null
+  /** The figure under the pointer, if the pointer is on one rather than on a building. */
+  private person: PersonAt | null = null
   private pressed: { x: number, y: number, button: number } | null = null
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly camera: THREE.Camera,
     private readonly buildings: CityBuildings,
+    private readonly agents: Agents,
     private readonly callbacks: PickerCallbacks,
   ) {
     this.canvas.addEventListener('pointermove', this.handlePointerMove)
@@ -77,6 +84,23 @@ export class BuildingPicker {
     this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
     this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
     this.raycaster.setFromCamera(this.pointer, this.camera)
+    /*
+     * People first, and only then buildings.
+     *
+     * A figure is always standing in front of the building behind it, and a person is a much smaller
+     * target than a wall — so whoever is under the pointer wins, and the building is what is left.
+     * The people are instanced, so a hit comes back with an instance rather than a triangle.
+     */
+    const figure = this.raycaster.intersectObjects(peopleMeshes(this.agents), false)[0]
+    this.person = figure && typeof figure.instanceId === 'number'
+      ? personAt(this.agents, figure.object, figure.instanceId)
+      : null
+    if (this.person) {
+      this.restore()
+      this.canvas.style.cursor = 'pointer'
+      return
+    }
+
     /*
      * The city is merged into a handful of tiles, so a hit gives back a triangle rather than an
      * instance. The lookup from triangle to building is built once when the tile is; walking twelve
@@ -115,9 +139,16 @@ export class BuildingPicker {
     if (Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > DRAG_SLOP)
       return
 
+    // Somebody in the street, and nothing else happens: the camera stays where the player put it.
+    if (this.person) {
+      this.callbacks.onPerson(this.person)
+      return
+    }
+
     const hovered = this.hovered
     if (!hovered) {
       this.callbacks.onSelected(null)
+      this.callbacks.onPerson(null)
       return
     }
     const building = this.buildings.buildingRecords.get(hovered.mesh)?.[hovered.index] ?? null

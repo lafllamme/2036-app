@@ -13,6 +13,8 @@ import type {
   VoteResult,
 } from '~/core/contracts'
 import type { IncidentReport, RendererStats } from '~/rendering/CityRenderer'
+import type { PersonAt } from '~/rendering/world/agents'
+import type { Citizen } from '~/world/citizens'
 import { useIntervalFn } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, onScopeDispose, ref, shallowRef } from 'vue'
@@ -20,6 +22,7 @@ import { getEvent } from '~/content/events'
 import { getPolicy } from '~/content/policies'
 import { CAMPAIGN_LAST_MONTH, isCampaignComplete } from '~/core/campaign'
 import { formatClock, readDaylight } from '~/core/daylight'
+import { citizenAt } from '~/world/citizens'
 
 const MONTH_DURATION_MS = 300_000
 const DB_NAME = '2036-lindenhafen'
@@ -109,6 +112,24 @@ export const useGameStore = defineStore('game', () => {
   const CLEARED_LINGER_MS = 12_000
   /** The call the player has opened from the ticker, if any. */
   const selectedReport = shallowRef<LiveReport | null>(null)
+
+  /**
+   * Whoever the player has picked out of the street.
+   *
+   * Derived on demand from their number and the city's own share of families from elsewhere, so
+   * nobody is stored and everybody is the same person every time they are asked about. It is a
+   * reading and never an input: nothing the simulation does is changed by having looked.
+   */
+  const selectedCitizen = shallowRef<(Citizen & { x: number, z: number }) | null>(null)
+
+  function selectPerson(person: PersonAt | null): void {
+    if (!person) {
+      selectedCitizen.value = null
+      return
+    }
+    const share = snapshot.value?.cityVisuals.originMix ?? 0
+    selectedCitizen.value = { ...citizenAt(person.citizen, 2036, share), x: person.x, z: person.z }
+  }
   /**
    * Where the player has asked to be taken.
    *
@@ -624,6 +645,8 @@ export const useGameStore = defineStore('game', () => {
     cityReports,
     reportIncident,
     selectedReport,
+    selectedCitizen,
+    selectPerson,
     focusRequest,
     focusOnPlace,
     railOpen,

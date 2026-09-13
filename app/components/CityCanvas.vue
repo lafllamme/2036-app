@@ -35,6 +35,7 @@ onMounted(async () => {
       onReady: (stats) => { game.rendererStats = stats },
       onStats: (stats) => { game.rendererStats = stats },
       onIncident: report => game.reportIncident(report),
+      onPersonSelected: person => game.selectPerson(person),
       onError: (message) => { game.error = message },
     })
     cityRenderer.setFrameCap(experienceStage.value === 'gameplay' ? null : MENU_FRAME_CAP)

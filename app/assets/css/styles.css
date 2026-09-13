@@ -356,6 +356,12 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
   border: 0; border-radius: 50%; background: transparent; color: var(--dim); font-size: 15px; cursor: pointer;
 }
 .selection-card > button:hover { color: var(--ink); }
+/*
+ * A person's card sits above a building's, because a figure is always standing in front of one and
+ * clicking it selects both would otherwise be a card fight.
+ */
+.citizen-card { bottom: 118px; z-index: 5; }
+.citizen-card .dialog-note { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--rule); color: var(--faint); font-size: 9px; line-height: 1.5; }
 
 .close-button {
   position: absolute; top: 18px; right: 20px;

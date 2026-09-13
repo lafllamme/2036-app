@@ -10,7 +10,8 @@ import { buildBlueprint } from '../../app/world/cityData'
  * main axis, and every stretch that reaches a signalled junction is answered one way or the other.
  */
 const raw = JSON.parse(readFileSync('public/city/lindenhafen.json', 'utf8'))
-const network = buildRoadNetwork(buildBlueprint(raw, 2_036))
+const city = buildBlueprint(raw, 2_036)
+const network = buildRoadNetwork(city, city.relief)
 const plan = planSignals(network)
 
 describe('the junction signals', () => {

@@ -2,6 +2,7 @@ import type { AreaKind, BuildingRecord, BuildingType, CityBlueprint, RoadRecord,
 import type { ReliefField } from './relief'
 import { createRandomStream } from '../core/rng'
 import { districtAt, LINDENHAFEN } from './model/lindenhafen'
+import { buildOutskirts } from './outskirts'
 import { Relief } from './relief'
 
 /**
@@ -28,8 +29,8 @@ interface RawCity {
   relief: ReliefField
   waterways: { p: number[] }[]
   buildings: { p: number[], h: number, r: number, t: BuildingType, x: number, z: number, w: number, d: number, a: number }[]
-  roads: { p: number[], w: number, a: number }[]
-  rails: { p: number[] }[]
+  roads: { p: number[], w: number, a: number, b?: number }[]
+  rails: { p: number[], b?: number }[]
   areas: { p: number[], k: AreaKind }[]
   /** x, z pairs: the gaps in a low-rise street that are a garden rather than a yard. */
   gardens?: number[]
@@ -77,6 +78,15 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
     polygon: entry.p,
   }))
 
+  const relief = new Relief(raw.relief, seed)
+  /*
+   * The country around the city, built out of the same kind of record the map gives us: outlines,
+   * heights, roofs and streets. It used to be a second renderer with its own models, its own material
+   * and no pavements, which is why there was a visible seam right round the city.
+   */
+  const outskirts = buildOutskirts(seed, relief)
+  buildings.push(...outskirts.buildings)
+
   return {
     definition: { ...LINDENHAFEN, seed },
     buildings,
@@ -86,16 +96,18 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
       path: entry.p,
       width: entry.w,
       arterial: entry.a === 1,
-    })),
+      bridge: entry.b === 1,
+    })).concat(outskirts.roads),
     rails: raw.rails.map((entry, index): RoadRecord => ({
       id: `t-${index.toString(36)}`,
       path: entry.p,
       width: 5.2,
       arterial: false,
+      bridge: entry.b === 1,
     })),
     areas,
-    trees: plantTrees(areas, raw.gardens ?? [], seed),
-    relief: new Relief(raw.relief, seed),
+    trees: [...plantTrees(areas, raw.gardens ?? [], seed), ...outskirts.trees],
+    relief,
     waterway: raw.waterways[0]?.p ?? [],
   }
 }

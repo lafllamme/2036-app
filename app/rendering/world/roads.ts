@@ -1,7 +1,7 @@
 import type { CityBlueprint, RoadRecord } from '../../core/contracts'
 import type { Relief } from '../../world/relief'
 import * as THREE from 'three/webgpu'
-import { ribbonSections } from './ribbon'
+import { deckOf, ribbonSections } from './ribbon'
 
 /**
  * The street network, as the map draws it.
@@ -29,6 +29,12 @@ const PAVEMENT = 2.3
 /** How long a dash of centre line is, and the gap after it. */
 const DASH = 9
 const GAP = 7
+/** A bridge's parapet: how high the wall along its edge is, and how thick. */
+const PARAPET = 1.1
+const PARAPET_THICKNESS = 0.45
+/** How far apart a bridge's piers stand, and how thick one is. */
+const PIER_SPACING = 26
+const PIER_SIZE = 2.2
 
 export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint): void {
   const relief = blueprint.relief
@@ -55,6 +61,7 @@ export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint): void {
     polygonOffsetUnits: -3,
   }), 1))
   scene.add(markings(relief, blueprint.roads))
+  scene.add(bridgeStructure(relief, [...blueprint.roads, ...blueprint.rails]))
   scene.add(ribbon(relief, blueprint.rails, ROAD_Y, new THREE.MeshStandardMaterial({
     color: '#473f36',
     roughness: 0.9,
@@ -76,14 +83,21 @@ function ribbon(relief: Relief, roads: RoadRecord[], y: number, material: THREE.
 
   for (const road of roads) {
     const sections = ribbonSections(road.path, (road.width * widthScale) / 2 + widen)
+    const deck = deckOf(road.path, road.bridge, (x, z) => relief.height(x, z))
     const first = position.length / 3
     sections.forEach((section, at) => {
       const left = section.x + section.ox
       const leftZ = section.z + section.oz
       const right = section.x - section.ox
       const rightZ = section.z - section.oz
-      // Both kerbs follow the ground, so a street on a slope is on the slope rather than through it.
-      position.push(left, y + relief.height(left, leftZ), leftZ, right, y + relief.height(right, rightZ), rightZ)
+      /*
+       * On the ground both kerbs follow the land, so a street on a slope is on the slope rather than
+       * through it. On a bridge they follow the deck instead — one height across the whole span,
+       * because a carriageway does not tilt sideways to match the river bank under it.
+       */
+      const leftY = deck.bridge ? deck.at(section.along) : relief.height(left, leftZ)
+      const rightY = deck.bridge ? deck.at(section.along) : relief.height(right, rightZ)
+      position.push(left, y + leftY, leftZ, right, y + rightY, rightZ)
       normal.push(0, 1, 0, 0, 1, 0)
       uv.push(0, section.along / 8, 1, section.along / 8)
       if (at > 0) {
@@ -114,6 +128,8 @@ function markings(relief: Relief, roads: RoadRecord[]): THREE.Mesh {
   for (const road of roads) {
     if (!road.arterial && road.width < 9)
       continue
+    const deck = deckOf(road.path, road.bridge, (x, z) => relief.height(x, z))
+    let travelled = 0
     const points = road.path
     const count = points.length / 2
     for (let i = 0; i < count - 1; i += 1) {
@@ -122,8 +138,10 @@ function markings(relief: Relief, roads: RoadRecord[]): THREE.Mesh {
       const bx = points[(i + 1) * 2]!
       const bz = points[(i + 1) * 2 + 1]!
       const span = Math.hypot(bx - ax, bz - az)
-      if (span < 1)
+      if (span < 1) {
+        travelled += span
         continue
+      }
       const ux = (bx - ax) / span
       const uz = (bz - az) / span
       const ox = -uz * 0.14
@@ -135,12 +153,13 @@ function markings(relief: Relief, roads: RoadRecord[]): THREE.Mesh {
         const ex = ax + ux * (t + DASH)
         const ez = az + uz * (t + DASH)
         const base = position.length / 3
-        const sy = MARKING_Y + relief.height(sx, sz)
-        const ey = MARKING_Y + relief.height(ex, ez)
+        const sy = MARKING_Y + (deck.bridge ? deck.at(travelled + t) : relief.height(sx, sz))
+        const ey = MARKING_Y + (deck.bridge ? deck.at(travelled + t + DASH) : relief.height(ex, ez))
         position.push(sx + ox, sy, sz + oz, sx - ox, sy, sz - oz, ex + ox, ey, ez + oz, ex - ox, ey, ez - oz)
         normal.push(0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0)
         index.push(base, base + 2, base + 1, base + 1, base + 2, base + 3)
       }
+      travelled += span
     }
   }
 
@@ -157,4 +176,84 @@ function markings(relief: Relief, roads: RoadRecord[]): THREE.Mesh {
     polygonOffsetFactor: -6,
     polygonOffsetUnits: -6,
   }))
+}
+
+/**
+ * What holds a bridge up and keeps what is on it from falling off: a parapet down each edge and a
+ * row of piers reaching from the deck to whatever is below.
+ *
+ * Both are merged into one mesh for the whole city — eighty-two bridges, one draw. They are the
+ * difference between a road that crosses a river and a road that is painted on it.
+ */
+function bridgeStructure(relief: Relief, roads: RoadRecord[]): THREE.Mesh {
+  const position: number[] = []
+  const normal: number[] = []
+  const index: number[] = []
+
+  const box = (cx: number, cz: number, top: number, bottom: number, width: number, depth: number, angle: number): void => {
+    const cos = Math.cos(angle)
+    const sin = Math.sin(angle)
+    const outline: [number, number][] = [[-width / 2, -depth / 2], [width / 2, -depth / 2], [width / 2, depth / 2], [-width / 2, depth / 2]]
+    const corners = outline.map(([ox, oz]): [number, number] => [cx + ox * cos - oz * sin, cz + ox * sin + oz * cos])
+    for (let i = 0; i < 4; i += 1) {
+      const j = (i + 1) % 4
+      const [ax, az] = corners[i]!
+      const [bx, bz] = corners[j]!
+      const span = Math.hypot(bx - ax, bz - az) || 1
+      const nx = -(bz - az) / span
+      const nz = (bx - ax) / span
+      const base = position.length / 3
+      position.push(ax, bottom, az, bx, bottom, bz, bx, top, bz, ax, top, az)
+      normal.push(nx, 0, nz, nx, 0, nz, nx, 0, nz, nx, 0, nz)
+      index.push(base, base + 2, base + 1, base, base + 3, base + 2)
+    }
+    // A lid, so a pier seen from above is not an open tube.
+    const base = position.length / 3
+    for (const [x, z] of corners) position.push(x, top, z)
+    for (let i = 0; i < 4; i += 1) normal.push(0, 1, 0)
+    index.push(base, base + 2, base + 1, base, base + 3, base + 2)
+  }
+
+  for (const road of roads) {
+    if (!road.bridge)
+      continue
+    const deck = deckOf(road.path, true, (x, z) => relief.height(x, z))
+    const sections = ribbonSections(road.path, road.width / 2 + PAVEMENT)
+
+    // The parapets: a low wall run down each edge of the deck, as two thin boxes per section.
+    for (let i = 1; i < sections.length; i += 1) {
+      const previous = sections[i - 1]!
+      const current = sections[i]!
+      const top = deck.at(current.along) + PARAPET
+      const bottom = deck.at(current.along) - 0.4
+      for (const side of [1, -1]) {
+        const x = (previous.x + current.x) / 2 + ((previous.ox + current.ox) / 2) * side
+        const z = (previous.z + current.z) / 2 + ((previous.oz + current.oz) / 2) * side
+        const run = Math.hypot(current.x - previous.x, current.z - previous.z) || 1
+        box(x, z, top, bottom, PARAPET_THICKNESS, run + 0.2, Math.atan2(current.x - previous.x, current.z - previous.z))
+      }
+    }
+
+    // The piers, reaching from under the deck down to the land or the riverbed below it.
+    for (let along = PIER_SPACING / 2; along < deck.length; along += PIER_SPACING) {
+      const section = sections.find(entry => entry.along >= along) ?? sections[sections.length - 1]
+      if (!section)
+        continue
+      const foot = relief.height(section.x, section.z) - 1
+      const top = deck.at(along) - 0.3
+      if (top - foot < 1.5)
+        continue
+      box(section.x, section.z, top, foot, PIER_SIZE, PIER_SIZE, 0)
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3))
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3))
+  geometry.setIndex(index)
+  geometry.computeBoundingSphere()
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: '#8d8a82', roughness: 0.93, metalness: 0 }))
+  mesh.castShadow = true
+  mesh.receiveShadow = true
+  return mesh
 }

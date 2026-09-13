@@ -53,8 +53,6 @@ const SLOW_UPDATE_HZ = 30
  * Twelve times a second is indistinguishable and frees a shadow pass on four frames out of five.
  */
 const SHADOW_HZ = 12
-/** Below this camera distance the suburbs are behind the skyline and two kilometres of haze. */
-const OUTSKIRTS_RANGE = 900
 /** A traffic cone two kilometres away is a fifth of a pixel. Above this the pavements are bare. */
 const FURNITURE_RANGE = 1_400
 
@@ -142,13 +140,12 @@ export class CityRenderer {
    * set of pipelines that compilation alone does not reach.
    */
   private async warmUp(): Promise<void> {
-    const { growth, constructionSites, outskirts } = this.world
+    const { growth, constructionSites } = this.world
     const hidden = constructionSites.children.filter(site => !site.visible)
 
     growth.count = growth.instanceMatrix.count
     for (const mesh of [...this.world.agents.cars.meshes, ...this.world.agents.pedestrians.meshes])
       mesh.count = mesh.instanceMatrix.count
-    outskirts.visible = true
     for (const site of hidden) site.visible = true
 
     try {
@@ -248,7 +245,6 @@ export class CityRenderer {
       updateAgents(this.world.agents, this.slowClock, this.animationElapsed, distance, this.city.trafficFactor)
       updateSignals(this.world.signals, this.animationElapsed)
       this.atmosphere.update(this.slowClock, this.rig.controls.target, distance)
-      this.world.outskirts.visible = distance > OUTSKIRTS_RANGE
       this.world.streetFurniture.visible = distance < FURNITURE_RANGE
       updateShips(this.world.ships, this.animationElapsed)
       updateWater(this.world.water, this.animationElapsed)

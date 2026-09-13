@@ -1,4 +1,6 @@
 import type { CityBlueprint, RoadRecord } from '../../core/contracts'
+import type { Relief } from '../../world/relief'
+import { deckOf } from './ribbon'
 
 /**
  * The street plan as something that can be driven: junctions, and the stretches of road between
@@ -19,6 +21,14 @@ export interface RoadEdge {
   points: Float32Array
   /** How far along the stretch each point lies, so a distance can be turned into a position. */
   distance: Float32Array
+  /**
+   * How high the road surface is at each point.
+   *
+   * Carried here rather than read off the relief, because a bridge's deck is not the ground: traffic
+   * that asked the land how high it was drove through the river under the bridge it should have been
+   * crossing.
+   */
+  height: Float32Array
   length: number
   width: number
   arterial: boolean
@@ -41,7 +51,7 @@ export interface RoadNetwork {
   edges: RoadEdge[]
 }
 
-export function buildRoadNetwork(blueprint: CityBlueprint): RoadNetwork {
+export function buildRoadNetwork(blueprint: CityBlueprint, relief: Relief): RoadNetwork {
   const roads = blueprint.roads
   const nodes: RoadNode[] = []
   const nodeAt = new Map<string, number>()
@@ -82,13 +92,27 @@ export function buildRoadNetwork(blueprint: CityBlueprint): RoadNetwork {
     if (count < 2)
       continue
 
+    // One profile for the whole way, so a stretch cut out of a bridge keeps the bridge's own deck.
+    const deck = deckOf(road.path, road.bridge, (x, z) => relief.height(x, z))
+    let travelled = 0
+    const surface: number[] = []
+    for (let i = 0; i < count; i += 1) {
+      if (i > 0) {
+        travelled += Math.hypot(
+          road.path[i * 2]! - road.path[(i - 1) * 2]!,
+          road.path[i * 2 + 1]! - road.path[(i - 1) * 2 + 1]!,
+        )
+      }
+      surface.push(deck.bridge ? deck.at(travelled) : relief.height(road.path[i * 2]!, road.path[i * 2 + 1]!))
+    }
+
     let start = 0
     for (let i = 1; i < count; i += 1) {
       const isEnd = i === count - 1
       const isJunction = (uses.get(key(road.path[i * 2]!, road.path[i * 2 + 1]!)) ?? 0) > 1
       if (!isEnd && !isJunction)
         continue
-      const edge = cut(road, start, i, claim)
+      const edge = cut(road, surface, start, i, claim)
       if (edge) {
         const index = edges.length
         edges.push(edge)
@@ -104,12 +128,14 @@ export function buildRoadNetwork(blueprint: CityBlueprint): RoadNetwork {
 }
 
 /** One stretch of a way, from one junction to the next. */
-function cut(road: RoadRecord, from: number, to: number, claim: (x: number, z: number) => number): RoadEdge | null {
+function cut(road: RoadRecord, surface: number[], from: number, to: number, claim: (x: number, z: number) => number): RoadEdge | null {
   const count = to - from + 1
   const points = new Float32Array(count * 2)
+  const height = new Float32Array(count)
   for (let i = 0; i < count; i += 1) {
     points[i * 2] = road.path[(from + i) * 2]!
     points[i * 2 + 1] = road.path[(from + i) * 2 + 1]!
+    height[i] = surface[from + i] ?? 0
   }
 
   const distance = new Float32Array(count)
@@ -126,6 +152,7 @@ function cut(road: RoadRecord, from: number, to: number, claim: (x: number, z: n
   return {
     points,
     distance,
+    height,
     length,
     width: road.width,
     arterial: road.arterial,
@@ -140,7 +167,7 @@ function cut(road: RoadRecord, from: number, to: number, claim: (x: number, z: n
 }
 
 /** Where a point at `along` metres down a stretch is, written into `out` as x, z and heading. */
-export function sampleEdge(edge: RoadEdge, along: number, out: { x: number, z: number, ux: number, uz: number }): void {
+export function sampleEdge(edge: RoadEdge, along: number, out: { x: number, y: number, z: number, ux: number, uz: number }): void {
   const segment = findSegment(edge, along)
   const start = segment * 2
   const ax = edge.points[start]!
@@ -151,6 +178,8 @@ export function sampleEdge(edge: RoadEdge, along: number, out: { x: number, z: n
   const t = (along - edge.distance[segment]!) / span
   out.x = ax + (bx - ax) * t
   out.z = az + (bz - az) * t
+  // The road's own surface, which over a bridge is the deck and everywhere else is the ground.
+  out.y = edge.height[segment]! + (edge.height[segment + 1]! - edge.height[segment]!) * t
   out.ux = (bx - ax) / span
   out.uz = (bz - az) / span
 }

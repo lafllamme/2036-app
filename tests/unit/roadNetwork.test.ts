@@ -9,7 +9,8 @@ import { buildBlueprint } from '../../app/world/cityData'
  * there, instead of running a whole way end to end and snapping back to the start of it.
  */
 const raw = JSON.parse(readFileSync('public/city/lindenhafen.json', 'utf8'))
-const network = buildRoadNetwork(buildBlueprint(raw, 2_036))
+const city = buildBlueprint(raw, 2_036)
+const network = buildRoadNetwork(city, city.relief)
 
 describe('the road network', () => {
   it('cuts the ways into stretches between junctions', () => {
@@ -39,7 +40,7 @@ describe('the road network', () => {
   })
 
   it('reads a position anywhere along a stretch', () => {
-    const at = { x: 0, z: 0, ux: 0, uz: 0 }
+    const at = { x: 0, y: 0, z: 0, ux: 0, uz: 0 }
     for (const edge of network.edges.slice(0, 200)) {
       sampleEdge(edge, 0, at)
       expect(Math.hypot(at.x - edge.points[0]!, at.z - edge.points[1]!)).toBeLessThan(0.001)

@@ -17,9 +17,15 @@ import { BAY_WIDTH, facadeTexture, STOREY_HEIGHT, windowLightTexture } from './f
  * also the unit of frustum culling, which is what the old whole-city meshes could never be.
  */
 
-/** How many tiles across the city is cut into. Four is thirty-two draws for the entire skyline. */
-const TILES = 4
-const CITY_EXTENT = 1_500
+/**
+ * How many tiles the city is cut into, and how far they reach.
+ *
+ * The grid has to cover the country as well as the city now that both are built out of the same kind
+ * of building, so it is wider and finer: a tile is about a kilometre and it is the unit of frustum
+ * culling, which is what keeps street level down to a handful of draws.
+ */
+const TILES = 6
+const CITY_EXTENT = 3_400
 /** How far a roof draws in from the wall below it, where it has to be a truncated pyramid. */
 const ROOF_INSET = 2.4
 /**

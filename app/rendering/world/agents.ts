@@ -200,7 +200,7 @@ const matrix = /* @__PURE__ */ new THREE.Matrix4()
 const quaternion = /* @__PURE__ */ new THREE.Quaternion()
 const position = /* @__PURE__ */ new THREE.Vector3()
 const scale = /* @__PURE__ */ new THREE.Vector3(1, 1, 1)
-const sample = { x: 0, z: 0, ux: 0, uz: 1 }
+const sample = { x: 0, y: 0, z: 0, ux: 0, uz: 1 }
 
 /**
  * Move everything that moves.
@@ -344,6 +344,7 @@ function place(mesh: THREE.InstancedMesh, index: number, agents: Agents, fleet: 
   const z = sample.z + ux * traveller.lane
 
   quaternion.setFromAxisAngle(AXIS_Y, Math.atan2(ux, uz))
-  matrix.compose(position.set(x, agents.relief.height(x, z) + fleet.lift, z), quaternion, scale)
+  // The road's own surface, so traffic goes over a bridge instead of through the river under it.
+  matrix.compose(position.set(x, sample.y + fleet.lift, z), quaternion, scale)
   mesh.setMatrixAt(index, matrix)
 }

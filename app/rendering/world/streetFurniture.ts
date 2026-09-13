@@ -41,6 +41,9 @@ export function addStreetFurniture(scene: THREE.Scene, blueprint: CityBlueprint,
   const placements: { x: number, z: number, angle: number }[][] = pool.map(() => [])
 
   for (const road of blueprint.roads) {
+    // A bridge has a parapet, not a pavement with bins on it — and its deck is not the ground.
+    if (road.bridge)
+      continue
     const points = road.path
     let carried = rng.next() * SPACING
     let side = 1

@@ -33,7 +33,9 @@ export function addStreetLights(scene: THREE.Scene, blueprint: CityBlueprint, mo
    */
   const positions: { x: number, z: number, angle: number }[] = []
   for (const road of blueprint.roads) {
-    if (!road.arterial && road.width < LAMP_MIN_WIDTH)
+    // Nothing is planted on a bridge: its deck is not the ground, and a lamp read off the land
+    // below it stands in the river the bridge is crossing.
+    if (road.bridge || (!road.arterial && road.width < LAMP_MIN_WIDTH))
       continue
     const points = road.path
     let carried = 0

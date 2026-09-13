@@ -19,9 +19,15 @@ describe('lindenhafen ground plan', () => {
 
   it('gives every building a real outline rather than a rectangle', () => {
     const city = buildBlueprint(raw, 2_036)
-    // A generated grid produced four corners every time; a real plan almost never does.
-    const corners = city.buildings.map(building => building.footprint.length / 2)
+    /*
+     * Measured on what the map gave us. The country beyond the extract is ours and is laid out in
+     * plots, so its buildings are rectangles by construction — mixing them in would be measuring our
+     * own generator and calling it evidence about Bremen.
+     */
+    const mapped = city.buildings.filter(building => building.id.startsWith('b-'))
+    const corners = mapped.map(building => building.footprint.length / 2)
     expect(Math.min(...corners)).toBeGreaterThanOrEqual(3)
+    // A generated grid produced four corners every time; a real plan almost never does.
     expect(corners.filter(count => count > 4).length / corners.length).toBeGreaterThan(0.2)
   })
 

@@ -997,17 +997,33 @@ for (const element of raw.elements) {
   }
 
   if (tags.highway) {
+    /*
+     * A tunnel is not a street. There are a hundred and sixty-nine of them in the extract and every
+     * one was being drawn on the surface — phantom roads running through blocks, under the river and
+     * across land they never touch, which is most of why the network read as nonsense. They are
+     * dropped outright: the surface network is dense enough that losing an underpass costs nothing.
+     */
+    if (tags.tunnel && tags.tunnel !== 'no')
+      continue
     const path = element.geometry.map(project).flat().map(round)
     if (path.length < 4 || !insideExtent(path, 120))
       continue
-    roads.push({ p: path, w: ROAD_WIDTH[tags.highway] ?? 6, a: ARTERIAL.has(tags.highway) ? 1 : 0 })
+    roads.push({
+      p: path,
+      w: ROAD_WIDTH[tags.highway] ?? 6,
+      a: ARTERIAL.has(tags.highway) ? 1 : 0,
+      // A bridge carries its own deck; the renderer lifts it clear of whatever is underneath.
+      b: tags.bridge && tags.bridge !== 'no' ? 1 : 0,
+    })
     continue
   }
 
   if (tags.railway === 'rail') {
+    if (tags.tunnel && tags.tunnel !== 'no')
+      continue
     const path = element.geometry.map(project).flat().map(round)
     if (path.length >= 4 && insideExtent(path, 120))
-      rails.push({ p: path })
+      rails.push({ p: path, b: tags.bridge && tags.bridge !== 'no' ? 1 : 0 })
     continue
   }
 
@@ -1051,7 +1067,7 @@ writeFileSync(out, JSON.stringify(city))
 
 const vertices = buildings.reduce((n, b) => n + b.p.length / 2, 0)
 console.log(`${buildings.length} buildings (${filled.length} filled in, ${swallowed} enclosing outlines dropped, ${vertices} vertices), ${roads.length} roads, ${rails.length} rails, ${areas.length} areas`)
-console.log(`${gardens.length / 2} gardens`)
+console.log(`${gardens.length / 2} gardens, ${roads.filter(r => r.b).length} road bridges, ${rails.filter(r => r.b).length} rail bridges`)
 console.log(`waterway ${city.waterways[0]?.p.length ? city.waterways[0].p.length / 2 : 0} points`)
 console.log(`relief ${city.relief.size}² cells, ${Math.max(...city.relief.data).toFixed(1)} m at its highest`)
 console.log(`${out} — ${(readFileSync(out).length / 1024 / 1024).toFixed(2)} MB`)

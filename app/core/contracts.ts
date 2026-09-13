@@ -75,6 +75,13 @@ export interface RoadRecord {
   path: number[]
   width: number
   arterial: boolean
+  /**
+   * Carried on a deck over whatever is underneath — water, a railway, another road.
+   *
+   * Without this the map's forty-four bridges were drawn on the ground, so the main road across the
+   * river ran *through* it and the street lamps stood in the water.
+   */
+  bridge: boolean
 }
 
 /** A piece of ground that is not plain land: water, parkland, a rail yard, a works. */

@@ -14,7 +14,6 @@ import { createBuildings } from './buildings'
 import { createConstructionSites } from './construction'
 import { addGround } from './ground'
 import { createGrowth } from './growth'
-import { addOutskirts } from './outskirts'
 import { buildRoadNetwork } from './roadNetwork'
 import { addRoads } from './roads'
 import { addShips } from './ships'
@@ -45,22 +44,14 @@ export interface WorldVisuals extends CityBuildings, CityTrees {
   network: RoadNetwork
   water: Water | null
   ships: Ships | null
-  /**
-   * Suburbs and villages, in one group so they can be switched off wholesale. From inside the city
-   * they are behind two kilometres of haze and the far side of the skyline, and never worth a draw.
-   */
-  outskirts: THREE.Group
 }
 
 export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): WorldVisuals {
   addGround(scene, blueprint)
   addRoads(scene, blueprint)
 
-  const outskirts = addOutskirts(blueprint, models)
-  scene.add(outskirts)
-
   // The street plan cut into junctions and the stretches between them. Traffic and signals share it.
-  const network = buildRoadNetwork(blueprint)
+  const network = buildRoadNetwork(blueprint, blueprint.relief)
   const signals = addTrafficLights(scene, network, blueprint.relief, models)
 
   return {
@@ -75,6 +66,5 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
     network,
     water: addWater(scene, blueprint),
     ships: addShips(scene, blueprint),
-    outskirts,
   }
 }

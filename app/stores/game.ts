@@ -12,7 +12,7 @@ import type {
   VoteForecast,
   VoteResult,
 } from '~/core/contracts'
-import type { IncidentReport, RendererStats } from '~/rendering/CityRenderer'
+import type { RendererStats } from '~/rendering/CityRenderer'
 import type { PersonAt } from '~/rendering/world/agents'
 import type { Citizen } from '~/world/citizens'
 import { useIntervalFn } from '@vueuse/core'
@@ -23,53 +23,11 @@ import { getPolicy } from '~/content/policies'
 import { CAMPAIGN_LAST_MONTH, isCampaignComplete } from '~/core/campaign'
 import { formatClock, readDaylight } from '~/core/daylight'
 import { citizenAt } from '~/world/citizens'
+import { createCityReports } from './cityReports'
+import { clearSummary, readSave, readSummary, writeSave } from './saveStore'
 
 const MONTH_DURATION_MS = 300_000
-const DB_NAME = '2036-lindenhafen'
-const SAVE_KEY = 'autosave-v2'
-/**
- * A note on the doorstep saying a campaign is inside.
- *
- * The save itself is a whole simulation state and belongs in IndexedDB — it is far past what a
- * cookie may hold, and a cookie would be sent to the server on every request for no reason. This is
- * the part the title screen needs before it can offer to continue: who you were and how far you got,
- * read synchronously so the button is right on the first paint rather than a moment later.
- */
-const SUMMARY_KEY = '2036-lindenhafen-save'
-
-function readSummary(): SaveSummary | null {
-  if (!import.meta.client)
-    return null
-  try {
-    const raw = localStorage.getItem(SUMMARY_KEY)
-    return raw ? JSON.parse(raw) as SaveSummary : null
-  }
-  catch {
-    return null
-  }
-}
-
 export type ExperienceStage = 'title' | 'partyHall' | 'partyProfile' | 'manifesto' | 'intro' | 'gameplay'
-
-/**
- * A call as the interface holds it: what the city said, plus when we heard it.
- *
- * The renderer counts in render seconds and the interface counts in wall clock, and neither should
- * have to know about the other's clock — so the times are taken here, where they are displayed.
- */
-export interface LiveReport extends IncidentReport {
-  raisedAt: number
-  endedAt: number | null
-}
-
-function openSaveDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1)
-    request.onupgradeneeded = () => request.result.createObjectStore('saves')
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
-}
 
 export const useGameStore = defineStore('game', () => {
   const snapshot = shallowRef<SimulationSnapshot | null>(null)
@@ -88,30 +46,15 @@ export const useGameStore = defineStore('game', () => {
    * on its own, which is the only moment the game should stop by itself.
    */
   const speed = ref<0 | 1 | 2 | 4>(1)
+
+  /** The news bar's own list, which follows calls from raised to over. See `cityReports.ts`. */
+  const { cityReports, selectedReport, reportIncident, prune: pruneReports, clear: clearReports } = createCityReports()
   /*
    * Bumped when the player asks to be taken back to the view of the whole city. The store cannot
    * hold a camera — nothing here may know the renderer exists — so it holds the request and the
    * canvas component, which does own one, watches it.
    */
   const overviewRequest = ref(0)
-
-  /**
-   * What the city has just reported, newest first.
-   *
-   * These come from the renderer, not from the simulation, and they stay here rather than being
-   * folded into `snapshot.news`: a burglary on the news bar must never become an input to anything
-   * the council is scored on. It reads the same way to the player and stays on the right side of
-   * the one-way rule in `docs/CITY_LIFE.md`.
-   *
-   * Capped, because a ticker that grows for the length of a ten-year campaign is a memory leak with
-   * a scroll animation.
-   */
-  const cityReports = ref<LiveReport[]>([])
-  const CITY_REPORT_LIMIT = 8
-  /** How long a finished call stays listed, so the player sees it end rather than vanish. */
-  const CLEARED_LINGER_MS = 12_000
-  /** The call the player has opened from the ticker, if any. */
-  const selectedReport = shallowRef<LiveReport | null>(null)
 
   /**
    * Whoever the player has picked out of the street.
@@ -141,51 +84,6 @@ export const useGameStore = defineStore('game', () => {
 
   function focusOnPlace(x: number, z: number): void {
     focusRequest.value = { x, z, at: Date.now() }
-  }
-
-  /**
-   * Take in what the city says about a call and keep the list honest.
-   *
-   * A call was listed once, when it was raised, and then stayed for ever — so a player could click a
-   * headline and be flown to a junction where nothing was happening, because the crew had cleared
-   * and gone twenty minutes ago. The list now follows the call: it updates when a crew arrives, and
-   * a finished call is marked finished and drops off a few seconds later.
-   */
-  function reportIncident(report: IncidentReport): void {
-    const existing = cityReports.value.find(entry => entry.id === report.id)
-
-    if (report.status === 'cleared') {
-      if (!existing)
-        return
-      existing.status = 'cleared'
-      existing.endedAt = Date.now()
-      // Trigger the list's own reactivity: the entry was mutated, not replaced.
-      cityReports.value = [...cityReports.value]
-      if (selectedReport.value?.id === report.id)
-        selectedReport.value = { ...existing }
-      return
-    }
-
-    if (existing) {
-      existing.status = report.status
-      cityReports.value = [...cityReports.value]
-      if (selectedReport.value?.id === report.id)
-        selectedReport.value = { ...existing }
-      return
-    }
-
-    const live: LiveReport = { ...report, raisedAt: Date.now(), endedAt: null }
-    cityReports.value = [live, ...cityReports.value].slice(0, CITY_REPORT_LIMIT)
-  }
-
-  /** Drop what has been over long enough to have been noticed. Driven by the campaign clock. */
-  function pruneReports(): void {
-    const now = Date.now()
-    const kept = cityReports.value.filter(entry => entry.endedAt === null || now - entry.endedAt < CLEARED_LINGER_MS)
-    if (kept.length !== cityReports.value.length)
-      cityReports.value = kept
-    if (selectedReport.value && !kept.some(entry => entry.id === selectedReport.value?.id))
-      selectedReport.value = null
   }
 
   /**
@@ -545,7 +443,7 @@ export const useGameStore = defineStore('game', () => {
       return Promise.resolve()
     return new Promise<void>((resolve) => {
       pendingSave = (payload) => {
-        void writeSave(payload).then(resolve)
+        void keep(payload).then(resolve)
       }
       send({ type: 'REQUEST_SAVE' })
       // A worker that never answers must not leave the button saying "saving" for ever.
@@ -559,19 +457,10 @@ export const useGameStore = defineStore('game', () => {
     })
   }
 
-  async function writeSave(payload: SaveGame): Promise<void> {
+  /** Put it away, and say so. What "away" means is `saveStore.ts`; this only reports the outcome. */
+  async function keep(payload: SaveGame): Promise<void> {
     try {
-      const database = await openSaveDatabase()
-      await new Promise<void>((resolve, reject) => {
-        const transaction = database.transaction('saves', 'readwrite')
-        transaction.objectStore('saves').put(payload, SAVE_KEY)
-        transaction.oncomplete = () => resolve()
-        transaction.onerror = () => reject(transaction.error)
-      })
-      database.close()
-      const summary: SaveSummary = { savedAt: payload.savedAt, partyId: payload.partyId, month: payload.snapshot.month }
-      localStorage.setItem(SUMMARY_KEY, JSON.stringify(summary))
-      savedGame.value = summary
+      savedGame.value = await writeSave(payload)
       saveStatus.value = `Gespeichert · ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
     }
     catch {
@@ -589,15 +478,9 @@ export const useGameStore = defineStore('game', () => {
     if (!worker)
       return false
     try {
-      const database = await openSaveDatabase()
-      const payload = await new Promise<SaveGame | undefined>((resolve, reject) => {
-        const request = database.transaction('saves', 'readonly').objectStore('saves').get(SAVE_KEY)
-        request.onsuccess = () => resolve(request.result as SaveGame | undefined)
-        request.onerror = () => reject(request.error)
-      })
-      database.close()
-      if (!payload || payload.schemaVersion !== 2 || !payload.state) {
-        // An older save, or one from before the content changed. Say so rather than loading a ruin.
+      const payload = await readSave()
+      if (!payload) {
+        // None, or one this build can no longer read. Say so rather than loading a ruin.
         forgetSave()
         saveStatus.value = 'Spielstand nicht mehr lesbar'
         return false
@@ -608,8 +491,7 @@ export const useGameStore = defineStore('game', () => {
       monthProgress.value = 0
       selectedBuilding.value = null
       selectedNews.value = null
-      selectedReport.value = null
-      cityReports.value = []
+      clearReports()
       send({ type: 'RESTORE', state: JSON.parse(JSON.stringify(payload.state)) as typeof payload.state })
       experienceStage.value = 'gameplay'
       speed.value = 1
@@ -625,10 +507,7 @@ export const useGameStore = defineStore('game', () => {
   /** Throw the save away: on starting a new campaign, and on finding one we can no longer read. */
   function forgetSave(): void {
     savedGame.value = null
-    try {
-      localStorage.removeItem(SUMMARY_KEY)
-    }
-    catch {}
+    clearSummary()
   }
 
   return {

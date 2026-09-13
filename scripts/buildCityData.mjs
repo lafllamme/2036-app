@@ -240,6 +240,75 @@ function orientedBox(ring) {
 const FILL_STEP = 24
 const FILL_CLEARANCE = 22
 
+/**
+ * How large one roof can be before the outline under it is a block rather than a building.
+ *
+ * Six thousand square metres is a square seventy-seven metres on a side. Fourteen footprints in the
+ * extract are bigger than that and not one of them is over twenty-five metres tall, which is what
+ * gives them away: they are the outlines OpenStreetMap carries around whole estates and works, not
+ * roofs. Extruded, the largest is a slab three hundred and ten by three hundred and fifty metres —
+ * the flat pale surface that cut every building behind it off at the second floor. Dropping them
+ * leaves a hole, and `fillGaps` fills it with buildings the size of buildings.
+ */
+const MAX_FOOTPRINT = 6_000
+
+/**
+ * Throw away the outlines that are not buildings but blocks.
+ *
+ * Two kinds go: anything with a roof too large to be one roof, and anything that contains the
+ * centres of two or more other footprints — a container, whatever its size.
+ */
+function dropEnclosingOutlines(buildings) {
+  const cell = 100
+  const key = (x, z) => `${Math.round(x / cell)}:${Math.round(z / cell)}`
+  const grid = new Map()
+  for (const building of buildings) {
+    const at = key(building.x, building.z)
+    const list = grid.get(at) ?? []
+    list.push(building)
+    grid.set(at, list)
+  }
+
+  const dropped = new Set()
+  for (const building of buildings) {
+    let minX = Infinity
+    let minZ = Infinity
+    let maxX = -Infinity
+    let maxZ = -Infinity
+    for (let i = 0; i < building.p.length; i += 2) {
+      minX = Math.min(minX, building.p[i])
+      maxX = Math.max(maxX, building.p[i])
+      minZ = Math.min(minZ, building.p[i + 1])
+      maxZ = Math.max(maxZ, building.p[i + 1])
+    }
+    if (Math.abs(signedArea(building.p)) > MAX_FOOTPRINT) {
+      dropped.add(building)
+      continue
+    }
+    // Nothing small enough to be one building can hold two others, so most are settled here.
+    if (maxX - minX < 40 && maxZ - minZ < 40)
+      continue
+
+    let inside = 0
+    for (let cx = Math.round(minX / cell); cx <= Math.round(maxX / cell) && inside < 2; cx += 1) {
+      for (let cz = Math.round(minZ / cell); cz <= Math.round(maxZ / cell) && inside < 2; cz += 1) {
+        for (const other of grid.get(`${cx}:${cz}`) ?? []) {
+          if (other !== building && contains(building.p, other.x, other.z))
+            inside += 1
+        }
+      }
+    }
+    if (inside >= 2)
+      dropped.add(building)
+  }
+
+  for (let i = buildings.length - 1; i >= 0; i -= 1) {
+    if (dropped.has(buildings[i]))
+      buildings.splice(i, 1)
+  }
+  return dropped.size
+}
+
 function fillGaps(buildings, roads, areas) {
   const cell = 40
   const key = (x, z) => `${Math.floor(x / cell)}:${Math.floor(z / cell)}`
@@ -278,6 +347,36 @@ function fillGaps(buildings, roads, areas) {
     return found
   }
 
+  /*
+   * Every footprint big enough to reach past its own cell, indexed by all the cells it covers.
+   *
+   * Clearance was measured to the neighbours' centres, which is the right test between two houses
+   * and useless against a works a hundred metres across: its centre is far away, so a whole street
+   * of infill was delivered inside it. This is what makes "is this point already built on" a
+   * question about the outline rather than about the centroid.
+   */
+  const covering = new Map()
+  for (const building of buildings) {
+    let minX = Infinity
+    let minZ = Infinity
+    let maxX = -Infinity
+    let maxZ = -Infinity
+    for (let i = 0; i < building.p.length; i += 2) {
+      minX = Math.min(minX, building.p[i])
+      maxX = Math.max(maxX, building.p[i])
+      minZ = Math.min(minZ, building.p[i + 1])
+      maxZ = Math.max(maxZ, building.p[i + 1])
+    }
+    for (let cx = Math.floor(minX / cell); cx <= Math.floor(maxX / cell); cx += 1) {
+      for (let cz = Math.floor(minZ / cell); cz <= Math.floor(maxZ / cell); cz += 1) {
+        const at = `${cx}:${cz}`
+        const list = covering.get(at) ?? []
+        list.push(building)
+        covering.set(at, list)
+      }
+    }
+  }
+
   for (let x = -EXTENT + FILL_STEP; x < EXTENT; x += FILL_STEP) {
     for (let z = -EXTENT + FILL_STEP; z < EXTENT; z += FILL_STEP) {
       const random = () => {
@@ -291,6 +390,8 @@ function fillGaps(buildings, roads, areas) {
       if (neighbours.some(other => Math.hypot(other.x - px, other.z - pz) < FILL_CLEARANCE))
         continue
       if (onRoad.has(key(px, pz)))
+        continue
+      if ((covering.get(key(px, pz)) ?? []).some(other => contains(other.p, px, pz)))
         continue
       // Nothing is built in the water, in a park or on a pitch.
       if (keepClear.some(ring => contains(ring, px, pz)))
@@ -349,6 +450,19 @@ function fillGaps(buildings, roads, areas) {
 const RELIEF_SIZE = 160
 const RELIEF_RISE = 44
 const RELIEF_REACH = 980
+/**
+ * How many passes of a 3 × 3 binomial blur the finished field gets.
+ *
+ * Relief is not just scenery: every building, street, lamp and tree reads its height, and the ground
+ * mesh can only draw it as straight lines between vertices eighteen metres apart. A slope that turns
+ * inside one cell is therefore a slope the ground does not actually have, and a building standing on
+ * the value at its centre ends up several metres into the hillside at one corner — which is exactly
+ * what happened: a fifth of the city was sunk or floating, the worst of it by ten metres.
+ *
+ * Smoothing is the cure at the source. Four passes take the steepest gradient in the field from
+ * about one in three to one in eleven, which a flat-based building can stand on.
+ */
+const RELIEF_SMOOTHING = 4
 
 function buildRelief(areas) {
   const cell = (EXTENT * 2) / RELIEF_SIZE
@@ -405,13 +519,52 @@ function buildRelief(areas) {
        * keeps the floodplain flat and stops a hill ever forming in the middle of the water.
        */
       const broad = valueNoise(column / 26, row / 26)
-      const ridges = valueNoise(column / 11 + 31, row / 11 - 17)
-      const grain = valueNoise(column / 4.5 - 7, row / 4.5 + 23)
-      const shape = broad * 0.56 + ridges * 0.31 + grain * 0.13
-      data.push(Math.round(eased * RELIEF_RISE * (0.28 + shape * 1.15) * 10) / 10)
+      const ridges = valueNoise(column / 14 + 31, row / 14 - 17)
+      /*
+       * The third octave used to turn over every four and a half cells — eighty metres — at six
+       * metres of amplitude. That is a one-in-seven slope between two neighbouring houses, and it is
+       * where most of the sinking came from. It is now half as strong over twice the distance, and
+       * the blur below takes what is left of the sharpness out.
+       */
+      const grain = valueNoise(column / 9 - 7, row / 9 + 23)
+      const shape = broad * 0.58 + ridges * 0.32 + grain * 0.1
+      data.push(eased * RELIEF_RISE * (0.28 + shape * 1.15))
     }
   }
-  return { size: RELIEF_SIZE, extent: EXTENT, data }
+
+  return { size: RELIEF_SIZE, extent: EXTENT, data: blur(data, RELIEF_SMOOTHING).map(value => Math.round(value * 10) / 10) }
+}
+
+/**
+ * A 3 × 3 binomial blur, run over the field a few times.
+ *
+ * The edge is clamped rather than wrapped, so the rim of the extract keeps its height instead of
+ * being pulled toward whatever is on the far side of the city.
+ */
+function blur(field, passes) {
+  let current = field
+  const weights = [1, 2, 1]
+  for (let pass = 0; pass < passes; pass += 1) {
+    const next = Array.from({ length: current.length })
+    for (let row = 0; row < RELIEF_SIZE; row += 1) {
+      for (let column = 0; column < RELIEF_SIZE; column += 1) {
+        let sum = 0
+        let total = 0
+        for (let dr = -1; dr <= 1; dr += 1) {
+          for (let dc = -1; dc <= 1; dc += 1) {
+            const r = Math.min(RELIEF_SIZE - 1, Math.max(0, row + dr))
+            const c = Math.min(RELIEF_SIZE - 1, Math.max(0, column + dc))
+            const weight = weights[dr + 1] * weights[dc + 1]
+            sum += current[r * RELIEF_SIZE + c] * weight
+            total += weight
+          }
+        }
+        next[row * RELIEF_SIZE + column] = sum / total
+      }
+    }
+    current = next
+  }
+  return current
 }
 
 /**
@@ -641,6 +794,8 @@ for (const element of raw.elements) {
 // Big pieces of land go down first, so a park inside an industrial estate still reads as a park.
 areas.sort((a, b) => Math.abs(signedArea(b.p)) - Math.abs(signedArea(a.p)))
 
+const swallowed = dropEnclosingOutlines(buildings)
+
 const filled = fillGaps(buildings, roads, areas)
 buildings.push(...filled)
 
@@ -661,7 +816,7 @@ mkdirSync(dirname(out), { recursive: true })
 writeFileSync(out, JSON.stringify(city))
 
 const vertices = buildings.reduce((n, b) => n + b.p.length / 2, 0)
-console.log(`${buildings.length} buildings (${filled.length} filled in, ${vertices} vertices), ${roads.length} roads, ${rails.length} rails, ${areas.length} areas`)
+console.log(`${buildings.length} buildings (${filled.length} filled in, ${swallowed} enclosing outlines dropped, ${vertices} vertices), ${roads.length} roads, ${rails.length} rails, ${areas.length} areas`)
 console.log(`waterway ${city.waterways[0]?.p.length ? city.waterways[0].p.length / 2 : 0} points`)
 console.log(`relief ${city.relief.size}² cells, ${Math.max(...city.relief.data).toFixed(1)} m at its highest`)
 console.log(`${out} — ${(readFileSync(out).length / 1024 / 1024).toFixed(2)} MB`)

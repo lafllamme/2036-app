@@ -41,6 +41,25 @@ const PEOPLE_IDS = ['a', 'b', 'c', 'd', 'e', 'f'].flatMap(letter => [`character-
 
 const NATURE_IDS = ['tree_default', 'tree_detailed', 'tree_oak', 'tree_tall', 'tree_thin', 'tree_small', 'tree_fat', 'tree_pineTallA', 'tree_pineRoundA', 'plant_bushLarge', 'plant_bushSmall']
 
+/**
+ * Street furniture, from the road kit. The signals and the lamps are picked out of it by name; the
+ * rest is what a pavement has on it — signs, a skip, the cones round whatever is being dug up.
+ */
+const TRAFFIC_LIGHT_ID = 'traffic-light'
+const STREET_LAMP_ID = 'light-curved'
+const FURNITURE_IDS = ['road-sign-street', 'road-sign-warning', 'road-sign-stop', 'construction-cone', 'construction-barrier', 'dumpster']
+const ROAD_IDS = [TRAFFIC_LIGHT_ID, STREET_LAMP_ID, ...FURNITURE_IDS]
+
+/**
+ * The animation every character is frozen in, and how far apart down it they are frozen.
+ *
+ * The kit's people are skinned meshes, and a skinned mesh read straight out of the file is in its
+ * bind pose: arms out, feet together, two metres across at the fingertips. Instancing cannot skin,
+ * so the pose is baked once at load — each character at a different point in the walk cycle, so a
+ * pavement full of them is a crowd mid-stride rather than a rank of scarecrows.
+ */
+const WALK_CLIP = 'walk'
+
 export interface CityModel {
   id: string
   geometry: THREE.BufferGeometry
@@ -56,6 +75,10 @@ export interface CityModels {
   vehicleMaterial: THREE.MeshStandardMaterial
   peopleMaterial: THREE.MeshStandardMaterial
   natureMaterial: THREE.MeshStandardMaterial
+  roadsMaterial: THREE.MeshStandardMaterial
+  trafficLight: CityModel | null
+  streetLamp: CityModel | null
+  furniture: CityModel[]
   houses: CityModel[]
   offices: CityModel[]
   towers: CityModel[]
@@ -66,11 +89,16 @@ export interface CityModels {
 }
 
 /**
- * A 1×1 transparent pixel. Every model in a kit points at the same `Textures/colormap.png`, and the
- * loader has no idea that fifty requests for it are one texture — it fetched, decoded and uploaded
- * the atlas once per model. The kits' images are redirected here and each real atlas is loaded once.
+ * A 1×1 transparent pixel, served as a file. Every model in a kit points at the same
+ * `Textures/colormap.png`, and the loader has no idea that fifty requests for it are one texture —
+ * it fetched, decoded and uploaded the atlas once per model. The kits' images are redirected here
+ * and each real atlas is loaded once, by hand, below.
+ *
+ * A file rather than a data URI because the loader would not read the data URI and logged a failure
+ * for every textured model in every kit — eighty-eight console errors on a clean load, all of them
+ * harmless and all of them noise over anything that was not.
  */
-const BLANK_PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+const BLANK_PIXEL = `${MODELS_BASE}/blank.png`
 
 /** What went wrong, in words. Three's loaders reject with a DOM event rather than an error. */
 function describe(url: string, cause: unknown): string {
@@ -130,7 +158,7 @@ function extract(id: string, scene: THREE.Object3D): { model: CityModel } | null
   scene.traverse((object) => {
     if (!(object instanceof THREE.Mesh))
       return
-    const geometry = object.geometry.clone()
+    const geometry = object instanceof THREE.SkinnedMesh ? bakePose(object) : object.geometry.clone()
     geometry.applyMatrix4(object.matrixWorld)
 
     const material = Array.isArray(object.material) ? object.material[0] : object.material
@@ -171,21 +199,51 @@ function extract(id: string, scene: THREE.Object3D): { model: CityModel } | null
   return { model: { id, geometry: merged, size, slenderness: size.y / Math.max(0.001, Math.max(size.x, size.z)) } }
 }
 
+/**
+ * Freeze a skinned mesh where its skeleton currently stands.
+ *
+ * Every vertex is pushed through the bones that move it, exactly as the vertex shader would, and the
+ * result is written back as plain geometry. It is a pose and not an animation — these are figures
+ * seen from across a street — but it is a pose of a person walking rather than the bind pose, which
+ * is what the file actually contains and which is a T.
+ */
+function bakePose(mesh: THREE.SkinnedMesh): THREE.BufferGeometry {
+  const geometry = mesh.geometry.clone()
+  const position = geometry.attributes.position
+  if (!position || !geometry.attributes.skinIndex || !geometry.attributes.skinWeight)
+    return geometry
+
+  const vertex = new THREE.Vector3()
+  for (let index = 0; index < position.count; index += 1) {
+    vertex.fromBufferAttribute(position as THREE.BufferAttribute, index)
+    mesh.applyBoneTransform(index, vertex)
+    position.setXYZ(index, vertex.x, vertex.y, vertex.z)
+  }
+  position.needsUpdate = true
+  geometry.deleteAttribute('skinIndex')
+  geometry.deleteAttribute('skinWeight')
+  geometry.computeVertexNormals()
+  return geometry
+}
+
 interface Kit {
   models: CityModel[]
   material: THREE.MeshStandardMaterial
 }
 
-async function loadKit(loader: GLTFLoader, folder: string, ids: string[], atlas: THREE.Texture | null, failures: string[]): Promise<Kit> {
+async function loadKit(loader: GLTFLoader, folder: string, ids: string[], atlas: THREE.Texture | null, failures: string[], poseClip?: string): Promise<Kit> {
   /*
    * One model that fails to arrive is a gap in the catalogue, not a reason to leave the player on a
    * loading screen forever. Whatever would have used it falls back to another model in the same
    * pool, and the failures are collected so the reason still reaches the surface.
    */
-  const loaded = await Promise.all(ids.map(async (id) => {
+  const loaded = await Promise.all(ids.map(async (id, index) => {
     const url = `${MODELS_BASE}/${folder}/${id}.glb`
     try {
-      return extract(id, (await loader.loadAsync(url)).scene)
+      const gltf = await loader.loadAsync(url)
+      if (poseClip)
+        pose(gltf.scene, gltf.animations, poseClip, index / Math.max(1, ids.length))
+      return extract(id, gltf.scene)
     }
     catch (cause) {
       failures.push(describe(url, cause))
@@ -212,6 +270,23 @@ async function loadKit(loader: GLTFLoader, folder: string, ids: string[], atlas:
 }
 
 /**
+ * Put a model's skeleton at one moment of one of its own animations.
+ *
+ * `through` is where in the clip, nought to one, so twelve characters loaded together end up twelve
+ * different steps into the same walk.
+ */
+function pose(scene: THREE.Object3D, clips: THREE.AnimationClip[], name: string, through: number): void {
+  const clip = THREE.AnimationClip.findByName(clips, name) ?? clips[0]
+  if (!clip)
+    return
+  const mixer = new THREE.AnimationMixer(scene)
+  mixer.clipAction(clip).play()
+  mixer.setTime(clip.duration * through)
+  // `applyBoneTransform` reads the bones' world matrices, and nothing else is going to update them.
+  scene.updateMatrixWorld(true)
+}
+
+/**
  * Load every kit in parallel, during the loading screen and before the renderer is built. A model
  * that arrives late is a building popping into a city the player is already looking at.
  */
@@ -223,21 +298,23 @@ export async function loadCityModels(): Promise<CityModels> {
   manager.setURLModifier(url => url.endsWith('colormap.png') ? BLANK_PIXEL : url)
   const loader = new GLTFLoader(manager)
 
-  const [suburbanAtlas, commercialAtlas, vehicleAtlas, peopleAtlas] = await Promise.all([
+  const [suburbanAtlas, commercialAtlas, vehicleAtlas, peopleAtlas, roadsAtlas] = await Promise.all([
     loadAtlas('city/suburban'),
     loadAtlas('city/commercial'),
     loadAtlas('vehicles'),
     loadAtlas('people'),
+    loadAtlas('roads'),
   ])
 
   const failures: string[] = []
-  const [suburban, commercial, distant, vehicles, people, nature] = await Promise.all([
+  const [suburban, commercial, distant, vehicles, people, nature, roads] = await Promise.all([
     loadKit(loader, 'city/suburban', HOUSE_IDS, suburbanAtlas, failures),
     loadKit(loader, 'city/commercial', [...OFFICE_IDS, ...TOWER_IDS], commercialAtlas, failures),
     loadKit(loader, 'city/commercial', DISTANT_IDS, commercialAtlas, failures),
     loadKit(loader, 'vehicles', VEHICLE_IDS, vehicleAtlas, failures),
-    loadKit(loader, 'people', PEOPLE_IDS, peopleAtlas, failures),
+    loadKit(loader, 'people', PEOPLE_IDS, peopleAtlas, failures, WALK_CLIP),
     loadKit(loader, 'nature', NATURE_IDS, null, failures),
+    loadKit(loader, 'roads', ROAD_IDS, roadsAtlas, failures),
   ])
 
   // A kit with nothing in it cannot build anything, and that is worth stopping for — by name.
@@ -250,6 +327,10 @@ export async function loadCityModels(): Promise<CityModels> {
     vehicleMaterial: vehicles.material,
     peopleMaterial: people.material,
     natureMaterial: nature.material,
+    roadsMaterial: roads.material,
+    trafficLight: roads.models.find(model => model.id === TRAFFIC_LIGHT_ID) ?? null,
+    streetLamp: roads.models.find(model => model.id === STREET_LAMP_ID) ?? null,
+    furniture: roads.models.filter(model => FURNITURE_IDS.includes(model.id)),
     houses: suburban.models,
     offices: commercial.models.filter(model => OFFICE_IDS.includes(model.id)),
     towers: commercial.models.filter(model => TOWER_IDS.includes(model.id)),

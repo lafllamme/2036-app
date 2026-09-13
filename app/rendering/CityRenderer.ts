@@ -11,6 +11,7 @@ import { updateAgents } from './world/agents'
 import { CityState } from './world/cityState'
 import { createWorld } from './world/index'
 import { updateShips } from './world/ships'
+import { updateSignals } from './world/trafficLights'
 import { updateWater } from './world/water'
 
 /**
@@ -54,6 +55,8 @@ const SLOW_UPDATE_HZ = 30
 const SHADOW_HZ = 12
 /** Below this camera distance the suburbs are behind the skyline and two kilometres of haze. */
 const OUTSKIRTS_RANGE = 900
+/** A traffic cone two kilometres away is a fifth of a pixel. Above this the pavements are bare. */
+const FURNITURE_RANGE = 1_400
 
 export class CityRenderer {
   private readonly canvas: HTMLCanvasElement
@@ -96,9 +99,9 @@ export class CityRenderer {
     this.renderer.info.autoReset = false
 
     this.scene.background = new THREE.Color('#94aebc')
-    this.scene.fog = new THREE.FogExp2('#91a8b1', 0.00026)
+    this.scene.fog = new THREE.FogExp2('#91a8b1', 0.00021)
 
-    this.rig = new CameraRig(this.canvas)
+    this.rig = new CameraRig(this.canvas, options.blueprint.relief)
     this.world = createWorld(this.scene, options.blueprint, options.models)
     this.sky = createSky(this.scene, options.blueprint.definition.seed)
     this.atmosphere = new Atmosphere({
@@ -193,6 +196,11 @@ export class CityRenderer {
       this.rig.focusOn(building)
   }
 
+  /** Fly back out to the opening view of the whole city. */
+  showOverview(): void {
+    this.rig.frameCity()
+  }
+
   dispose(): void {
     this.renderer.setAnimationLoop(null)
     this.resizeObserver.disconnect()
@@ -237,9 +245,11 @@ export class CityRenderer {
     this.slowClock += delta
     if (this.slowClock >= 1 / SLOW_UPDATE_HZ) {
       const distance = this.rig.distance
-      updateAgents(this.world.agents, this.animationElapsed, distance, this.city.trafficFactor)
+      updateAgents(this.world.agents, this.slowClock, this.animationElapsed, distance, this.city.trafficFactor)
+      updateSignals(this.world.signals, this.animationElapsed)
       this.atmosphere.update(this.slowClock, this.rig.controls.target, distance)
       this.world.outskirts.visible = distance > OUTSKIRTS_RANGE
+      this.world.streetFurniture.visible = distance < FURNITURE_RANGE
       updateShips(this.world.ships, this.animationElapsed)
       updateWater(this.world.water, this.animationElapsed)
       this.slowClock = 0

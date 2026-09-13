@@ -52,6 +52,12 @@ export const useGameStore = defineStore('game', () => {
    * on its own, which is the only moment the game should stop by itself.
    */
   const speed = ref<0 | 1 | 2 | 4>(1)
+  /*
+   * Bumped when the player asks to be taken back to the view of the whole city. The store cannot
+   * hold a camera — nothing here may know the renderer exists — so it holds the request and the
+   * canvas component, which does own one, watches it.
+   */
+  const overviewRequest = ref(0)
   const ready = ref(false)
   const error = ref<string | null>(null)
   const saveStatus = ref('Nicht gespeichert')
@@ -159,6 +165,10 @@ export const useGameStore = defineStore('game', () => {
 
   const campaignProgress = computed(() => Math.min(100, ((snapshot.value?.month ?? 0) / 131) * 100))
   const canAdvance = computed(() => (snapshot.value?.month ?? 0) < CAMPAIGN_LAST_MONTH)
+
+  function showOverview(): void {
+    overviewRequest.value += 1
+  }
 
   function setSpeed(nextSpeed: 0 | 1 | 2 | 4): void {
     speed.value = canAdvance.value ? nextSpeed : 0
@@ -368,6 +378,8 @@ export const useGameStore = defineStore('game', () => {
     selectedPartyId,
     selectedPriorityIds,
     speed,
+    overviewRequest,
+    showOverview,
     ready,
     error,
     saveStatus,

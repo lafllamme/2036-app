@@ -7,7 +7,7 @@ import { loadCityBlueprint } from '~/world/cityData'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const game = useGameStore()
-const { snapshot, daylight, experienceStage } = storeToRefs(game)
+const { snapshot, daylight, experienceStage, overviewRequest } = storeToRefs(game)
 let cityRenderer: CityRenderer | null = null
 
 const MENU_FRAME_CAP = 30
@@ -62,6 +62,9 @@ watch(snapshot, (next) => {
 watch(experienceStage, (stage) => {
   cityRenderer?.setFrameCap(stage === 'gameplay' ? null : MENU_FRAME_CAP)
 })
+
+// Taking the player back to the whole city. The store only asks; the camera lives here.
+watch(overviewRequest, () => cityRenderer?.showOverview())
 
 // The sky follows campaign time: this stops updating the moment the player pauses.
 watch(daylight, (reading) => {

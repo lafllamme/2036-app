@@ -45,6 +45,15 @@ out geom;
 - **Vereinfachung**: Punkte, die auf der Geraden zwischen ihren Nachbarn liegen, fallen weg. Aus
   90 000 Stützpunkten werden 61 000, ohne sichtbaren Unterschied.
 - **Verworfen** wird alles unter 24 m² Grundfläche oder 2,6 m Höhe — Schuppen, Müllboxen, Vordächer.
+- **Verworfen** wird auch, was gar kein Gebäude ist: OpenStreetMap trägt `building=yes` oft auf dem
+  Umriss einer ganzen Siedlung *und* auf den Blöcken darin. Extrudiert war der größte davon eine
+  Platte von 310 × 350 m mit echten Häusern darin — die helle Fläche, die jedes Gebäude dahinter auf
+  Höhe des zweiten Stocks abschnitt. Raus fliegt alles über 6 000 m² Dachfläche und alles, was die
+  Mittelpunkte von zwei oder mehr anderen Grundrissen umschließt. Die Lücke füllt `fillGaps`.
+- **Relief** aus dem Abstand zum Wasser, danach vier Durchgänge einer 3 × 3-Glättung. Das ist kein
+  Kosmetikschritt: jedes Gebäude, jede Straße, jede Laterne liest die Höhe, und der Boden kann sie
+  nur als Geraden zwischen Stützpunkten alle 18,8 m zeichnen. Ungeglättet stand ein Fünftel der Stadt
+  bis zu zehn Meter zu tief oder zu hoch. Das steilste Gefälle im Feld liegt jetzt bei 1 : 9.
 
 ## Was daraus wird
 

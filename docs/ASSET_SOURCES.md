@@ -57,3 +57,18 @@ Textur — beides löst `app/rendering/cityModels.ts` beim Laden auf, indem es a
 verschmilzt und Materialfarben in Vertexfarben backt.
 
 Die Schiffe sind selbst gebaut: in keinem der Kits gibt es ein Boot.
+
+Die Figuren sind geriggte Modelle. Instanzen lassen sich nicht skinnen, also wird beim Laden eine
+Pose aus der mitgelieferten `walk`-Animation in die Geometrie gebacken — jede Figur an einer anderen
+Stelle des Schritts. Ohne das steht die ganze Stadt in der Bindepose, also mit ausgestreckten Armen.
+
+## Straßenmöblierung und Ampeln
+
+| Was | Quelle | Lizenz | Stand |
+| --- | --- | --- | --- |
+| Ampel, Straßenlaterne, Straßenschilder, Baustellenkegel und -absperrung, Müllcontainer | Kenney City Kit (Roads), kenney.nl | CC0 1.0 | 2026-09-13 |
+
+Liegt unter `public/models/roads`. Die Ampel steht an jeder signalisierten Kreuzung einmal pro
+Zufahrt; welche Kreuzung eine bekommt und was sie zeigt, entscheidet `app/rendering/world/signalPlan.ts`
+— dieselbe Quelle, der auch der Verkehr gehorcht. Die Laterne ersetzt den früheren gestreckten
+Würfel.

@@ -14,7 +14,7 @@ import { fitShadow } from './sun'
  */
 
 /** Palette constants, hoisted so the update allocates no colours at all. */
-const NIGHT_SKY = 0x0D1522
+const NIGHT_SKY = 0x131E2E
 const DAY_SKY = /* @__PURE__ */ new THREE.Color('#94aebc')
 const EMBER = /* @__PURE__ */ new THREE.Color('#c9764f')
 const SUN_WHITE = 0xFFF2D2
@@ -25,15 +25,25 @@ const SUN_DISC = 0xFFFDF6
  * out darker than the sky behind it and read as a hole rather than as the sun.
  */
 const SUN_LOW = /* @__PURE__ */ new THREE.Color('#ffe2be')
-const NIGHT_AMBIENT = 0x364863
-const DAY_AMBIENT = /* @__PURE__ */ new THREE.Color('#d8e4e7')
 /**
- * What the ground bounces back. At night it used to be the daytime olive, which under a hemisphere
- * light turned into no bounce at all and left the streets and the parks solid black between the
- * lamps — the city disappeared rather than going dark.
+ * The colour and the strength of the night.
+ *
+ * These had to be worked out rather than guessed at, because the numbers are not intuitive: a
+ * hemisphere light contributes `irradiance × albedo ÷ π`, and 0x364863 at 1.55 came to about four
+ * thousandths on ground with the albedo of grass. Four thousandths is black. A photograph of a city
+ * at night is not black — the sky over it is lit by the city itself — so the ambient is now a much
+ * lighter blue at more than twice the strength, which lands the unlit ground at about a seventh of
+ * the way up the scale: clearly a surface, clearly night, and something for the lamps to stand out
+ * against. Day is unchanged; there the sun does the work and the ambient only fills the shadows.
  */
-const NIGHT_GROUND = 0x2A3446
+const NIGHT_AMBIENT = 0x6E82A8
+const DAY_AMBIENT = /* @__PURE__ */ new THREE.Color('#d8e4e7')
+/** What the ground bounces back — which is what lights the underside of everything vertical. */
+const NIGHT_GROUND = 0x4A5872
 const DAY_GROUND = /* @__PURE__ */ new THREE.Color('#4a4439')
+/** How strong the ambient is at night and how much the daylight adds on top of it. */
+const NIGHT_FILL = 2.9
+const DAY_FILL = 1.5
 /** Sun and moon ride well outside the ground plane, so they set at the horizon and not on the lawn. */
 const CELESTIAL_RADIUS = 3_400
 /** The lights themselves stay close enough in for a shadow camera to be worth having. */
@@ -127,13 +137,19 @@ export class Atmosphere {
     sky.sun.light.intensity = 0.05 + daylight * 4.1
     sky.sun.light.color.copy(this.sunColour.setHex(SUN_WHITE).lerp(EMBER, horizonWarmth))
 
-    // The moon rides opposite the sun and only lights the city once the sun has gone.
+    /*
+     * The moon rides opposite the sun and only lights the city once the sun has gone. Its target
+     * follows the camera along with its position: a directional light points from one to the other,
+     * and leaving the target at the origin meant the moonlight swung round as the player panned.
+     */
     sky.moon.light.position.set(
       focus.x + Math.cos(moonAngle) * LIGHT_RADIUS,
       Math.max(140, -elevation * 900 + 220),
       focus.z + Math.sin(moonAngle) * LIGHT_RADIUS * 0.45,
     )
-    sky.moon.light.intensity = (1 - daylight) * 2.1
+    sky.moon.light.target.position.set(focus.x, 0, focus.z)
+    sky.moon.light.target.updateMatrixWorld()
+    sky.moon.light.intensity = (1 - daylight) * 2.4
 
     /*
      * The bodies themselves ride the same angle as their lights, on a true hemisphere: at elevation
@@ -153,7 +169,7 @@ export class Atmosphere {
      * Night keeps its real length, so it has to stay readable: an ambient floor plus lit windows
      * carry the city through a December night instead of shortening it. See ADR-0005.
      */
-    sky.hemisphere.intensity = 1.55 + daylight * 0.85
+    sky.hemisphere.intensity = NIGHT_FILL + daylight * DAY_FILL
     sky.hemisphere.color.copy(this.hemisphereColour.setHex(NIGHT_AMBIENT).lerp(DAY_AMBIENT, daylight))
     sky.hemisphere.groundColor.copy(this.groundColour.setHex(NIGHT_GROUND).lerp(DAY_GROUND, daylight))
 
@@ -167,7 +183,7 @@ export class Atmosphere {
      * flat emissive on the entire building, which is why it had to stay so faint to avoid turning
      * every house into a lantern — and why the night had nothing in it.
      */
-    const glow = (1 - daylight) * (0.8 + this.nightLife * 1.7)
+    const glow = (1 - daylight) * (0.55 + this.nightLife * 0.75)
     for (const material of buildingMaterials)
       material.emissiveIntensity = glow
 

@@ -1,4 +1,5 @@
 import type { BuildingRecord } from '../core/contracts'
+import type { Relief } from '../world/relief'
 import { MapControls } from 'three/addons/controls/MapControls.js'
 import * as THREE from 'three/webgpu'
 
@@ -12,6 +13,11 @@ import * as THREE from 'three/webgpu'
 
 /** Seconds a focus flight takes. Long enough to read as travel, short enough not to be waited out. */
 const FOCUS_DURATION = 1.15
+/** Where the opening shot stands, and what it looks at. The overview button returns to exactly this. */
+const OVERVIEW_POSITION = /* @__PURE__ */ new THREE.Vector3(1_720, 1_030, 1_800)
+const OVERVIEW_TARGET = /* @__PURE__ */ new THREE.Vector3(0, 0, 0)
+/** How far above the land the camera is kept, in metres. About the height of a first-floor window. */
+const GROUND_CLEARANCE = 6
 
 interface FocusTween {
   started: number
@@ -26,7 +32,7 @@ export class CameraRig {
   readonly controls: MapControls
   private tween: FocusTween | null = null
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, private readonly relief: Relief) {
     /*
      * The far plane reaches past the land now that the land has hills on it, and the near plane was
      * raised with it: the depth buffer's precision is set by their ratio, and at 2 : 8 000 anything
@@ -39,7 +45,7 @@ export class CameraRig {
      * straight down, which put the entire sky — and with it the sun, the moon and every hour of the
      * day — outside the picture: the cycle was running the whole time and could not be seen.
      */
-    this.camera.position.set(1_720, 1_030, 1_800)
+    this.camera.position.copy(OVERVIEW_POSITION)
 
     this.controls = new MapControls(this.camera, canvas)
     this.controls.enableDamping = true
@@ -66,8 +72,31 @@ export class CameraRig {
     this.camera.updateProjectionMatrix()
   }
 
+  /**
+   * Fly back out to the shot the campaign opens on.
+   *
+   * There is no other way back. Panning is unbounded by design — the player can follow a street to
+   * the edge of the extract — and finding the middle again by hand after ten minutes of that is a
+   * chore, which is what the pause button's place in the bar is now spent on.
+   */
+  frameCity(): void {
+    this.tween = {
+      started: performance.now(),
+      fromTarget: this.controls.target.clone(),
+      toTarget: OVERVIEW_TARGET.clone(),
+      fromCamera: this.camera.position.clone(),
+      toCamera: OVERVIEW_POSITION.clone(),
+    }
+  }
+
   focusOn(building: BuildingRecord): void {
-    const target = new THREE.Vector3(building.x, building.height * 0.35, building.z)
+    /*
+     * On the ground the building stands on. Reading the height off the record alone put the camera's
+     * target metres underground wherever the city is on a rise, and flying to a building on the
+     * higher bank ended with the camera inside the hill looking at the underside of the city.
+     */
+    const ground = this.relief.height(building.x, building.z)
+    const target = new THREE.Vector3(building.x, ground + building.height * 0.35, building.z)
     const direction = this.camera.position.clone().sub(this.controls.target).normalize()
     const distance = Math.max(95, building.height * 3.5)
     this.tween = {
@@ -89,6 +118,23 @@ export class CameraRig {
         this.tween = null
     }
     this.controls.update()
+    this.keepAboveGround()
+  }
+
+  /**
+   * Never let the camera under the land.
+   *
+   * Panning is unbounded and the land has hills on it now, so a low camera pushed toward a rise went
+   * straight through it — and from under the ground the city is drawn from below, which reads as the
+   * whole world having flipped over. A floor a few metres above the surface costs one sample of the
+   * relief per frame and makes the state unreachable.
+   */
+  private keepAboveGround(): void {
+    const floor = this.relief.height(this.camera.position.x, this.camera.position.z) + GROUND_CLEARANCE
+    if (this.camera.position.y < floor) {
+      this.controls.target.y += floor - this.camera.position.y
+      this.camera.position.y = floor
+    }
   }
 
   dispose(): void {

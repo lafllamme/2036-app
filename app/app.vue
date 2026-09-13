@@ -149,8 +149,20 @@ function restart(): void {
         </section>
 
         <section class="time-controls panel" aria-label="Zeitsteuerung">
-          <button v-for="value in [0, 1, 2, 4] as const" :key="value" type="button" :class="{ active: speed === value }" @click="game.setSpeed(value)">
-            {{ value === 0 ? 'Ⅱ' : `${value}×` }}
+          <!--
+            Where the pause button used to be. Pausing is one click away on any of the speeds and the
+            campaign pauses itself for a vote anyway; finding the middle of a three-kilometre city
+            again after following a street to the edge of it was the thing there was no way back from.
+          -->
+          <button type="button" class="overview" title="Zurück zur Gesamtansicht" aria-label="Zurück zur Gesamtansicht" @click="game.showOverview">
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <path d="M1.5 5.5v-4h4M14.5 5.5v-4h-4M1.5 10.5v4h4M14.5 10.5v4h-4" />
+              <circle cx="8" cy="8" r="2.1" />
+            </svg>
+          </button>
+          <span />
+          <button v-for="value in [1, 2, 4] as const" :key="value" type="button" :class="{ active: speed === value }" @click="game.setSpeed(value)">
+            {{ `${value}×` }}
           </button>
           <span />
           <button type="button" class="advance" :disabled="!canAdvance" @click="game.advanceMonth">

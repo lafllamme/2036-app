@@ -20,14 +20,31 @@ import * as THREE from 'three/webgpu'
  * and seen from two kilometres away — the depth buffer has no precision left out there — and the
  * offset biases them in depth rather than in space, which is what it is for.
  */
+const PAVEMENT_Y = 0.04
 const ROAD_Y = 0.06
 const MARKING_Y = 0.07
+/** How wide the footway either side of the carriageway is. */
+const PAVEMENT = 2.3
 /** How long a dash of centre line is, and the gap after it. */
 const DASH = 9
 const GAP = 7
 
 export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint): void {
   const relief = blueprint.relief
+  /*
+   * The pavement goes down first: the same ribbon, a couple of metres wider each side, in the
+   * concrete grey that a footway is. It is one extra draw for the whole city and it is most of what
+   * makes a street read as a street rather than as a dark line drawn across a field — at ground level
+   * the carriageway used to run straight into the grass, which no street anywhere does.
+   */
+  scene.add(ribbon(relief, blueprint.roads, PAVEMENT_Y, new THREE.MeshStandardMaterial({
+    color: '#6e6c66',
+    roughness: 0.93,
+    metalness: 0,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  }), 1, PAVEMENT))
   scene.add(ribbon(relief, blueprint.roads, ROAD_Y, new THREE.MeshStandardMaterial({
     color: '#33383b',
     roughness: 0.95,
@@ -54,7 +71,7 @@ export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint): void {
  * the bend is — a mitre. Without that correction the outer edge of a corner pinches in and the road
  * narrows exactly where it should not; the lengthening is capped, because at a hairpin it runs away.
  */
-function ribbon(relief: Relief, roads: RoadRecord[], y: number, material: THREE.Material, widthScale: number): THREE.Mesh {
+function ribbon(relief: Relief, roads: RoadRecord[], y: number, material: THREE.Material, widthScale: number, widen = 0): THREE.Mesh {
   const position: number[] = []
   const normal: number[] = []
   const uv: number[] = []
@@ -65,7 +82,7 @@ function ribbon(relief: Relief, roads: RoadRecord[], y: number, material: THREE.
     const count = points.length / 2
     if (count < 2)
       continue
-    const half = (road.width * widthScale) / 2
+    const half = (road.width * widthScale) / 2 + widen
     const first = position.length / 3
     let along = 0
 

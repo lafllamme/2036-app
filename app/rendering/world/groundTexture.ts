@@ -83,3 +83,46 @@ function wrapped(x: number, y: number, cells: number): number {
 function smooth(t: number): number {
   return t * t * (3 - 2 * t)
 }
+
+/**
+ * The ground's bump, as a tangent-space normal map.
+ *
+ * Colour alone makes a surface look painted. What tells the eye that ground is ground is the way
+ * light catches it: a field of shallow bumps at a scale of a metre or two, which at a low winter sun
+ * throws thousands of tiny shadows and at noon almost none. Two octaves of the same wrapping value
+ * noise as the colour tile, differentiated rather than sampled, so the bumps and the grain agree.
+ */
+export function groundNormalTexture(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas')
+  canvas.width = TILE
+  canvas.height = TILE
+  const context = canvas.getContext('2d')
+
+  if (context) {
+    const image = context.createImageData(TILE, TILE)
+    const height = (x: number, y: number): number =>
+      wrapped(x, y, 8) * 0.62 + wrapped(x, y, 32) * 0.38
+    for (let y = 0; y < TILE; y += 1) {
+      for (let x = 0; x < TILE; x += 1) {
+        // Central differences on the wrapped field, so the tile's edges match its opposite edges.
+        const dx = height((x + 1) % TILE, y) - height((x - 1 + TILE) % TILE, y)
+        const dy = height(x, (y + 1) % TILE) - height(x, (y - 1 + TILE) % TILE)
+        const nx = -dx * 5.5
+        const ny = -dy * 5.5
+        const nz = Math.sqrt(Math.max(0.0001, 1 - nx * nx - ny * ny))
+        const offset = (y * TILE + x) * 4
+        image.data[offset] = (nx * 0.5 + 0.5) * 255
+        image.data[offset + 1] = (ny * 0.5 + 0.5) * 255
+        image.data[offset + 2] = (nz * 0.5 + 0.5) * 255
+        image.data[offset + 3] = 255
+      }
+    }
+    context.putImageData(image, 0, 0)
+  }
+
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.wrapS = THREE.RepeatWrapping
+  texture.wrapT = THREE.RepeatWrapping
+  texture.anisotropy = 4
+  return texture
+}

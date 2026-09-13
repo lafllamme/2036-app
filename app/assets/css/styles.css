@@ -379,6 +379,12 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
 .time-controls button.active { background: rgba(246, 243, 236, 0.13); color: var(--ink); }
 .time-controls > span { width: 1px; height: 18px; margin: 0 5px; background: var(--hairline); }
 .time-controls .advance { padding: 9px 18px; }
+.time-controls .overview { display: grid; place-items: center; min-width: 38px; padding: 7px 10px; }
+.time-controls .overview svg {
+  width: 15px; height: 15px; fill: none; stroke: currentcolor; stroke-width: 1.4;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.time-controls .overview:hover { background: rgba(246, 243, 236, 0.13); color: var(--ink); }
 
 .render-badge {
   position: absolute; right: 16px; bottom: 62px; z-index: 3;

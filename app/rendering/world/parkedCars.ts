@@ -39,10 +39,18 @@ const CAR_LENGTH = 4.3
 /** How far apart parked cars stand, and how far from the centre line. */
 const SPACING = 6.4
 const KERB = 0.4
-/** Only streets wide enough for a car to stand at the side of without blocking it. */
-const MIN_WIDTH = 7.5
+/**
+ * Which streets are parked on.
+ *
+ * Wide enough that a car at the kerb does not block it, and not so wide that it is the kind of road
+ * that carries a cycle lane instead. The two share the same metre and a half of tarmac at the edge
+ * of the carriageway, and a city where every bike lane is full of parked cars is a city nobody meant
+ * to build — see `CYCLE_MIN_WIDTH` in `roads.ts`, which is the other half of this decision.
+ */
+const MIN_WIDTH = 7
+const MAX_WIDTH = 13
 /** How much of the kerb is taken. A city is never fully parked and never empty either. */
-const OCCUPANCY = 0.62
+const OCCUPANCY = 0.78
 /**
  * As many as are worth the geometry.
  *
@@ -51,7 +59,7 @@ const OCCUPANCY = 0.62
  * half million triangles, more than the rest of the city put together. Tiling means only the ones
  * near the camera are drawn, and this is what the whole set costs in memory.
  */
-const LIMIT = 2_600
+const LIMIT = 3_800
 
 /**
  * The two ways a parked car is drawn, over the same tiles.
@@ -79,7 +87,7 @@ export function addParkedCars(scene: THREE.Scene, blueprint: CityBlueprint, mode
     if (placements.length >= LIMIT)
       break
     // Nothing parks on a bridge: there is a parapet where the kerb would be.
-    if (road.bridge || road.width < MIN_WIDTH)
+    if (road.bridge || road.width < MIN_WIDTH || road.width > MAX_WIDTH)
       continue
 
     const points = road.path

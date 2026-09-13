@@ -9,6 +9,7 @@ import { createRandomStream } from '../../core/rng'
 import { COMMON_VEHICLES, EMERGENCY_VEHICLES } from '../cityModels'
 import { AXIS_Y, WHITE } from '../shared'
 import { glowTexture } from '../sky/textures'
+import { bicycleGeometry, bicycleMaterial } from './bicycle'
 import { callLimit, callWait, pickKind, responseSpeed, SERVICE_FOR } from './incidents'
 import { bearingFrom, sampleEdge } from './roadNetwork'
 import { isGreen } from './signalPlan'
@@ -33,6 +34,21 @@ const CALM_CITY: CityPressure = { burglary: 0, accident: 0, violent: 0, response
 
 const CAR_COUNT = 620
 const WALKER_COUNT = 520
+/**
+ * How many are on a bike.
+ *
+ * A German city of this size has roughly one cycling trip for every three by car, and Bremen a good
+ * deal more than that — but a cyclist costs a rider and a machine, so this is the share that reads
+ * right rather than the share that is true. They ride where the lane is painted: the outer metre and
+ * a half of the carriageway, which is also why no car parks on a street wide enough to have one.
+ */
+const CYCLIST_COUNT = 180
+const CYCLIST_RANGE = 1_400
+/** How fast a town cyclist goes, and how far out from the centre line they ride. */
+const CYCLIST_SPEED: [number, number] = [3.8, 6.2]
+const CYCLIST_LANE = 4.1
+/** Saddle height: how far the bike sits below the rider the pedestrian fleet draws. */
+const SADDLE = 0.92
 /** Above these camera distances a car is a few pixels and a pedestrian is less than one. */
 const CAR_RANGE = 3_000
 const WALKER_RANGE = 1_200
@@ -118,6 +134,22 @@ const BEACON_RED = /* @__PURE__ */ new THREE.Color('#ff2f21')
 const BEACON_RATE = 3.4
 /** How high above the road the lamp sits. */
 const BEACON_HEIGHT = 2.1
+/**
+ * The range a kit character is tinted over.
+ *
+ * Six multipliers from cool to warm, all close to one so nothing is bleached or blackened — the
+ * atlas already carries the actual colours and this only shifts them. They are a spread, not a set
+ * of types: which one a figure gets says nothing and is never read back.
+ */
+const COMPLEXION = /* @__PURE__ */ [
+  new THREE.Color(1.04, 1.02, 0.99),
+  new THREE.Color(0.98, 0.94, 0.88),
+  new THREE.Color(0.9, 0.82, 0.73),
+  new THREE.Color(0.79, 0.69, 0.59),
+  new THREE.Color(0.66, 0.56, 0.47),
+  new THREE.Color(0.54, 0.45, 0.38),
+]
+
 /** How far a pedestrian rises and falls with each step, and how many steps a second they take. */
 const STRIDE_BOB = 0.045
 const STRIDE_RATE = 2.1
@@ -138,6 +170,8 @@ const BRAKING = 14
 
 export interface Agents {
   cars: Fleet
+  /** People on bikes, in the lane painted for them. */
+  cyclists: Fleet
   pedestrians: Fleet
   network: RoadNetwork
   signals: SignalPlan
@@ -186,6 +220,16 @@ interface Fleet {
   lift: number
   /** Whether the things in it walk, and so should rise and fall with each step. */
   stride: boolean
+  /**
+   * One more instanced mesh drawn wherever this fleet's travellers are, and nothing else.
+   *
+   * The bicycles. A rider is a kit character and a bike is written out in `bicycle.ts`, and the two
+   * have different materials, so they cannot be one mesh — but they are always in the same place, so
+   * they can be one placement written twice.
+   */
+  mount: THREE.InstancedMesh | null
+  /** How far below the rider the mount sits. */
+  mountDrop: number
 }
 
 interface Traveller {
@@ -231,8 +275,27 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
 
   const emergency = cars.all.filter(traveller => traveller.service !== 'none')
 
+  /*
+   * The cyclists. Kit people on machines written out in `bicycle.ts`, riding the same graph the cars
+   * do and stopping at the same signals — the one difference is where on the carriageway they sit.
+   */
+  const cyclists = buildFleet(scene, network, driveable, models.people, models.peopleMaterial, CYCLIST_COUNT, draw, {
+    lane: CYCLIST_LANE,
+    lift: SADDLE,
+    obeysSignals: true,
+    speed: CYCLIST_SPEED,
+    scale: model => PERSON_HEIGHT / Math.max(0.001, model.size.y),
+    weight: () => 1,
+    service: () => 'none' as Service,
+    // They are pedalling, not walking: no bob, and they are not what a crowd sounds like.
+    stride: false,
+    people: true,
+    mount: { geometry: bicycleGeometry(), material: bicycleMaterial(), drop: SADDLE },
+  })
+
   return {
     cars,
+    cyclists,
     pedestrians: buildFleet(scene, network, walkable, models.people, models.peopleMaterial, WALKER_COUNT, draw, {
       lane: 5.2,
       lift: 0.02,
@@ -241,6 +304,7 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
       scale: model => PERSON_HEIGHT / Math.max(0.001, model.size.y),
       weight: () => 1,
       service: () => 'none' as Service,
+      people: true,
     }),
     network,
     signals,
@@ -290,6 +354,10 @@ interface FleetPlan {
   scale: (model: CityModel) => number
   weight: (model: CityModel) => number
   service: (model: CityModel) => Service
+  stride?: boolean
+  /** Whether this fleet is made of people, and so is tinted across a range of complexions. */
+  people?: boolean
+  mount?: { geometry: THREE.BufferGeometry, material: THREE.Material, drop: number }
 }
 
 function buildFleet(
@@ -305,7 +373,28 @@ function buildFleet(
   const meshes: THREE.InstancedMesh[] = []
   const crews: Traveller[][] = []
   const all: Traveller[] = []
-  const fleet: Fleet = { meshes, crews, all, allowed, obeysSignals: plan.obeysSignals, lane: plan.lane, lift: plan.lift, stride: !plan.obeysSignals }
+  const mount = plan.mount
+    ? new THREE.InstancedMesh(plan.mount.geometry, plan.mount.material, count)
+    : null
+  if (mount) {
+    mount.count = 0
+    mount.frustumCulled = false
+    mount.castShadow = false
+    scene.add(mount)
+  }
+
+  const fleet: Fleet = {
+    meshes,
+    crews,
+    all,
+    allowed,
+    obeysSignals: plan.obeysSignals,
+    lane: plan.lane,
+    lift: plan.lift,
+    stride: plan.stride ?? !plan.obeysSignals,
+    mount,
+    mountDrop: plan.mount?.drop ?? 0,
+  }
 
   const open: number[] = []
   network.edges.forEach((edge, index) => {
@@ -353,7 +442,23 @@ function buildFleet(
     const geometry = model.geometry.clone()
     geometry.scale(size, size, size)
     const mesh = new THREE.InstancedMesh(geometry, material, crew.length)
-    for (let instance = 0; instance < crew.length; instance += 1) mesh.setColorAt(instance, WHITE)
+    /*
+     * A crowd of people rather than twelve people repeated.
+     *
+     * The kit has twelve characters and bakes skin and clothes into one atlas, so the only thing an
+     * instance can change is a multiplier over the whole figure. Kept deliberately narrow and warm-
+     * to-neutral: enough that a pavement is not a dozen identical faces, never so much that it reads
+     * as a costume. Vehicles keep their own paint and are left alone.
+     *
+     * This is appearance and only appearance. Nothing anywhere reads it back — see the rule in
+     * `docs/CITY_LIFE.md` — and when the simulation's `originMix` drives the distribution it will
+     * still only decide who is on the pavement, never what they do there.
+     */
+    for (let instance = 0; instance < crew.length; instance += 1) {
+      mesh.setColorAt(instance, plan.people
+        ? COMPLEXION[(instance * 7 + index * 3) % COMPLEXION.length]!
+        : WHITE)
+    }
     /*
      * Traffic casts no shadow. Six hundred cars at two thousand triangles apiece go through the
      * shadow pass as well as the colour one, which is the single largest thing in a frame — measured
@@ -369,6 +474,16 @@ function buildFleet(
 
   return fleet
 }
+
+/**
+ * How many mounts have been placed this frame.
+ *
+ * A module-level counter rather than a parameter because `place` is called once per instance per
+ * mesh and the mount is one mesh across the whole fleet: the index it writes to is the running total
+ * across every model, not the index within one of them.
+ */
+let mounted = 0
+const MOUNT_SCALE = /* @__PURE__ */ new THREE.Vector3(1, 1, 1)
 
 /** Scratch instances reused across calls, so the loop allocates nothing at all. */
 const matrix = /* @__PURE__ */ new THREE.Matrix4()
@@ -411,6 +526,8 @@ export function updateAgents(
   agents.trafficNearby = 0
   agents.peopleNearby = 0
   drive(agents, agents.cars, delta, elapsed, cameraDistance > CAR_RANGE ? 0 : busy, camera)
+  // Cycling follows the same hour as driving, and a little more of it in the middle of the day.
+  drive(agents, agents.cyclists, delta, elapsed, cameraDistance > CYCLIST_RANGE ? 0 : busy, camera)
   // People are out when the city is awake, but a pavement is never as empty as a road at night.
   drive(agents, agents.pedestrians, delta, elapsed, cameraDistance > WALKER_RANGE ? 0 : 0.35 + busy * 0.65, camera)
   paintBeacons(agents, elapsed, cameraDistance, camera)
@@ -558,6 +675,8 @@ function drive(agents: Agents, fleet: Fleet, delta: number, elapsed: number, sha
   if (share > 0)
     advance(agents, fleet, Math.min(0.2, delta), elapsed)
 
+  mounted = 0
+
   for (let index = 0; index < fleet.meshes.length; index += 1) {
     const mesh = fleet.meshes[index]!
     const crew = fleet.crews[index]!
@@ -574,6 +693,11 @@ function drive(agents: Agents, fleet: Fleet, delta: number, elapsed: number, sha
     for (let instance = 0; instance < visible; instance += 1)
       place(mesh, instance, agents, fleet, crew[instance]!, elapsed, camera)
     mesh.instanceMatrix.needsUpdate = true
+  }
+
+  if (fleet.mount) {
+    fleet.mount.count = mounted
+    fleet.mount.instanceMatrix.needsUpdate = true
   }
 }
 
@@ -752,6 +876,17 @@ function place(mesh: THREE.InstancedMesh, index: number, agents: Agents, fleet: 
   // The road's own surface, so traffic goes over a bridge instead of through the river under it.
   matrix.compose(position.set(x, sample.y + fleet.lift + bob, z), quaternion, scale)
   mesh.setMatrixAt(index, matrix)
+
+  /*
+   * And the thing being ridden, in the same place and at the same bearing but on the ground rather
+   * than at saddle height, and at its own scale — the rider is scaled to the kit's units and the
+   * bike is written out in metres.
+   */
+  if (fleet.mount && mounted < fleet.mount.instanceMatrix.count) {
+    matrix.compose(position.set(x, sample.y + fleet.lift - fleet.mountDrop, z), quaternion, MOUNT_SCALE)
+    fleet.mount.setMatrixAt(mounted, matrix)
+    mounted += 1
+  }
 
   /*
    * What is within earshot. A quiet street is quiet however busy the rest of the city is, so the

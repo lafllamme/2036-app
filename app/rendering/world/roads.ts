@@ -27,6 +27,17 @@ const ROAD_Y = 0.06
 const MARKING_Y = 0.07
 /** How wide the footway either side of the carriageway is. */
 const PAVEMENT = 2.3
+/**
+ * The cycle lane: a strip at the outside of the carriageway, in the brick red it is painted here.
+ *
+ * On the road rather than beside it, because that is what a Radfahrstreifen is and because it costs
+ * nothing — no widening, no new kerb, and the traffic model already keeps cars off the last metre
+ * and a half by parking in it. Only on streets that would actually have one: a residential street
+ * in Germany has a cycle lane painted on it about as often as it has a tram.
+ */
+const CYCLE_WIDTH = 1.5
+const CYCLE_MIN_WIDTH = 13
+const CYCLE_Y = 0.065
 /** How long a dash of centre line is, and the gap after it. */
 const DASH = 9
 const GAP = 7
@@ -77,6 +88,14 @@ export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint, network: 
     polygonOffsetFactor: -3,
     polygonOffsetUnits: -3,
   })))
+  scene.add(edgeStrips(relief, blueprint.roads, CYCLE_Y, new THREE.MeshStandardMaterial({
+    color: '#7c4137',
+    roughness: 0.94,
+    metalness: 0,
+    polygonOffset: true,
+    polygonOffsetFactor: -4,
+    polygonOffsetUnits: -4,
+  }), CYCLE_WIDTH, CYCLE_MIN_WIDTH))
   scene.add(markings(relief, blueprint.roads))
   scene.add(bridgeStructure(relief, [...blueprint.roads, ...blueprint.rails]))
   scene.add(ribbon(relief, blueprint.rails, ROAD_Y, new THREE.MeshStandardMaterial({
@@ -122,6 +141,59 @@ function ribbon(relief: Relief, roads: RoadRecord[], y: number, material: THREE.
         index.push(a, a + 2, a + 1, a + 1, a + 2, a + 3)
       }
     })
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3))
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3))
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+  geometry.setIndex(index)
+  geometry.computeBoundingSphere()
+
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.receiveShadow = true
+  return mesh
+}
+
+/**
+ * A strip down each outer edge of the carriageway.
+ *
+ * The ribbon above lays one surface across the whole width; this lays a band a fixed distance in
+ * from each kerb, which is what a painted lane is. One mesh for both sides of every street in the
+ * city, because it is the same geometry problem twice and there is no reason to pay twice for it.
+ */
+function edgeStrips(relief: Relief, roads: RoadRecord[], y: number, material: THREE.Material, width: number, minWidth: number): THREE.Mesh {
+  const position: number[] = []
+  const normal: number[] = []
+  const uv: number[] = []
+  const index: number[] = []
+
+  for (const road of roads) {
+    // Not on a bridge — the deck has a parapet where the lane would be painted.
+    if (road.bridge || road.width < minWidth)
+      continue
+    // A unit normal at every section, so the two offsets can be taken from the same walk.
+    const sections = ribbonSections(road.path, 1)
+    const deck = deckOf(road.path, road.bridge, (x, z) => relief.height(x, z))
+    const half = road.width / 2
+
+    for (const side of [1, -1]) {
+      const first = position.length / 3
+      sections.forEach((section, at) => {
+        const outerX = section.x + section.ox * half * side
+        const outerZ = section.z + section.oz * half * side
+        const innerX = section.x + section.ox * (half - width) * side
+        const innerZ = section.z + section.oz * (half - width) * side
+        const height = deck.bridge ? deck.at(section.along) : relief.height(outerX, outerZ)
+        position.push(outerX, y + height, outerZ, innerX, y + height, innerZ)
+        normal.push(0, 1, 0, 0, 1, 0)
+        uv.push(0, section.along / 8, 1, section.along / 8)
+        if (at > 0) {
+          const a = first + (at - 1) * 2
+          index.push(a, a + 2, a + 1, a + 1, a + 2, a + 3)
+        }
+      })
+    }
   }
 
   const geometry = new THREE.BufferGeometry()

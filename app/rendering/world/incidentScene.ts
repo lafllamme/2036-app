@@ -30,6 +30,26 @@ const CROWD_RADIUS = 12
 const MAX_CORDON = 8
 const MAX_CROWD = 6
 const MAX_WRECKS = 2
+/** How many of the crew are out of the vehicle and standing at the scene. */
+const MAX_CREW = 3
+const CREW_RADIUS = 4.6
+
+/**
+ * The crew, in the colour of their own service.
+ *
+ * There is no police officer in the kit and there is not going to be: adding a second asset source
+ * for three figures is not worth the licence page. A kit character tinted dark navy at this scale
+ * reads as police, and one tinted high-visibility orange reads as fire — which is the whole of what
+ * a uniform has to do from a camera twenty metres up.
+ *
+ * The tint goes above one deliberately: an instance colour multiplies, so anything below one only
+ * darkens, and a fire crew has to be brighter than the street rather than dimmer.
+ */
+const CREW_COLOUR = {
+  police: /* @__PURE__ */ new THREE.Color(0.24, 0.3, 0.62),
+  ambulance: /* @__PURE__ */ new THREE.Color(1.25, 0.95, 0.35),
+  fire: /* @__PURE__ */ new THREE.Color(1.5, 0.62, 0.16),
+} as const
 
 /** A crowd does not appear the moment something happens; it takes a few seconds to gather. */
 const GATHER_DELAY = 6
@@ -70,6 +90,8 @@ export interface IncidentScenes {
   marker: THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> | null
   cordon: THREE.InstancedMesh | null
   crowd: THREE.InstancedMesh[]
+  /** The crew standing at the scene, in the colour of the service that was called. */
+  officers: THREE.InstancedMesh | null
   /** The two cars left in the road after a collision. Nothing else in the city uses them. */
   wrecks: THREE.InstancedMesh
 }
@@ -89,6 +111,9 @@ export function createIncidentScenes(scene: THREE.Scene, models: CityModels): In
     marker: addMarker(scene),
     cordon: barrier ? addModel(scene, barrier, models.roadsMaterial, SCENE_LIMIT * MAX_CORDON) : null,
     crowd: crowdModels(models).map(model => addModel(scene, model, models.peopleMaterial, SCENE_LIMIT * MAX_CROWD)),
+    officers: models.people[0]
+      ? addModel(scene, models.people[0], models.peopleMaterial.clone(), SCENE_LIMIT * MAX_CREW)
+      : null,
     wrecks: addWrecks(scene),
   }
 }
@@ -194,6 +219,7 @@ export function updateIncidentScenes(
   let markers = 0
   let barriers = 0
   let wrecks = 0
+  let crew = 0
   const onlookers = scenes.crowd.map(() => 0)
 
   for (let index = 0; index < open; index += 1) {
@@ -251,6 +277,28 @@ export function updateIncidentScenes(
       }
     }
 
+    /*
+     * The crew, but only once they are actually there.
+     *
+     * This is the whole reason the renderer tracks whether a vehicle arrived: a cordon with officers
+     * standing at it before anybody has driven there is a stage set, and the player has no way to
+     * tell a call that was answered from one that was not.
+     */
+    if (showCrowd && scenes.officers && incident.arrived !== null) {
+      for (let step = 0; step < MAX_CREW; step += 1) {
+        const angle = (step / MAX_CREW) * Math.PI * 2 + index * 0.7
+        const x = incident.x + Math.cos(angle) * CREW_RADIUS
+        const z = incident.z + Math.sin(angle) * CREW_RADIUS
+        position.set(x, relief.height(x, z), z)
+        // Facing outward, at the cordon rather than at whatever is inside it.
+        quaternion.setFromAxisAngle(AXIS_Y, Math.atan2(x - incident.x, z - incident.z))
+        scale.setScalar(PERSON_HEIGHT / Math.max(0.001, measure(scenes.officers.geometry)))
+        scenes.officers.setMatrixAt(crew, matrix.compose(position, quaternion, scale))
+        scenes.officers.setColorAt(crew, CREW_COLOUR[incident.service])
+        crew += 1
+      }
+    }
+
     for (let step = 0; step < shape.wrecks; step += 1) {
       /*
        * Nose to nose and slewed across the line, which is the shape of a collision and the reason
@@ -284,6 +332,12 @@ export function updateIncidentScenes(
   })
   scenes.wrecks.count = wrecks
   scenes.wrecks.instanceMatrix.needsUpdate = true
+  if (scenes.officers) {
+    scenes.officers.count = crew
+    scenes.officers.instanceMatrix.needsUpdate = true
+    if (scenes.officers.instanceColor)
+      scenes.officers.instanceColor.needsUpdate = true
+  }
 }
 
 /**

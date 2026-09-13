@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { POLICIES } from '~/content/policies'
 import { useGameStore } from '~/stores/game'
 import { CATEGORY_LABELS, formatNumber, POLICY_CATEGORY_LABELS, targetLabel } from '~/utils/labels'
 
 const game = useGameStore()
-const { snapshot, pendingDecisions } = storeToRefs(game)
+const { snapshot, pendingDecisions, decisionsOpen } = storeToRefs(game)
 
 const openMotions = computed(() =>
   pendingDecisions.value
@@ -20,16 +20,40 @@ const measures = computed(() => snapshot.value?.activeMeasures.filter(measure =>
 const monthlyCost = computed(() => measures.value.reduce((sum, measure) => sum + measure.monthlyCost, 0))
 
 const deadline = (expiresMonth: number): number => Math.max(0, expiresMonth - (snapshot.value?.month ?? 0))
+
+/**
+ * Open itself when the council actually has something to decide, and otherwise stay out of the way.
+ *
+ * The panel covered a third of the city for the whole campaign, most of the time to say that no
+ * motion had been raised. A month with a real motion in it should look different from a quiet one
+ * before the player has read a word — so a new motion opens the panel, and the player folding it
+ * again is respected until the next one arrives.
+ */
+watch(() => openMotions.value.length, (now, before) => {
+  if (now > (before ?? 0))
+    game.decisionsOpen = true
+}, { immediate: true })
 </script>
 
 <template>
-  <aside class="policy-panel panel" aria-label="Ratsvorlagen und Entscheidungen">
+  <aside class="policy-panel panel" :class="{ 'is-folded': !decisionsOpen }" aria-label="Ratsvorlagen und Entscheidungen">
     <header class="section-heading">
       <div>
         <small>Stadtrat Lindenhafen</small>
         <span>Entscheidungen</span>
       </div>
-      <span class="seats">{{ snapshot?.coalitionSupport ?? 0 }} / 60</span>
+      <span v-if="openMotions.length > 0" class="seats pending">{{ openMotions.length }} offen</span>
+      <span v-else class="seats">{{ snapshot?.coalitionSupport ?? 0 }} / 60</span>
+      <button
+        type="button"
+        class="fold-toggle"
+        :aria-expanded="decisionsOpen"
+        :title="decisionsOpen ? 'Entscheidungen einklappen' : 'Entscheidungen ausklappen'"
+        :aria-label="decisionsOpen ? 'Entscheidungen einklappen' : 'Entscheidungen ausklappen'"
+        @click="game.decisionsOpen = !decisionsOpen"
+      >
+        {{ decisionsOpen ? '−' : '+' }}
+      </button>
     </header>
 
     <p v-if="openMotions.length === 0 && standingMotions.length === 0" class="panel-intro">

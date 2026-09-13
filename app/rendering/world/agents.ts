@@ -1,6 +1,7 @@
 import type { CityBlueprint } from '../../core/contracts'
 import type { Relief } from '../../world/relief'
 import type { CityModel, CityModels } from '../cityModels'
+import type { CityPressure, IncidentKind, Service } from './incidents'
 import type { RoadEdge, RoadNetwork } from './roadNetwork'
 import type { SignalPlan } from './signalPlan'
 import * as THREE from 'three/webgpu'
@@ -8,6 +9,7 @@ import { createRandomStream } from '../../core/rng'
 import { COMMON_VEHICLES, EMERGENCY_VEHICLES } from '../cityModels'
 import { AXIS_Y, WHITE } from '../shared'
 import { glowTexture } from '../sky/textures'
+import { callLimit, callWait, pickKind, responseSpeed, SERVICE_FOR } from './incidents'
 import { bearingFrom, sampleEdge } from './roadNetwork'
 import { isGreen } from './signalPlan'
 
@@ -25,6 +27,9 @@ import { isGreen } from './signalPlan'
  * matter how many are on the road. Both are distance-gated: what the player can no longer make out
  * is not animated, because animating it means rewriting and re-uploading its matrix.
  */
+
+/** What a city under no pressure at all looks like, until the first snapshot arrives. */
+const CALM_CITY: CityPressure = { burglary: 0, accident: 0, violent: 0, response: 0.6, building: 0 }
 
 const CAR_COUNT = 620
 const WALKER_COUNT = 520
@@ -68,39 +73,28 @@ const RUSH: readonly number[] = [
   0.24,
   0.15,
 ]
-/** How much faster a vehicle on a call travels. */
-const RESPONSE_SPEED = 1.8
-/**
- * How often something happens, in seconds between calls.
- *
- * A settled city has one every few minutes; an unsettled one has them on top of each other. The
- * first version simply held a share of the fleet on blue lights for ever, so the sirens never
- * stopped — which is not a busy city, it is a broken one. A siren has to mean something happened.
- */
-const CALL_INTERVAL_CALM = 210
-const CALL_INTERVAL_BUSY = 38
 /** How close counts as arrived, and how long a crew stays before it clears. */
 const ARRIVAL = 26
 const ON_SCENE = 34
 /** A call nobody reached in this long is written off, so one bad route cannot block the fleet. */
 const CALL_TIMEOUT = 260
-/** At most this many open at once. Past it the city is a disaster film rather than a city. */
-const CALL_LIMIT = 4
-
-export type Service = 'police' | 'ambulance' | 'none'
 
 /**
  * Something that has happened somewhere, and who is going to it.
  *
  * This is the whole reason a siren is audible: it is attached to an event with a place and an end,
- * not to a percentage. It is also the hook everything later hangs on — a burglary is a police call
- * and a broken leg is an ambulance one, and the simulation already produces the numbers that should
- * decide how many of each there are.
+ * not to a percentage. How often each kind is raised is not decided here at all — it comes out of
+ * `incidents.ts`, which reads the pressures the simulation derived from what the council did. A
+ * burglary is the order service being outrun by the burglary rate; there is no burglary constant.
  */
 export interface Incident {
+  /** Rises for the life of the session. The only thing that tells one call from the next. */
+  id: number
   x: number
   z: number
-  kind: Exclude<Service, 'none'>
+  kind: IncidentKind
+  /** Who was called: derived from the kind, never chosen separately. */
+  service: Exclude<Service, 'none'>
   raised: number
   responder: Traveller | null
   arrived: number | null
@@ -110,8 +104,14 @@ const CAR_LENGTH = 4.4
 const BIG_CAR_LENGTH = 7.2
 const BIG_VEHICLES = new Set(['truck', 'delivery', 'ambulance', 'garbage-truck', 'van'])
 const PERSON_HEIGHT = 1.75
-/** The beacon on a roof, and the two colours it alternates between. */
-const BEACON_SIZE = 2.6
+/**
+ * The beacon on a roof, and the two colours it alternates between.
+ *
+ * Small on purpose. It was two and a half metres across — wider than the car under it — so from any
+ * distance at all a police car was a flashing dot and the Kenney model it belongs to was invisible.
+ * The car is the thing worth looking at; the lamp only says which car it is.
+ */
+const BEACON_SIZE = 1.4
 const BEACON_BLUE = /* @__PURE__ */ new THREE.Color('#2f6bff')
 const BEACON_RED = /* @__PURE__ */ new THREE.Color('#ff2f21')
 /** How fast the lamp flips from one colour to the other, in flashes a second. */
@@ -153,8 +153,11 @@ export interface Agents {
   sirens: number
   /** What has happened and has not been dealt with yet. */
   incidents: Incident[]
-  /** When the next one is due, in render seconds. */
+  /** When the next one is due, in render seconds, and what the last one was numbered. */
   nextCall: number
+  lastCallId: number
+  /** What the simulation says the city is under, which is the only thing that raises a call. */
+  pressure: CityPressure
   /**
    * What the sound actually reads: how far the nearest siren is from the camera in metres, and how
    * many vehicles are moving within earshot of it.
@@ -251,6 +254,8 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
     peopleNearby: 0,
     incidents: [],
     nextCall: 0,
+    lastCallId: 0,
+    pressure: CALM_CITY,
   }
 }
 
@@ -389,7 +394,7 @@ export function updateAgents(
   cameraDistance: number,
   trafficFactor: number,
   hourOfDay: number,
-  unrest: number,
+  pressure: CityPressure,
 ): void {
   /*
    * How busy the city is at this hour, and how busy the council has made it. The two multiply: a
@@ -401,7 +406,8 @@ export function updateAgents(
   const busy = (hour + (next - hour) * (hourOfDay % 1)) * Math.min(1.15, trafficFactor)
   agents.bustle = busy
 
-  dispatch(agents, elapsed, unrest)
+  agents.pressure = pressure
+  dispatch(agents, elapsed)
   agents.trafficNearby = 0
   agents.peopleNearby = 0
   drive(agents, agents.cars, delta, elapsed, cameraDistance > CAR_RANGE ? 0 : busy, camera)
@@ -421,26 +427,28 @@ export function updateAgents(
  * The alternative, which this replaces, was to hold a share of the fleet on blue lights permanently.
  * That is not a busy city; that is a city where the sirens never stop and mean nothing.
  */
-function dispatch(agents: Agents, elapsed: number, unrest: number): void {
-  const { incidents, network } = agents
+function dispatch(agents: Agents, elapsed: number): void {
+  const { incidents, network, pressure } = agents
 
   // Raise a new one when it is due, somewhere a street actually goes.
-  if (elapsed >= agents.nextCall && incidents.length < CALL_LIMIT && network.nodes.length > 0) {
-    const settled = 1 - Math.min(1, Math.max(0, unrest))
-    const wait = CALL_INTERVAL_BUSY + (CALL_INTERVAL_CALM - CALL_INTERVAL_BUSY) * settled
-    agents.nextCall = elapsed + wait * (0.6 + Math.random() * 0.8)
+  if (elapsed >= agents.nextCall && incidents.length < callLimit(pressure) && network.nodes.length > 0) {
+    agents.nextCall = elapsed + callWait(pressure) * (0.6 + Math.random() * 0.8)
 
     const node = network.nodes[Math.floor(Math.random() * network.nodes.length)]
     if (node) {
       /*
-       * What kind of call. Unrest pushes it toward the police — a burglary, a fight, a break-in —
-       * and what is left is the everyday run of injuries an ambulance goes to.
+       * What kind of call, drawn from the three pressures. A city that cut its order service gets
+       * more break-ins; one that let its transport network rot gets more collisions. Neither is a
+       * die roll against a constant, which is the whole point.
        */
-      const police = Math.random() < 0.35 + Math.min(0.4, unrest * 0.5)
+      const kind = pickKind(pressure, Math.random())
+      agents.lastCallId += 1
       incidents.push({
+        id: agents.lastCallId,
         x: node.x,
         z: node.z,
-        kind: police ? 'police' : 'ambulance',
+        kind,
+        service: SERVICE_FOR[kind],
         raised: elapsed,
         responder: null,
         arrived: null,
@@ -473,7 +481,7 @@ function dispatch(agents: Agents, elapsed: number, unrest: number): void {
         const edge = network.edges[traveller.edge]
         if (!edge)
           continue
-        const penalty = traveller.service === incident.kind ? 1 : 2.2
+        const penalty = traveller.service === incident.service ? 1 : 2.2
         const gap = Math.hypot(edge.points[0]! - incident.x, edge.points[1]! - incident.z) * penalty
         if (gap < bestGap) {
           bestGap = gap
@@ -553,7 +561,13 @@ function drive(agents: Agents, fleet: Fleet, delta: number, elapsed: number, sha
   for (let index = 0; index < fleet.meshes.length; index += 1) {
     const mesh = fleet.meshes[index]!
     const crew = fleet.crews[index]!
-    const visible = Math.min(mesh.instanceMatrix.count, Math.round(crew.length * share))
+    /*
+     * Thinning traffic hides the tail of each crew, and a car on a call was as likely to be in that
+     * tail as anywhere else — so the blue light was drawn over an ambulance that was not. Whoever is
+     * on a call comes first, and the count is never allowed to cut one off.
+     */
+    const responders = promoteResponders(crew)
+    const visible = Math.max(responders, Math.min(mesh.instanceMatrix.count, Math.round(crew.length * share)))
     mesh.count = visible
     if (visible === 0)
       continue
@@ -579,7 +593,7 @@ function advance(agents: Agents, fleet: Fleet, delta: number, elapsed: number): 
     const traveller = fleet.all[index]!
     const edge = network.edges[traveller.edge]!
     // A car on a call is quicker and does not wait, which is the whole point of the blue light.
-    let limit = traveller.responding ? traveller.cruise * RESPONSE_SPEED : traveller.cruise
+    let limit = traveller.responding ? traveller.cruise * responseSpeed(agents.pressure) : traveller.cruise
     // And a crew that has arrived stands at the scene rather than driving round it.
     if (traveller.callout?.arrived !== null && traveller.callout !== null)
       limit = 0
@@ -612,6 +626,25 @@ function advance(agents: Agents, fleet: Fleet, delta: number, elapsed: number): 
 }
 
 /** Sort key: stretch, then direction, then position along it, leader last. */
+/**
+ * Move everyone on a call to the front of their crew, and say how many that is.
+ *
+ * A swap rather than a sort: the order of the rest does not matter, and a sort of every crew every
+ * frame is work for nothing.
+ */
+function promoteResponders(crew: Traveller[]): number {
+  let front = 0
+  for (let index = 0; index < crew.length; index += 1) {
+    if (!crew[index]!.responding)
+      continue
+    const held = crew[front]!
+    crew[front] = crew[index]!
+    crew[index] = held
+    front += 1
+  }
+  return front
+}
+
 function order(a: Traveller, b: Traveller): number {
   if (a.edge !== b.edge)
     return a.edge - b.edge
@@ -635,7 +668,36 @@ function turn(network: RoadNetwork, traveller: Traveller, edge: RoadEdge): void 
   let bestTotal = 0
   let chosen = -1
   let weight = 0
-  if (junction) {
+  if (junction && traveller.callout) {
+    /*
+     * On a call, the junction is a decision rather than a draw: take the street whose far end is
+     * nearest the incident.
+     *
+     * Without this a blue light was nothing but a faster random walk. Every call got a vehicle
+     * assigned, the siren started, and the crew then drove the city at random until the call timed
+     * out — measured over half a minute of play, four calls raised and not one arrival. The cordon
+     * stood there with nobody at it, which is exactly what it looked like.
+     *
+     * Greedy rather than a route: the graph is four thousand edges and this runs at every junction
+     * for every vehicle on a call. It can double back at a dead end, and the call timeout is what
+     * catches the rare case where it cannot find a way in at all.
+     */
+    let bestGap = Infinity
+    for (const candidate of junction.edges) {
+      if (candidate === traveller.edge)
+        continue
+      const next = network.edges[candidate]!
+      const far = network.nodes[next.from === node ? next.to : next.from]
+      if (!far)
+        continue
+      const gap = Math.hypot(far.x - traveller.callout.x, far.z - traveller.callout.z)
+      if (gap < bestGap) {
+        bestGap = gap
+        chosen = candidate
+      }
+    }
+  }
+  else if (junction) {
     for (const candidate of junction.edges) {
       if (candidate === traveller.edge)
         continue

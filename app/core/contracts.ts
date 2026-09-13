@@ -303,7 +303,18 @@ export interface SkyState {
   temperature: number
 }
 
-/** What the renderer needs in order to show the city reacting. Derived, never authored. */
+/**
+ * What the renderer needs in order to show the city reacting. Derived, never authored.
+ *
+ * This is the whole seam between the two halves of the game. The renderer never reads `CityMetrics`;
+ * it reads this, and everything it shows — how often something catches fire, how many patrol cars are
+ * out, who is on the pavement — is one of these numbers. That means no part of the city has a rate of
+ * its own: a house fire is maintenance spending and blight, not a dice roll with a constant behind
+ * it, so funding the building inspectorate is visible on the street without a constant being touched.
+ *
+ * It also means the flow is one-way, which is the same rule that keeps party identity out of the
+ * simulation's arithmetic: what is shown may never feed what is computed. See `docs/CITY_LIFE.md`.
+ */
 export interface CityVisualState {
   constructionSites: number
   completedUnitsSinceStart: number
@@ -313,6 +324,22 @@ export interface CityVisualState {
   nightLife: number
   greenery: number
   unrest: number
+  /** How likely a building is to catch fire: neglected fabric in a city that stopped maintaining it. */
+  fireRisk: number
+  /** Burglaries against the order service's ability to answer them. */
+  burglaryPressure: number
+  /** Collisions: how much traffic there is and how badly the network is coping with it. */
+  accidentPressure: number
+  /** The rare serious call — crime, polarisation and young people with nothing to do. */
+  violentPressure: number
+  /** How quickly anybody gets there, which is staff and nothing else. */
+  responseCapacity: number
+  /** How much is being built, which is what puts trades and deliveries on the street. */
+  buildingActivity: number
+  /** The share of people on the pavement whose family came from somewhere else. */
+  originMix: number
+  /** How many are out during working hours because there is no work. */
+  idleness: number
 }
 
 export interface ActiveMeasureView {

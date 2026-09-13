@@ -7,7 +7,7 @@ import { useGameStore } from '~/stores/game'
 import { formatNumber } from '~/utils/labels'
 
 const game = useGameStore()
-const { snapshot, daylight } = storeToRefs(game)
+const { snapshot, daylight, railOpen } = storeToRefs(game)
 const expanded = ref(false)
 const sound = useSound()
 
@@ -100,11 +100,21 @@ const perception = computed(() => snapshot.value?.perception)
 </script>
 
 <template>
-  <aside class="metric-rail panel" :class="{ expanded }" aria-label="Stadtkennzahlen">
+  <aside class="metric-rail panel" :class="{ expanded, 'is-folded': !railOpen }" aria-label="Stadtkennzahlen">
     <header class="section-heading">
       <span>Lagebild</span>
-      <button type="button" class="rail-toggle" :aria-expanded="expanded" @click="toggleRail">
+      <button v-if="railOpen" type="button" class="rail-toggle" :aria-expanded="expanded" @click="toggleRail">
         {{ expanded ? 'Kurzlage' : 'Lagebericht' }}
+      </button>
+      <button
+        type="button"
+        class="fold-toggle"
+        :aria-expanded="railOpen"
+        :title="railOpen ? 'Lagebild einklappen' : 'Lagebild ausklappen'"
+        :aria-label="railOpen ? 'Lagebild einklappen' : 'Lagebild ausklappen'"
+        @click="game.railOpen = !railOpen"
+      >
+        {{ railOpen ? '−' : '+' }}
       </button>
     </header>
 

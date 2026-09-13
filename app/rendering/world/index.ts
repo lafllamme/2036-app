@@ -3,6 +3,7 @@ import type { CityBlueprint } from '../../core/contracts'
 import type { CityModels } from '../cityModels'
 import type { Agents } from './agents'
 import type { CityBuildings } from './buildings'
+import type { IncidentScenes } from './incidentScene'
 import type { RoadNetwork } from './roadNetwork'
 import type { Ships } from './ships'
 import type { StreetLights } from './streetLights'
@@ -14,6 +15,7 @@ import { createBuildings } from './buildings'
 import { createConstructionSites } from './construction'
 import { addGround } from './ground'
 import { createGrowth } from './growth'
+import { createIncidentScenes } from './incidentScene'
 import { addParkedCars } from './parkedCars'
 import { buildRoadNetwork } from './roadNetwork'
 import { addRoads } from './roads'
@@ -42,6 +44,8 @@ export interface WorldVisuals extends CityBuildings, CityTrees {
   parkedCars: THREE.InstancedMesh[]
   /** Signs, skips and cones down the kerbs: what makes street level look like a street. */
   streetFurniture: THREE.Group
+  /** The cordon, the crowd and the marker at whatever is currently happening. */
+  incidentScenes: IncidentScenes
   /** The junction signals, and the authority the traffic asks whether it may go. */
   signals: TrafficSignals
   network: RoadNetwork
@@ -67,6 +71,7 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
     streetLights: addStreetLights(scene, blueprint, models),
     parkedCars: addParkedCars(scene, blueprint, models),
     streetFurniture: addStreetFurniture(scene, blueprint, models),
+    incidentScenes: createIncidentScenes(scene, models),
     signals,
     network,
     water: addWater(scene, blueprint),

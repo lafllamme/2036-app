@@ -5,10 +5,46 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useGameStore } from '~/stores/game'
 
 const game = useGameStore()
-const { snapshot } = storeToRefs(game)
-const items = computed(() => snapshot.value?.news ?? [])
+const { snapshot, cityReports } = storeToRefs(game)
 
 const SCOPE_LABELS = { city: 'LINDENHAFEN', national: 'DEUTSCHLAND', world: 'WELT' } as const
+
+/**
+ * What a call is announced as.
+ *
+ * Plain and specific: a player should be able to tell a break-in from a collision without looking
+ * up from the panel they are reading. The service is named because that is what the blue light on
+ * the street belongs to, and it is the thing their staffing decisions change.
+ */
+const CALL_HEADLINES = {
+  burglary: 'Polizeieinsatz: Einbruch gemeldet',
+  assault: 'Polizeieinsatz: Körperverletzung',
+  accident: 'Rettungsdienst: Verkehrsunfall',
+  fire: 'Feuerwehr: Gebäudebrand',
+} as const
+
+/**
+ * The two streams in one bar.
+ *
+ * Calls first, because they are what just happened; the council's own news behind them. They stay
+ * separate all the way here — see `cityReports` in the store for why one may never become the other.
+ */
+const items = computed(() => [
+  ...cityReports.value.map(report => ({
+    id: `call-${report.id}`,
+    label: 'EINSATZ',
+    urgent: true,
+    headline: report.district ? `${CALL_HEADLINES[report.kind]} · ${report.district}` : CALL_HEADLINES[report.kind],
+    open: () => { game.selectedReport = report },
+  })),
+  ...(snapshot.value?.news ?? []).map(item => ({
+    id: item.id,
+    label: SCOPE_LABELS[item.scope],
+    urgent: false,
+    headline: item.headline,
+    open: () => { game.selectedNews = item },
+  })),
+])
 
 const windowRef = ref<HTMLElement | null>(null)
 const cycleRef = ref<HTMLElement | null>(null)
@@ -40,19 +76,33 @@ const duration = computed(() => `${Math.max(38, items.value.length * 8)}s`)
     <div class="news-label">
       <span /> STADTFUNK
     </div>
-    <button ref="windowRef" class="ticker-window" type="button" @click="items[0] && (game.selectedNews = items[0])">
+    <div ref="windowRef" class="ticker-window">
       <span class="ticker-track" :class="{ 'is-static': !scrolls }" :style="{ '--ticker-duration': duration }">
         <span ref="cycleRef" class="ticker-cycle">
-          <span v-for="item in items" :key="item.id" class="ticker-item">
-            <b>{{ SCOPE_LABELS[item.scope] }}</b>{{ item.headline }}
-          </span>
+          <button v-for="item in items" :key="item.id" type="button" class="ticker-item" :class="{ 'is-call': item.urgent }" @click="item.open()">
+            <b>{{ item.label }}</b>{{ item.headline }}
+          </button>
         </span>
+        <!--
+          The second cycle is what makes the loop read as a loop. It used to be inert text, so the
+          moment the first cycle slid off the bar the only headlines on screen could not be clicked
+          — the bar looked interactive and was not. Same buttons, hidden from assistive technology
+          and out of the tab order, because to a screen reader they are the same headlines twice.
+        -->
         <span v-if="scrolls" class="ticker-cycle" aria-hidden="true">
-          <span v-for="item in items" :key="`echo-${item.id}`" class="ticker-item">
-            <b>{{ SCOPE_LABELS[item.scope] }}</b>{{ item.headline }}
-          </span>
+          <button
+            v-for="item in items"
+            :key="`echo-${item.id}`"
+            type="button"
+            tabindex="-1"
+            class="ticker-item"
+            :class="{ 'is-call': item.urgent }"
+            @click="item.open()"
+          >
+            <b>{{ item.label }}</b>{{ item.headline }}
+          </button>
         </span>
       </span>
-    </button>
+    </div>
   </section>
 </template>

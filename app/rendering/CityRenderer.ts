@@ -1,6 +1,7 @@
 import type { BuildingRecord, CityBlueprint, SimulationSnapshot, SkyState } from '../core/contracts'
 import type { CityModels } from './cityModels'
 import type { SkyVisuals } from './sky/index'
+import type { IncidentKind, Service } from './world/incidents'
 import type { WorldVisuals } from './world/index'
 import * as THREE from 'three/webgpu'
 import { useCityAmbience } from '../audio/cityAmbience'
@@ -11,6 +12,7 @@ import { createSky } from './sky/index'
 import { shadowExtent } from './sky/sun'
 import { updateAgents } from './world/agents'
 import { CityState } from './world/cityState'
+import { updateIncidentScenes } from './world/incidentScene'
 import { createWorld } from './world/index'
 import { updateShips } from './world/ships'
 import { updateSignals } from './world/trafficLights'
@@ -34,6 +36,24 @@ export interface RendererStats {
   resolution: number
 }
 
+/**
+ * A call the city has just raised, on its way to the ticker.
+ *
+ * The renderer tells the interface what happened and where; it never tells the simulation. That is
+ * the same one-way rule the visual state follows, and the reason a police call can be read out on
+ * the news bar without becoming an input to anything the council is scored on.
+ */
+export interface IncidentReport {
+  id: number
+  kind: IncidentKind
+  service: Exclude<Service, 'none'>
+  /** The district it happened in, by name, or null out where the map has no districts. */
+  district: string | null
+  /** Where, so the interface can offer to take the player there instead of making them hunt. */
+  x: number
+  z: number
+}
+
 export interface CityRendererOptions {
   canvas: HTMLCanvasElement
   blueprint: CityBlueprint
@@ -42,6 +62,8 @@ export interface CityRendererOptions {
   onReady: (stats: RendererStats) => void
   onStats: (stats: RendererStats) => void
   onError: (message: string) => void
+  /** Called once for every call the city raises. Optional: the city runs the same without it. */
+  onIncident?: (report: IncidentReport) => void
 }
 
 /**
@@ -109,6 +131,11 @@ export class CityRenderer {
   private readonly timer = new THREE.Timer()
   private readonly resizeObserver: ResizeObserver
   private readonly onStats: CityRendererOptions['onStats']
+  private readonly onIncident: CityRendererOptions['onIncident']
+  /** Kept only so a call can be told which district it happened in. */
+  private readonly districts: CityBlueprint['definition']['districts']
+  /** The highest call number already reported, so each is announced exactly once. */
+  private reportedCall = 0
   private readonly buildingCount: number
 
   private frameCounter = 0
@@ -129,6 +156,8 @@ export class CityRenderer {
   constructor(options: CityRendererOptions) {
     this.canvas = options.canvas
     this.onStats = options.onStats
+    this.onIncident = options.onIncident
+    this.districts = options.blueprint.definition.districts
     this.buildingCount = options.blueprint.buildings.length
 
     const forceWebGL = new URLSearchParams(window.location.search).has('webgl')
@@ -242,6 +271,11 @@ export class CityRenderer {
   }
 
   /** Fly back out to the opening view of the whole city. */
+  /** Fly to a place rather than to a building: the camera's way of answering "show me where". */
+  focusOnPlace(x: number, z: number): void {
+    this.rig.focusOnPlace(x, z)
+  }
+
   showOverview(): void {
     this.rig.frameCity()
   }
@@ -321,7 +355,15 @@ export class CityRenderer {
         distance,
         this.city.trafficFactor,
         this.hourOfDay,
-        this.city.unrest,
+        this.city.pressure,
+      )
+      this.reportIncidents()
+      updateIncidentScenes(
+        this.world.incidentScenes,
+        this.world.agents.incidents,
+        this.world.agents.relief,
+        this.animationElapsed,
+        distance,
       )
       updateSignals(this.world.signals, this.animationElapsed)
       /*
@@ -357,6 +399,40 @@ export class CityRenderer {
       this.fitResolution()
       this.onStats(this.getStats())
     }
+  }
+
+  /**
+   * Announce anything that has just happened.
+   *
+   * Calls carry a number that only ever rises, so "everything above the last one I mentioned" is
+   * the whole of the bookkeeping — no set to keep, nothing to clean up when a call clears.
+   */
+  private reportIncidents(): void {
+    if (!this.onIncident)
+      return
+    for (const incident of this.world.agents.incidents) {
+      if (incident.id <= this.reportedCall)
+        continue
+      this.reportedCall = incident.id
+      this.onIncident({
+        id: incident.id,
+        kind: incident.kind,
+        service: incident.service,
+        district: this.districtAt(incident.x, incident.z),
+        x: incident.x,
+        z: incident.z,
+      })
+    }
+  }
+
+  /** Which district a point is in, by the bounds the city definition gives each one. */
+  private districtAt(x: number, z: number): string | null {
+    for (const district of this.districts) {
+      const { bounds } = district
+      if (x >= bounds.minX && x <= bounds.maxX && z >= bounds.minZ && z <= bounds.maxZ)
+        return district.name
+    }
+    return null
   }
 
   /**

@@ -22,9 +22,50 @@ const {
   speed,
   selectedBuilding,
   selectedNews,
+  selectedReport,
   rendererStats,
 } = storeToRefs(game)
 const selectedParty = computed(() => selectedPartyId.value ? getParty(selectedPartyId.value) : null)
+
+/*
+ * A call, said three ways.
+ *
+ * The bar has room for one line and says who was sent and what for. The dialog has room to split
+ * that: the service and district as a kicker, the thing itself as the headline, and the reason it
+ * happened underneath — because in this game an incident always has one.
+ */
+const CALL_TITLES: Record<string, string> = {
+  burglary: 'Einbruch gemeldet',
+  assault: 'Körperverletzung',
+  accident: 'Verkehrsunfall',
+  fire: 'Gebäudebrand',
+}
+const CALL_SUBTITLES: Record<string, string> = {
+  burglary: 'Einbruchsrate gegen den Ordnungsdienst',
+  assault: 'Kriminalität, Polarisierung, Jugendarbeitslosigkeit',
+  accident: 'Verkehrsaufkommen gegen die Zuverlässigkeit des Netzes',
+  fire: 'Unterhalt der Bausubstanz',
+}
+const SERVICE_LABELS: Record<string, string> = {
+  police: 'Polizei',
+  ambulance: 'Rettungsdienst',
+  fire: 'Feuerwehr',
+}
+/** Which of the three service colours a dialog wears. */
+const SERVICE_TONE: Record<string, string> = {
+  police: 'police',
+  ambulance: 'medical',
+  fire: 'fire',
+}
+
+/** Take the player there and get out of the way; the camera is the answer, not the dialog. */
+function flyToReport(): void {
+  const report = selectedReport.value
+  if (!report)
+    return
+  game.focusOnPlace(report.x, report.z)
+  game.selectedReport = null
+}
 
 const coalitionStanding = computed(() => (snapshot.value?.coalitionSupport ?? 0) > 30 ? 'Mehrheit' : 'Minderheit')
 
@@ -199,7 +240,51 @@ function restart(): void {
         <h2 id="news-title">
           {{ selectedNews.headline }}
         </h2>
-        <p>Diese Meldung wurde aus dem deterministischen Stadtmodell erzeugt. Zugehörige Ursachen erscheinen im monatlichen Kausalprotokoll.</p>
+        <p class="dialog-note">
+          Diese Meldung wurde aus dem deterministischen Stadtmodell erzeugt. Zugehörige Ursachen erscheinen im monatlichen Kausalprotokoll.
+        </p>
+      </article>
+    </div>
+
+    <div v-if="selectedReport" class="modal-backdrop" @click.self="game.selectedReport = null">
+      <article
+        class="news-dialog report-dialog panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="report-title"
+        :style="{ '--call': `var(--call-${SERVICE_TONE[selectedReport.service]})` }"
+      >
+        <button type="button" class="close-button" aria-label="Meldung schließen" @click="game.selectedReport = null">
+          ×
+        </button>
+        <small class="report-kicker">
+          <i /> {{ SERVICE_LABELS[selectedReport.service] }}{{ selectedReport.district ? ` · ${selectedReport.district}` : '' }}
+        </small>
+        <h2 id="report-title">
+          {{ CALL_TITLES[selectedReport.kind] }}
+        </h2>
+        <p class="report-meta">
+          Einsatz {{ String(selectedReport.id).padStart(3, '0') }} · {{ CALL_SUBTITLES[selectedReport.kind] }}
+        </p>
+        <!--
+          The point of the whole thing: a call is a place, and the player should never have to go
+          hunting across three kilometres of city for the one they were just told about.
+        -->
+        <div class="dialog-actions">
+          <button type="button" class="dialog-action" @click="flyToReport">
+            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <path d="M1.5 5.5v-4h4M14.5 5.5v-4h-4M1.5 10.5v4h4M14.5 10.5v4h-4" />
+              <circle cx="8" cy="8" r="2.1" />
+            </svg>
+            Zum Einsatzort
+          </button>
+          <button type="button" class="dialog-action ghost" @click="game.selectedReport = null">
+            Später
+          </button>
+        </div>
+        <p class="dialog-note">
+          Einsätze entstehen aus dem Stadtmodell: Einbrüche aus der Belastung des Ordnungsdienstes, Unfälle aus dem Verkehr. Sie sind keine Zufallsereignisse.
+        </p>
       </article>
     </div>
   </main>

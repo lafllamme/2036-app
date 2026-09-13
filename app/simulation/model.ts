@@ -396,17 +396,73 @@ function eventNews(event: EventDefinition, month: number): NewsItem {
   return { id: `event-${event.id}-${month}`, month, scope: 'city', urgency: event.urgency, headline: event.title.toUpperCase() }
 }
 
+/**
+ * Everything the city shows, derived from what the city is.
+ *
+ * Each of these is a reading and never a setting. There is no lever marked "more fires": a fire is
+ * what happens when a council lets maintenance spending fall and vacancy rise, and the only way to
+ * see fewer of them is to fix that. The renderer reads these and nothing else, which is what keeps
+ * the display out of the arithmetic — see `docs/CITY_LIFE.md`.
+ *
+ * Each is scaled so that 0 is a well-run city and 1 is one in trouble, because the renderer turns
+ * them into frequencies and a frequency needs a known range.
+ */
 function visualsFrom(metrics: CityMetrics, stocks: CityStocks): CityVisualState {
   const vacancy = vacancyRate(metrics)
+  const blight = clamp((vacancy - 0.05) / 0.08, 0, 1)
+  /*
+   * Maintenance against what the baseline spends. Below it the fabric is being run down — which is
+   * what old wiring, blocked escapes and empty flats with nobody to notice a fire actually are.
+   */
+  const upkeep = clamp(stocks.maintenanceSpend / Math.max(1, BASELINE_STOCKS.maintenanceSpend), 0.3, 1.6)
+  /*
+   * Staff per thousand of population rather than raw staff, so a growing city has to keep hiring to
+   * stand still. This is the one number that shortens every response in the city.
+   */
+  const staffing = clamp(
+    (stocks.orderServiceFte / Math.max(1, metrics.population / 1_000))
+    / Math.max(0.001, BASELINE_STOCKS.orderServiceFte / (BASELINE_METRICS.population / 1_000)),
+    0.35,
+    1.8,
+  )
+
   return {
     constructionSites: Math.round(clamp(metrics.unitsUnderConstruction / 150, 0, 16)),
     completedUnitsSinceStart: Math.round(metrics.housingUnits - BASELINE_METRICS.housingUnits),
     vacancyRate: vacancy,
-    blight: clamp((vacancy - 0.05) / 0.08, 0, 1),
+    blight,
     transitDensity: clamp(metrics.transitCoverage / 100, 0, 1),
     nightLife: clamp(metrics.satisfaction / 100, 0, 1),
     greenery: clamp(stocks.greenSpaceHectares / BASELINE_STOCKS.greenSpaceHectares, 0.4, 1.8),
     unrest: clamp((metrics.polarisation / 100) * (1 - metrics.satisfaction / 100) * 2.2, 0, 1),
+
+    fireRisk: clamp((1.25 - upkeep) * 0.7 + blight * 0.5, 0, 1),
+    // Break-ins against the people whose job is to answer them.
+    burglaryPressure: clamp((metrics.burglaryRate / 12) / staffing, 0, 1),
+    /*
+     * Collisions rise with how much traffic there is and fall with how well the network carries it —
+     * a city that moved its journeys onto a reliable transit system has fewer cars to crash.
+     */
+    accidentPressure: clamp(
+      (1 - metrics.transitCoverage / 130) * (1.35 - metrics.transitReliability / 100) * 0.9,
+      0,
+      1,
+    ),
+    // The rare serious call: crime, a divided city, and young people with nothing to do.
+    violentPressure: clamp(
+      ((metrics.crimeRate / 90) * 0.5 + (metrics.polarisation / 100) * 0.3 + (metrics.youthUnemployment / 22) * 0.2)
+      / staffing,
+      0,
+      1,
+    ),
+    responseCapacity: clamp(staffing / 1.4, 0.2, 1),
+    buildingActivity: clamp(metrics.unitsUnderConstruction / 900, 0, 1),
+    /*
+     * A demographic reading and nothing more. It decides who is on the pavement and never what
+     * happens there: `docs/CITY_LIFE.md` states the separation and an architecture test holds it.
+     */
+    originMix: clamp(metrics.internationalShare / 100, 0, 1),
+    idleness: clamp(metrics.youthUnemployment / 24, 0, 1),
   }
 }
 

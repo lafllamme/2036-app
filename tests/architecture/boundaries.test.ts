@@ -97,7 +97,7 @@ describe('architecture boundaries', () => {
     for (const match of fontBlock.matchAll(/^\s{6}([a-z]+):/gm)) defined.add(`--font-${match[1]}`)
 
     // Set at runtime via :style bindings rather than declared anywhere.
-    const runtimeProvided = new Set(['--party-color', '--party-accent', '--ticker-duration'])
+    const runtimeProvided = new Set(['--party-color', '--party-accent', '--ticker-duration', '--call'])
 
     for (const file of [...sourceFiles('app/components'), { path: 'app/assets/css/styles.css', source: stylesheet }]) {
       for (const match of file.source.matchAll(/var\((--[a-z0-9-]+)\)/g)) {

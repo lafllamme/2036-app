@@ -11,7 +11,7 @@ import type {
   VoteForecast,
   VoteResult,
 } from '~/core/contracts'
-import type { RendererStats } from '~/rendering/CityRenderer'
+import type { IncidentReport, RendererStats } from '~/rendering/CityRenderer'
 import { useIntervalFn } from '@vueuse/core'
 import { defineStore } from 'pinia'
 import { computed, onScopeDispose, ref, shallowRef } from 'vue'
@@ -58,6 +58,49 @@ export const useGameStore = defineStore('game', () => {
    * canvas component, which does own one, watches it.
    */
   const overviewRequest = ref(0)
+
+  /**
+   * What the city has just reported, newest first.
+   *
+   * These come from the renderer, not from the simulation, and they stay here rather than being
+   * folded into `snapshot.news`: a burglary on the news bar must never become an input to anything
+   * the council is scored on. It reads the same way to the player and stays on the right side of
+   * the one-way rule in `docs/CITY_LIFE.md`.
+   *
+   * Capped, because a ticker that grows for the length of a ten-year campaign is a memory leak with
+   * a scroll animation.
+   */
+  const cityReports = ref<IncidentReport[]>([])
+  const CITY_REPORT_LIMIT = 8
+  /** The call the player has opened from the ticker, if any. */
+  const selectedReport = shallowRef<IncidentReport | null>(null)
+  /**
+   * Where the player has asked to be taken.
+   *
+   * Same shape as `overviewRequest` and for the same reason: the store may not hold a camera, so it
+   * holds the request and the canvas, which does own one, watches it. Replaced rather than mutated
+   * so that asking twice for the same place still fires.
+   */
+  const focusRequest = shallowRef<{ x: number, z: number, at: number } | null>(null)
+
+  function focusOnPlace(x: number, z: number): void {
+    focusRequest.value = { x, z, at: Date.now() }
+  }
+
+  function reportIncident(report: IncidentReport): void {
+    cityReports.value = [report, ...cityReports.value].slice(0, CITY_REPORT_LIMIT)
+  }
+
+  /**
+   * Whether the two side panels are open.
+   *
+   * They used to be permanently open and together covered most of the city — which is the thing the
+   * player is meant to be looking at. Both fold to their headers now, and the decisions panel starts
+   * folded when there is nothing to decide, so the screen is only as full as the month is busy.
+   */
+  const railOpen = ref(true)
+  const decisionsOpen = ref(true)
+
   const ready = ref(false)
   const error = ref<string | null>(null)
   const saveStatus = ref('Nicht gespeichert')
@@ -380,6 +423,13 @@ export const useGameStore = defineStore('game', () => {
     speed,
     overviewRequest,
     showOverview,
+    cityReports,
+    reportIncident,
+    selectedReport,
+    focusRequest,
+    focusOnPlace,
+    railOpen,
+    decisionsOpen,
     ready,
     error,
     saveStatus,

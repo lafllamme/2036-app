@@ -18,6 +18,9 @@ const OVERVIEW_POSITION = /* @__PURE__ */ new THREE.Vector3(1_720, 1_030, 1_800)
 const OVERVIEW_TARGET = /* @__PURE__ */ new THREE.Vector3(0, 0, 0)
 /** How far above the land the camera is kept, in metres. About the height of a first-floor window. */
 const GROUND_CLEARANCE = 6
+/** How high above the ground the camera looks when it is sent to a place, and how far back. */
+const PLACE_EYE = 5
+const PLACE_DISTANCE = 130
 
 interface FocusTween {
   started: number
@@ -89,6 +92,16 @@ export class CameraRig {
     }
   }
 
+  /**
+   * Fly to a point on the ground.
+   *
+   * The same move as flying to a building, without one: an incident happens at a junction, not at
+   * an address, and a player told "Einbruch · Hafenviertel" should not have to go looking for it.
+   */
+  focusOnPlace(x: number, z: number): void {
+    this.flyTo(new THREE.Vector3(x, this.relief.height(x, z) + PLACE_EYE, z), PLACE_DISTANCE)
+  }
+
   focusOn(building: BuildingRecord): void {
     /*
      * On the ground the building stands on. Reading the height off the record alone put the camera's
@@ -97,8 +110,12 @@ export class CameraRig {
      */
     const ground = this.relief.height(building.x, building.z)
     const target = new THREE.Vector3(building.x, ground + building.height * 0.35, building.z)
+    this.flyTo(target, Math.max(95, building.height * 3.5))
+  }
+
+  /** One tween, shared: keep the bearing the player already has and close to `distance`. */
+  private flyTo(target: THREE.Vector3, distance: number): void {
     const direction = this.camera.position.clone().sub(this.controls.target).normalize()
-    const distance = Math.max(95, building.height * 3.5)
     this.tween = {
       started: performance.now(),
       fromTarget: this.controls.target.clone(),

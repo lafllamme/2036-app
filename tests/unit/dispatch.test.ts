@@ -1,48 +1,113 @@
 import { describe, expect, it } from 'vitest'
+import {
+  CALL_INTERVAL_BUSY,
+  CALL_INTERVAL_CALM,
+  callLimit,
+  callWait,
+  pickKind,
+  responseSpeed,
+  SERVICE_FOR,
+  SHAPE,
+} from '../../app/rendering/world/incidents'
 
 /**
  * What a siren is allowed to mean.
  *
- * The first version held a share of the emergency fleet on blue lights permanently, scaled by how
- * unsettled the city was — so the sirens never stopped and told the player nothing. A siren has to
- * be attached to something that happened at a place and that ends. These pin the timings that make
- * that true, without needing a GPU to check them.
+ * The first version held a share of the emergency fleet on blue lights permanently, scaled by a
+ * single "unrest" number — so the sirens never stopped and told the player nothing about what they
+ * had decided. A siren now belongs to a call, a call belongs to a pressure, and every pressure comes
+ * from something the council did. These pin that chain down without needing a GPU.
  */
-const CALL_INTERVAL_CALM = 210
-const CALL_INTERVAL_BUSY = 38
-const ON_SCENE = 34
-const CALL_TIMEOUT = 260
 
-/** The same curve `dispatch` uses: unrest shortens the wait between calls. */
-function waitFor(unrest: number): number {
-  const settled = 1 - Math.min(1, Math.max(0, unrest))
-  return CALL_INTERVAL_BUSY + (CALL_INTERVAL_CALM - CALL_INTERVAL_BUSY) * settled
-}
+const CALM = { burglary: 0, accident: 0, violent: 0, response: 0.6, building: 0 }
+const WORST = { burglary: 1, accident: 1, violent: 1, response: 0.2, building: 1 }
 
 describe('emergency dispatch', () => {
-  it('leaves a settled city quiet for minutes at a time', () => {
-    // Three and a half minutes between calls, each about half a minute long: silence is the norm.
-    expect(waitFor(0)).toBe(CALL_INTERVAL_CALM)
-    expect(waitFor(0)).toBeGreaterThan(ON_SCENE * 5)
+  it('leaves a well-run city quiet for minutes at a time', () => {
+    // A floor of ordinary calls, but nowhere near the busy end: silence is the norm.
+    expect(callWait(CALM)).toBeGreaterThan(CALL_INTERVAL_CALM * 0.7)
+    expect(callWait(CALM)).toBeLessThanOrEqual(CALL_INTERVAL_CALM)
   })
 
   it('stacks them up when the city is in trouble, but never without pause', () => {
-    expect(waitFor(1)).toBe(CALL_INTERVAL_BUSY)
-    // Even at its worst a call still takes longer to arrive than the last one takes to clear.
-    expect(waitFor(1)).toBeGreaterThan(ON_SCENE)
+    expect(callWait(WORST)).toBe(CALL_INTERVAL_BUSY)
+    // Even at its worst, half a minute passes between one call and the next.
+    expect(callWait(WORST)).toBeGreaterThan(30)
   })
 
-  it('is monotonic in unrest, so the city sounds like what the numbers say', () => {
-    let previous = Infinity
-    for (const unrest of [0, 0.25, 0.5, 0.75, 1]) {
-      const wait = waitFor(unrest)
-      expect(wait).toBeLessThan(previous)
-      previous = wait
+  it('gets louder with every pressure separately, so a policy is legible', () => {
+    for (const driver of ['burglary', 'accident', 'violent'] as const) {
+      let previous = Infinity
+      for (const level of [0, 0.25, 0.5, 0.75, 1]) {
+        const wait = callWait({ ...CALM, [driver]: level })
+        expect(wait).toBeLessThan(previous)
+        previous = wait
+      }
     }
   })
 
-  it('gives up on a call nobody reached, so one bad route cannot hold the fleet', () => {
-    expect(CALL_TIMEOUT).toBeGreaterThan(ON_SCENE)
-    expect(CALL_TIMEOUT).toBeGreaterThan(CALL_INTERVAL_BUSY)
+  it('sends the right service, and only ever one of three kinds', () => {
+    expect(SERVICE_FOR[pickKind(WORST, 0)]).toBe('police')
+    for (const roll of [0, 0.2, 0.4, 0.6, 0.8, 0.999]) {
+      const kind = pickKind(WORST, roll)
+      expect(['burglary', 'accident', 'assault']).toContain(kind)
+      expect(SERVICE_FOR[kind]).toMatch(/police|ambulance/)
+    }
+  })
+
+  it('draws break-ins where policing is outrun, and collisions where the traffic is', () => {
+    // The same roll, two different cities: what happens follows what the council starved.
+    const policing = { ...CALM, burglary: 1 }
+    const traffic = { ...CALM, accident: 1 }
+    const mid = 0.55
+    expect(pickKind(policing, mid)).toBe('burglary')
+    expect(pickKind(traffic, mid)).toBe('accident')
+  })
+
+  it('keeps violence rare even in the worst city it can model', () => {
+    let assaults = 0
+    const steps = 200
+    for (let step = 0; step < steps; step += 1) {
+      if (pickKind(WORST, step / steps) === 'assault')
+        assaults += 1
+    }
+    expect(assaults / steps).toBeLessThan(0.2)
+  })
+
+  it('lets an understaffed city fall behind rather than have fewer emergencies', () => {
+    // Staffing does not change how much happens; it changes how fast anyone gets there.
+    expect(responseSpeed({ ...CALM, response: 1 })).toBeGreaterThan(responseSpeed({ ...CALM, response: 0 }))
+    expect(callWait({ ...WORST, response: 1 })).toBe(callWait({ ...WORST, response: 0 }))
+    // And a city under pressure has more open at once, because nobody has cleared the last one.
+    expect(callLimit(WORST)).toBeGreaterThan(callLimit(CALM))
+  })
+})
+
+describe('what a call looks like on the ground', () => {
+  it('gives every kind its own shape, not just its own colour', () => {
+    const shapes = Object.values(SHAPE).map(shape => `${shape.cordon}/${shape.radius}/${shape.crowd}/${shape.wrecks}`)
+    // Four kinds, four different scenes. A burglary must not read as a collision in another colour.
+    expect(new Set(shapes).size).toBe(shapes.length)
+  })
+
+  it('puts wrecked cars at collisions and nowhere else', () => {
+    expect(SHAPE.accident.wrecks).toBeGreaterThan(0)
+    expect(SHAPE.burglary.wrecks).toBe(0)
+    expect(SHAPE.assault.wrecks).toBe(0)
+    expect(SHAPE.fire.wrecks).toBe(0)
+  })
+
+  it('closes more of the street the bigger the call', () => {
+    // A break-in is three barriers at a door; a fire shuts the road.
+    expect(SHAPE.burglary.radius).toBeLessThan(SHAPE.accident.radius)
+    expect(SHAPE.accident.radius).toBeLessThan(SHAPE.fire.radius)
+  })
+
+  it('stays inside the instance budget the renderer reserves', () => {
+    for (const shape of Object.values(SHAPE)) {
+      expect(shape.cordon).toBeLessThanOrEqual(8)
+      expect(shape.crowd).toBeLessThanOrEqual(6)
+      expect(shape.wrecks).toBeLessThanOrEqual(2)
+    }
   })
 })

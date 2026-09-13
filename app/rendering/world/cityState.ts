@@ -1,4 +1,5 @@
 import type { CityBlueprint, SimulationSnapshot } from '../../core/contracts'
+import type { CityPressure } from './incidents'
 import type { WorldVisuals } from './index'
 import * as THREE from 'three/webgpu'
 import { paint } from '../picking'
@@ -24,6 +25,21 @@ export class CityState {
   nightLife = 0.67
   /** How unsettled the city is, which is what decides how many blue lights are out. */
   unrest = 0
+  /**
+   * What the city is under, handed to the agents unchanged.
+   *
+   * These used to be one number — unrest — standing in for everything that could go wrong, so a
+   * council could not tell a policing decision from a transport one by looking out of the window.
+   * Each pressure now has its own driver in `visualsFrom`, and each is visible as a different kind
+   * of call. See `docs/CITY_LIFE.md`.
+   */
+  pressure: CityPressure = { burglary: 0, accident: 0, violent: 0, response: 0.6, building: 0 }
+  /**
+   * Who is on the pavement: the share of people whose family came from somewhere else, and how many
+   * are out during working hours because there is no work. Appearance only, never behaviour.
+   */
+  originMix = 0
+  idleness = 0
   /** How many growth parcels the simulation has filled, kept so the warm-up can hand them back. */
   delivered = 0
 
@@ -47,6 +63,15 @@ export class CityState {
     )
     this.nightLife = city.nightLife
     this.unrest = THREE.MathUtils.clamp(city.unrest, 0, 1)
+    this.pressure = {
+      burglary: city.burglaryPressure,
+      accident: city.accidentPressure,
+      violent: city.violentPressure,
+      response: city.responseCapacity,
+      building: city.buildingActivity,
+    }
+    this.originMix = city.originMix
+    this.idleness = city.idleness
 
     // Delivered housing fills the free parcels the generator left, from the centre outward.
     this.delivered = THREE.MathUtils.clamp(Math.round(city.completedUnitsSinceStart / this.unitsPerBuilding), 0, slots.length)

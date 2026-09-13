@@ -20,8 +20,19 @@ import { BAY_WIDTH, facadeTexture, STOREY_HEIGHT, windowLightTexture } from './f
 /** How many tiles across the city is cut into. Four is thirty-two draws for the entire skyline. */
 const TILES = 4
 const CITY_EXTENT = 1_500
-/** How far a roof draws in from the wall below it. A pitched roof is a truncated pyramid. */
+/** How far a roof draws in from the wall below it, where it has to be a truncated pyramid. */
 const ROOF_INSET = 2.4
+/**
+ * How far a gable's eaves reach past the wall.
+ *
+ * Most of the city is rectangular — eleven thousand of fourteen — and a rectangle with a pitched roof
+ * is a house with a gable: a ridge down the long axis, two slopes, two triangular ends. It was a
+ * truncated pyramid like everything else, which is a marquee, and it is the single reason the small
+ * houses read as sheds. A gable costs six triangles against the pyramid's ten, so this is cheaper
+ * than what it replaces. The overhang is what casts the line of shadow along the wall that tells you
+ * a roof is a roof.
+ */
+const EAVES = 0.5
 /**
  * How far a building's walls are buried below the ground at each corner.
  *
@@ -256,8 +267,19 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
   }
 
   // ---- roof ----
-  const cap = building.roofHeight > 0.4 ? inset(ring, ROOF_INSET) : ring
   const capHeight = ground + building.height
+  /*
+   * A rectangle gets a real gable. Anything else — an L, a corner block, a five-sided house on a
+   * bend — keeps the truncated pyramid, which is what a hipped roof looks like from any distance the
+   * camera can reach and costs nothing to work out.
+   */
+  if (corners === 4 && building.roofHeight > 0.4) {
+    gable(tile, ring, wallTop, capHeight, roof)
+    tile.ranges.push({ start, count: tile.position.length / 3 - start })
+    return
+  }
+
+  const cap = building.roofHeight > 0.4 ? inset(ring, ROOF_INSET) : ring
   if (building.roofHeight > 0.4) {
     for (let i = 0; i < corners; i += 1) {
       const j = (i + 1) % corners
@@ -319,6 +341,97 @@ function push(tile: Tile, x: number, y: number, z: number, nx: number, nz: numbe
   tile.normal.push(up ? 0 : nx, up ? 1 : 0, up ? 0 : nz)
   tile.uv.push(u, v)
   tile.colour.push(colour.r, colour.g, colour.b)
+}
+
+/** Vertex with a normal of its own, which a sloping roof plane needs and the walls never do. */
+function pushSloped(tile: Tile, x: number, y: number, z: number, normal: number[], colour: THREE.Color): void {
+  tile.position.push(x, y, z)
+  tile.normal.push(normal[0]!, normal[1]!, normal[2]!)
+  tile.uv.push(0, 0)
+  tile.colour.push(colour.r, colour.g, colour.b)
+}
+
+/**
+ * A gabled roof on a rectangle: a ridge down its long axis, a slope either side of it and a
+ * triangular wall closing each end.
+ *
+ * The ridge runs between the middles of the two short edges, which is what makes it the long axis
+ * without having to measure an angle. The eaves reach past the long walls — across the ridge only,
+ * so the gable ends stay flush with the wall below them and there is nothing to close up.
+ */
+function gable(tile: Tile, ring: number[], wallTop: number, ridgeHeight: number, colour: THREE.Color): void {
+  const at = (index: number): [number, number] => [ring[(index % 4) * 2]!, ring[(index % 4) * 2 + 1]!]
+  const [x0, z0] = at(0)
+  const [x1, z1] = at(1)
+  const [x2, z2] = at(2)
+  const [x3, z3] = at(3)
+
+  // Whichever pair of opposite edges is longer carries the eaves; the ridge runs between the others.
+  const alongFirst = Math.hypot(x1 - x0, z1 - z0) >= Math.hypot(x2 - x1, z2 - z1)
+  const eaveA = alongFirst ? [[x0, z0], [x1, z1]] : [[x1, z1], [x2, z2]]
+  const eaveB = alongFirst ? [[x2, z2], [x3, z3]] : [[x3, z3], [x0, z0]]
+
+  const midAx = (eaveA[0]![0]! + eaveA[1]![0]!) / 2
+  const midAz = (eaveA[0]![1]! + eaveA[1]![1]!) / 2
+  const midBx = (eaveB[0]![0]! + eaveB[1]![0]!) / 2
+  const midBz = (eaveB[0]![1]! + eaveB[1]![1]!) / 2
+  // Across the ridge: from one eave toward the other, which is the direction the eaves reach out in.
+  const acrossLength = Math.hypot(midAx - midBx, midAz - midBz) || 1
+  const acrossX = ((midAx - midBx) / acrossLength) * EAVES
+  const acrossZ = ((midAz - midBz) / acrossLength) * EAVES
+
+  const a0 = [eaveA[0]![0]! + acrossX, eaveA[0]![1]! + acrossZ]
+  const a1 = [eaveA[1]![0]! + acrossX, eaveA[1]![1]! + acrossZ]
+  const b0 = [eaveB[0]![0]! - acrossX, eaveB[0]![1]! - acrossZ]
+  const b1 = [eaveB[1]![0]! - acrossX, eaveB[1]![1]! - acrossZ]
+  // The ridge sits over the middle of the two short edges.
+  const ridge0 = [(a1[0]! + b0[0]!) / 2, (a1[1]! + b0[1]!) / 2]
+  const ridge1 = [(b1[0]! + a0[0]!) / 2, (b1[1]! + a0[1]!) / 2]
+
+  const slope = (eave0: number[], eave1: number[], top0: number[], top1: number[]): void => {
+    const normal = faceNormal(
+      [eave0[0]!, wallTop, eave0[1]!],
+      [eave1[0]!, wallTop, eave1[1]!],
+      [top1[0]!, ridgeHeight, top1[1]!],
+    )
+    const vertex = tile.position.length / 3
+    pushSloped(tile, eave0[0]!, wallTop, eave0[1]!, normal, colour)
+    pushSloped(tile, eave1[0]!, wallTop, eave1[1]!, normal, colour)
+    pushSloped(tile, top0[0]!, ridgeHeight, top0[1]!, normal, colour)
+    pushSloped(tile, top1[0]!, ridgeHeight, top1[1]!, normal, colour)
+    tile.roofIndex.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2)
+  }
+
+  slope(a0, a1, ridge0, ridge1)
+  slope(b0, b1, ridge1, ridge0)
+
+  // The two gable walls, closing the ends under the ridge.
+  const end = (left: number[], right: number[], apex: number[]): void => {
+    const normal = faceNormal([left[0]!, wallTop, left[1]!], [right[0]!, wallTop, right[1]!], [apex[0]!, ridgeHeight, apex[1]!])
+    const vertex = tile.position.length / 3
+    pushSloped(tile, left[0]!, wallTop, left[1]!, normal, colour)
+    pushSloped(tile, right[0]!, wallTop, right[1]!, normal, colour)
+    pushSloped(tile, apex[0]!, ridgeHeight, apex[1]!, normal, colour)
+    tile.roofIndex.push(vertex, vertex + 2, vertex + 1)
+  }
+
+  end(a1, b0, ridge0)
+  end(b1, a0, ridge1)
+}
+
+/** The outward normal of a triangle, wound the way the roof indices are. */
+function faceNormal(a: number[], b: number[], c: number[]): number[] {
+  const ux = b[0]! - a[0]!
+  const uy = b[1]! - a[1]!
+  const uz = b[2]! - a[2]!
+  const vx = c[0]! - a[0]!
+  const vy = c[1]! - a[1]!
+  const vz = c[2]! - a[2]!
+  const nx = uz * vy - uy * vz
+  const ny = ux * vz - uz * vx
+  const nz = uy * vx - ux * vy
+  const length = Math.hypot(nx, ny, nz) || 1
+  return [nx / length, ny / length, nz / length]
 }
 
 /** Move every corner in toward the ring's centre, which is enough of a roof at this scale. */

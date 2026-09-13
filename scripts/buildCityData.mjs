@@ -298,6 +298,17 @@ const COURT_STEP = 19
 const COURT_MIN = 6
 const COURT_MAX = 13
 const COURT_REACH = 42
+/**
+ * How built-up the neighbourhood has to be before a courtyard has workshops in it.
+ *
+ * A Gründerzeit block has a yard full of them behind the street wall. A street of detached houses
+ * has gardens, and putting sheds there instead gave three of them for every real house in the worst
+ * suburb — a field of little roofs sitting on the grass, which is half of why the houses read as
+ * sunk. Below this the spot gets a tree.
+ */
+const COURT_MIN_STOREYS = 3
+/** As many garden trees as the suburbs have room for. */
+const GARDEN_LIMIT = 1_600
 
 /**
  * How large one roof can be before the outline under it is a block rather than a building.
@@ -484,6 +495,7 @@ function fillGaps(buildings, roads, areas) {
   }
 
   const added = []
+  const gardens = []
   let seed = 1
   const random = () => {
     seed = (seed * 1_664_525 + 1_013_904_223) % 4_294_967_296
@@ -605,6 +617,16 @@ function fillGaps(buildings, roads, areas) {
       if (isTaken(px, pz) || !hasNeighbour(px, pz))
         continue
 
+      /*
+       * What belongs in this gap depends on what is around it. Behind a street wall four storeys
+       * high there is a workshop; behind a bungalow there is an apple tree.
+       */
+      if (neighbourhood(px, pz).storeys < COURT_MIN_STOREYS) {
+        if (gardens.length < GARDEN_LIMIT * 2)
+          gardens.push(round(px), round(pz))
+        continue
+      }
+
       const width = COURT_MIN + random() * (COURT_MAX - COURT_MIN)
       const depth = COURT_MIN + random() * (COURT_MAX - COURT_MIN)
       const angle = random() * Math.PI
@@ -638,7 +660,7 @@ function fillGaps(buildings, roads, areas) {
     }
   }
 
-  return added
+  return { added, gardens }
 }
 
 /**
@@ -1002,7 +1024,7 @@ areas.sort((a, b) => Math.abs(signedArea(b.p)) - Math.abs(signedArea(a.p)))
 
 const swallowed = dropEnclosingOutlines(buildings)
 
-const filled = fillGaps(buildings, roads, areas)
+const { added: filled, gardens } = fillGaps(buildings, roads, areas)
 buildings.push(...filled)
 
 const city = {
@@ -1015,6 +1037,12 @@ const city = {
   roads,
   rails,
   areas,
+  /*
+   * Where a gap in a low-rise street is a garden rather than a yard. The renderer plants a tree on
+   * each; they are the only greenery the map itself does not have, and without them a suburb's back
+   * gardens are bare lawn.
+   */
+  gardens,
 }
 
 const out = 'public/city/lindenhafen.json'
@@ -1023,6 +1051,7 @@ writeFileSync(out, JSON.stringify(city))
 
 const vertices = buildings.reduce((n, b) => n + b.p.length / 2, 0)
 console.log(`${buildings.length} buildings (${filled.length} filled in, ${swallowed} enclosing outlines dropped, ${vertices} vertices), ${roads.length} roads, ${rails.length} rails, ${areas.length} areas`)
+console.log(`${gardens.length / 2} gardens`)
 console.log(`waterway ${city.waterways[0]?.p.length ? city.waterways[0].p.length / 2 : 0} points`)
 console.log(`relief ${city.relief.size}² cells, ${Math.max(...city.relief.data).toFixed(1)} m at its highest`)
 console.log(`${out} — ${(readFileSync(out).length / 1024 / 1024).toFixed(2)} MB`)

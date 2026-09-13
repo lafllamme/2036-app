@@ -99,5 +99,12 @@ höchstens 42 m von einem echten Gebäude entfernt sein. Die Mitte einer Wiese i
 und bleibt Wiese; die Rückseite einer Häuserzeile ist zwanzig Meter entfernt und bekommt eine
 Werkstatt.
 
-Ergebnis: 2 049 statt 1 386, **kein einziges** mit einem Dach über 45 % seiner Höhe (vorher 642), und
-14 statt ganzer Felder weiter als 60 m von einem echten Gebäude entfernt.
+Und sie stehen nur dort, wo die echten Nachbarn im Schnitt **drei Geschosse oder mehr** haben. Eine
+Straße mit Einfamilienhäusern hat keine Hinterhofwerkstatt, sie hat einen Garten — dort wurden aus
+drei Schuppen je echtem Haus ein Feld kleiner Dächer im Gras, und das ist die Hälfte davon, warum die
+Häuser eingesunken wirkten. Unter dieser Schwelle wird die Lücke als **Garten** vermerkt, und der
+Renderer pflanzt einen Baum darauf: 1 600 Stück, die einzige Begrünung, die die Karte selbst nicht
+hat.
+
+Ergebnis: 664 Füllgebäude, **kein einziges** mit einem Dach über 45 % seiner Höhe (vorher 642 von
+768), und 1 600 Gärten statt 902 Schuppen in der Vorstadt.

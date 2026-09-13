@@ -31,6 +31,8 @@ interface RawCity {
   roads: { p: number[], w: number, a: number }[]
   rails: { p: number[] }[]
   areas: { p: number[], k: AreaKind }[]
+  /** x, z pairs: the gaps in a low-rise street that are a garden rather than a yard. */
+  gardens?: number[]
 }
 
 /** Where new housing may go: land the map says is waiting for something. */
@@ -92,7 +94,7 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
       arterial: false,
     })),
     areas,
-    trees: plantTrees(areas, seed),
+    trees: plantTrees(areas, raw.gardens ?? [], seed),
     relief: new Relief(raw.relief, seed),
     waterway: raw.waterways[0]?.p ?? [],
   }
@@ -153,10 +155,24 @@ function findGrowthSlots(raw: RawCity, buildings: BuildingRecord[], seed: number
 }
 
 /** Trees stand in the parks and on the grass, because that is where the map says the green is. */
-function plantTrees(areas: { kind: AreaKind, polygon: number[] }[], seed: number): TreeRecord[] {
+function plantTrees(areas: { kind: AreaKind, polygon: number[] }[], gardens: number[], seed: number): TreeRecord[] {
   const rng = createRandomStream(seed, 'vegetation')
   const trees: TreeRecord[] = []
   const green = areas.filter(area => area.kind === 'park' || area.kind === 'forest' || area.kind === 'grass')
+
+  /*
+   * The back gardens first. The converter marks every gap in a low-rise street that is too small and
+   * too suburban for a workshop; a street of houses with bare lawn between them reads as a model of
+   * a street rather than a street.
+   */
+  for (let i = 0; i < gardens.length; i += 2) {
+    trees.push({
+      id: `garden-${(i / 2).toString(36)}`,
+      x: gardens[i]! + rng.between(-3, 3),
+      z: gardens[i + 1]! + rng.between(-3, 3),
+      scale: rng.between(0.55, 1.1),
+    })
+  }
 
   for (const area of green) {
     const bounds = boundsOf(area.polygon)

@@ -13,7 +13,7 @@ import { uniform, vec4 } from 'three/tsl'
 
 /** The sky box sits inside the camera's far plane and centred on the camera, in city units. */
 const SKY_RADIUS = 7_000
-const SKY_BRIGHTNESS = 0.16
+const SKY_BRIGHTNESS = 0.19
 
 export type GameSky = SkyMesh & {
   brightness: ScalarUniform
@@ -50,10 +50,18 @@ export function createSkyDome(): GameSky {
    */
   sky.mieCoefficient.value = 0.0022
   sky.mieDirectionalG.value = 0.82
-  sky.cloudCoverage.value = 0.42
-  sky.cloudDensity.value = 0.34
-  sky.cloudScale.value = 0.00018
-  sky.cloudSpeed.value = 0.000012
+  /*
+   * The weather. The model has real clouds in it — a noise field carved by a coverage threshold and
+   * lit by the sky's own radiance — and they were set so thin and so slow that they read as a faint
+   * unevenness in the blue. Broken cloud with some body to it, drifting at a speed you can see if you
+   * watch for a few seconds, and sitting low enough to stack up toward the horizon the way a North
+   * German sky does.
+   */
+  sky.cloudCoverage.value = 0.55
+  sky.cloudDensity.value = 0.9
+  sky.cloudScale.value = 0.00028
+  sky.cloudSpeed.value = 0.00006
+  sky.cloudElevation.value = 0.66
   sky.renderOrder = -1
   return sky
 }

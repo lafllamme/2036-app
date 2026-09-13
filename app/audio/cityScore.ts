@@ -1,88 +1,81 @@
 /**
  * The music the city is played over.
  *
- * Generated rather than played back. A loop that fits in a download is two or three minutes long and
- * a campaign is hours: however good the two minutes are, the fourth time round the player hears the
- * seam and after that they hear nothing else. This has no seam because it has no loop — the piece is
- * written a bar at a time, a few seconds ahead of itself, and never plays the same sequence twice.
+ * Generated rather than played back. A loop that fits in a download is two minutes long and a
+ * campaign is hours: however good the two minutes are, the fourth time round the player hears the
+ * seam and after that they hear nothing else. This has no seam because it has no loop.
  *
- * It is also, for the same reason as the rest of the sound in this project, nobody else's: no file,
- * no licence, no attribution page. A pad, a bass pulse, a brushed off-beat and a line over the top,
- * which is not much of an orchestra and is the entire point — the city already has traffic, crowds
- * and sirens, and a score that competes with them is a score the player turns off.
+ * Two earlier versions of this file were built out of sine and triangle oscillators through gentle
+ * filters, and both sounded like what they were: a synthesiser test. That is not a matter of writing
+ * better notes, and no amount of rewriting the harmony fixed it — a bare oscillator has one
+ * harmonic, or a handful falling away fast, and nothing with a body sounds like that. So the notes
+ * are not the interesting part of this file; the way they are made is.
  *
- * The one rule it follows: it never resolves. It keeps time, so there is something to sit on, but
- * the progression goes round rather than arriving — no cadence, no final bar. A piece that arrives
- * somewhere asks to be listened to, and this is meant to be lived in for ten in-game years.
+ * Three instruments, none of them an oscillator playing a note:
+ *
+ * - **plucked strings**, by Karplus–Strong: a burst of noise pushed round a short delay line that
+ *   loses its high end a little on every pass. It is fifteen lines of arithmetic and it is the
+ *   oldest trick in physical modelling, and it sounds like a string because it is doing roughly what
+ *   a string does. This carries the tune;
+ * - a **resonant bass**, a sawtooth through a lowpass with its cutoff swept down on every note. Every
+ *   driving electronic record ever made is this sound, and it is what gives the piece a floor you
+ *   can feel rather than one you can only hear;
+ * - and a **drum**, a sine dropped from a hundred and ten hertz to forty in a twentieth of a second.
+ *   Barely a drum. Enough that the bar has a body.
+ *
+ * The tune itself is an ostinato — a fixed eight-note figure, transposed onto whatever chord is
+ * underneath it — rather than notes chosen at random. That was the other half of what was wrong: a
+ * random walk has no shape to recognise, so there is nothing to get used to and nothing to look
+ * forward to, which is most of what makes music something you want playing.
  */
 
 /** How far ahead the score is written, and how often the writer wakes up. */
 const HORIZON = 4
 const TICK = 1.5
 
-/**
- * The tempo.
- *
- * Slow enough to live under a city, fast enough to pull. The first version of this was chords and
- * nothing else, and a pad with no pulse under it is not music you can play to for hours — it is a
- * drone, which is the exact thing the city already has in its traffic.
- */
-const BPM = 76
+/** The tempo. Slow enough to live under a city, fast enough to pull. */
+const BPM = 84
 const BEAT = 60 / BPM
 const BAR = BEAT * 4
 
 /**
- * The mode: D dorian, which is minor without the leading note that would pull it anywhere.
+ * D dorian, as semitones over the root, across three octaves.
  *
- * As semitones over the root, across three octaves. Dorian rather than natural minor for the raised
- * sixth: it is the one note that keeps a minor key from sounding sad rather than serious, and the
- * difference between mystical and miserable is almost entirely that note.
+ * Dorian for the raised sixth: it is the one note that keeps a minor key serious rather than sad,
+ * and the difference between mystical and miserable is almost entirely that note.
  */
 const ROOT = 146.83
 const SCALE = [0, 2, 3, 5, 7, 9, 10, 12, 14, 15, 17, 19, 21, 22, 24]
 
-/**
- * The changes: four chords, two bars each, and it never resolves.
- *
- * i — VII — III — iv, which is the progression half the world's ambient music is built on because it
- * goes round for ever without arriving. Each is a seventh rather than a triad: a triad states
- * something and a seventh leaves it open.
- */
-const CHANGES = [
-  [0, 2, 4, 6],
-  [6, 8, 10, 12],
-  [2, 4, 6, 8],
-  [3, 5, 7, 9],
-]
+/** Four chords, two bars each, going round without arriving. Roots as steps into the scale. */
+const CHANGES = [0, 6, 2, 3]
 const BARS_PER_CHANGE = 2
 
-/** How long the pad takes to come in and go out, as a share of the chord. */
-const SWELL = 0.35
-/** How long a melody note rings, and how much of the bar carries one at all. */
-const NOTE_DECAY = 3.4
-const NOTE_CHANCE = 0.45
-
 /**
- * The arpeggio: the thing that makes it move.
+ * The figure, as steps above the chord's own root, in eighths.
  *
- * A figure running through the chord at a steady eighth, quiet, plucked rather than bowed. This is
- * the whole difference between a score you play along to and one you notice and turn off — chords
- * and a bass give a piece a floor, but nothing in it is going anywhere until something repeats fast
- * enough to be felt as motion.
- *
- * Its density follows the city: an empty street gets half the figure, a busy one gets all of it and
- * the filter opens. See `setIntensity`.
+ * Up through the chord, a reach above it, and back down through the fifth — the shape of every
+ * ostinato that has ever held a piece together. `null` is a rest, and the rests are what stop it
+ * sounding like an exercise.
  */
-const ARP_STEP = 0.5
-const ARP_GAIN = 0.028
-const ARP_DECAY = 0.85
+const FIGURE: (number | null)[] = [0, 4, 2, 7, null, 4, 2, null]
+/** A second voice a third up, on the beats the first one rests. Only when the city is busy. */
+const ANSWER: (number | null)[] = [null, null, null, null, 9, null, null, 7]
 
-const PAD_GAIN = 0.032
-const NOTE_GAIN = 0.032
-const BASS_GAIN = 0.08
-const TICK_GAIN = 0.012
-/** Where the arpeggio's filter sits at rest and how far the city can open it. */
-const ARP_CUTOFF: [number, number] = [1_100, 4_200]
+/** Where the bass lands in the bar, as beats, and how long each note holds. */
+const BASS_PATTERN = [0, 1.5, 2.5]
+const DRUM_PATTERN = [0, 2]
+
+const PLUCK_GAIN = 0.09
+const ANSWER_GAIN = 0.05
+const BASS_GAIN = 0.055
+const SUB_GAIN = 0.07
+const DRUM_GAIN = 0.16
+const PAD_GAIN = 0.022
+
+/** Where the bass filter starts and ends its sweep, and how far the city opens the top of it. */
+const BASS_CUTOFF: [number, number] = [1_900, 260]
+const DRIVE_LIFT = 1_500
 
 export class CityScore {
   private context: AudioContext | null = null
@@ -94,22 +87,15 @@ export class CityScore {
   private started = false
   /** How far into the piece the writer has got, in context time. */
   private written = 0
-  /** Which bar of the piece is being written. The progression is read off it. */
+  /** Which bar is being written. The progression and the figure are both read off it. */
   private bar = 0
-  /** Where the arpeggio has got to, so it walks on rather than restarting every bar. */
-  private arp = 0
-  /** Which note of the current chord the line is sitting on. */
-  private melody = 2
   /**
    * How much is going on in the city, 0 … 1.
    *
-   * The one thing outside the music that the music listens to. It thickens the arpeggio and opens
-   * its filter, so a quiet night is sparse and a busy street has something driving under it — the
-   * score is part of the game rather than something playing next to it.
+   * The one thing outside the music that the music listens to. It brings in the second voice and
+   * opens the bass filter, so a quiet night is a figure and a bass and a busy street has weight.
    */
   private intensity = 0.3
-  /** Where the last note was in the scale, so the next one is a step and not a leap. */
-  private last = 7
 
   /**
    * Open the graph. Inside a trusted gesture, like everything else that makes a sound: a browser
@@ -132,16 +118,13 @@ export class CityScore {
     this.master = master
 
     /*
-     * A room to play it in.
-     *
-     * Three and a half seconds of decaying noise as an impulse response — not a real room, but the
-     * difference between notes that stop and notes that hang, and that difference is most of what
-     * makes this sound like music rather than like a synthesiser test.
+     * A room to play it in. Two and a half seconds of decaying noise as an impulse response — not a
+     * real room, but the difference between notes that stop and notes that hang.
      */
     const reverb = context.createConvolver()
-    reverb.buffer = room(context, 3.4)
+    reverb.buffer = noise(context, 2.5, 2.6)
     const wet = context.createGain()
-    wet.gain.value = 0.5
+    wet.gain.value = 0.42
     reverb.connect(wet)
     wet.connect(master)
     this.reverb = reverb
@@ -182,11 +165,11 @@ export class CityScore {
   }
 
   /**
-   * Write whatever the next few seconds need.
+   * Write whatever the next few seconds need, a bar at a time.
    *
-   * A bar at a time. Everything is scheduled against the audio clock rather than played when the
-   * timer fires, so a busy frame cannot make the music stutter — the browser has already been told
-   * what to play and when, and a late timer only means the horizon gets a little shorter.
+   * Everything is scheduled against the audio clock rather than played when the timer fires, so a
+   * busy frame cannot make the music stutter: the browser has already been told what to play and
+   * when, and a late timer only means the horizon gets a little shorter.
    */
   private write(): void {
     const context = this.context
@@ -195,75 +178,43 @@ export class CityScore {
 
     while (this.written < context.currentTime + HORIZON) {
       const at = Math.max(this.written, context.currentTime + 0.05)
-      const chord = CHANGES[Math.floor(this.bar / BARS_PER_CHANGE) % CHANGES.length]!
-      const fresh = this.bar % BARS_PER_CHANGE === 0
+      const root = CHANGES[Math.floor(this.bar / BARS_PER_CHANGE) % CHANGES.length]!
       const drive = this.intensity
 
+      // The figure, an eighth at a time, transposed onto this chord and two octaves up.
+      FIGURE.forEach((step, eighth) => {
+        if (step === null)
+          return
+        this.pluck(this.pitch(root + step + 14), at + eighth * BEAT * 0.5, PLUCK_GAIN)
+      })
+
+      // And the answer above it, which only comes in when there is something going on outside.
+      if (drive > 0.35) {
+        ANSWER.forEach((step, eighth) => {
+          if (step === null)
+            return
+          this.pluck(this.pitch(root + step + 14), at + eighth * BEAT * 0.5, ANSWER_GAIN * drive)
+        })
+      }
+
       /*
-       * The pad is written once per change and held across both its bars, so it breathes over the
-       * progression rather than restarting every four beats.
+       * The bass, syncopated rather than on one and three: dead on the beat is a metronome, and the
+       * back half of the second beat is a gait.
        */
-      if (fresh) {
+      for (const beat of BASS_PATTERN)
+        this.bass(this.pitch(root) / 2, at + beat * BEAT, BEAT * 0.9, drive)
+
+      for (const beat of DRUM_PATTERN)
+        this.drum(at + beat * BEAT)
+
+      /*
+       * A held chord under all of it, two sawtooths a fifth apart with the top taken off. Quiet
+       * enough that it is the room the rest is played in rather than a part.
+       */
+      if (this.bar % BARS_PER_CHANGE === 0) {
         const held = BAR * BARS_PER_CHANGE
-        for (const step of chord)
-          this.voice('triangle', this.pitch(step + 7), at, held, PAD_GAIN, held * SWELL, 900, 6)
-        // A fifth held under the whole change, two octaves down. This is the mystical part: an open
-        // interval that never moves is what makes a minor chord read as old rather than as sad.
-        this.voice('sine', this.pitch(chord[0]!) / 4, at, held, PAD_GAIN * 1.3, held * SWELL, 320, 0)
-      }
-
-      /*
-       * The pulse, slightly syncopated: one, the back half of two, and three.
-       *
-       * Dead on one and three is a metronome. Pushing the middle one late is the difference between
-       * a piece that keeps time and a piece that has a gait.
-       */
-      this.voice('sine', this.pitch(chord[0]!) / 2, at, BEAT * 1.3, BASS_GAIN, 0.035, 220, 0)
-      this.voice('sine', this.pitch(chord[0]!) / 2, at + BEAT * 1.5, BEAT * 0.7, BASS_GAIN * 0.55, 0.03, 220, 0)
-      this.voice('sine', this.pitch(chord[0]!) / 2, at + BEAT * 2.5, BEAT * 1.2, BASS_GAIN * 0.75, 0.035, 220, 0)
-
-      /*
-       * The arpeggio. Up the chord and back down, an eighth at a time, skipping steps when the city
-       * is quiet so the figure thins out rather than stopping.
-       */
-      const ladder = [...chord, ...chord.slice(1, -1).reverse()]
-      for (let step = 0; step * ARP_STEP < 4; step += 1) {
-        if (Math.random() > 0.45 + drive * 0.55)
-          continue
-        const degree = ladder[(this.arp + step) % ladder.length]!
-        this.voice(
-          'triangle',
-          this.pitch(degree + 14),
-          at + step * ARP_STEP * BEAT,
-          ARP_DECAY,
-          ARP_GAIN * (0.7 + drive * 0.5),
-          0.008,
-          ARP_CUTOFF[0] + (ARP_CUTOFF[1] - ARP_CUTOFF[0]) * drive,
-          0,
-        )
-      }
-      this.arp += 3
-
-      // And a brush on the off-beats, barely there: what keeps the bar from feeling empty.
-      this.brush(at + BEAT * 1.5)
-      this.brush(at + BEAT * 3.5, 0.7)
-
-      /*
-       * A line over the top, and only on notes that belong to the chord under it.
-       *
-       * It used to walk the scale freely, which is where the wrongness came from: a free walk lands
-       * on the second and the seventh as often as on anything else, and against a chord that does
-       * not contain them it is simply out of tune. It steps between chord tones now, with the odd
-       * passing note in between, so it is still a line rather than an arpeggio but it is never at
-       * odds with what is underneath it.
-       */
-      for (const beat of [0.5, 1.75, 3]) {
-        if (Math.random() > NOTE_CHANCE)
-          continue
-        const move = Math.random() < 0.7 ? (Math.random() < 0.5 ? -1 : 1) : 0
-        this.melody = Math.max(0, Math.min(chord.length - 1, this.melody + move))
-        const degree = chord[this.melody]! + (Math.random() < 0.25 ? 1 : 0)
-        this.voice('triangle', this.pitch(degree + 14), at + BEAT * beat, NOTE_DECAY, NOTE_GAIN, 0.08, 3_000, 0)
+        this.drone(this.pitch(root) / 2, at, held)
+        this.drone(this.pitch(root + 4) / 2, at, held)
       }
 
       this.bar += 1
@@ -273,88 +224,212 @@ export class CityScore {
 
   /** A step of the scale, as a frequency. Steps past the end of it simply go up an octave. */
   private pitch(step: number): number {
-    const semitones = SCALE[step % SCALE.length]! + 12 * Math.floor(step / SCALE.length)
+    const semitones = SCALE[((step % SCALE.length) + SCALE.length) % SCALE.length]!
+      + 12 * Math.floor(step / SCALE.length)
     return ROOT * 2 ** (semitones / 12)
   }
 
   /**
-   * One note: an oscillator through a lowpass, fading in, holding and fading out.
+   * A plucked string, by Karplus–Strong.
    *
-   * The filter is not decoration. A bare oscillator is a test tone however nice the notes are —
-   * taking the top off it is most of the difference between a synthesiser and an instrument.
+   * Fill a delay line one wavelength long with noise, then walk it round averaging each sample with
+   * the one before it. The averaging is a lowpass, so every pass loses a little more of the top and
+   * the note decays from a bright attack into a soft tail — which is what a plucked string does, and
+   * why this sounds like an instrument where an oscillator sounds like a signal generator.
+   *
+   * Rendered into a buffer rather than built out of nodes: a delay line with feedback is four nodes
+   * and a scheduling problem, and this is fifteen lines and a cache.
    */
-  private voice(shape: OscillatorType, frequency: number, at: number, length: number, peak: number, swell: number, cutoff: number, detune: number): void {
-    const context = this.context
-    if (!context || !this.reverb)
-      return
-
-    const oscillator = context.createOscillator()
-    oscillator.type = shape
-    oscillator.frequency.value = frequency
-    /*
-     * A cent or two off, but only where it belongs.
-     *
-     * Two pad voices at exactly the same frequency are one voice; a little apart they beat against
-     * each other, which is most of what makes a pad sound like more than one thing. The same trick
-     * on a single exposed note is not warmth, it is being out of tune — which is what it sounded
-     * like, because that is what it was.
-     */
-    oscillator.detune.value = (Math.random() - 0.5) * detune
-
-    const filter = context.createBiquadFilter()
-    filter.type = 'lowpass'
-    filter.frequency.value = cutoff
-    filter.Q.value = 0.7
-
-    const gain = context.createGain()
-    const hold = Math.max(swell, length - swell)
-    gain.gain.setValueAtTime(0.0001, at)
-    gain.gain.exponentialRampToValueAtTime(peak, at + swell)
-    gain.gain.setValueAtTime(peak, at + hold)
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
-
-    oscillator.connect(filter)
-    filter.connect(gain)
-    gain.connect(this.reverb)
-    oscillator.start(at)
-    oscillator.stop(at + length + 0.1)
-  }
-
-  /** A brushed off-beat: a short band of noise, quiet enough to be felt rather than heard. */
-  private brush(at: number, level = 1): void {
+  private pluck(frequency: number, at: number, gain: number): void {
     const context = this.context
     if (!context || !this.reverb)
       return
 
     const source = context.createBufferSource()
-    source.buffer = room(context, 0.25)
+    /*
+     * The string is built at whatever pitch a whole number of samples gives, and then played back at
+     * the rate that corrects it.
+     *
+     * A delay line is an integer number of samples long, so the pitch it produces is the sample rate
+     * over that integer — and at the top of the figure the nearest whole number is as much as
+     * seventeen cents out. On a repeating phrase that is not character, it is out of tune, and it is
+     * most of what was wrong with the version before this one. Resampling fixes it exactly and costs
+     * nothing, because the browser is resampling the buffer either way.
+     */
+    const built = string(context, frequency)
+    source.buffer = built.buffer
+    source.playbackRate.value = frequency / built.frequency
+
+    const level = context.createGain()
+    level.gain.value = gain
+
+    source.connect(level)
+    level.connect(this.reverb)
+    // A little dry as well, or the attack is lost in the room and it stops sounding plucked.
+    if (this.master) {
+      const dry = context.createGain()
+      dry.gain.value = gain * 0.55
+      source.connect(dry)
+      dry.connect(this.master)
+    }
+    source.start(at)
+  }
+
+  /**
+   * The bass: a sawtooth through a resonant lowpass whose cutoff falls across the note.
+   *
+   * The sweep is the sound. A sawtooth is every harmonic at once, and pulling a resonant filter down
+   * through them is what turns a buzz into a note that moves — it is the oldest gesture in
+   * electronic music and there is no substitute for it.
+   */
+  private bass(frequency: number, at: number, length: number, drive: number): void {
+    const context = this.context
+    if (!context || !this.master)
+      return
+
+    const oscillator = context.createOscillator()
+    oscillator.type = 'sawtooth'
+    oscillator.frequency.value = frequency
 
     const filter = context.createBiquadFilter()
-    filter.type = 'bandpass'
-    filter.frequency.value = 5_200
-    filter.Q.value = 1.1
+    filter.type = 'lowpass'
+    filter.Q.value = 7
+    filter.frequency.setValueAtTime(BASS_CUTOFF[0] + DRIVE_LIFT * drive, at)
+    filter.frequency.exponentialRampToValueAtTime(BASS_CUTOFF[1], at + length)
 
     const gain = context.createGain()
-    gain.gain.setValueAtTime(TICK_GAIN * level, at)
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.16)
+    gain.gain.setValueAtTime(0.0001, at)
+    gain.gain.exponentialRampToValueAtTime(BASS_GAIN, at + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
 
-    source.connect(filter)
-    filter.connect(gain)
-    gain.connect(this.reverb)
-    source.start(at)
-    source.stop(at + 0.3)
+    // A sine an octave below it, so there is something under the note on a small speaker.
+    const sub = context.createOscillator()
+    sub.type = 'sine'
+    sub.frequency.value = frequency / 2
+    const subGain = context.createGain()
+    subGain.gain.setValueAtTime(0.0001, at)
+    subGain.gain.exponentialRampToValueAtTime(SUB_GAIN, at + 0.03)
+    subGain.gain.exponentialRampToValueAtTime(0.0001, at + length)
+
+    oscillator.connect(filter).connect(gain).connect(this.master)
+    sub.connect(subGain).connect(this.master)
+    oscillator.start(at)
+    oscillator.stop(at + length + 0.05)
+    sub.start(at)
+    sub.stop(at + length + 0.05)
+  }
+
+  /** A sine dropped from a hundred and ten hertz to forty in a twentieth of a second. */
+  private drum(at: number): void {
+    const context = this.context
+    if (!context || !this.master)
+      return
+
+    const oscillator = context.createOscillator()
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(110, at)
+    oscillator.frequency.exponentialRampToValueAtTime(40, at + 0.05)
+
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(DRUM_GAIN, at)
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.28)
+
+    oscillator.connect(gain).connect(this.master)
+    oscillator.start(at)
+    oscillator.stop(at + 0.35)
+  }
+
+  /** The room the rest is played in: a sawtooth with almost all of the top taken off. */
+  private drone(frequency: number, at: number, length: number): void {
+    const context = this.context
+    if (!context || !this.reverb)
+      return
+
+    const oscillator = context.createOscillator()
+    oscillator.type = 'sawtooth'
+    oscillator.frequency.value = frequency
+    oscillator.detune.value = (Math.random() - 0.5) * 8
+
+    const filter = context.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.value = 420
+    filter.Q.value = 0.6
+
+    const gain = context.createGain()
+    const swell = length * 0.3
+    gain.gain.setValueAtTime(0.0001, at)
+    gain.gain.exponentialRampToValueAtTime(PAD_GAIN, at + swell)
+    gain.gain.setValueAtTime(PAD_GAIN, at + length - swell)
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
+
+    oscillator.connect(filter).connect(gain).connect(this.reverb)
+    oscillator.start(at)
+    oscillator.stop(at + length + 0.1)
   }
 }
 
 /**
- * Decaying noise, used both as the reverb's impulse response and as the brush on the off-beat.
+ * One plucked note, rendered once and kept.
  *
- * Cached per context and per length: building three seconds of noise is a hundred and thirty
- * thousand random numbers, and doing it every chord would be the only expensive thing in the sound.
+ * Cached per context and per pitch to the nearest hertz: the figure repeats every bar and the whole
+ * piece only ever uses a couple of dozen notes, so after the first few bars this never runs again.
  */
+const strings = new WeakMap<AudioContext, Map<number, AudioBuffer>>()
+
+function string(context: AudioContext, frequency: number): { buffer: AudioBuffer, frequency: number } {
+  let cache = strings.get(context)
+  if (!cache) {
+    cache = new Map()
+    strings.set(context, cache)
+  }
+  const rate = context.sampleRate
+  // Keyed by the length of the delay line, which is the only thing that actually varies.
+  const period = Math.max(2, Math.round(rate / frequency))
+  const known = cache.get(period)
+  if (known)
+    return { buffer: known, frequency: rate / period }
+
+  const length = Math.floor(rate * 2.4)
+  const buffer = context.createBuffer(1, length, rate)
+  const data = buffer.getChannelData(0)
+
+  // The delay line, filled with noise: this is the pluck, and everything after it is the string.
+  const line = new Float32Array(period)
+  for (let i = 0; i < period; i += 1) line[i] = Math.random() * 2 - 1
+
+  /*
+   * Round and round, averaging each sample with the one before it.
+   *
+   * The average is a one-pole lowpass, so the top goes first and the note darkens as it decays. The
+   * damping is just short of one because a string does not ring for ever, and how far short decides
+   * whether this is a harp or a woodblock.
+   */
+  const damping = 0.4965
+  let at = 0
+  for (let i = 0; i < length; i += 1) {
+    const current = line[at]!
+    const next = line[(at + 1) % period]!
+    const mixed = (current + next) * damping
+    line[at] = mixed
+    data[i] = current
+    at = (at + 1) % period
+  }
+
+  // And a short fade in and out, so nothing clicks at either end.
+  const edge = Math.floor(rate * 0.004)
+  for (let i = 0; i < edge; i += 1) {
+    data[i]! *= i / edge
+    data[length - 1 - i]! *= i / edge
+  }
+
+  cache.set(period, buffer)
+  return { buffer, frequency: rate / period }
+}
+
+/** Decaying noise, for the reverb's impulse response. Cached per context and per length. */
 const rooms = new WeakMap<AudioContext, Map<number, AudioBuffer>>()
 
-function room(context: AudioContext, seconds: number): AudioBuffer {
+function noise(context: AudioContext, seconds: number, decay: number): AudioBuffer {
   let cache = rooms.get(context)
   if (!cache) {
     cache = new Map()
@@ -369,7 +444,7 @@ function room(context: AudioContext, seconds: number): AudioBuffer {
   for (let channel = 0; channel < 2; channel += 1) {
     const data = buffer.getChannelData(channel)
     for (let sample = 0; sample < length; sample += 1)
-      data[sample] = (Math.random() * 2 - 1) * (1 - sample / length) ** 2.6
+      data[sample] = (Math.random() * 2 - 1) * (1 - sample / length) ** decay
   }
   cache.set(seconds, buffer)
   return buffer

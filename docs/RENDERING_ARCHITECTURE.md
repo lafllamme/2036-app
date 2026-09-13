@@ -34,3 +34,21 @@ Was auf dem Boden steht, steht auf dem **höchsten** Punkt, den sein Grundriss �
 Wände reichen mit einem Sockel bis zum Boden an ihrer eigenen Ecke hinunter. Modelle ohne Sockel —
 das Umland, der Neubau — werden nur dort gesetzt, wo der Boden über ihrem Grundriss weniger als
 1,5 m wandert.
+
+
+## Und alles, was auf dem Boden liegt, auch
+
+Der Boden allein reicht nicht. Straßen, Bürgersteige, Gleise und Feldwege sind Bänder entlang einer
+Mittellinie, und sie holen ihre Höhe dort, wo der Vermesser einen Punkt gesetzt hat — auf einer
+Geraden sind das gern sechzig Meter. Dazwischen zieht das Band eine Gerade, und auf einer Steigung
+schwebt die über dem Land. Der Bürgersteig ist 2,3 m breiter als die Fahrbahn, reicht also bis an die
+Häuser an der Straße — und schneidet ihnen das Erdgeschoss ab.
+
+| Gemessen | vorher | jetzt |
+| --- | --- | --- |
+| Gebäude, deren Erdgeschoss unter dem Belag liegt | 922 | 5 |
+| schlimmster Fall | 2,92 m | 0,40 m |
+
+`ribbon.ts` nimmt den Querschnitt jetzt alle acht Meter, unabhängig davon, wo die Punkte des Weges
+liegen; die Form bleibt dieselbe. `tests/unit/paving.test.ts` hält das fest und ist der Test, der bei
+den 922 Gebäuden gefehlt hat: gemessen wurde nur der Boden, und der Boden war unschuldig.

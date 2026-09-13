@@ -4,6 +4,7 @@ import type { CityModels } from '../cityModels'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../core/rng'
 import { AXIS_Y, WHITE } from '../shared'
+import { ribbonSections } from './ribbon'
 
 /**
  * Where the map's own data stops and filler begins.
@@ -257,34 +258,28 @@ function laneSurface(lanes: number[][], relief: Relief): THREE.Mesh {
   const index: number[] = []
 
   for (const path of lanes) {
-    const count = path.length / 2
-    if (count < 2)
-      continue
+    // Sections every few metres, not every ninety: a lane is laid out in long straight runs out here.
+    const sections = ribbonSections(path, LANE_WIDTH / 2)
     const first = position.length / 3
-    for (let i = 0; i < count; i += 1) {
-      const x = path[i * 2]!
-      const z = path[i * 2 + 1]!
-      const previous = i > 0 ? i - 1 : 0
-      const next = i < count - 1 ? i + 1 : count - 1
-      const dx = path[next * 2]! - path[previous * 2]!
-      const dz = path[next * 2 + 1]! - path[previous * 2 + 1]!
-      const length = Math.hypot(dx, dz) || 1
-      const ox = (-dz / length) * (LANE_WIDTH / 2)
-      const oz = (dx / length) * (LANE_WIDTH / 2)
+    sections.forEach((section, at) => {
+      const left = section.x + section.ox
+      const leftZ = section.z + section.oz
+      const right = section.x - section.ox
+      const rightZ = section.z - section.oz
       position.push(
-        x + ox,
-        relief.height(x + ox, z + oz) + 0.06,
-        z + oz,
-        x - ox,
-        relief.height(x - ox, z - oz) + 0.06,
-        z - oz,
+        left,
+        relief.height(left, leftZ) + 0.06,
+        leftZ,
+        right,
+        relief.height(right, rightZ) + 0.06,
+        rightZ,
       )
       normal.push(0, 1, 0, 0, 1, 0)
-      if (i > 0) {
-        const a = first + (i - 1) * 2
+      if (at > 0) {
+        const a = first + (at - 1) * 2
         index.push(a, a + 2, a + 1, a + 1, a + 2, a + 3)
       }
-    }
+    })
   }
 
   const geometry = new THREE.BufferGeometry()

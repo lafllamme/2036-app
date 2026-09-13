@@ -1,6 +1,7 @@
 import type { CityBlueprint, RoadRecord } from '../../core/contracts'
 import type { Relief } from '../../world/relief'
 import * as THREE from 'three/webgpu'
+import { ribbonSections } from './ribbon'
 
 /**
  * The street network, as the map draws it.
@@ -65,11 +66,7 @@ export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint): void {
 }
 
 /**
- * Lay a flat ribbon along every path.
- *
- * The offset at a point is the bisector of the two segments meeting there, lengthened by how sharp
- * the bend is — a mitre. Without that correction the outer edge of a corner pinches in and the road
- * narrows exactly where it should not; the lengthening is capped, because at a hairpin it runs away.
+ * Lay a flat ribbon along every path, hugging the ground the whole way.
  */
 function ribbon(relief: Relief, roads: RoadRecord[], y: number, material: THREE.Material, widthScale: number, widen = 0): THREE.Mesh {
   const position: number[] = []
@@ -78,51 +75,22 @@ function ribbon(relief: Relief, roads: RoadRecord[], y: number, material: THREE.
   const index: number[] = []
 
   for (const road of roads) {
-    const points = road.path
-    const count = points.length / 2
-    if (count < 2)
-      continue
-    const half = (road.width * widthScale) / 2 + widen
+    const sections = ribbonSections(road.path, (road.width * widthScale) / 2 + widen)
     const first = position.length / 3
-    let along = 0
-
-    for (let i = 0; i < count; i += 1) {
-      const x = points[i * 2]!
-      const z = points[i * 2 + 1]!
-      const previous = i > 0 ? i - 1 : 0
-      const next = i < count - 1 ? i + 1 : count - 1
-      const inX = x - points[previous * 2]!
-      const inZ = z - points[previous * 2 + 1]!
-      const outX = points[next * 2]! - x
-      const outZ = points[next * 2 + 1]! - z
-      const inLength = Math.hypot(inX, inZ) || 1
-      const outLength = Math.hypot(outX, outZ) || 1
-      const dx = inX / inLength + outX / outLength
-      const dz = inZ / inLength + outZ / outLength
-      const length = Math.hypot(dx, dz) || 1
-      /*
-       * The mitre: how much wider the offset has to be so the outer edge still passes the corner at
-       * the road's own width. It is the reciprocal of the cosine of half the turn, which at a
-       * hairpin goes to infinity — hence the cap.
-       */
-      const mitre = Math.min(2.4, 1 / Math.max(0.42, length / 2))
-      // Perpendicular to the direction of travel, in the ground plane.
-      const ox = (-dz / length) * half * mitre
-      const oz = (dx / length) * half * mitre
-
-      if (i > 0)
-        along += Math.hypot(x - points[previous * 2]!, z - points[previous * 2 + 1]!)
-
+    sections.forEach((section, at) => {
+      const left = section.x + section.ox
+      const leftZ = section.z + section.oz
+      const right = section.x - section.ox
+      const rightZ = section.z - section.oz
       // Both kerbs follow the ground, so a street on a slope is on the slope rather than through it.
-      position.push(x + ox, y + relief.height(x + ox, z + oz), z + oz, x - ox, y + relief.height(x - ox, z - oz), z - oz)
+      position.push(left, y + relief.height(left, leftZ), leftZ, right, y + relief.height(right, rightZ), rightZ)
       normal.push(0, 1, 0, 0, 1, 0)
-      uv.push(0, along / 8, 1, along / 8)
-
-      if (i > 0) {
-        const a = first + (i - 1) * 2
+      uv.push(0, section.along / 8, 1, section.along / 8)
+      if (at > 0) {
+        const a = first + (at - 1) * 2
         index.push(a, a + 2, a + 1, a + 1, a + 2, a + 3)
       }
-    }
+    })
   }
 
   const geometry = new THREE.BufferGeometry()

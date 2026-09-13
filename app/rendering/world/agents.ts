@@ -716,8 +716,15 @@ function paintBeacons(agents: Agents, elapsed: number, cameraDistance: number, c
     beacons.setMatrixAt(shown, matrix)
     const flash = Math.floor(elapsed * BEACON_RATE + index) % 2 === 0
     beacons.setColorAt(shown, flash ? BEACON_BLUE : BEACON_RED)
-    // How close the nearest one actually is, which is the only thing the ear should care about.
-    agents.nearestSiren = Math.min(agents.nearestSiren, Math.hypot(position.x - camera.x, position.z - camera.z))
+    /*
+     * How close the nearest one is — but only while it is still on its way.
+     *
+     * A crew standing at a scene keeps its blue lights on and switches the horn off, which is both
+     * what really happens and the difference between a siren that means something is coming and a
+     * siren that is simply parked in the street for half a minute. The light stays; the sound goes.
+     */
+    if (traveller.callout?.arrived === null)
+      agents.nearestSiren = Math.min(agents.nearestSiren, Math.hypot(position.x - camera.x, position.z - camera.z))
     shown += 1
   }
 

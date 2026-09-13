@@ -43,3 +43,36 @@ describe('the city ambience', () => {
     expect(Object.keys(state)).not.toContain('sirens')
   })
 })
+
+describe('when a siren is allowed to be heard', () => {
+  /*
+   * The same curve `CityAmbience.update` uses. A siren is the loudest thing in a city and it still
+   * cannot be heard from four streets away — and the moment the crew stops, so does the horn.
+   */
+  const SIREN_NEAR = 40
+  const SIREN_FAR = 200
+
+  const loudness = (metres: number): number => {
+    if (!Number.isFinite(metres))
+      return 0
+    const t = Math.min(1, Math.max(0, (metres - SIREN_NEAR) / (SIREN_FAR - SIREN_NEAR)))
+    return 1 - t * t * (3 - 2 * t)
+  }
+
+  it('is silent when nothing is out', () => {
+    expect(loudness(Number.POSITIVE_INFINITY)).toBe(0)
+  })
+
+  it('is gone within a couple of streets', () => {
+    expect(loudness(SIREN_FAR)).toBe(0)
+    expect(loudness(260)).toBe(0)
+    // And falling away steeply well before that, rather than fading over the whole distance.
+    expect(loudness(140)).toBeLessThan(loudness(80) / 2)
+  })
+
+  it('is only loud when it is actually on your street', () => {
+    expect(loudness(0)).toBe(1)
+    expect(loudness(SIREN_NEAR)).toBe(1)
+    expect(loudness(80)).toBeGreaterThan(0.7)
+  })
+})

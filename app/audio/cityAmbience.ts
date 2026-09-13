@@ -30,7 +30,7 @@ const SIREN_STEP = 0.65
 const RUMBLE_GAIN = 0.1
 const ROAR_GAIN = 0.075
 const MURMUR_GAIN = 0.085
-const SIREN_GAIN = 0.05
+const SIREN_GAIN = 0.03
 const PASS_GAIN = 0.13
 const HORN_GAIN = 0.05
 /** Traffic is a street-level sound: from the strategic camera a city is quiet. */
@@ -39,11 +39,16 @@ const TRAFFIC_FAR = 1_600
 /**
  * How close a siren has to be before it can be heard, and where it fades out entirely.
  *
+ * Cut back hard once the crews started actually arriving at their calls. Before that a responder
+ * drove at random and mostly never got anywhere near the camera, so the siren was rare by accident;
+ * once they drove to the scene they drove past the player, and a two-tone horn every couple of
+ * minutes at three hundred metres is not atmosphere, it is a fault.
+ *
  * Distance to the nearest one, never a count. A siren is the loudest thing in a city and it still
  * cannot be heard from four streets away.
  */
-const SIREN_NEAR = 45
-const SIREN_FAR = 340
+const SIREN_NEAR = 40
+const SIREN_FAR = 200
 /** How many of each within earshot counts as a street at its busiest. */
 const TRAFFIC_FULL = 26
 const PEOPLE_FULL = 30
@@ -122,12 +127,20 @@ export class CityAmbience {
      * at the attack, and a siren that clicks is worse than no siren.
      */
     const oscillator = context.createOscillator()
-    oscillator.type = 'square'
+    /*
+     * A triangle rather than a square.
+     *
+     * A square wave is every odd harmonic at full strength, which is why it carries across a city
+     * and why it is unbearable in a pair of headphones for ten minutes. A triangle has the same
+     * harmonics falling away as the square of their number: the same two notes, the same interval,
+     * without the edge that makes a listener reach for the volume.
+     */
+    oscillator.type = 'triangle'
     oscillator.frequency.value = SIREN_LOW
 
     const shaped = context.createBiquadFilter()
     shaped.type = 'lowpass'
-    shaped.frequency.value = 1_400
+    shaped.frequency.value = 1_100
 
     const siren = context.createGain()
     siren.gain.value = 0

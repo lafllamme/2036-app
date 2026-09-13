@@ -16,6 +16,18 @@ import * as THREE from 'three/webgpu'
 /** The water's surface, in metres. The relief is zero on the floodplain, so this is just above it. */
 export const WATER_LEVEL = 0.45
 const RIPPLE_TILE = 256
+/**
+ * How far the river runs on past the edge of the extract, and how wide it is out there.
+ *
+ * The map stops at fifteen hundred metres and the water stopped with it — the Weser ended at a
+ * straight line in the middle of the landscape, which is the one thing a river never does. The
+ * channel the converter traced down the middle of the water carries on from both ends to the
+ * horizon, widening a little as it goes.
+ */
+const RIVER_REACH = 9_000
+const RIVER_STEP = 400
+const RIVER_WIDTH = 150
+const RIVER_FLARE = 0.06
 
 export interface Water {
   mesh: THREE.Mesh
@@ -53,6 +65,8 @@ export function addWater(scene: THREE.Scene, blueprint: CityBlueprint): Water | 
     for (const triangle of triangles)
       index.push(base + triangle[2], base + triangle[1], base + triangle[0])
   }
+
+  addRiverTails(blueprint.waterway, position, normal, uv, index)
 
   if (index.length === 0)
     return null
@@ -130,4 +144,47 @@ function rippleTexture(): THREE.CanvasTexture {
   texture.wrapS = THREE.RepeatWrapping
   texture.wrapT = THREE.RepeatWrapping
   return texture
+}
+
+/**
+ * Carry the river off the map at both ends.
+ *
+ * A ribbon laid along the channel's own direction where it leaves the extract, stepped out to the
+ * horizon and flared slightly, so the water reads as going somewhere rather than as a pond cut to
+ * the shape of the data we happen to have.
+ */
+function addRiverTails(waterway: number[], position: number[], normal: number[], uv: number[], index: number[]): void {
+  const count = waterway.length / 2
+  if (count < 2)
+    return
+
+  const ends: { x: number, z: number, ux: number, uz: number }[] = []
+  for (const outward of [false, true]) {
+    const tip = outward ? count - 1 : 0
+    const inner = outward ? count - 2 : 1
+    const dx = waterway[tip * 2]! - waterway[inner * 2]!
+    const dz = waterway[tip * 2 + 1]! - waterway[inner * 2 + 1]!
+    const length = Math.hypot(dx, dz) || 1
+    ends.push({ x: waterway[tip * 2]!, z: waterway[tip * 2 + 1]!, ux: dx / length, uz: dz / length })
+  }
+
+  for (const end of ends) {
+    const first = position.length / 3
+    let written = 0
+    for (let along = 0; along <= RIVER_REACH; along += RIVER_STEP) {
+      const half = (RIVER_WIDTH / 2) * (1 + (along / RIVER_REACH) * RIVER_FLARE * 10)
+      const x = end.x + end.ux * along
+      const z = end.z + end.uz * along
+      const ox = -end.uz * half
+      const oz = end.ux * half
+      position.push(x + ox, WATER_LEVEL, z + oz, x - ox, WATER_LEVEL, z - oz)
+      normal.push(0, 1, 0, 0, 1, 0)
+      uv.push((x + ox) / 18, (z + oz) / 18, (x - ox) / 18, (z - oz) / 18)
+      written += 1
+      if (written > 1) {
+        const a = first + (written - 2) * 2
+        index.push(a, a + 2, a + 1, a + 1, a + 2, a + 3)
+      }
+    }
+  }
 }

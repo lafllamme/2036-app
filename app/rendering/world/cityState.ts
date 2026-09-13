@@ -82,13 +82,14 @@ export class CityState {
   private applyGreenery(raw: number): void {
     const greenery = THREE.MathUtils.clamp(raw, 0.45, 1.3)
     /*
-     * The stock is split across two meshes, one per tree model, so each is thinned against its own
-     * capacity. Setting a count past what a mesh actually holds hands the GPU an instance range
-     * longer than its buffers, and every draw in the frame is rejected.
+     * The stock is split across one mesh per species, so each is thinned against its own capacity.
+     * Setting a count past what a mesh actually holds hands the GPU an instance range longer than its
+     * buffers, and every draw in the frame is rejected.
      */
     const share = Math.min(1, greenery)
-    for (const mesh of [this.visuals.treeCrowns, this.visuals.treeTrunks])
+    for (const mesh of this.visuals.planting)
       mesh.count = Math.round(mesh.instanceMatrix.count * share)
+    // One material behind every species, so the whole city's greenery dries out together.
     this.visuals.treeCrowns.material.color.copy(this.scratch.copy(DRY).lerp(LUSH, THREE.MathUtils.clamp(greenery, 0, 1)))
   }
 }

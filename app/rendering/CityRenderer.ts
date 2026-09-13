@@ -7,6 +7,7 @@ import { CameraRig } from './cameraRig'
 import { BuildingPicker } from './picking'
 import { Atmosphere } from './sky/atmosphere'
 import { createSky } from './sky/index'
+import { shadowExtent } from './sky/sun'
 import { updateAgents } from './world/agents'
 import { CityState } from './world/cityState'
 import { createWorld } from './world/index'
@@ -198,6 +199,28 @@ export class CityRenderer {
     this.rig.frameCity()
   }
 
+  /**
+   * Keep out of the shadow pass everything the shadow pass cannot see.
+   *
+   * The shadow camera is fitted to how close the player is — a box a few hundred metres across at
+   * street level. A tile of the city a kilometre outside it casts into nothing, and drawing it there
+   * was costing a second pass over most of the skyline: sixty-six of the hundred and fifty-eight
+   * draws on a shadow frame. A tile is a kilometre wide, so this is one test per tile, thirty times
+   * a second.
+   */
+  private fitShadowCasters(cameraDistance: number): void {
+    const reach = shadowExtent(cameraDistance)
+    const focus = this.rig.controls.target
+    for (const mesh of this.world.buildingMeshes) {
+      const sphere = mesh.geometry.boundingSphere
+      if (!sphere)
+        continue
+      const gap = Math.hypot(sphere.center.x - focus.x, sphere.center.z - focus.z) - sphere.radius
+      // A generous margin: the sun is low in winter and a long shadow reaches well past its caster.
+      mesh.castShadow = gap < reach * 1.6 + 220
+    }
+  }
+
   dispose(): void {
     this.renderer.setAnimationLoop(null)
     this.resizeObserver.disconnect()
@@ -242,6 +265,7 @@ export class CityRenderer {
     this.slowClock += delta
     if (this.slowClock >= 1 / SLOW_UPDATE_HZ) {
       const distance = this.rig.distance
+      this.fitShadowCasters(distance)
       updateAgents(this.world.agents, this.slowClock, this.animationElapsed, distance, this.city.trafficFactor)
       updateSignals(this.world.signals, this.animationElapsed)
       this.atmosphere.update(this.slowClock, this.rig.controls.target, distance)

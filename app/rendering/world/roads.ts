@@ -1,5 +1,6 @@
 import type { CityBlueprint, RoadRecord } from '../../core/contracts'
 import type { Relief } from '../../world/relief'
+import type { RoadNetwork } from './roadNetwork'
 import * as THREE from 'three/webgpu'
 import { deckOf, ribbonSections } from './ribbon'
 
@@ -36,7 +37,7 @@ const PARAPET_THICKNESS = 0.45
 const PIER_SPACING = 26
 const PIER_SIZE = 2.2
 
-export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint): void {
+export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint, network: RoadNetwork): void {
   const relief = blueprint.relief
   /*
    * The pavement goes down first: the same ribbon, a couple of metres wider each side, in the
@@ -60,6 +61,22 @@ export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint): void {
     polygonOffsetFactor: -3,
     polygonOffsetUnits: -3,
   }), 1))
+  scene.add(junctions(network, PAVEMENT_Y, PAVEMENT, new THREE.MeshStandardMaterial({
+    color: '#6e6c66',
+    roughness: 0.93,
+    metalness: 0,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  })))
+  scene.add(junctions(network, ROAD_Y, 1.2, new THREE.MeshStandardMaterial({
+    color: '#33383b',
+    roughness: 0.95,
+    metalness: 0,
+    polygonOffset: true,
+    polygonOffsetFactor: -3,
+    polygonOffsetUnits: -3,
+  })))
   scene.add(markings(relief, blueprint.roads))
   scene.add(bridgeStructure(relief, [...blueprint.roads, ...blueprint.rails]))
   scene.add(ribbon(relief, blueprint.rails, ROAD_Y, new THREE.MeshStandardMaterial({
@@ -254,6 +271,68 @@ function bridgeStructure(relief: Relief, roads: RoadRecord[]): THREE.Mesh {
   geometry.computeBoundingSphere()
   const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ color: '#8d8a82', roughness: 0.93, metalness: 0 }))
   mesh.castShadow = true
+  mesh.receiveShadow = true
+  return mesh
+}
+
+/**
+ * The surface a junction actually has.
+ *
+ * Where streets meet, their ribbons run into each other and stack up: each one widens its outer edge
+ * to carry its own width round the corner, and four of those overlapping is the ragged dark blotch
+ * you see from the air wherever two roads cross. A junction is not a pile of ribbons, it is a piece
+ * of ground — so this lays one down: a patch as wide as the widest street arriving at it, under the
+ * ribbons, once for the carriageway and once for the pavement around it.
+ *
+ * Every junction in the city is one mesh and one draw.
+ */
+function junctions(network: RoadNetwork, lift: number, widen: number, material: THREE.Material): THREE.Mesh {
+  const position: number[] = []
+  const normal: number[] = []
+  const index: number[] = []
+  const SIDES = 12
+
+  for (const node of network.nodes) {
+    if (node.edges.length < 2)
+      continue
+
+    let widest = 0
+    for (const at of node.edges)
+      widest = Math.max(widest, network.edges[at]!.width)
+
+    /*
+     * The height the streets meeting here are at — taken from the widest of them, at the end that
+     * touches this junction. Reading the ground instead would drop a junction on a bridge ramp back
+     * down into the water.
+     */
+    const main = network.edges[node.edges.reduce((best, at) =>
+      network.edges[at]!.width > network.edges[best]!.width ? at : best, node.edges[0]!)]!
+    const height = main.points[0] === node.x && main.points[1] === node.z
+      ? main.height[0]!
+      : main.height[main.height.length - 1]!
+
+    const radius = widest / 2 + widen
+    const centre = position.length / 3
+    position.push(node.x, height + lift, node.z)
+    normal.push(0, 1, 0)
+    for (let step = 0; step < SIDES; step += 1) {
+      const angle = (step / SIDES) * Math.PI * 2
+      position.push(node.x + Math.cos(angle) * radius, height + lift, node.z + Math.sin(angle) * radius)
+      normal.push(0, 1, 0)
+    }
+    for (let step = 0; step < SIDES; step += 1) {
+      const a = centre + 1 + step
+      const b = centre + 1 + ((step + 1) % SIDES)
+      index.push(centre, b, a)
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3))
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3))
+  geometry.setIndex(index)
+  geometry.computeBoundingSphere()
+  const mesh = new THREE.Mesh(geometry, material)
   mesh.receiveShadow = true
   return mesh
 }

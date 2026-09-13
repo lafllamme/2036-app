@@ -57,8 +57,18 @@ export function createSun(scene: THREE.Scene, rig: THREE.Object3D): Sun {
  * every shadow edge in the city boils along with it — the classic swimming shadow, and far more
  * visible than the coarse edges it comes with.
  */
+/**
+ * How much ground the shadow map covers from a given camera distance.
+ *
+ * Anything outside that box contributes nothing to the shadow pass, so nothing outside it needs to be
+ * drawn into it — which is the whole of the shadow optimisation, and why this is worth exporting.
+ */
+export function shadowExtent(cameraDistance: number): number {
+  return THREE.MathUtils.clamp(cameraDistance * SHADOW_FIT, SHADOW_MIN_EXTENT, SHADOW_MAX_EXTENT)
+}
+
 export function fitShadow(sun: Sun, focus: THREE.Vector3, cameraDistance: number, sunDirection: THREE.Vector3, lightRadius: number): void {
-  const extent = THREE.MathUtils.clamp(cameraDistance * SHADOW_FIT, SHADOW_MIN_EXTENT, SHADOW_MAX_EXTENT)
+  const extent = shadowExtent(cameraDistance)
   const camera = sun.light.shadow.camera
   if (camera.right !== extent) {
     camera.left = -extent

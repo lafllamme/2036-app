@@ -323,6 +323,62 @@ const GARDEN_LIMIT = 1_600
 const MAX_FOOTPRINT = 6_000
 
 /**
+ * Throw away the streets that go nowhere.
+ *
+ * A way that is only joined to the network at one end and is shorter than a house is wide is not a
+ * street: it is a driveway, a bin store access, the stub of something the surveyor started and left,
+ * or a way whose other half fell outside the extract. Drawn as a carriageway with a pavement either
+ * side it is a road that stops in the middle of a field, and there were hundreds of them.
+ *
+ * Removing one can orphan the next, so it runs until nothing more falls out. Ways that end at the
+ * edge of the extract are left alone — those really do carry on, we simply do not have them.
+ */
+const STUB_LENGTH = 45
+const EDGE_MARGIN = 60
+
+function dropRoadStubs(roads) {
+  let removed = 0
+  for (let pass = 0; pass < 6; pass += 1) {
+    const uses = new Map()
+    for (const road of roads) {
+      for (const index of [0, road.p.length - 2]) {
+        const key = `${road.p[index]}:${road.p[index + 1]}`
+        uses.set(key, (uses.get(key) ?? 0) + 1)
+      }
+      // An interior point of another way counts as a join too, which is how a T-junction is drawn.
+      for (let i = 2; i < road.p.length - 2; i += 2)
+        uses.set(`${road.p[i]}:${road.p[i + 1]}`, (uses.get(`${road.p[i]}:${road.p[i + 1]}`) ?? 0) + 2)
+    }
+
+    const atEdge = (x, z) => Math.abs(x) > EXTENT - EDGE_MARGIN || Math.abs(z) > EXTENT - EDGE_MARGIN
+    const doomed = new Set()
+    for (const road of roads) {
+      let length = 0
+      for (let i = 2; i < road.p.length; i += 2)
+        length += Math.hypot(road.p[i] - road.p[i - 2], road.p[i + 1] - road.p[i - 1])
+      if (length > STUB_LENGTH)
+        continue
+
+      const head = `${road.p[0]}:${road.p[1]}`
+      const tail = `${road.p[road.p.length - 2]}:${road.p[road.p.length - 1]}`
+      const joinedHead = (uses.get(head) ?? 0) > 1 || atEdge(road.p[0], road.p[1])
+      const joinedTail = (uses.get(tail) ?? 0) > 1 || atEdge(road.p[road.p.length - 2], road.p[road.p.length - 1])
+      if (!joinedHead || !joinedTail)
+        doomed.add(road)
+    }
+
+    if (doomed.size === 0)
+      break
+    for (let i = roads.length - 1; i >= 0; i -= 1) {
+      if (doomed.has(roads[i]))
+        roads.splice(i, 1)
+    }
+    removed += doomed.size
+  }
+  return removed
+}
+
+/**
  * Throw away the outlines that are not buildings but blocks.
  *
  * Two kinds go: anything with a roof too large to be one roof, and anything that contains the
@@ -1038,6 +1094,7 @@ for (const element of raw.elements) {
 // Big pieces of land go down first, so a park inside an industrial estate still reads as a park.
 areas.sort((a, b) => Math.abs(signedArea(b.p)) - Math.abs(signedArea(a.p)))
 
+const stubs = dropRoadStubs(roads)
 const swallowed = dropEnclosingOutlines(buildings)
 
 const { added: filled, gardens } = fillGaps(buildings, roads, areas)
@@ -1067,7 +1124,7 @@ writeFileSync(out, JSON.stringify(city))
 
 const vertices = buildings.reduce((n, b) => n + b.p.length / 2, 0)
 console.log(`${buildings.length} buildings (${filled.length} filled in, ${swallowed} enclosing outlines dropped, ${vertices} vertices), ${roads.length} roads, ${rails.length} rails, ${areas.length} areas`)
-console.log(`${gardens.length / 2} gardens, ${roads.filter(r => r.b).length} road bridges, ${rails.filter(r => r.b).length} rail bridges`)
+console.log(`${gardens.length / 2} gardens, ${roads.filter(r => r.b).length} road bridges, ${rails.filter(r => r.b).length} rail bridges, ${stubs} stubs dropped`)
 console.log(`waterway ${city.waterways[0]?.p.length ? city.waterways[0].p.length / 2 : 0} points`)
 console.log(`relief ${city.relief.size}² cells, ${Math.max(...city.relief.data).toFixed(1)} m at its highest`)
 console.log(`${out} — ${(readFileSync(out).length / 1024 / 1024).toFixed(2)} MB`)

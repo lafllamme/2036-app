@@ -48,10 +48,11 @@ export interface WorldVisuals extends CityBuildings, CityTrees {
 
 export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): WorldVisuals {
   addGround(scene, blueprint)
-  addRoads(scene, blueprint)
 
-  // The street plan cut into junctions and the stretches between them. Traffic and signals share it.
+  // The street plan cut into junctions and the stretches between them. The roads, the traffic and
+  // the signals all read it — the roads because a junction is a surface, not a pile of ribbons.
   const network = buildRoadNetwork(blueprint, blueprint.relief)
+  addRoads(scene, blueprint, network)
   const signals = addTrafficLights(scene, network, blueprint.relief, models)
 
   return {

@@ -87,17 +87,19 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
   const outskirts = buildOutskirts(seed, relief)
   buildings.push(...outskirts.buildings)
 
+  const roads = raw.roads.map((entry, index): RoadRecord => ({
+    id: `r-${index.toString(36)}`,
+    path: entry.p,
+    width: entry.w,
+    arterial: entry.a === 1,
+    bridge: entry.b === 1,
+  })).concat(outskirts.roads)
+
   return {
     definition: { ...LINDENHAFEN, seed },
     buildings,
     growthSlots: findGrowthSlots(raw, buildings, seed),
-    roads: raw.roads.map((entry, index): RoadRecord => ({
-      id: `r-${index.toString(36)}`,
-      path: entry.p,
-      width: entry.w,
-      arterial: entry.a === 1,
-      bridge: entry.b === 1,
-    })).concat(outskirts.roads),
+    roads,
     rails: raw.rails.map((entry, index): RoadRecord => ({
       id: `t-${index.toString(36)}`,
       path: entry.p,
@@ -106,7 +108,7 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
       bridge: entry.b === 1,
     })),
     areas,
-    trees: [...plantTrees(areas, raw.gardens ?? [], seed), ...outskirts.trees],
+    trees: [...plantTrees(areas, raw.gardens ?? [], seed), ...lineTheStreets(roads, relief, seed), ...outskirts.trees],
     relief,
     waterway: raw.waterways[0]?.p ?? [],
   }
@@ -232,4 +234,60 @@ function contains(ring: number[], x: number, z: number): boolean {
 function square(x: number, z: number, size: number): number[] {
   const half = size / 2
   return [x - half, z - half, x + half, z - half, x + half, z + half, x - half, z + half]
+}
+
+/**
+ * Trees down the main streets.
+ *
+ * An avenue is one of the two or three things that make a European street read as one, and the map
+ * has none of them — OpenStreetMap records a lime tree about as often as it records a dustbin. They
+ * go on the verge behind the pavement, every so many metres, alternating sides, and never on a
+ * bridge, where the verge is a parapet.
+ */
+const AVENUE_SPACING = 26
+const AVENUE_MIN_WIDTH = 11
+const AVENUE_LIMIT = 2_600
+
+function lineTheStreets(roads: RoadRecord[], relief: Relief, seed: number): TreeRecord[] {
+  const rng = createRandomStream(seed, 'avenues')
+  const trees: TreeRecord[] = []
+
+  for (const road of roads) {
+    if (trees.length >= AVENUE_LIMIT)
+      break
+    if (road.bridge || (!road.arterial && road.width < AVENUE_MIN_WIDTH))
+      continue
+
+    const points = road.path
+    let carried = rng.next() * AVENUE_SPACING
+    let side = 1
+    for (let i = 0; i < points.length / 2 - 1; i += 1) {
+      const ax = points[i * 2]!
+      const az = points[i * 2 + 1]!
+      const bx = points[(i + 1) * 2]!
+      const bz = points[(i + 1) * 2 + 1]!
+      const span = Math.hypot(bx - ax, bz - az)
+      if (span < 1)
+        continue
+      const ux = (bx - ax) / span
+      const uz = (bz - az) / span
+
+      for (let along = AVENUE_SPACING - carried; along < span; along += AVENUE_SPACING) {
+        const offset = (road.width / 2 + 3.4) * side
+        side = -side
+        // A gap here and there, because a real avenue has losses in it.
+        if (rng.next() > 0.86)
+          continue
+        const x = ax + ux * along - uz * offset
+        const z = az + uz * along + ux * offset
+        // Nothing is planted on a slope the pavement could not be on either.
+        if (Math.abs(relief.height(x, z) - relief.height(ax + ux * along, az + uz * along)) > 1.2)
+          continue
+        trees.push({ id: `avenue-${trees.length.toString(36)}`, x, z, scale: rng.between(0.7, 1.15) })
+      }
+      carried = (carried + span) % AVENUE_SPACING
+    }
+  }
+
+  return trees
 }

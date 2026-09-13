@@ -71,16 +71,22 @@ const CHANGES = [
 const BARS_PER_CHANGE = 2
 
 /**
- * How the figure runs through a chord: which note of it, on each eighth of the bar.
+ * How the figure runs through a chord: which note of its voicing, on each eighth of the bar.
  *
- * Up, over the top, and back through the middle. Indices into whatever chord is current, so the
- * shape survives the changes and the colour does not.
+ * Up through the chord to the octave, a rest, and a step back down. `null` is a rest, and the rests
+ * are what give the bar a shape — a figure that runs straight through all eight eighths is a texture
+ * rather than a phrase, and it is what made the piece feel like it never took a breath.
+ *
+ * Indices into the voicing rather than into the chord, which matters: the chords have four notes and
+ * one of them has five, so indexing the chord directly made the fifth step wrap round to the root.
+ * The arc peaked on the note it started on, which is not an arc — and it did it on three chords out
+ * of four, which is where "some moments sound odd" was coming from.
  */
-const FIGURE = [0, 1, 2, 3, 4, 3, 2, 1]
+const FIGURE: (number | null)[] = [0, 1, 2, 3, 4, null, 2, null]
 
 /** Which notes of the chord the lead reaches for, and how long it holds them. */
 const PHRASE: (number | null)[] = [2, null, null, 3, null, 1, null, null]
-const LEAD_LENGTH = BEAT * 1.8
+const LEAD_LENGTH = BEAT * 1.3
 
 const BELL_GAIN = 0.07
 const BASS_GAIN = 0.12
@@ -99,7 +105,16 @@ const STRING_GAIN = 0.018
  * fast that falls away. The fall is the entire sound: a bright attack collapsing to a near-sine is
  * what a struck thing does, and holding the index steady instead is what makes FM sound like 1985.
  */
-const BELL = { ratio: 2, index: 3.2, decay: 0.13, length: 1.9 }
+/**
+ * `length` is how long a note rings, and it has to be shorter than it wants to be.
+ *
+ * At nearly two seconds the last notes of a change were still sounding a second and a half into the
+ * next one — four notes of the old chord over the new one, every eight bars. A ring that crosses a
+ * change does not sound like sustain, it sounds like a mistake. Just over a second leaves two or
+ * three overlapping inside a bar, which is what makes a figure sound played rather than typed, and
+ * almost nothing spilling past the end of it.
+ */
+const BELL = { ratio: 2, index: 3.2, decay: 0.13, length: 1.15 }
 const LEAD = { ratio: 1.5, index: 1.4, decay: 0.35 }
 
 export class CityScore {
@@ -213,10 +228,20 @@ export class CityScore {
        * This is what makes the piece move, and it is the reason there are no drums: something
        * running underneath is a pulse the listener feels without being told where the bar is.
        */
+      /*
+       * Five notes to run through, in order: the chord, plus the root an octave above it, sorted.
+       *
+       * Sorted, because a chord with a ninth in it already reaches higher than its own octave — on
+       * Cadd9 the added note sits above the octave, so appending the octave put the top of the arc
+       * one step below the note before it and the figure fell over at its peak. Sorting is one word
+       * and it is the difference between an arc and a stumble.
+       */
+      const voicing = [...chord, chord[0]! + 7].sort((a, b) => a - b).slice(0, 5)
       FIGURE.forEach((index, eighth) => {
-        const step = chord[index % chord.length]!
+        if (index === null)
+          return
         // The second bar of a change is an octave up, so two bars of one chord are not one bar twice.
-        this.bell(this.pitch(step + (second ? 21 : 14)), at + eighth * BEAT * 0.5, BELL_GAIN, BELL)
+        this.bell(this.pitch(voicing[index]! + (second ? 21 : 14)), at + eighth * BEAT * 0.5, BELL_GAIN, BELL)
       })
 
       // The bass: the root on the first beat, and the fifth on the third when the city is awake.
@@ -234,7 +259,7 @@ export class CityScore {
         PHRASE.forEach((index, eighth) => {
           if (index === null)
             return
-          this.lead(this.pitch(chord[index % chord.length]! + 14), at + eighth * BEAT * 0.5)
+          this.lead(this.pitch(voicing[index % voicing.length]! + 14), at + eighth * BEAT * 0.5)
         })
       }
 

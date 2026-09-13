@@ -1,6 +1,6 @@
 import type { Relief } from '../../world/relief'
 import type { CityModel, CityModels } from '../cityModels'
-import type { Incident } from './agents'
+import type { Incident } from './dispatch'
 import * as THREE from 'three/webgpu'
 import { AXIS_Y, FLAT, WHITE } from '../shared'
 import { carProxyGeometry, carProxyMaterial } from './carProxy'

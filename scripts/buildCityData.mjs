@@ -253,18 +253,51 @@ function orientedBox(ring) {
 }
 
 /**
- * Fill the holes the map leaves.
+ * Fill the holes the map leaves — along the streets, the way a city fills.
  *
- * OpenStreetMap is thorough about the buildings people live in and vague about everything else —
+ * OpenStreetMap is thorough about the buildings people live in and vague about everything else:
  * yards, workshops, depots, the low stuff behind a tower. Zoomed in, whole blocks come out as lawn
- * with three office slabs standing on it, which is neither what is there nor what a city looks like.
+ * with three office slabs on it, which is neither what is there nor what a city looks like.
  *
- * Anywhere inside the extract with no building, no water and no parkland gets a plausible one, sized
- * and angled like its neighbours and never on a street. This is the point where Lindenhafen stops
- * being Bremen: the ground plan is the real one, the infill is ours.
+ * The first version sampled a twenty-four-metre grid and dropped a box wherever it found room. Two
+ * things were wrong with that and both of them are visible from the ground. A grid produces a field
+ * of identical sheds standing in grass with no street to belong to — nowhere on earth looks like
+ * that, because buildings are built facing a road. And the height was the average of the neighbours
+ * including the infill already placed*, so each new one averaged over the too-small ones before it
+ * and the whole thing collapsed: 963 of 1 386 ended up a single storey tall, median height 4,7 m,
+ * against 9,5 m for the real city around them. A shed with an enormous roof on it, which is exactly
+ * what a building sunk to its eaves looks like.
+ *
+ * So this walks the streets instead. Every street gets plots down both sides at a plot's width, set
+ * back from the kerb, square to the road, and a candidate is only built where nothing already is.
+ * The storeys come from the real buildings nearby and never from the infill, and the roof is added on
+ * top of the walls rather than carved out of them — the same rule `massingOf` follows.
+ *
+ * This is the point where Lindenhafen stops being Bremen: the ground plan is the real one, what fills
+ * it in is ours.
  */
-const FILL_STEP = 24
-const FILL_CLEARANCE = 22
+/** How wide a plot is, how deep the house on it is, and how far back from the kerb it stands. */
+const PLOT_MIN = 15
+const PLOT_MAX = 27
+const PLOT_DEPTH_MIN = 10
+const PLOT_DEPTH_MAX = 16
+const FRONT_GARDEN = 4.5
+/** Only streets something would front onto. A service road behind a depot gets nothing. */
+const FRONTAGE_MIN_WIDTH = 6
+/** How fine the map of what is already taken is, in metres, and how much clearance a building wants. */
+const OCCUPANCY_CELL = 4
+const BUILDING_CLEARANCE = 2.5
+/** As many as the streets have room for; the cap is a guard, not a target. */
+const FILL_LIMIT = 4_000
+/**
+ * The outbuildings in the courtyards: how far apart they are tried, how big they are, and how close
+ * to a real building they have to be to exist at all. That last one is what keeps them out of the
+ * open country — a field's middle is far from anything, and stays a field.
+ */
+const COURT_STEP = 19
+const COURT_MIN = 6
+const COURT_MAX = 13
+const COURT_REACH = 42
 
 /**
  * How large one roof can be before the outline under it is a block rather than a building.
@@ -336,129 +369,275 @@ function dropEnclosingOutlines(buildings) {
 }
 
 function fillGaps(buildings, roads, areas) {
-  const cell = 40
-  const key = (x, z) => `${Math.floor(x / cell)}:${Math.floor(z / cell)}`
-  const occupied = new Map()
-  for (const building of buildings) {
-    const at = key(building.x, building.z)
-    const list = occupied.get(at) ?? []
-    list.push(building)
-    occupied.set(at, list)
-  }
-
-  const onRoad = new Set()
-  for (const road of roads) {
-    for (let i = 0; i < road.p.length - 2; i += 2) {
-      const span = Math.hypot(road.p[i + 2] - road.p[i], road.p[i + 3] - road.p[i + 1])
-      const steps = Math.max(1, Math.ceil(span / 8))
-      for (let step = 0; step <= steps; step += 1) {
-        const t = step / steps
-        onRoad.add(key(road.p[i] + (road.p[i + 2] - road.p[i]) * t, road.p[i + 1] + (road.p[i + 3] - road.p[i + 1]) * t))
-      }
-    }
-  }
-
-  const keepClear = areas.filter(area => ['water', 'park', 'pitch', 'forest'].includes(area.k)).map(area => area.p)
-  const added = []
-  let seed = 1
-
-  const nearby = (x, z) => {
-    const found = []
-    const cx = Math.floor(x / cell)
-    const cz = Math.floor(z / cell)
-    for (let dx = -1; dx <= 1; dx += 1) {
-      for (let dz = -1; dz <= 1; dz += 1)
-        found.push(...(occupied.get(`${cx + dx}:${cz + dz}`) ?? []))
-    }
-    return found
-  }
-
   /*
-   * Every footprint big enough to reach past its own cell, indexed by all the cells it covers.
-   *
-   * Clearance was measured to the neighbours' centres, which is the right test between two houses
-   * and useless against a works a hundred metres across: its centre is far away, so a whole street
-   * of infill was delivered inside it. This is what makes "is this point already built on" a
-   * question about the outline rather than about the centroid.
+   * A map of what the ground is already spoken for by, at four metres a cell: every footprint, every
+   * carriageway, and every piece of land nobody builds on. Asking it is one array lookup, which is
+   * what makes it affordable to test a candidate's whole outline rather than just its centre — the
+   * old clearance was measured to a neighbour's *centre*, which says nothing at all about a works a
+   * hundred metres across, and a street of infill was delivered inside one.
    */
-  const covering = new Map()
-  for (const building of buildings) {
+  const span = Math.ceil((EXTENT * 2) / OCCUPANCY_CELL)
+  const taken = new Uint8Array(span * span)
+  const cellOf = value => Math.floor((value + EXTENT) / OCCUPANCY_CELL)
+  const isTaken = (x, z) => {
+    const cx = cellOf(x)
+    const cz = cellOf(z)
+    if (cx < 0 || cz < 0 || cx >= span || cz >= span)
+      return true
+    return taken[cz * span + cx] === 1
+  }
+  const claim = (x, z) => {
+    const cx = cellOf(x)
+    const cz = cellOf(z)
+    if (cx >= 0 && cz >= 0 && cx < span && cz < span)
+      taken[cz * span + cx] = 1
+  }
+
+  /** Mark every cell whose centre falls inside a ring, grown by `margin` all round. */
+  const claimRing = (ring, margin) => {
     let minX = Infinity
     let minZ = Infinity
     let maxX = -Infinity
     let maxZ = -Infinity
-    for (let i = 0; i < building.p.length; i += 2) {
-      minX = Math.min(minX, building.p[i])
-      maxX = Math.max(maxX, building.p[i])
-      minZ = Math.min(minZ, building.p[i + 1])
-      maxZ = Math.max(maxZ, building.p[i + 1])
+    for (let i = 0; i < ring.length; i += 2) {
+      minX = Math.min(minX, ring[i])
+      maxX = Math.max(maxX, ring[i])
+      minZ = Math.min(minZ, ring[i + 1])
+      maxZ = Math.max(maxZ, ring[i + 1])
     }
-    for (let cx = Math.floor(minX / cell); cx <= Math.floor(maxX / cell); cx += 1) {
-      for (let cz = Math.floor(minZ / cell); cz <= Math.floor(maxZ / cell); cz += 1) {
-        const at = `${cx}:${cz}`
-        const list = covering.get(at) ?? []
-        list.push(building)
-        covering.set(at, list)
+    for (let x = minX - margin; x <= maxX + margin; x += OCCUPANCY_CELL) {
+      for (let z = minZ - margin; z <= maxZ + margin; z += OCCUPANCY_CELL) {
+        // Grown by testing the ring at an offset rather than by offsetting the ring itself.
+        if (contains(ring, x, z)
+          || contains(ring, x + margin, z) || contains(ring, x - margin, z)
+          || contains(ring, x, z + margin) || contains(ring, x, z - margin)) {
+          claim(x, z)
+        }
       }
     }
   }
 
-  for (let x = -EXTENT + FILL_STEP; x < EXTENT; x += FILL_STEP) {
-    for (let z = -EXTENT + FILL_STEP; z < EXTENT; z += FILL_STEP) {
-      const random = () => {
-        seed = (seed * 1_664_525 + 1_013_904_223) % 4_294_967_296
-        return seed / 4_294_967_296
+  for (const building of buildings)
+    claimRing(building.p, BUILDING_CLEARANCE)
+  for (const area of areas) {
+    if (['water', 'park', 'pitch', 'forest', 'grass', 'meadow'].includes(area.k))
+      claimRing(area.p, 0)
+  }
+  for (const road of roads) {
+    for (let i = 0; i < road.p.length - 2; i += 2) {
+      const span_ = Math.hypot(road.p[i + 2] - road.p[i], road.p[i + 3] - road.p[i + 1])
+      const steps = Math.max(1, Math.ceil(span_ / OCCUPANCY_CELL))
+      const reach = road.w / 2 + 1.5
+      for (let step = 0; step <= steps; step += 1) {
+        const t = step / steps
+        const x = road.p[i] + (road.p[i + 2] - road.p[i]) * t
+        const z = road.p[i + 1] + (road.p[i + 3] - road.p[i + 1]) * t
+        for (let dx = -reach; dx <= reach; dx += OCCUPANCY_CELL) {
+          for (let dz = -reach; dz <= reach; dz += OCCUPANCY_CELL) claim(x + dx, z + dz)
+        }
       }
-      const px = x + (random() - 0.5) * 14
-      const pz = z + (random() - 0.5) * 14
+    }
+  }
 
-      const neighbours = nearby(px, pz)
-      if (neighbours.some(other => Math.hypot(other.x - px, other.z - pz) < FILL_CLEARANCE))
+  /*
+   * How tall the real buildings around a point are, in storeys, on a coarse grid. Only the real ones:
+   * reading the infill back is what made the old one shrink toward nothing, one building at a time.
+   */
+  const CONTEXT_CELL = 160
+  const contextSpan = Math.ceil((EXTENT * 2) / CONTEXT_CELL)
+  const storeySum = new Float64Array(contextSpan * contextSpan)
+  const storeyCount = new Float64Array(contextSpan * contextSpan)
+  const pitchedCount = new Float64Array(contextSpan * contextSpan)
+  for (const building of buildings) {
+    const cx = Math.floor((building.x + EXTENT) / CONTEXT_CELL)
+    const cz = Math.floor((building.z + EXTENT) / CONTEXT_CELL)
+    if (cx < 0 || cz < 0 || cx >= contextSpan || cz >= contextSpan)
+      continue
+    const at = cz * contextSpan + cx
+    storeySum[at] += Math.max(1, Math.round((building.h - building.r) / STOREY))
+    storeyCount[at] += 1
+    if (building.r > 0.4)
+      pitchedCount[at] += 1
+  }
+  const neighbourhood = (x, z) => {
+    const cx = Math.floor((x + EXTENT) / CONTEXT_CELL)
+    const cz = Math.floor((z + EXTENT) / CONTEXT_CELL)
+    let sum = 0
+    let count = 0
+    let pitched = 0
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dz = -1; dz <= 1; dz += 1) {
+        const ax = cx + dx
+        const az = cz + dz
+        if (ax < 0 || az < 0 || ax >= contextSpan || az >= contextSpan)
+          continue
+        const at = az * contextSpan + ax
+        sum += storeySum[at]
+        count += storeyCount[at]
+        pitched += pitchedCount[at]
+      }
+    }
+    // Two storeys where there is nothing to go on: that is what the edge of a city is made of.
+    return count > 0
+      ? { storeys: sum / count, pitched: pitched / count }
+      : { storeys: 2, pitched: 0.6 }
+  }
+
+  const added = []
+  let seed = 1
+  const random = () => {
+    seed = (seed * 1_664_525 + 1_013_904_223) % 4_294_967_296
+    return seed / 4_294_967_296
+  }
+
+  for (const road of roads) {
+    if (added.length >= FILL_LIMIT)
+      break
+    if (road.w < FRONTAGE_MIN_WIDTH)
+      continue
+
+    const points = road.p
+    let carried = random() * PLOT_MAX
+    for (let i = 0; i < points.length / 2 - 1; i += 1) {
+      const ax = points[i * 2]
+      const az = points[i * 2 + 1]
+      const bx = points[(i + 1) * 2]
+      const bz = points[(i + 1) * 2 + 1]
+      const run = Math.hypot(bx - ax, bz - az)
+      if (run < 1)
         continue
-      if (onRoad.has(key(px, pz)))
-        continue
-      if ((covering.get(key(px, pz)) ?? []).some(other => contains(other.p, px, pz)))
-        continue
-      // Nothing is built in the water, in a park or on a pitch.
-      if (keepClear.some(ring => contains(ring, px, pz)))
+      const ux = (bx - ax) / run
+      const uz = (bz - az) / run
+      const facing = Math.atan2(ux, uz)
+
+      let along = PLOT_MIN - carried
+      while (along < run) {
+        const width = PLOT_MIN + random() * (PLOT_MAX - PLOT_MIN)
+        const depth = PLOT_DEPTH_MIN + random() * (PLOT_DEPTH_MAX - PLOT_DEPTH_MIN)
+        for (const side of [1, -1]) {
+          // A gap in the row: an entry, a yard, somewhere nobody built.
+          if (random() > 0.82)
+            continue
+          const offset = (road.w / 2 + FRONT_GARDEN + depth / 2) * side
+          const px = ax + ux * (along + width / 2) - uz * offset
+          const pz = az + uz * (along + width / 2) + ux * offset
+          if (Math.abs(px) > EXTENT - 20 || Math.abs(pz) > EXTENT - 20)
+            continue
+
+          // Square to the street, which is what puts a row of them along it.
+          const angle = facing + (random() - 0.5) * 0.05
+          const cos = Math.cos(angle)
+          const sin = Math.sin(angle)
+          const house = width - 2 - random() * 3
+          const ring = []
+          for (const [ox, oz] of [[-house / 2, -depth / 2], [house / 2, -depth / 2], [house / 2, depth / 2], [-house / 2, depth / 2]])
+            ring.push(round(px + ox * cos - oz * sin), round(pz + ox * sin + oz * cos))
+
+          // Every corner, every edge midpoint and the middle: nothing may already be there.
+          let free = !isTaken(px, pz)
+          for (let corner = 0; free && corner < 8; corner += 2) {
+            const next = (corner + 2) % 8
+            free = !isTaken(ring[corner], ring[corner + 1])
+              && !isTaken((ring[corner] + ring[next]) / 2, (ring[corner + 1] + ring[next + 1]) / 2)
+          }
+          if (!free)
+            continue
+
+          const context = neighbourhood(px, pz)
+          const storeys = Math.max(1, Math.round(context.storeys * (0.7 + random() * 0.6)))
+          const wall = storeys * STOREY + PLINTH
+          const roof = random() < context.pitched ? round(2.6 + random() * 1.2) : 0
+          added.push({
+            p: ring,
+            h: round(wall + roof),
+            r: roof,
+            t: roof > 0.4 ? (storeys >= 4 ? 'altbau' : 'residential') : (storeys >= 5 ? 'commercial' : 'residential'),
+            x: round(px),
+            z: round(pz),
+            w: round(house),
+            d: round(depth),
+            a: Math.round(angle * 1_000) / 1_000,
+          })
+          claimRing(ring, BUILDING_CLEARANCE)
+        }
+        along += width
+      }
+      carried = (carried + run) % PLOT_MAX
+    }
+  }
+
+  /*
+   * And what stands behind the street wall.
+   *
+   * A European block is not hollow: there are garages, workshops, extensions and bicycle sheds in the
+   * courtyard, and OpenStreetMap almost never has them. They are what fills a block, and they are
+   * small and low — which is the whole difference from the old infill, which put *houses* out there.
+   *
+   * The rule that keeps them out of open country is that they have to be near something real. A
+   * meadow's middle is far from any building and stays a meadow; the back of a terrace is twenty
+   * metres from one and gets a workshop.
+   */
+  const near = new Map()
+  for (const building of buildings) {
+    const key = `${Math.round(building.x / COURT_REACH)}:${Math.round(building.z / COURT_REACH)}`
+    const list = near.get(key) ?? []
+    list.push(building)
+    near.set(key, list)
+  }
+  const hasNeighbour = (x, z) => {
+    const cx = Math.round(x / COURT_REACH)
+    const cz = Math.round(z / COURT_REACH)
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dz = -1; dz <= 1; dz += 1) {
+        for (const other of near.get(`${cx + dx}:${cz + dz}`) ?? []) {
+          if (Math.hypot(other.x - x, other.z - z) < COURT_REACH)
+            return true
+        }
+      }
+    }
+    return false
+  }
+
+  for (let x = -EXTENT + COURT_STEP; x < EXTENT - COURT_STEP && added.length < FILL_LIMIT; x += COURT_STEP) {
+    for (let z = -EXTENT + COURT_STEP; z < EXTENT - COURT_STEP; z += COURT_STEP) {
+      const px = x + (random() - 0.5) * 9
+      const pz = z + (random() - 0.5) * 9
+      if (isTaken(px, pz) || !hasNeighbour(px, pz))
         continue
 
-      /*
-       * Take the neighbourhood's word for what belongs here. Where there is nothing to go on — the
-       * far edge of the extract — it is a low workshop, which is what the edge of a city is made of.
-       */
-      const context = nearby(px, pz).concat(added.slice(-40).filter(other => Math.hypot(other.x - px, other.z - pz) < 180))
-      const height = context.length > 0
-        ? context.reduce((sum, other) => sum + other.h, 0) / context.length * (0.6 + random() * 0.5)
-        : 6 + random() * 5
-      const angle = context.length > 0 ? context[0].a : (random() - 0.5) * Math.PI
-      const width = 13 + random() * 13
-      const depth = 11 + random() * 12
-
-      const rotated = []
+      const width = COURT_MIN + random() * (COURT_MAX - COURT_MIN)
+      const depth = COURT_MIN + random() * (COURT_MAX - COURT_MIN)
+      const angle = random() * Math.PI
       const cos = Math.cos(angle)
       const sin = Math.sin(angle)
+      const ring = []
       for (const [ox, oz] of [[-width / 2, -depth / 2], [width / 2, -depth / 2], [width / 2, depth / 2], [-width / 2, depth / 2]])
-        rotated.push(round(px + ox * cos - oz * sin), round(pz + ox * sin + oz * cos))
+        ring.push(round(px + ox * cos - oz * sin), round(pz + ox * sin + oz * cos))
 
-      const entry = {
-        p: rotated,
-        h: round(Math.max(4, Math.min(height, 26))),
-        r: random() > 0.45 ? round(2.4 + random() * 2.2) : 0,
-        t: height > 16 ? 'commercial' : 'residential',
+      let free = true
+      for (let corner = 0; free && corner < 8; corner += 2)
+        free = !isTaken(ring[corner], ring[corner + 1])
+      if (!free)
+        continue
+
+      // One storey, occasionally two. A courtyard is not where the tall things are.
+      const storeys = random() > 0.82 ? 2 : 1
+      const roof = random() > 0.55 ? round(1.8 + random() * 1.2) : 0
+      added.push({
+        p: ring,
+        h: round(storeys * STOREY + PLINTH + roof),
+        r: roof,
+        t: 'industrial',
         x: round(px),
         z: round(pz),
         w: round(width),
         d: round(depth),
         a: Math.round(angle * 1_000) / 1_000,
-      }
-      added.push(entry)
-      const at = key(px, pz)
-      const list = occupied.get(at) ?? []
-      list.push(entry)
-      occupied.set(at, list)
+      })
+      claimRing(ring, BUILDING_CLEARANCE)
     }
   }
+
   return added
 }
 

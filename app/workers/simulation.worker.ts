@@ -46,6 +46,21 @@ globalThis.onmessage = ({ data }: MessageEvent<SimulationCommand>) => {
         else publish('SNAPSHOT')
         return
       }
+      /*
+       * Hand the whole state out, and take a whole state back.
+       *
+       * A campaign cannot be restored from a snapshot: the snapshot is what the simulation reports,
+       * not what it is. Cooldowns, relationships, which events have already fired and how far each
+       * measure has run are all here and nowhere else — restoring without them looks right for one
+       * month and then quietly diverges.
+       */
+      case 'REQUEST_SAVE':
+        post({ type: 'SAVE_STATE', state, snapshot: snapshotOf(state) })
+        return
+      case 'RESTORE':
+        state = data.state
+        publish('SNAPSHOT')
+        return
       case 'REQUEST_FORECAST':
         post({ type: 'FORECAST', eventId: data.eventId, forecasts: forecastsForEvent(state, data.eventId) })
         return

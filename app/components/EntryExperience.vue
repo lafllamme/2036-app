@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CampaignPriorityId, PartyDefinition, PartyPolicyPosition } from '~/core/contracts'
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useSound } from '~/composables/useSound'
 import { useSoundSettings } from '~/composables/useSoundSettings'
 import {
@@ -22,7 +22,30 @@ const {
   rendererStats,
   selectedPartyId,
   selectedPriorityIds,
+  savedGame,
 } = storeToRefs(game)
+
+/**
+ * The campaign waiting on this machine, said in a line.
+ *
+ * A ten-year campaign that starts over on every refresh is not a campaign, and "Fortsetzen" sat here
+ * disabled with nothing behind it. It says which party and which month, because that is what tells
+ * the player whether this is the run they meant to come back to.
+ */
+const MONTH_NAMES = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+
+// Only the browser knows whether a campaign is saved, so ask it once the title screen is in it.
+onMounted(() => game.refreshSavedGame())
+
+const savedLabel = computed(() => {
+  const saved = savedGame.value
+  if (!saved)
+    return null
+  const party = saved.partyId ? getParty(saved.partyId).abbreviation : null
+  const month = MONTH_NAMES[saved.month % 12] ?? ''
+  const year = 2026 + Math.floor(saved.month / 12)
+  return party ? `${party} · ${month} ${year}` : `${month} ${year}`
+})
 
 const cityReady = computed(() => ready.value && Boolean(rendererStats.value))
 const selectedParty = computed<PartyDefinition | null>(() => (
@@ -88,16 +111,32 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
             Eine Stadt. Viele Zukünfte.
           </p>
           <div class="title-actions">
-            <button class="entry-primary" type="button" :disabled="!cityReady" @click="game.startNewCampaign">
+            <!--
+              A campaign in progress is the thing you came back for, so it is the first button.
+              Starting over is still one click away and is what a first-time player sees, because
+              there is nothing to continue yet.
+            -->
+            <button v-if="savedLabel" class="entry-primary" type="button" :disabled="!cityReady" @click="game.resume">
+              {{ cityReady ? 'Kampagne fortführen' : 'Lindenhafen wird aufgebaut' }}
+              <Icon v-if="cityReady" name="lucide:arrow-right" />
+            </button>
+            <button v-else class="entry-primary" type="button" :disabled="!cityReady" @click="game.startNewCampaign">
               {{ cityReady ? 'Neue Kampagne' : 'Lindenhafen wird aufgebaut' }}
               <Icon v-if="cityReady" name="lucide:arrow-right" />
             </button>
+            <p v-if="savedLabel" class="title-saved">
+              Gespeicherter Stand · {{ savedLabel }}
+            </p>
           </div>
         </div>
 
         <footer class="title-foot">
           <div class="title-secondary" aria-label="Weitere Optionen">
-            <button type="button" disabled>
+            <!-- With a campaign saved, the other way out of here is to start a fresh one. -->
+            <button v-if="savedGame" type="button" :disabled="!cityReady" @click="game.startNewCampaign">
+              <Icon name="lucide:rotate-ccw" />Neue Kampagne
+            </button>
+            <button v-else type="button" disabled title="Es ist noch keine Kampagne gespeichert">
               <Icon name="lucide:play" />Fortsetzen
             </button>
             <button type="button" @click="settings.openSettings()">
@@ -434,6 +473,11 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   letter-spacing: 0.04em;
 }
 .title-actions { margin-top: 46px; }
+/* What you are coming back to, under the button that takes you there. */
+.title-saved {
+  margin: 14px 0 0; color: var(--faint);
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+}
 
 .title-attribution {
   margin: 0.9rem 0 0;

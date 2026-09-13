@@ -51,10 +51,11 @@ const SERVICE_LABELS: Record<string, string> = {
   ambulance: 'Rettungsdienst',
   fire: 'Feuerwehr',
 }
-/** Which of the three service colours a dialog wears. */
-const SERVICE_TONE: Record<string, string> = {
-  police: 'police',
-  ambulance: 'medical',
+/** Which colour a call wears: by what happened, not by who was sent. */
+const CALL_TONE: Record<string, string> = {
+  burglary: 'theft',
+  assault: 'police',
+  accident: 'medical',
   fire: 'fire',
 }
 
@@ -252,7 +253,7 @@ function restart(): void {
         role="dialog"
         aria-modal="true"
         aria-labelledby="report-title"
-        :style="{ '--call': `var(--call-${SERVICE_TONE[selectedReport.service]})` }"
+        :style="{ '--call': `var(--call-${CALL_TONE[selectedReport.kind]})` }"
       >
         <button type="button" class="close-button" aria-label="Meldung schließen" @click="game.selectedReport = null">
           ×

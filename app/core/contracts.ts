@@ -1,3 +1,4 @@
+import type { SimulationState } from '../simulation/model'
 import type { Relief } from '../world/relief'
 
 export type DistrictId
@@ -417,7 +418,8 @@ export type SimulationCommand
     | SimulationCommandExtra
 
 export type SimulationMessage
-  = | { type: 'READY', snapshot: SimulationSnapshot }
+  = | { type: 'SAVE_STATE', state: SimulationState, snapshot: SimulationSnapshot }
+    | { type: 'READY', snapshot: SimulationSnapshot }
     | { type: 'SNAPSHOT', snapshot: SimulationSnapshot }
     | { type: 'VOTE_RESULT', result: VoteResult, snapshot: SimulationSnapshot }
     | { type: 'FORECAST', eventId: string, forecasts: Record<string, VoteForecast> }
@@ -429,14 +431,33 @@ export type GameCommand
     | { type: 'SET_SPEED', speed: 0 | 1 | 2 | 4 }
     | { type: 'SELECT_BUILDING', buildingId: string | null }
 
-export interface SaveGameV1 {
-  schemaVersion: 1
+/**
+ * A saved campaign.
+ *
+ * Version 1 kept only the snapshot, which is the simulation's report and not the simulation: rents,
+ * relationships, cooldowns, which events had already fired and how far each measure had run all
+ * live in the state behind it. A campaign restored from a snapshot alone would have looked right
+ * for one month and then diverged, so version 2 keeps the state and derives the rest.
+ *
+ * The state is plain data — the simulation is pure by contract — so it survives structured clone
+ * into IndexedDB and back out again unchanged.
+ */
+export interface SaveGame {
+  schemaVersion: 2
   contentVersion: 'vertical-slice-1'
   citySeed: number
   partyId?: PartyId
   priorityIds?: CampaignPriorityId[]
+  state: SimulationState
   snapshot: SimulationSnapshot
   savedAt: string
+}
+
+/** Enough to offer "continue" on the title screen without opening the database. */
+export interface SaveSummary {
+  savedAt: string
+  partyId?: PartyId
+  month: number
 }
 
 // ---------------------------------------------------------------------------
@@ -566,7 +587,9 @@ export interface PendingDecision {
 }
 
 export type SimulationCommandExtra
-  = | { type: 'REQUEST_FORECAST', eventId: string }
+  = | { type: 'REQUEST_SAVE' }
+    | { type: 'RESTORE', state: SimulationState }
+    | { type: 'REQUEST_FORECAST', eventId: string }
     | { type: 'RESOLVE_DECISION', eventId: string, optionId: string }
     | { type: 'NEGOTIATE', eventId: string, partyId: PartyId }
     | { type: 'CAMPAIGN', eventId: string, optionId: string }

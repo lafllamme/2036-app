@@ -39,15 +39,18 @@
   --negative: #ef7a60;
 
   /*
-   * The emergency services, in the colours their own lights are.
+   * What has happened, in colour.
    *
-   * The same three values the ring on the tarmac is drawn in, so a call read on the news bar and the
-   * same call seen from the camera are recognisably one thing. They are not general-purpose accents:
-   * nothing but an emergency call may use them.
+   * By the kind of call rather than by the service, because that is the distinction a player is
+   * actually making: a collision and a fight are both serious and both bring a vehicle, and the one
+   * thing worth knowing at a glance is which of them it was. The same four values are what the ring
+   * on the tarmac is drawn in, so a call read on the news bar and the same call seen from the camera
+   * are recognisably one thing. Nothing but an emergency call may use them.
    */
-  --call-police: #5b8cff;
-  --call-medical: #ff6b5e;
-  --call-fire: #ffa04a;
+  --call-police: #6f9dff;
+  --call-medical: #ff7063;
+  --call-theft: #ffc65c;
+  --call-fire: #ff8f3d;
   --positive-dim: rgba(116, 201, 174, 0.16);
   /* Sky readings: identity for the sun and the moon, never a judgement. */
   --sun: #f2c078;
@@ -506,7 +509,14 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
  * The dot rather than colouring the words: the kicker still has to be readable, and a coloured mark
  * beside it says which service at a glance without turning the line itself into a warning.
  */
-.report-dialog { width: min(400px, 100%); border-top: 2px solid var(--call); }
+/*
+ * The kind of call carries the colour, and it carries it on the headline.
+ *
+ * A coloured rule across the top of the dialog read as a stray line rather than as meaning. The
+ * headline is the thing being read, so that is where it belongs.
+ */
+.report-dialog { width: min(400px, 100%); }
+.report-dialog h2 { color: var(--call); }
 .report-kicker { display: flex; align-items: center; gap: 8px; }
 .report-kicker i { width: 7px; height: 7px; border-radius: 50%; background: var(--call); }
 .report-meta {

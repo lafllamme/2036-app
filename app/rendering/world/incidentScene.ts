@@ -55,12 +55,15 @@ const PULSE_RATE = 0.8
 const CORDON_RANGE = 1_400
 const CROWD_RANGE = 800
 
-/** Who was called, in the colour a player already reads that way. */
+/**
+ * What happened, in colour. The same four values the interface uses — see `--call-*` in styles.css —
+ * so a call read on the news bar and the same call seen from the camera are recognisably one thing.
+ */
 const MARKER_COLOUR = {
-  burglary: /* @__PURE__ */ new THREE.Color('#2f6bff'),
-  assault: /* @__PURE__ */ new THREE.Color('#2f6bff'),
-  accident: /* @__PURE__ */ new THREE.Color('#ff3b30'),
-  fire: /* @__PURE__ */ new THREE.Color('#ff8a1f'),
+  burglary: /* @__PURE__ */ new THREE.Color('#ffc65c'),
+  assault: /* @__PURE__ */ new THREE.Color('#6f9dff'),
+  accident: /* @__PURE__ */ new THREE.Color('#ff7063'),
+  fire: /* @__PURE__ */ new THREE.Color('#ff8f3d'),
 } as const
 
 export interface IncidentScenes {

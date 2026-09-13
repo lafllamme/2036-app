@@ -4,7 +4,8 @@ import type {
   EventDefinition,
   NewsItem,
   PartyId,
-  SaveGameV1,
+  SaveGame,
+  SaveSummary,
   SimulationCommand,
   SimulationMessage,
   SimulationSnapshot,
@@ -22,7 +23,28 @@ import { formatClock, readDaylight } from '~/core/daylight'
 
 const MONTH_DURATION_MS = 300_000
 const DB_NAME = '2036-lindenhafen'
-const SAVE_KEY = 'autosave-v1'
+const SAVE_KEY = 'autosave-v2'
+/**
+ * A note on the doorstep saying a campaign is inside.
+ *
+ * The save itself is a whole simulation state and belongs in IndexedDB — it is far past what a
+ * cookie may hold, and a cookie would be sent to the server on every request for no reason. This is
+ * the part the title screen needs before it can offer to continue: who you were and how far you got,
+ * read synchronously so the button is right on the first paint rather than a moment later.
+ */
+const SUMMARY_KEY = '2036-lindenhafen-save'
+
+function readSummary(): SaveSummary | null {
+  if (!import.meta.client)
+    return null
+  try {
+    const raw = localStorage.getItem(SUMMARY_KEY)
+    return raw ? JSON.parse(raw) as SaveSummary : null
+  }
+  catch {
+    return null
+  }
+}
 
 export type ExperienceStage = 'title' | 'partyHall' | 'partyProfile' | 'manifesto' | 'intro' | 'gameplay'
 
@@ -104,6 +126,19 @@ export const useGameStore = defineStore('game', () => {
   const ready = ref(false)
   const error = ref<string | null>(null)
   const saveStatus = ref('Nicht gespeichert')
+  /**
+   * The campaign waiting on this machine, if any.
+   *
+   * Null until `refreshSavedGame` is called from the client, and not read here: the store is created
+   * during server rendering, where there is no localStorage, and Pinia then hydrates the client with
+   * the server's value — so anything read during setup is overwritten by the server's null a moment
+   * later, and the title screen offers a new campaign over a saved one.
+   */
+  const savedGame = ref<SaveSummary | null>(null)
+
+  function refreshSavedGame(): void {
+    savedGame.value = readSummary()
+  }
   /*
    * True while the worker owes us a snapshot. It drives the waiting sound and is the honest place
    * for a future progress indicator; forecasts are excluded because they never commit a month.
@@ -117,6 +152,13 @@ export const useGameStore = defineStore('game', () => {
    */
   let worker: Worker | null = null
   let accumulatedMs = 0
+  /**
+   * Who is waiting for the worker's copy of the state.
+   *
+   * The worker speaks in messages, not promises, so a save is two halves: `save` asks and parks a
+   * resolver here, and `receive` finds it when the answer arrives.
+   */
+  let pendingSave: ((payload: SaveGame) => void) | null = null
   /**
    * How far the campaign has travelled through the current month, 0 … 1. A month is a day, so this
    * is also the time of day. It is derived from simulation progress rather than from a render timer,
@@ -142,6 +184,21 @@ export const useGameStore = defineStore('game', () => {
       forecasts.value = data.forecasts
       return
     }
+    if (data.type === 'SAVE_STATE') {
+      const deliver = pendingSave
+      pendingSave = null
+      deliver?.({
+        schemaVersion: 2,
+        contentVersion: 'vertical-slice-1',
+        citySeed: 2036,
+        partyId: selectedPartyId.value ?? undefined,
+        priorityIds: [...selectedPriorityIds.value],
+        state: data.state,
+        snapshot: data.snapshot,
+        savedAt: new Date().toISOString(),
+      })
+      return
+    }
     if (data.type === 'VOTE_RESULT')
       lastVoteResult.value = data.result
 
@@ -149,6 +206,17 @@ export const useGameStore = defineStore('game', () => {
     snapshot.value = data.snapshot
     ready.value = true
     pendingCommand.value = false
+
+    /*
+     * Save at the turn of every month.
+     *
+     * A campaign is ten years long and a month is five minutes; asking the player to remember a
+     * button is asking them to lose an afternoon. The month is the natural unit — it is what the
+     * simulation actually commits — and saving on anything finer would write on every vote and
+     * every negotiation for no gain.
+     */
+    if (experienceStage.value === 'gameplay' && previous && data.snapshot.month !== previous.month)
+      void save()
     if (isCampaignComplete(data.snapshot.month))
       speed.value = 0
 
@@ -229,6 +297,11 @@ export const useGameStore = defineStore('game', () => {
     selectedPartyId.value = null
     selectedPriorityIds.value = []
     experienceStage.value = 'partyHall'
+    /*
+     * The old campaign is gone the moment the first month of the new one is saved over it, so the
+     * title screen must stop offering it now rather than offering a campaign that no longer exists.
+     */
+    forgetSave()
   }
 
   function selectParty(partyId: PartyId): void {
@@ -384,20 +457,35 @@ export const useGameStore = defineStore('game', () => {
     send({ type: 'RESET', seed: 2036, partyId: selectedPartyId.value ?? undefined, priorityIds: [...selectedPriorityIds.value] })
   }
 
-  async function save(): Promise<void> {
-    if (!snapshot.value)
-      return
+  /**
+   * Save the campaign.
+   *
+   * The state lives in the worker, so this asks for it and writes whatever comes back. `pendingSave`
+   * is how the answer finds its way here: the worker speaks in messages, not promises, and the reply
+   * arrives through the same channel every other message does.
+   */
+  function save(): Promise<void> {
+    if (!worker || !snapshot.value)
+      return Promise.resolve()
+    return new Promise<void>((resolve) => {
+      pendingSave = (payload) => {
+        void writeSave(payload).then(resolve)
+      }
+      send({ type: 'REQUEST_SAVE' })
+      // A worker that never answers must not leave the button saying "saving" for ever.
+      setTimeout(() => {
+        if (pendingSave) {
+          pendingSave = null
+          saveStatus.value = 'Speichern fehlgeschlagen'
+          resolve()
+        }
+      }, 4_000)
+    })
+  }
+
+  async function writeSave(payload: SaveGame): Promise<void> {
     try {
       const database = await openSaveDatabase()
-      const payload: SaveGameV1 = {
-        schemaVersion: 1,
-        contentVersion: 'vertical-slice-1',
-        citySeed: 2036,
-        partyId: selectedPartyId.value ?? undefined,
-        priorityIds: selectedPriorityIds.value,
-        snapshot: snapshot.value,
-        savedAt: new Date().toISOString(),
-      }
       await new Promise<void>((resolve, reject) => {
         const transaction = database.transaction('saves', 'readwrite')
         transaction.objectStore('saves').put(payload, SAVE_KEY)
@@ -405,11 +493,66 @@ export const useGameStore = defineStore('game', () => {
         transaction.onerror = () => reject(transaction.error)
       })
       database.close()
+      const summary: SaveSummary = { savedAt: payload.savedAt, partyId: payload.partyId, month: payload.snapshot.month }
+      localStorage.setItem(SUMMARY_KEY, JSON.stringify(summary))
+      savedGame.value = summary
       saveStatus.value = `Gespeichert · ${new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
     }
     catch {
       saveStatus.value = 'Speichern fehlgeschlagen'
     }
+  }
+
+  /**
+   * Pick a campaign back up where it was left.
+   *
+   * Everything the entry flow would have set — party, priorities, the month — comes out of the save
+   * rather than being asked for again, and the player lands in the city rather than at the title.
+   */
+  async function resume(): Promise<boolean> {
+    if (!worker)
+      return false
+    try {
+      const database = await openSaveDatabase()
+      const payload = await new Promise<SaveGame | undefined>((resolve, reject) => {
+        const request = database.transaction('saves', 'readonly').objectStore('saves').get(SAVE_KEY)
+        request.onsuccess = () => resolve(request.result as SaveGame | undefined)
+        request.onerror = () => reject(request.error)
+      })
+      database.close()
+      if (!payload || payload.schemaVersion !== 2 || !payload.state) {
+        // An older save, or one from before the content changed. Say so rather than loading a ruin.
+        forgetSave()
+        saveStatus.value = 'Spielstand nicht mehr lesbar'
+        return false
+      }
+      selectedPartyId.value = payload.partyId ?? null
+      selectedPriorityIds.value = [...(payload.priorityIds ?? [])]
+      accumulatedMs = 0
+      monthProgress.value = 0
+      selectedBuilding.value = null
+      selectedNews.value = null
+      selectedReport.value = null
+      cityReports.value = []
+      send({ type: 'RESTORE', state: JSON.parse(JSON.stringify(payload.state)) as typeof payload.state })
+      experienceStage.value = 'gameplay'
+      speed.value = 1
+      saveStatus.value = `Fortgesetzt · ${new Date(payload.savedAt).toLocaleDateString('de-DE')}`
+      return true
+    }
+    catch {
+      saveStatus.value = 'Spielstand konnte nicht geladen werden'
+      return false
+    }
+  }
+
+  /** Throw the save away: on starting a new campaign, and on finding one we can no longer read. */
+  function forgetSave(): void {
+    savedGame.value = null
+    try {
+      localStorage.removeItem(SUMMARY_KEY)
+    }
+    catch {}
   }
 
   return {
@@ -433,6 +576,10 @@ export const useGameStore = defineStore('game', () => {
     ready,
     error,
     saveStatus,
+    savedGame,
+    refreshSavedGame,
+    resume,
+    forgetSave,
     pendingCommand,
     openDecisionId,
     openDecision,

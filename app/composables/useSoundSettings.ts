@@ -1,8 +1,7 @@
 import { createGlobalState, useLocalStorage, watchImmediate } from '@vueuse/core'
 import { ref } from 'vue'
-import { DEFAULT_VOLUME, useAudioBus } from '~/audio/AudioBus'
-import { useCityAmbience } from '~/audio/cityAmbience'
-import { useCityScore } from '~/audio/cityScore'
+import { DEFAULT_VOLUME } from '~/audio/AudioBus'
+import { useCityMixer } from '~/audio/mixer'
 
 /**
  * Player sound preferences, deliberately outside Pinia.
@@ -38,32 +37,17 @@ export const useSoundSettings = createGlobalState(() => {
   return { soundEnabled, soundVolume, settingsOpen, openSettings, closeSettings, toggleSound }
 })
 
-/** How loud the score is against everything else at the same setting. */
-const SCORE_SHARE = 0.5
-
 /**
- * Applies the stored preferences to every instrument and keeps them in sync. Client-side only.
+ * Applies the stored preferences and keeps them in sync. Client-side only.
  *
- * The interface bus, the city's own sound and the score are three separate graphs — cues, a
- * continuous ambience, and music written as it plays — but they answer to one switch and one
- * slider, because a player who turns the sound off means all of it.
+ * One switch and one slider for everything, because a player who turns the sound off means all of
+ * it. What each instrument does with that is not decided here — it is decided by the mixer, from
+ * where the listener is standing. See `app/audio/mixer.ts`.
  */
 export function connectSoundSettings(): () => void {
-  const bus = useAudioBus()
-  const ambience = useCityAmbience()
-  const score = useCityScore()
+  const mixer = useCityMixer()
   const { soundEnabled, soundVolume } = useSoundSettings()
   return watchImmediate([soundEnabled, soundVolume], ([enabled, volume]) => {
-    bus.setEnabled(enabled)
-    bus.setVolume(volume)
-    ambience.setEnabled(enabled)
-    ambience.setVolume(volume)
-    /*
-     * The score sits under the city, not beside it: at the same slider setting it has to be quieter
-     * than the traffic, or the player is listening to music with a city behind it rather than a city
-     * with music under it.
-     */
-    score.setEnabled(enabled)
-    score.setVolume(volume * SCORE_SHARE)
+    mixer.setPreference(enabled, volume)
   })
 }

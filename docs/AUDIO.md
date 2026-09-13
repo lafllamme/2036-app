@@ -22,6 +22,45 @@ The active pack is `zen` — paper folds, soft brush, warm wood, quiet chimes. C
 product's sonic personality is a one-line change in `DEFAULT_PACK`, because components emit domain
 events and never name a cue.
 
+## Three instruments, one mixer
+
+The game makes sound in three ways, and until the mixer was written none of them knew the others
+existed:
+
+| Instrument | What it is | Where |
+| --- | --- | --- |
+| **cues** | short, discrete, one per thing the player did | [`AudioBus.ts`](../app/audio/AudioBus.ts) |
+| **ambience** | the continuous noise the city makes, following what is near the camera | [`cityAmbience.ts`](../app/audio/cityAmbience.ts) |
+| **score** | eight unsynchronised voices that never repeat | [`cityScore.ts`](../app/audio/cityScore.ts) |
+
+All three took the player's volume setting and played at it, which is not a mix — it is three things
+shouting, and it is loudest exactly where the game is most interesting: down in the street at rush
+hour with a siren going past.
+
+[`mixer.ts`](../app/audio/mixer.ts) is the only place that knows there are three. It decides from
+where the listener is standing, and the decision is a pure function so it can be reasoned about
+rather than tuned by ear in the one place it was tested:
+
+- **at street level the city wins.** Traffic, footsteps and horns are what being down there *is*, so
+  the score drops to 42 % and becomes the thing under the noise rather than over it.
+- **from the strategic camera the score wins.** The ambience fades its own traffic out with distance;
+  without the music the overview is silence.
+- **a siren beats everything.** It is the one sound meant to cut through, and that only works if what
+  surrounds it gets out of the way — the score drops to 35 % of wherever it already was. A siren
+  beyond 200 m is ignored, because it cannot be heard anyway.
+- **the interface is never ducked.** A cue is the sound of something the player just did, and a
+  confirmation they cannot hear is worse than none.
+
+Nothing is ever silenced, only moved underneath: a mix where something disappears is one the player
+notices, and the point of all of it is that they should not. The crossfade is deliberately long — a
+balance that switches at a threshold is something you hear happening every time you zoom, and
+[`tests/unit/mixer.test.ts`](../tests/unit/mixer.test.ts) walks the camera from the street to the map
+and refuses any single step that moves the balance by more than a little.
+
+The player's volume and the game's balance are kept apart on purpose. The slider is theirs and
+nothing here touches it; each instrument is told the product, which is the only number it has ever
+needed to know.
+
 ## Two layers
 
 **Generic interaction**, bound by delegation in [`app/audio/interactionSounds.ts`](../app/audio/interactionSounds.ts):

@@ -7,6 +7,7 @@ import type { WorldVisuals } from './world/index'
 import * as THREE from 'three/webgpu'
 import { useCityAmbience } from '../audio/cityAmbience'
 import { useCityScore } from '../audio/cityScore'
+import { useCityMixer } from '../audio/mixer'
 import { CameraRig } from './cameraRig'
 import { BuildingPicker } from './picking'
 import { Atmosphere } from './sky/atmosphere'
@@ -401,6 +402,16 @@ export class CityRenderer {
       useCityScore().setIntensity(Math.min(1, this.world.agents.trafficNearby / 22
       + this.world.agents.peopleNearby / 40
       + (this.world.agents.incidents.length > 0 ? 0.2 : 0)))
+      /*
+       * Where the listener is standing, which is what decides who gets to be heard.
+       *
+       * The three instruments do not know about each other and must not: one place holds the fact
+       * that there are three, and it is the mixer. See `app/audio/mixer.ts`.
+       */
+      useCityMixer().listen({
+        cameraDistance: distance,
+        nearestSiren: this.world.agents.nearestSiren,
+      })
       useCityAmbience().update({
         trafficNearby: this.world.agents.trafficNearby,
         peopleNearby: this.world.agents.peopleNearby,

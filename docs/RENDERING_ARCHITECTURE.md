@@ -52,3 +52,20 @@ Häuser an der Straße — und schneidet ihnen das Erdgeschoss ab.
 `ribbon.ts` nimmt den Querschnitt jetzt alle acht Meter, unabhängig davon, wo die Punkte des Weges
 liegen; die Form bleibt dieselbe. `tests/unit/paving.test.ts` hält das fest und ist der Test, der bei
 den 922 Gebäuden gefehlt hat: gemessen wurde nur der Boden, und der Boden war unschuldig.
+
+
+## Und der Sockel
+
+Ein Gebäude steht auf dem höchsten Punkt, den sein Grundriss überdeckt — sonst steckt das bergseitige
+Ende im Hang. Auf einer Schräge liegt damit ein Teil der Wand *unter* der Erdgeschossebene, und
+genau dieser Streifen wurde mit der Fassadentextur bei negativem `v` gezeichnet. Die Textur
+wiederholt sich dort: **auf der Talseite wuchs eine halbe Fensterreihe aus dem Gras.**
+
+Das betraf **9 057 von 14 114 Gebäuden (64 %)** — überall dort, wo höchste und tiefste Ecke mehr als
+einen halben Meter auseinanderliegen. Es war nie ein Höhenfehler; das Haus stand richtig. Falsch war,
+was unter seinem Erdgeschoss gemalt wurde.
+
+Der Streifen ist jetzt eigene Geometrie in der Zeichengruppe des Dachs, die gar keine Fassadentextur
+hat: glatter, dunklerer Stein, so hoch wie die Schräge es verlangt und nie flacher als 35 cm. Die
+Wand darüber beginnt bei `v = 0` an der Erdgeschossebene. Damit kann unterhalb des Erdgeschosses kein
+Fenster mehr erscheinen — und jedes Haus steht auf etwas, statt aus dem Rasen zu wachsen.

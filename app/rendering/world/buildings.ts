@@ -32,6 +32,20 @@ const ROOF_INSET = 2.4
  * couple of metres a wall can drop between two of them.
  */
 const SKIRT = 8
+/**
+ * The base course: the band between the ground and the floor of the building standing on it.
+ *
+ * This is what was missing, and it accounts for two thirds of the city. A building stands on the
+ * highest ground its outline covers, so on any slope part of its wall is below that floor — and that
+ * part was drawn with the façade texture at a negative height, which repeats. A window row grew out
+ * of the grass on the downhill side of nine thousand buildings, which is exactly what a house sunk
+ * into the ground looks like. The band is now its own piece of geometry in the roof's draw group:
+ * plain stone, no windows, sized to whatever the slope needs, and never less than this so every
+ * building sits on something instead of growing out of the lawn.
+ */
+const PLINTH = 0.35
+/** How much darker the base course is than the wall above it. */
+const PLINTH_SHADE = 0.62
 /** The low wall a flat roof stops at. */
 const PARAPET = 0.9
 
@@ -180,14 +194,20 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
     ground = Math.max(ground, corner[i]!)
   }
 
-  const wallTop = ground + Math.max(2, building.height - building.roofHeight)
+  const wallTop = ground + Math.max(2 + PLINTH, building.height - building.roofHeight)
+  /*
+   * The floor sits a little above the ground it stands on, the way a real one does. Everything the
+   * façade texture is mapped from starts here, so `v` is zero at the floor and never below it.
+   */
+  const floor = ground + PLINTH
   const wall = pick(WALL_COLOURS[building.type], rng).clone().multiplyScalar(0.84 + building.condition * 0.16)
+  const plinth = wall.clone().multiplyScalar(PLINTH_SHADE)
   const roof = pick(ROOF_COLOURS[building.type], rng)
   tile.records.push(building)
   tile.colours.push(wall)
 
   // ---- walls ----
-  const storeys = Math.max(1, Math.round((wallTop - ground) / STOREY_HEIGHT))
+  const storeys = Math.max(1, Math.round((wallTop - floor) / STOREY_HEIGHT))
   for (let i = 0; i < corners; i += 1) {
     const j = (i + 1) % corners
     const ax = ring[i * 2]!
@@ -211,18 +231,27 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
     const u0 = 0
     const u1 = bays
     const vTop = storeys
-    // A storey of the façade per storey of wall, wherever this corner's own ground happens to be.
-    const rise = Math.max(0.001, wallTop - ground)
-    const aBase = corner[i]! - SKIRT
-    const bBase = corner[j]! - SKIRT
 
-    const vertex = tile.position.length / 3
-    push(tile, ax, aBase, az, nx, nz, u0, ((aBase - ground) * storeys) / rise, wall)
-    push(tile, bx, bBase, bz, nx, nz, u1, ((bBase - ground) * storeys) / rise, wall)
-    push(tile, bx, wallTop, bz, nx, nz, u1, vTop, wall)
-    push(tile, ax, wallTop, az, nx, nz, u0, vTop, wall)
+    /*
+     * The base course first: from below this edge's own ground up to the floor. It carries no UVs
+     * worth the name and goes in the roof's draw group, which has no façade texture on it at all —
+     * so whatever the slope does here, no window can appear below the ground floor.
+     */
+    const base = tile.position.length / 3
+    push(tile, ax, corner[i]! - SKIRT, az, nx, nz, 0, 0, plinth)
+    push(tile, bx, corner[j]! - SKIRT, bz, nx, nz, 0, 0, plinth)
+    push(tile, bx, floor, bz, nx, nz, 0, 0, plinth)
+    push(tile, ax, floor, az, nx, nz, 0, 0, plinth)
     // Wound so the outward face is the one that is kept: a ring that is counter-clockwise on the
     // map is clockwise to a camera looking down at it, and the whole city was inside out.
+    tile.roofIndex.push(base, base + 2, base + 1, base, base + 3, base + 2)
+
+    // And the wall above it, one storey of façade per storey of building, starting at the floor.
+    const vertex = tile.position.length / 3
+    push(tile, ax, floor, az, nx, nz, u0, 0, wall)
+    push(tile, bx, floor, bz, nx, nz, u1, 0, wall)
+    push(tile, bx, wallTop, bz, nx, nz, u1, vTop, wall)
+    push(tile, ax, wallTop, az, nx, nz, u0, vTop, wall)
     tile.wallIndex.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2)
   }
 

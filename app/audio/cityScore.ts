@@ -5,33 +5,34 @@
  * campaign is hours: however good the two minutes are, the fourth time round the player hears the
  * seam and after that they hear nothing else. This has no seam because it has no loop.
  *
- * Three versions of this file are worth recording because each was wrong in a different way. The
- * first two were sine and triangle oscillators through a gentle filter, which sounds like what it
- * is — a signal generator — and no amount of rewriting the harmony fixed that. The third fixed the
- * sound and broke the register: a sawtooth bass with the filter swept down on every note and a kick
- * drum on one and three is a good sound and it is a *dance* sound, and a city you are meant to sit
- * and think in does not want a floor thumping under it.
+ * Four versions of this file are worth recording, because each was wrong in its own way and the
+ * fourth is the one that says what this should sound like.
  *
- * So this one is a chamber group, in the tradition of the Zelda field themes and Yoko Shimomura's
- * writing for Kingdom Hearts: a harp, a flute, strings and a plucked bass. No drums at all. What
- * makes it move is the harp figure rather than a beat, which is how every one of those pieces does
- * it — an arpeggio running underneath is a pulse you feel without being told where the bar is.
+ * Sine and triangle oscillators through a gentle filter sound like a signal generator, and no amount
+ * of rewriting the harmony fixed that. A sawtooth bass with the filter swept down on every note and
+ * a kick on one and three is a good sound and a *dance* sound, and a city to sit and think in does
+ * not want a floor thumping under it. And plucked strings by Karplus–Strong, which is the obvious
+ * way to get a harp, are excited by a burst of raw noise — which is why they twang: the attack is
+ * a rubber band, and past a certain brightness that is all you hear.
  *
- * How the instruments are made, since none of them is an oscillator playing a note:
+ * What survived every version was the pad. So this is built around it: everything is a synthesiser
+ * and everything is warm, rather than a chamber group pretending to be in a room.
  *
- * - the **harp** and the **bass** are Karplus–Strong: a burst of noise pushed round a delay line one
- *   wavelength long, averaging each sample with the one before it, so the top goes first and the
- *   note darkens as it decays. It sounds like a string because it is doing what a string does. The
- *   two differ only in how much they are damped, which is the whole difference between a harp and a
- *   pizzicato double bass;
- * - the **flute** is a triangle with a little breath noise through it and a vibrato that arrives
- *   after the note has, because a player's vibrato does too. Its attack is slow enough to be blown
- *   rather than struck;
+ * - the **bells** that carry the figure are two sines, one modulating the other, with the depth of
+ *   the modulation falling away over the first fraction of a second. That is all FM is, and it is
+ *   the whole of why a Rhodes and a tubular bell and a marimba can be the same four lines: what
+ *   decides which is how fast the modulation dies and how far apart the two frequencies are;
+ * - the **bass** is a sine with a triangle folded under it, plucked with a soft attack and a slow
+ *   release, and filtered so the top never arrives at all;
  * - the **strings** are three sawtooths a few cents apart through a lowpass, swelling in and out.
- *   Three, because two beat against each other and three shimmer.
+ *   Three, because two beat against each other and three shimmer. This is the part that worked from
+ *   the beginning and it has not been touched since;
+ * - the **lead** is a bell held long, with a vibrato that arrives after the note has, because a
+ *   player's does too.
  *
- * The harmony is the other half of the tradition: sevenths and ninths rather than triads, and a
- * progression that opens from minor into major and goes round rather than arriving.
+ * The harmony is the one thing carried over from the chamber version: sevenths and ninths rather
+ * than triads, and a progression that opens from minor into major and goes round rather than
+ * arriving.
  */
 
 /** How far ahead the score is written, and how often the writer wakes up. */
@@ -59,9 +60,7 @@ const SCALE = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24, 26, 28, 29]
  * stays there: the last chord is an added ninth rather than a seventh on purpose. A C7 has the
  * tritone in it and pulls hard back to F, which makes the turn an arrival and the arrival a cadence
  * — and a piece that arrives asks to be listened to. The added ninth simply hangs, so going round
- * again is the only thing that could happen next and nothing about it feels like a decision.
- *
- * As steps into the scale, each with the ninth that gives it its colour.
+ * again is the only thing that could happen next.
  */
 const CHANGES = [
   [5, 7, 9, 11, 13],
@@ -72,32 +71,36 @@ const CHANGES = [
 const BARS_PER_CHANGE = 2
 
 /**
- * How the harp runs through a chord: which note of it, on each eighth of the bar.
+ * How the figure runs through a chord: which note of it, on each eighth of the bar.
  *
- * Up, over the top, and back through the middle — a harp figure rather than a scale. Indices into
- * whatever chord is current, so the shape survives the changes and the colour does not.
+ * Up, over the top, and back through the middle. Indices into whatever chord is current, so the
+ * shape survives the changes and the colour does not.
  */
-const HARP = [0, 1, 2, 3, 4, 3, 2, 1]
+const FIGURE = [0, 1, 2, 3, 4, 3, 2, 1]
 
-/** Which notes of the chord the flute reaches for, and how long it holds them. */
+/** Which notes of the chord the lead reaches for, and how long it holds them. */
 const PHRASE: (number | null)[] = [2, null, null, 3, null, 1, null, null]
-const FLUTE_LENGTH = BEAT * 1.4
+const LEAD_LENGTH = BEAT * 1.8
 
-const HARP_GAIN = 0.075
-const BASS_GAIN = 0.1
-const FLUTE_GAIN = 0.055
+const BELL_GAIN = 0.07
+const BASS_GAIN = 0.12
+const LEAD_GAIN = 0.05
 const STRING_GAIN = 0.018
 
 /**
- * How long each plucked instrument rings, which is the only difference between them.
+ * What the bells are made of.
  *
- * Measured rather than guessed. Just short of a half is a harp: two and a half seconds low down,
- * under a second at the top, which is what a string does. The bass wanted to be much shorter — at
- * the harp's damping a low pizzicato rang for two seconds and smeared every chord into the next —
- * so it is damped to about half a second, which is a plucked bass rather than a held one.
+ * `ratio` is the modulator's frequency against the carrier's, and it decides the character: a whole
+ * number gives a tone with harmonics where a tone should have them, and anything else gives a bell,
+ * because a bell's partials are not whole multiples of anything. Two is a soft electric piano; the
+ * lead sits a little below it, which sweetens it without making it glassy.
+ *
+ * `index` is how far the modulation pushes the carrier at the start of the note, and `decay` is how
+ * fast that falls away. The fall is the entire sound: a bright attack collapsing to a near-sine is
+ * what a struck thing does, and holding the index steady instead is what makes FM sound like 1985.
  */
-const HARP_DAMPING = 0.4988
-const BASS_DAMPING = 0.485
+const BELL = { ratio: 2, index: 3.2, decay: 0.13, length: 1.9 }
+const LEAD = { ratio: 1.5, index: 1.4, decay: 0.35 }
 
 export class CityScore {
   private context: AudioContext | null = null
@@ -205,34 +208,33 @@ export class CityScore {
       const drive = this.intensity
 
       /*
-       * The harp, an eighth at a time, right through the bar.
+       * The figure, an eighth at a time, right through the bar.
        *
-       * This is what makes the piece move, and it is the reason there are no drums: a figure running
-       * underneath is a pulse the listener feels without being told where the bar is, which is how
-       * every field theme worth the name does it.
+       * This is what makes the piece move, and it is the reason there are no drums: something
+       * running underneath is a pulse the listener feels without being told where the bar is.
        */
-      HARP.forEach((index, eighth) => {
+      FIGURE.forEach((index, eighth) => {
         const step = chord[index % chord.length]!
         // The second bar of a change is an octave up, so two bars of one chord are not one bar twice.
-        this.pluck(this.pitch(step + (second ? 21 : 14)), at + eighth * BEAT * 0.5, HARP_GAIN, HARP_DAMPING)
+        this.bell(this.pitch(step + (second ? 21 : 14)), at + eighth * BEAT * 0.5, BELL_GAIN, BELL)
       })
 
       // The bass: the root on the first beat, and the fifth on the third when the city is awake.
-      this.pluck(this.pitch(chord[0]!) / 2, at, BASS_GAIN, BASS_DAMPING)
+      this.bass(this.pitch(chord[0]!) / 2, at, BEAT * 1.8)
       if (drive > 0.3)
-        this.pluck(this.pitch(chord[2]!) / 2, at + BEAT * 2, BASS_GAIN * 0.6, BASS_DAMPING)
+        this.bass(this.pitch(chord[2]!) / 2, at + BEAT * 2, BEAT * 1.4)
 
       /*
-       * The flute over the top, and only in the second bar of each change.
+       * The lead over the top, and only in the second bar of each change.
        *
        * A lead that plays every bar is not a melody, it is a texture. Leaving it out of the first
-       * bar gives the harp somewhere to be heard and gives the phrase somewhere to arrive.
+       * bar gives the figure somewhere to be heard and gives the phrase somewhere to arrive.
        */
       if (second) {
         PHRASE.forEach((index, eighth) => {
           if (index === null)
             return
-          this.flute(this.pitch(chord[index % chord.length]! + 14), at + eighth * BEAT * 0.5, FLUTE_LENGTH)
+          this.lead(this.pitch(chord[index % chord.length]! + 14), at + eighth * BEAT * 0.5)
         })
       }
 
@@ -256,96 +258,139 @@ export class CityScore {
   }
 
   /**
-   * A plucked string, by Karplus–Strong. The damping is what it is being played on.
+   * A bell, by frequency modulation: one sine pushing another one about.
    *
-   * Just short of a half is a harp — it rings for seconds and keeps its brightness. A little further
-   * short and the top is gone almost at once, which is a pizzicato bass. One routine, two
-   * instruments, and the only difference between them is the fourth decimal place.
+   * The modulator's output is added to the carrier's frequency, so as the modulator swings the
+   * carrier goes sharp and flat hundreds of times a second — far too fast to hear as a wobble, and
+   * what the ear makes of it instead is harmonics. How far it swings decides how many; how fast that
+   * collapses decides what the thing is.
+   *
+   * `decay` is the whole instrument. Falling away in a tenth of a second gives a struck sound with a
+   * bright edge that is gone before you can name it, which is what makes this sit next to a pad
+   * instead of on top of it. This is what replaced the plucked strings: Karplus–Strong is excited by
+   * a burst of raw noise, and that noise is audible as a twang at the front of every note.
    */
-  private pluck(frequency: number, at: number, gain: number, damping: number): void {
+  private bell(
+    frequency: number,
+    at: number,
+    peak: number,
+    voice: { ratio: number, index: number, decay: number, length?: number },
+    hold = 0,
+    vibrato?: { rate: number, cents: number, onset: number },
+  ): void {
     const context = this.context
     if (!context || !this.reverb || !this.master)
       return
 
-    const source = context.createBufferSource()
-    /*
-     * The string is built at whatever pitch a whole number of samples gives, and then played back at
-     * the rate that corrects it.
-     *
-     * A delay line is an integer number of samples long, so the pitch it produces is the sample rate
-     * over that integer — and high up that is as much as seventeen cents out. On a figure that
-     * repeats every bar that is not character, it is out of tune. Resampling fixes it exactly and
-     * costs nothing, because the browser is resampling the buffer either way.
-     */
-    const built = string(context, frequency, damping)
-    source.buffer = built.buffer
-    source.playbackRate.value = frequency / built.frequency
+    const carrier = context.createOscillator()
+    carrier.type = 'sine'
+    carrier.frequency.value = frequency
 
-    const wet = context.createGain()
-    wet.gain.value = gain
-    source.connect(wet)
-    wet.connect(this.reverb)
+    const modulator = context.createOscillator()
+    modulator.type = 'sine'
+    modulator.frequency.value = frequency * voice.ratio
 
-    // A little dry as well, or the attack is lost in the room and it stops sounding plucked.
+    // The modulator's depth in hertz, falling from `index` times the carrier to nothing.
+    const depth = context.createGain()
+    depth.gain.setValueAtTime(frequency * voice.index, at)
+    depth.gain.exponentialRampToValueAtTime(frequency * 0.001, at + voice.decay)
+    modulator.connect(depth).connect(carrier.frequency)
+
+    const length = voice.length ?? 1.4
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(0.0001, at)
+    // Six milliseconds to speak: struck, but without the click that no attack at all would give.
+    gain.gain.exponentialRampToValueAtTime(peak, at + 0.006)
+    if (hold > 0)
+      gain.gain.setValueAtTime(peak * 0.6, at + hold)
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + length + hold)
+
+    // Most of it in the room, a little of it dry, or the attack is lost and it stops being struck.
     const dry = context.createGain()
-    dry.gain.value = gain * 0.5
-    source.connect(dry)
+    dry.gain.value = 0.45
+    gain.connect(this.reverb)
+    gain.connect(dry)
     dry.connect(this.master)
-    source.start(at)
+
+    /*
+     * The vibrato, where the voice asks for one, on the carrier's detune rather than its frequency.
+     *
+     * It has to be built in here, because this is the only place the carrier exists. It was written
+     * outside for one draft and connected to nothing at all: two oscillators a note, running, doing
+     * nothing, and a lead with no vibrato on it.
+     */
+    if (vibrato) {
+      const wobble = context.createOscillator()
+      wobble.frequency.value = vibrato.rate
+      const depth = context.createGain()
+      depth.gain.setValueAtTime(0, at)
+      depth.gain.setValueAtTime(0, at + vibrato.onset)
+      depth.gain.linearRampToValueAtTime(vibrato.cents, at + length + hold)
+      wobble.connect(depth).connect(carrier.detune)
+      wobble.start(at)
+      wobble.stop(at + length + hold + 0.1)
+    }
+
+    carrier.connect(gain)
+    carrier.start(at)
+    carrier.stop(at + length + hold + 0.1)
+    modulator.start(at)
+    modulator.stop(at + length + hold + 0.1)
   }
 
   /**
-   * The flute: a triangle with breath through it, and a vibrato that arrives late.
+   * The lead: the same bell held long, with a vibrato that arrives after the note has.
    *
-   * The late vibrato is the whole trick. A tone that wobbles from the first instant is a synthesiser
+   * The late vibrato is the trick. A tone that wobbles from the first instant is a synthesiser
    * setting; a player leans into it a moment after the note has spoken, and copying that is most of
-   * the difference between a wind instrument and an oscillator with an LFO on it.
+   * the difference between a lead and an oscillator with an LFO on it.
    */
-  private flute(frequency: number, at: number, length: number): void {
+  private lead(frequency: number, at: number): void {
+    this.bell(
+      frequency,
+      at,
+      LEAD_GAIN,
+      { ...LEAD, length: LEAD_LENGTH },
+      LEAD_LENGTH * 0.5,
+      { rate: 5, cents: 6, onset: LEAD_LENGTH * 0.35 },
+    )
+  }
+
+  /**
+   * The bass: a sine with a triangle folded under it, plucked soft and filtered dark.
+   *
+   * Not a plucked string and not a filter sweep. Both of those have an edge at the front of the
+   * note, and this one is meant to be felt rather than heard — a low note that arrives without
+   * announcing itself and leaves without being switched off.
+   */
+  private bass(frequency: number, at: number, length: number): void {
     const context = this.context
-    if (!context || !this.reverb)
+    if (!context || !this.master)
       return
 
-    const oscillator = context.createOscillator()
-    oscillator.type = 'triangle'
-    oscillator.frequency.value = frequency
-
-    const vibrato = context.createOscillator()
-    vibrato.frequency.value = 5.2
-    const depth = context.createGain()
-    depth.gain.setValueAtTime(0, at)
-    depth.gain.setValueAtTime(0, at + length * 0.3)
-    depth.gain.linearRampToValueAtTime(5, at + length * 0.7)
-    vibrato.connect(depth).connect(oscillator.detune)
-
-    // The breath: a little band of noise under the note, which is what a flute mostly is.
-    const air = context.createBufferSource()
-    air.buffer = noise(context, 1, 0)
-    air.loop = true
-    const airBand = context.createBiquadFilter()
-    airBand.type = 'bandpass'
-    airBand.frequency.value = frequency * 2
-    airBand.Q.value = 2.2
-    const airGain = context.createGain()
-    airGain.gain.value = 0.05
+    const filter = context.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.value = 420
+    filter.Q.value = 0.4
 
     const gain = context.createGain()
     gain.gain.setValueAtTime(0.0001, at)
-    // Blown, not struck: a tenth of a second to speak.
-    gain.gain.exponentialRampToValueAtTime(FLUTE_GAIN, at + 0.11)
-    gain.gain.setValueAtTime(FLUTE_GAIN, at + length * 0.7)
+    // Twenty-five milliseconds: enough of an attack to be a note, soft enough not to be a pluck.
+    gain.gain.exponentialRampToValueAtTime(BASS_GAIN, at + 0.025)
     gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
+    filter.connect(gain)
+    gain.connect(this.master)
 
-    oscillator.connect(gain)
-    air.connect(airBand).connect(airGain).connect(gain)
-    gain.connect(this.reverb)
-
-    oscillator.start(at)
-    oscillator.stop(at + length + 0.05)
-    vibrato.start(at)
-    vibrato.stop(at + length + 0.05)
-    air.start(at)
-    air.stop(at + length + 0.05)
+    for (const [shape, ratio, level] of [['sine', 1, 1], ['triangle', 2, 0.28]] as const) {
+      const oscillator = context.createOscillator()
+      oscillator.type = shape
+      oscillator.frequency.value = frequency * ratio
+      const mix = context.createGain()
+      mix.gain.value = level
+      oscillator.connect(mix).connect(filter)
+      oscillator.start(at)
+      oscillator.stop(at + length + 0.05)
+    }
   }
 
   /** Three sawtooths a few cents apart through a lowpass: two beat, three shimmer. */
@@ -379,64 +424,6 @@ export class CityScore {
       oscillator.stop(at + length + 0.1)
     }
   }
-}
-
-/**
- * One plucked note, rendered once and kept.
- *
- * Cached per context and per pitch to the nearest hertz: the figure repeats every bar and the whole
- * piece only ever uses a couple of dozen notes, so after the first few bars this never runs again.
- */
-const strings = new WeakMap<AudioContext, Map<number, AudioBuffer>>()
-
-function string(context: AudioContext, frequency: number, damping: number): { buffer: AudioBuffer, frequency: number } {
-  let cache = strings.get(context)
-  if (!cache) {
-    cache = new Map()
-    strings.set(context, cache)
-  }
-  const rate = context.sampleRate
-  // Keyed by the delay line and how hard it is damped: those are the only two things that vary.
-  const period = Math.max(2, Math.round(rate / frequency))
-  const key = period * 100 + Math.round((damping - 0.49) * 10_000)
-  const known = cache.get(key)
-  if (known)
-    return { buffer: known, frequency: rate / period }
-
-  const length = Math.floor(rate * 2.4)
-  const buffer = context.createBuffer(1, length, rate)
-  const data = buffer.getChannelData(0)
-
-  // The delay line, filled with noise: this is the pluck, and everything after it is the string.
-  const line = new Float32Array(period)
-  for (let i = 0; i < period; i += 1) line[i] = Math.random() * 2 - 1
-
-  /*
-   * Round and round, averaging each sample with the one before it.
-   *
-   * The average is a one-pole lowpass, so the top goes first and the note darkens as it decays. The
-   * damping is just short of one because a string does not ring for ever, and how far short decides
-   * whether this is a harp or a woodblock.
-   */
-  let at = 0
-  for (let i = 0; i < length; i += 1) {
-    const current = line[at]!
-    const next = line[(at + 1) % period]!
-    const mixed = (current + next) * damping
-    line[at] = mixed
-    data[i] = current
-    at = (at + 1) % period
-  }
-
-  // And a short fade in and out, so nothing clicks at either end.
-  const edge = Math.floor(rate * 0.004)
-  for (let i = 0; i < edge; i += 1) {
-    data[i]! *= i / edge
-    data[length - 1 - i]! *= i / edge
-  }
-
-  cache.set(key, buffer)
-  return { buffer, frequency: rate / period }
 }
 
 /** Decaying noise, for the reverb's impulse response. Cached per context and per length. */

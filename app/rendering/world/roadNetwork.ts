@@ -201,3 +201,59 @@ function findSegment(edge: RoadEdge, along: number): number {
 export function bearingFrom(edge: RoadEdge, node: number): number {
   return edge.from === node ? edge.outBearing : edge.inBearing + Math.PI
 }
+
+/**
+ * Which stretches of street are near a given point.
+ *
+ * A grid over the network, built once. It exists for one job: keeping a crowd where the player is.
+ * Five hundred people spread evenly over three kilometres of city is one person per two and a half
+ * hectares — you can walk a street for a minute and meet nobody, which is exactly what the city
+ * looked like. The same five hundred inside three hundred metres of the camera is a busy pavement.
+ *
+ * A grid rather than a tree because the question is always "what is near this point" over a fixed
+ * radius, and a grid answers that by looking at the handful of cells around it.
+ */
+
+/** Cell pitch. Wide enough that a query touches few cells, narrow enough that each holds few edges. */
+const INDEX_CELL = 120
+
+export interface EdgeIndex {
+  /** Indices of every stretch whose midpoint is within `radius` of the point. */
+  near: (x: number, z: number, radius: number) => number[]
+}
+
+export function indexEdges(network: RoadNetwork, allowed?: Uint8Array): EdgeIndex {
+  const cells = new Map<number, number[]>()
+  const key = (column: number, row: number): number => column * 100_000 + row
+
+  network.edges.forEach((edge, index) => {
+    if (allowed && !allowed[index])
+      return
+    // The midpoint is enough: a stretch is short compared with the radius anyone ever asks about.
+    const at = Math.floor(edge.points.length / 4) * 2
+    const x = edge.points[at] ?? 0
+    const z = edge.points[at + 1] ?? 0
+    const cell = key(Math.floor(x / INDEX_CELL), Math.floor(z / INDEX_CELL))
+    const bucket = cells.get(cell)
+    if (bucket)
+      bucket.push(index)
+    else cells.set(cell, [index])
+  })
+
+  return {
+    near(x, z, radius) {
+      const found: number[] = []
+      const reach = Math.ceil(radius / INDEX_CELL)
+      const column = Math.floor(x / INDEX_CELL)
+      const row = Math.floor(z / INDEX_CELL)
+      for (let a = column - reach; a <= column + reach; a += 1) {
+        for (let b = row - reach; b <= row + reach; b += 1) {
+          const bucket = cells.get(key(a, b))
+          if (bucket)
+            found.push(...bucket)
+        }
+      }
+      return found
+    },
+  }
+}

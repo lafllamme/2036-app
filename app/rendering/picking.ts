@@ -46,6 +46,8 @@ export class BuildingPicker {
   private hovered: { mesh: THREE.Mesh, index: number } | null = null
   /** The figure under the pointer, if the pointer is on one rather than on a building. */
   private person: PersonAt | null = null
+  /** Whoever is lit up, and the colour they were before. */
+  private marked: { mesh: THREE.InstancedMesh, instance: number, own: THREE.Color } | null = null
   private pressed: { x: number, y: number, button: number } | null = null
 
   constructor(
@@ -92,14 +94,21 @@ export class BuildingPicker {
      * The people are instanced, so a hit comes back with an instance rather than a triangle.
      */
     const figure = this.raycaster.intersectObjects(peopleMeshes(this.agents), false)[0]
-    this.person = figure && typeof figure.instanceId === 'number'
-      ? personAt(this.agents, figure.object, figure.instanceId)
+    const found = figure && typeof figure.instanceId === 'number' && figure.object instanceof THREE.InstancedMesh
+      ? { mesh: figure.object, instance: figure.instanceId }
       : null
-    if (this.person) {
-      this.restore()
-      this.canvas.style.cursor = 'pointer'
-      return
+
+    if (found) {
+      this.person = personAt(this.agents, found.mesh, found.instance)
+      if (this.person) {
+        this.restore()
+        this.markPerson(found.mesh, found.instance)
+        this.canvas.style.cursor = 'pointer'
+        return
+      }
     }
+    this.person = null
+    this.unmarkPerson()
 
     /*
      * The city is merged into a handful of tiles, so a hit gives back a triangle rather than an
@@ -123,7 +132,39 @@ export class BuildingPicker {
 
   private readonly handlePointerLeave = (): void => {
     this.restore()
+    this.unmarkPerson()
     this.canvas.style.cursor = 'grab'
+  }
+
+  /**
+   * Light up whoever is under the pointer.
+   *
+   * A person is a small, moving target, and without this the only sign that one is under the pointer
+   * is the cursor — which is not enough to aim at somebody walking. Their own instance colour is
+   * kept so it can be put back: the crowd's colours are written once at build and never again, so
+   * there is nothing else that would restore it.
+   */
+  private markPerson(mesh: THREE.InstancedMesh, instance: number): void {
+    if (!mesh.instanceColor)
+      return
+    if (this.marked?.mesh === mesh && this.marked.instance === instance)
+      return
+    this.unmarkPerson()
+    const own = new THREE.Color()
+    mesh.getColorAt(instance, own)
+    this.marked = { mesh, instance, own }
+    mesh.setColorAt(instance, HOVER)
+    mesh.instanceColor.needsUpdate = true
+  }
+
+  private unmarkPerson(): void {
+    const marked = this.marked
+    if (!marked)
+      return
+    this.marked = null
+    marked.mesh.setColorAt(marked.instance, marked.own)
+    if (marked.mesh.instanceColor)
+      marked.mesh.instanceColor.needsUpdate = true
   }
 
   private readonly handlePointerDown = (event: PointerEvent): void => {

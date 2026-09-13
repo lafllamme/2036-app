@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { citizenAt } from '../../app/world/citizens'
+import { ageAt, citizenAt, statureAt } from '../../app/world/citizens'
 
 /**
  * Everyone in the street is somebody, and nobody is stored.
@@ -62,17 +62,57 @@ describe('the people in the street', () => {
     }
   })
 
-  it('gives nobody a working life they are too young or too old for', () => {
-    for (let index = 0; index < 500; index += 1) {
+  it('gives nobody a life they are too young or too old for', () => {
+    for (let index = 0; index < 800; index += 1) {
       const person = citizenAt(index, 2_036, SHARE)
-      expect(person.age).toBeGreaterThanOrEqual(16)
-      expect(person.age).toBeLessThan(90)
-      if (person.age > 66)
+      expect(person.age).toBeGreaterThanOrEqual(0)
+      expect(person.age).toBeLessThan(92)
+      if (person.age >= 67)
         expect(person.job).toBe('Rente')
-      if (person.age < 19)
-        expect(['Schule', 'Studium']).toContain(person.job)
+      if (person.age < 6)
+        expect(['zu Hause', 'Kita']).toContain(person.job)
+      if (person.age >= 6 && person.age < 18)
+        expect(['Grundschule', 'Schule']).toContain(person.job)
       // Nobody arrived before they were born.
       expect(person.since).toBeGreaterThanOrEqual(2_026 - person.age)
     }
+  })
+
+  it('has children in it at all', () => {
+    /*
+     * The first version drew an age off a power curve starting at sixteen, so the youngest person in
+     * Lindenhafen was a school leaver and the schools the council funds had nobody in them.
+     */
+    const ages = Array.from({ length: 2_000 }, (_, index) => ageAt(index, 2_036))
+    const share = (from: number, to: number): number => ages.filter(age => age >= from && age < to).length / ages.length
+
+    expect(share(0, 18)).toBeGreaterThan(0.12)
+    expect(share(0, 6)).toBeGreaterThan(0.03)
+    // And is not all children either: Germany's real shape, roughly.
+    expect(share(18, 67)).toBeGreaterThan(0.55)
+    expect(share(67, 200)).toBeGreaterThan(0.12)
+    expect(share(67, 200)).toBeLessThan(0.3)
+  })
+
+  it('draws children shorter than adults, from age and nothing else', () => {
+    for (let index = 0; index < 400; index += 1) {
+      const age = ageAt(index, 2_036)
+      const stature = statureAt(index, 2_036)
+      expect(stature).toBeGreaterThan(0.3)
+      expect(stature).toBeLessThanOrEqual(1)
+      if (age >= 18)
+        expect(stature).toBeGreaterThan(0.95)
+      if (age < 8)
+        expect(stature).toBeLessThan(0.8)
+    }
+    // It has to be the same age both modules see, or a figure's height and its card disagree.
+    for (const index of [3, 41, 199])
+      expect(ageAt(index, 2_036)).toBe(citizenAt(index, 2_036, SHARE).age)
+  })
+
+  it('gives enough different names that a street is not a cast', () => {
+    const names = new Set(Array.from({ length: 700 }, (_, index) => citizenAt(index, 2_036, SHARE).name))
+    // Repeats are correct — a city of this size has several Anna Meyers — but not many of them.
+    expect(names.size).toBeGreaterThan(600)
   })
 })

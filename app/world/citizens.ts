@@ -63,7 +63,19 @@ const ORIGINS: { country: string, weight: number }[] = [
   { country: 'Dänemark', weight: 1 },
 ]
 
-/** First names, from everywhere the city's people are from. Paired with surnames at random. */
+/**
+ * Names, paired at random.
+ *
+ * Wide enough that a player clicking their way down a street does not meet the same person twice —
+ * sixty given names against fifty family names is three thousand combinations for the seven hundred
+ * figures that can be clicked. Not wide enough to make a repeat impossible, and deliberately so: in
+ * a city of a hundred and twenty thousand there are several Anna Meyers, and a game where every name
+ * is unique is a game with a cast rather than a population.
+ *
+ * Drawn from everywhere the city's people are from, and paired without regard to origin — a Yılmaz
+ * called Lena and a Brandt called Emre are both entirely ordinary in a German city, and a generator
+ * that matched them up would be inventing a rule that does not exist.
+ */
 const FIRST_NAMES = [
   'Anna',
   'Lukas',
@@ -95,6 +107,36 @@ const FIRST_NAMES = [
   'Zeynep',
   'Karl',
   'Olena',
+  'Leon',
+  'Mia',
+  'Hüseyin',
+  'Charlotte',
+  'Finn',
+  'Aleksandra',
+  'Matteo',
+  'Emilia',
+  'Yusuf',
+  'Clara',
+  'Ben',
+  'Nora',
+  'Goran',
+  'Theresa',
+  'Ivan',
+  'Maja',
+  'Kristina',
+  'Jakob',
+  'Selin',
+  'Henrik',
+  'Bianca',
+  'Oskar',
+  'Amina',
+  'Jan',
+  'Ruth',
+  'Deniz',
+  'Magda',
+  'Til',
+  'Vera',
+  'Samir',
 ]
 const SURNAMES = [
   'Brandt',
@@ -123,13 +165,61 @@ const SURNAMES = [
   'Szabó',
   'Koval',
   'Fischer',
+  'Albrecht',
+  'Çelik',
+  'Wójcik',
+  'Lorenzen',
+  'Novák',
+  'Schulte',
+  'Aydın',
+  'Kaminski',
+  'Esposito',
+  'Jensen',
+  'Bergmann',
+  'Dimitrov',
+  'Krause',
+  'Wiśniewski',
+  'Arslan',
+  'Schmitz',
+  'Melnyk',
+  'Radić',
+  'Voigt',
+  'Nagy',
+  'Sousa',
+  'Thiele',
+  'Kurz',
+  'Bakker',
+]
+
+/**
+ * How old the city is, in bands.
+ *
+ * Germany's actual age structure, rounded: a fifth of the country is past retirement and roughly one
+ * in six is a child. The first version of this drew an age off a power curve starting at sixteen,
+ * which is not a city — it is a city with no children in it, and the schools the council funds had
+ * nobody in them.
+ *
+ * Bands rather than a formula because a formula that produces this shape is harder to read and
+ * impossible to correct against a statistic.
+ */
+const AGE_BANDS: { from: number, to: number, weight: number }[] = [
+  { from: 0, to: 6, weight: 5.5 },
+  { from: 6, to: 10, weight: 3.5 },
+  { from: 10, to: 18, weight: 7.5 },
+  { from: 18, to: 25, weight: 8 },
+  { from: 25, to: 30, weight: 6 },
+  { from: 30, to: 50, weight: 25 },
+  { from: 50, to: 67, weight: 24 },
+  { from: 67, to: 80, weight: 14 },
+  { from: 80, to: 92, weight: 6.5 },
 ]
 
 /**
  * What people in a city this size do.
  *
- * Weighted toward the trades and services a port city of a hundred and twenty thousand actually
- * runs on rather than toward the jobs that sound interesting.
+ * Weighted toward the trades and services a port city of a hundred and twenty thousand actually runs
+ * on rather than toward the jobs that sound interesting. Only for people of working age — everyone
+ * else has their occupation decided by how old they are, which is what `occupationFor` is about.
  */
 const JOBS: { title: string, weight: number }[] = [
   { title: 'Einzelhandel', weight: 12 },
@@ -143,10 +233,31 @@ const JOBS: { title: string, weight: number }[] = [
   { title: 'Industrie', weight: 6 },
   { title: 'Baugewerbe', weight: 5 },
   { title: 'Reinigung', weight: 4 },
-  { title: 'Rente', weight: 6 },
-  { title: 'Studium', weight: 5 },
-  { title: 'Ausbildung', weight: 3 },
+  { title: 'Gesundheit', weight: 4 },
+  { title: 'Arbeitsuchend', weight: 4 },
 ]
+
+/**
+ * What somebody that age is doing with their day.
+ *
+ * Age decides it outright at both ends of a life and only in the middle is it a question — which is
+ * both true and the reason the council's childcare and school places have somebody to be for.
+ */
+function occupationFor(age: number, roll: number): string {
+  if (age < 1)
+    return 'zu Hause'
+  if (age < 6)
+    return 'Kita'
+  if (age < 10)
+    return 'Grundschule'
+  if (age < 18)
+    return 'Schule'
+  if (age < 25)
+    return roll < 0.42 ? 'Ausbildung' : roll < 0.74 ? 'Studium' : weighted(JOBS, roll).title
+  if (age >= 67)
+    return 'Rente'
+  return weighted(JOBS, roll).title
+}
 
 /**
  * A pure hash from an integer to a number in [0, 1).
@@ -196,7 +307,7 @@ export function citizenAt(index: number, seed: number, share: number): Citizen {
   const salt = seed & 0xFFFF
   const roll = (stream: number): number => hash(index + 1, salt + stream)
 
-  const age = 16 + Math.floor(roll(1) ** 1.35 * 68)
+  const age = ageAt(index, seed)
   const abroad = roll(2) < Math.min(0.6, Math.max(0, share))
 
   /*
@@ -206,19 +317,50 @@ export function citizenAt(index: number, seed: number, share: number): Citizen {
    */
   const foreign = ORIGINS.slice(1)
   const country = abroad ? weighted(foreign, roll(3)).country : 'Deutschland'
-  // Somebody who came themselves arrived within their own lifetime; a second generation did not.
-  const born = !abroad || roll(4) < 0.55 ? 'here' : 'there'
+  /*
+   * Somebody who came themselves arrived within their own lifetime; a second generation did not. A
+   * child is almost always the second generation, because a four-year-old did not move here alone.
+   */
+  const born = !abroad || roll(4) < (age < 16 ? 0.85 : 0.55) ? 'here' : 'there'
   const since = born === 'here'
     ? 2026 - age
     : 2026 - Math.max(1, Math.floor(roll(5) * Math.max(2, age - 14)))
-
-  const job = age > 66 ? 'Rente' : weighted(JOBS, roll(6)).title
 
   return {
     name: `${pick(FIRST_NAMES, roll(7))} ${pick(SURNAMES, roll(8))}`,
     age,
     origin: { country, born },
-    job: age < 19 && job !== 'Studium' ? 'Schule' : job,
+    job: occupationFor(age, roll(6)),
     since,
   }
+}
+
+/**
+ * How old the figure with this index is.
+ *
+ * Apart from the rest because two things need it and only one of them wants a whole biography: the
+ * renderer scales a child's figure smaller than an adult's, and it has no business building a name
+ * and a nationality to find that out. Age does not depend on the city's composition, so both can
+ * work it out and always agree.
+ */
+export function ageAt(index: number, seed: number): number {
+  const roll = hash(index + 1, (seed & 0xFFFF) + 1)
+  const band = weighted(AGE_BANDS, roll)
+  // A second stream for the position inside the band, or everyone in a band would be the same age.
+  const within = hash(index + 1, (seed & 0xFFFF) + 9)
+  return band.from + Math.floor(within * (band.to - band.from))
+}
+
+/**
+ * How tall somebody that age is, against a grown adult.
+ *
+ * A rough growth curve: about half height at four, most of the way there by fourteen, full by
+ * eighteen, and a couple of centimetres back by eighty. It is the one thing about a citizen the
+ * renderer reads, and it reads it from age and nothing else.
+ */
+export function statureAt(index: number, seed: number): number {
+  const age = ageAt(index, seed)
+  if (age >= 18)
+    return age > 75 ? 0.98 : 1
+  return 0.34 + 0.66 * (Math.min(age, 18) / 18) ** 0.62
 }

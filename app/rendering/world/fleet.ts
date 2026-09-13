@@ -1,12 +1,13 @@
 import type { CityModel } from '../cityModels'
 import type { Incident } from './dispatch'
 import type { CityPressure, Service } from './incidents'
-import type { RoadEdge, RoadNetwork } from './roadNetwork'
+import type { EdgeIndex, RoadEdge, RoadNetwork } from './roadNetwork'
 import type { SignalPlan } from './signalPlan'
 import * as THREE from 'three/webgpu'
+import { statureAt } from '../../world/citizens'
 import { AXIS_Y, WHITE } from '../shared'
 import { responseSpeed } from './incidents'
-import { bearingFrom, sampleEdge } from './roadNetwork'
+import { bearingFrom, indexEdges, sampleEdge } from './roadNetwork'
 import { isGreen } from './signalPlan'
 
 /**
@@ -33,6 +34,22 @@ export interface Streets {
   signals: SignalPlan
   pressure: CityPressure
 }
+
+/**
+ * How a crowd is kept where the player is.
+ *
+ * Five hundred people spread evenly over three kilometres of city is one person per two and a half
+ * hectares. You can follow a street for a minute and meet nobody, which is exactly what Lindenhafen
+ * looked like — and the answer is not five thousand people, because five thousand instanced figures
+ * is most of the frame. It is the same five hundred, kept near the listener.
+ *
+ * Anybody who wanders further than `RECYCLE_RANGE` from the camera is put back on a street inside
+ * `GATHER_RANGE` of it. They were already too far to see, so nothing pops: what the player gets is a
+ * pavement with people on it wherever they happen to be standing, and an empty city everywhere they
+ * are not — which nobody can tell apart from a full one.
+ */
+const RECYCLE_RANGE = 420
+const GATHER_RANGE = 300
 
 /** How long a car and a person are in metres, so a kit model can be scaled onto the street. */
 export const CAR_LENGTH = 4.4
@@ -112,6 +129,15 @@ export interface Fleet {
   mountDrop: number
   /** How many of this fleet are within earshot of the camera, counted afresh on every pass. */
   nearby: number
+  /**
+   * Whether this fleet is kept near the listener rather than spread over the city.
+   *
+   * True for people, false for traffic. A car three kilometres away still matters — it might be the
+   * ambulance on its way to a call — but nobody is ever waiting for a particular pedestrian.
+   */
+  gathers: boolean
+  /** Which stretches this fleet may be put back on, indexed by where they are. */
+  index: EdgeIndex | null
 }
 
 export interface Traveller {
@@ -132,6 +158,14 @@ export interface Traveller {
   responding: boolean
   /** Its own phase in the walk, so a crowd does not step in time. */
   gait: number
+  /**
+   * How tall this one is against a grown adult.
+   *
+   * One for anybody in a fleet of vehicles, and a real number for a fleet of people: a city with
+   * children in it that draws them all at adult height has not got children in it, it has got small
+   * adults. Read from age and from nothing else — see `statureAt` in `world/citizens.ts`.
+   */
+  stature: number
   /**
    * Which person this is, for the one question the interface asks of a figure in the street.
    *
@@ -156,6 +190,8 @@ export interface FleetPlan {
   people?: boolean
   /** Where this fleet's block of citizen numbers starts, so no two fleets share a person. */
   citizenBase?: number
+  /** The city's seed, so a figure's height and their age are worked out from the same number. */
+  seed: number
   mount?: { geometry: THREE.BufferGeometry, material: THREE.Material, drop: number }
 }
 
@@ -194,6 +230,8 @@ export function buildFleet(
     mount,
     mountDrop: plan.mount?.drop ?? 0,
     nearby: 0,
+    gathers: plan.people === true,
+    index: plan.people === true ? indexEdges(network, allowed) : null,
   }
 
   const open: number[] = []
@@ -229,6 +267,7 @@ export function buildFleet(
       callout: null,
       responding: false,
       gait: draw() * Math.PI * 2,
+      stature: plan.people ? statureAt((plan.citizenBase ?? 0) + index, plan.seed) : 1,
       /*
        * Unique across the whole city, not within a fleet: the pedestrians and the cyclists are two
        * fleets and one population, and a walker and a rider must never turn out to be the same
@@ -301,6 +340,8 @@ const sample = { x: 0, y: 0, z: 0, ux: 0, uz: 1 }
 export function drive(fleet: Fleet, streets: Streets, delta: number, elapsed: number, share: number, camera?: THREE.Vector3): void {
   if (share > 0)
     advance(fleet, streets, Math.min(0.2, delta), elapsed)
+  if (camera && fleet.gathers)
+    gather(fleet, streets, camera)
 
   // What this fleet has within earshot, counted fresh: the sound asks the fleets, not the reverse.
   fleet.nearby = 0
@@ -328,6 +369,43 @@ export function drive(fleet: Fleet, streets: Streets, delta: number, elapsed: nu
   if (fleet.mount) {
     fleet.mount.count = mounted
     fleet.mount.instanceMatrix.needsUpdate = true
+  }
+}
+
+/**
+ * Bring back anybody who has wandered out of sight, and put them down near the camera.
+ *
+ * Called every pass, but it only touches whoever is actually too far, which after the first few
+ * seconds is a handful. The stretch they are put on is drawn from the same stream they steer with,
+ * so a fleet is as reproducible as it was before — a city that looks different on the second run
+ * from the same seed is a city nobody can debug.
+ */
+function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3): void {
+  const index = fleet.index
+  if (!index)
+    return
+
+  let candidates: number[] | null = null
+  for (const traveller of fleet.all) {
+    const edge = streets.network.edges[traveller.edge]
+    if (!edge)
+      continue
+    if (Math.hypot(edge.points[0]! - camera.x, edge.points[1]! - camera.z) < RECYCLE_RANGE)
+      continue
+
+    // Looked up once per pass and only if somebody actually needs moving.
+    candidates ??= index.near(camera.x, camera.z, GATHER_RANGE)
+    if (candidates.length === 0)
+      return
+
+    const next = candidates[Math.floor(traveller.rng() * candidates.length)]!
+    const target = streets.network.edges[next]
+    if (!target)
+      continue
+    traveller.edge = next
+    traveller.forward = traveller.rng() > 0.5
+    traveller.along = traveller.rng() * target.length
+    traveller.speed = traveller.cruise
   }
 }
 
@@ -504,7 +582,8 @@ function place(mesh: THREE.InstancedMesh, index: number, streets: Streets, fleet
    */
   const bob = fleet.stride ? Math.abs(Math.sin(traveller.gait + elapsed * STRIDE_RATE)) * STRIDE_BOB : 0
   // The road's own surface, so traffic goes over a bridge instead of through the river under it.
-  matrix.compose(position.set(x, sample.y + fleet.lift + bob, z), quaternion, scale)
+  scale.setScalar(traveller.stature)
+  matrix.compose(position.set(x, sample.y + fleet.lift * traveller.stature + bob, z), quaternion, scale)
   mesh.setMatrixAt(index, matrix)
 
   /*
@@ -513,7 +592,9 @@ function place(mesh: THREE.InstancedMesh, index: number, streets: Streets, fleet
    * bike is written out in metres.
    */
   if (fleet.mount && mounted < fleet.mount.instanceMatrix.count) {
-    matrix.compose(position.set(x, sample.y + fleet.lift - fleet.mountDrop, z), quaternion, MOUNT_SCALE)
+    // A child's bike is a child's bike: the machine takes the rider's own scale.
+    MOUNT_SCALE.setScalar(traveller.stature)
+    matrix.compose(position.set(x, sample.y + (fleet.lift - fleet.mountDrop) * traveller.stature, z), quaternion, MOUNT_SCALE)
     fleet.mount.setMatrixAt(mounted, matrix)
     mounted += 1
   }

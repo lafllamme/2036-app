@@ -34,7 +34,15 @@ import { sampleEdge } from './roadNetwork'
 const CALM_CITY: CityPressure = { burglary: 0, accident: 0, violent: 0, response: 0.6, building: 0 }
 
 const CAR_COUNT = 620
-const WALKER_COUNT = 520
+/**
+ * How many are out on foot.
+ *
+ * They are all kept within a few hundred metres of the camera — see `gather` in `fleet.ts` — so this
+ * is not five hundred people spread over three kilometres of city, it is five hundred on the streets
+ * around the player. Raised once that was true: at the old count, concentrated, a pavement was busy;
+ * at this one it is a city.
+ */
+const WALKER_COUNT = 900
 /**
  * How many are on a bike.
  *
@@ -43,7 +51,7 @@ const WALKER_COUNT = 520
  * right rather than the share that is true. They ride where the lane is painted: the outer metre and
  * a half of the carriageway, which is also why no car parks on a street wide enough to have one.
  */
-const CYCLIST_COUNT = 180
+const CYCLIST_COUNT = 220
 const CYCLIST_RANGE = 1_400
 /** How fast a town cyclist goes, and how far out from the centre line they ride. */
 const CYCLIST_SPEED: [number, number] = [3.8, 6.2]
@@ -129,9 +137,21 @@ export function personAt(agents: Agents, mesh: THREE.Object3D, instance: number)
   return null
 }
 
-/** Every mesh a person could be picked out of, for the raycast to aim at. */
+/**
+ * Every mesh a person could be picked out of, for the raycast to aim at.
+ *
+ * The bounding sphere is thrown away on the way out, and that is the whole reason this is a function
+ * rather than a field. Three computes an instanced mesh's sphere once, on the first raycast, from
+ * wherever the instances happened to be — and these instances are walking. A few seconds later the
+ * sphere is somewhere the crowd has left, every ray is rejected against it before a single instance
+ * is tested, and pointing at somebody does nothing at all. Nulling it makes three work it out again
+ * for this raycast: nine hundred matrix reads, once per pointer move, against a feature that
+ * otherwise silently does not work.
+ */
 export function peopleMeshes(agents: Agents): THREE.InstancedMesh[] {
-  return [...agents.pedestrians.meshes, ...agents.cyclists.meshes]
+  const meshes = [...agents.pedestrians.meshes, ...agents.cyclists.meshes]
+  for (const mesh of meshes) mesh.boundingSphere = null
+  return meshes
 }
 
 export interface PersonAt {
@@ -141,7 +161,8 @@ export interface PersonAt {
 }
 
 export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels, network: RoadNetwork, signals: SignalPlan): Agents {
-  const rng = createRandomStream(blueprint.definition.seed, 'traffic')
+  const seed = blueprint.definition.seed
+  const rng = createRandomStream(seed, 'traffic')
   const draw = (): number => rng.next()
 
   const driveable = new Uint8Array(network.edges.length)
@@ -159,6 +180,7 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
     scale: model => (BIG_VEHICLES.has(model.id) ? BIG_CAR_LENGTH : CAR_LENGTH) / Math.max(0.001, Math.max(model.size.x, model.size.z)),
     weight: model => COMMON_VEHICLES.includes(model.id) ? 1 - RARE_VEHICLE_SHARE : RARE_VEHICLE_SHARE,
     service: model => (EMERGENCY_VEHICLES.includes(model.id) ? (model.id === 'police' ? 'police' : 'ambulance') : 'none'),
+    seed,
   })
 
   const emergency = cars.all.filter(traveller => traveller.service !== 'none')
@@ -175,6 +197,7 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
     scale: model => PERSON_HEIGHT / Math.max(0.001, model.size.y),
     weight: () => 1,
     service: () => 'none' as Service,
+    seed,
     // They are pedalling, not walking: no bob, and they are not what a crowd sounds like.
     stride: false,
     people: true,
@@ -193,6 +216,7 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
       scale: model => PERSON_HEIGHT / Math.max(0.001, model.size.y),
       weight: () => 1,
       service: () => 'none' as Service,
+      seed,
       people: true,
       citizenBase: CYCLIST_COUNT,
     }),

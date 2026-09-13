@@ -1,5 +1,6 @@
 import type { AudioBus } from './AudioBus'
 import { useEventListener } from '@vueuse/core'
+import { useCityAmbience } from './cityAmbience'
 
 /**
  * Everything a player can point at, in one selector. Binding sound by delegation rather than by
@@ -37,6 +38,8 @@ export function bindInteractionSounds(bus: AudioBus, root: Document = document):
    */
   const activate = (event: 'ui.press'): void => {
     void bus.unlock()
+    // The city's own sound needs the same gesture, and there is exactly one that qualifies.
+    useCityAmbience().start()
     bus.play(event)
   }
 

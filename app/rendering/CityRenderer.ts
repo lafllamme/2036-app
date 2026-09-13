@@ -3,6 +3,7 @@ import type { CityModels } from './cityModels'
 import type { SkyVisuals } from './sky/index'
 import type { WorldVisuals } from './world/index'
 import * as THREE from 'three/webgpu'
+import { useCityAmbience } from '../audio/cityAmbience'
 import { CameraRig } from './cameraRig'
 import { BuildingPicker } from './picking'
 import { Atmosphere } from './sky/atmosphere'
@@ -56,6 +57,13 @@ const SLOW_UPDATE_HZ = 30
 const SHADOW_HZ = 12
 /** A traffic cone two kilometres away is a fifth of a pixel. Above this the pavements are bare. */
 const FURNITURE_RANGE = 1_400
+/**
+ * A parked car is two thousand triangles and, from further than this, about four pixels.
+ *
+ * They are the single heaviest thing in the city, so they are the first thing to go when the camera
+ * pulls back — and nothing is lost, because at that height a kerb reads as a line either way.
+ */
+const PARKING_RANGE = 900
 
 export class CityRenderer {
   private readonly canvas: HTMLCanvasElement
@@ -81,6 +89,8 @@ export class CityRenderer {
   /** When set, frames are skipped to hold this rate — used while the city is only a backdrop. */
   private frameCap: number | null = null
   private lastFrame = 0
+  /** Campaign time of day, so the streets fill and empty with it. */
+  private hourOfDay = 9
 
   constructor(options: CityRendererOptions) {
     this.canvas = options.canvas
@@ -173,6 +183,8 @@ export class CityRenderer {
   /** The sky follows campaign time, not the render loop: it stops dead when the player pauses. */
   setSky(state: SkyState): void {
     this.atmosphere.setTarget(state)
+    // The traffic reads the same clock: rush hour is the hour, not a number of its own.
+    this.hourOfDay = state.hourOfDay
   }
 
   /**
@@ -266,10 +278,32 @@ export class CityRenderer {
     if (this.slowClock >= 1 / SLOW_UPDATE_HZ) {
       const distance = this.rig.distance
       this.fitShadowCasters(distance)
-      updateAgents(this.world.agents, this.slowClock, this.animationElapsed, distance, this.city.trafficFactor)
+      updateAgents(
+        this.world.agents,
+        this.slowClock,
+        this.animationElapsed,
+        this.rig.camera.position,
+        distance,
+        this.city.trafficFactor,
+        this.hourOfDay,
+        this.city.unrest,
+      )
       updateSignals(this.world.signals, this.animationElapsed)
+      /*
+       * The city's sound follows the same two numbers the traffic does. It is driven from here
+       * rather than from a watcher because those numbers are the renderer's own — how much is
+       * moving and how many blue lights are out — and nothing else knows them.
+       */
+      useCityAmbience().update({
+        trafficNearby: this.world.agents.trafficNearby,
+        peopleNearby: this.world.agents.peopleNearby,
+        nearestSiren: this.world.agents.nearestSiren,
+        cameraDistance: distance,
+      })
       this.atmosphere.update(this.slowClock, this.rig.controls.target, distance)
       this.world.streetFurniture.visible = distance < FURNITURE_RANGE
+      const parked = distance < PARKING_RANGE
+      for (const mesh of this.world.parkedCars) mesh.visible = parked
       updateShips(this.world.ships, this.animationElapsed)
       updateWater(this.world.water, this.animationElapsed)
       this.slowClock = 0

@@ -22,6 +22,8 @@ export class CityState {
   /** How busy the roads are, and how lit the city is after dark. */
   trafficFactor = 1
   nightLife = 0.67
+  /** How unsettled the city is, which is what decides how many blue lights are out. */
+  unrest = 0
   /** How many growth parcels the simulation has filled, kept so the warm-up can hand them back. */
   delivered = 0
 
@@ -44,6 +46,7 @@ export class CityState {
       1.25,
     )
     this.nightLife = city.nightLife
+    this.unrest = THREE.MathUtils.clamp(city.unrest, 0, 1)
 
     // Delivered housing fills the free parcels the generator left, from the centre outward.
     this.delivered = THREE.MathUtils.clamp(Math.round(city.completedUnitsSinceStart / this.unitsPerBuilding), 0, slots.length)

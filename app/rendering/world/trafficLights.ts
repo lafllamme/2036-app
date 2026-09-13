@@ -100,7 +100,8 @@ export function addTrafficLights(scene: THREE.Scene, network: RoadNetwork, relie
     lamps.setColorAt(index, RED)
   })
 
-  poles.castShadow = true
+  // The pole is thinner than a shadow texel at any distance the shadow map covers.
+  poles.castShadow = false
   poles.instanceMatrix.setUsage(THREE.StaticDrawUsage)
   lamps.instanceMatrix.setUsage(THREE.StaticDrawUsage)
   lamps.renderOrder = 1

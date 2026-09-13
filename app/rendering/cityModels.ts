@@ -34,6 +34,8 @@ const DISTANT_IDS = [...'abcdefghijklmn'.split('').map(letter => `low-detail-bui
  */
 export const COMMON_VEHICLES = ['sedan', 'sedan-sports', 'suv', 'suv-luxury', 'hatchback-sports', 'van', 'truck', 'delivery']
 export const RARE_VEHICLES = ['taxi', 'police', 'ambulance', 'garbage-truck']
+/** The two that carry a blue light and can be sent somewhere in a hurry. */
+export const EMERGENCY_VEHICLES = ['police', 'ambulance']
 const VEHICLE_IDS = [...COMMON_VEHICLES, ...RARE_VEHICLES]
 
 /** Twelve people, each with their own build, skin and clothes baked into the kit's atlas. */

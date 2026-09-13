@@ -100,7 +100,8 @@ export function addStreetFurniture(scene: THREE.Scene, blueprint: CityBlueprint,
       mesh.setMatrixAt(instance, matrix)
       mesh.setColorAt(instance, WHITE)
     })
-    mesh.castShadow = true
+    // A bollard's shadow is not worth a second pass over every bollard in the city.
+    mesh.castShadow = false
     mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
     group.add(mesh)
   })

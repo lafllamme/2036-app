@@ -1,6 +1,7 @@
 import { createGlobalState, useLocalStorage, watchImmediate } from '@vueuse/core'
 import { ref } from 'vue'
 import { DEFAULT_VOLUME, useAudioBus } from '~/audio/AudioBus'
+import { useCityAmbience } from '~/audio/cityAmbience'
 
 /**
  * Player sound preferences, deliberately outside Pinia.
@@ -36,12 +37,21 @@ export const useSoundSettings = createGlobalState(() => {
   return { soundEnabled, soundVolume, settingsOpen, openSettings, closeSettings, toggleSound }
 })
 
-/** Applies the stored preferences to the bus and keeps them in sync. Client-side only. */
+/**
+ * Applies the stored preferences to both instruments and keeps them in sync. Client-side only.
+ *
+ * The interface bus and the city's own sound are separate graphs — cues against a continuous
+ * ambience — but they answer to one switch and one slider, because a player who turns the sound off
+ * means all of it.
+ */
 export function connectSoundSettings(): () => void {
   const bus = useAudioBus()
+  const ambience = useCityAmbience()
   const { soundEnabled, soundVolume } = useSoundSettings()
   return watchImmediate([soundEnabled, soundVolume], ([enabled, volume]) => {
     bus.setEnabled(enabled)
     bus.setVolume(volume)
+    ambience.setEnabled(enabled)
+    ambience.setVolume(volume)
   })
 }

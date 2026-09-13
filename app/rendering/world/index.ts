@@ -14,6 +14,7 @@ import { createBuildings } from './buildings'
 import { createConstructionSites } from './construction'
 import { addGround } from './ground'
 import { createGrowth } from './growth'
+import { addParkedCars } from './parkedCars'
 import { buildRoadNetwork } from './roadNetwork'
 import { addRoads } from './roads'
 import { addShips } from './ships'
@@ -37,6 +38,8 @@ export interface WorldVisuals extends CityBuildings, CityTrees {
   /** One crane per site, parked on the next growth parcels so building precedes buildings. */
   constructionSites: THREE.Group
   streetLights: StreetLights
+  /** Cars at the kerb. They never move, so they cost a matrix each and nothing per frame. */
+  parkedCars: THREE.InstancedMesh[]
   /** Signs, skips and cones down the kerbs: what makes street level look like a street. */
   streetFurniture: THREE.Group
   /** The junction signals, and the authority the traffic asks whether it may go. */
@@ -62,6 +65,7 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
     growth: createGrowth(scene, blueprint, models),
     constructionSites: createConstructionSites(scene),
     streetLights: addStreetLights(scene, blueprint, models),
+    parkedCars: addParkedCars(scene, blueprint, models),
     streetFurniture: addStreetFurniture(scene, blueprint, models),
     signals,
     network,

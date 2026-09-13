@@ -71,8 +71,18 @@ export function addTrees(scene: THREE.Scene, blueprint: CityBlueprint, models: C
       return
     const wanted = model.slenderness < BUSH_SLENDERNESS ? BUSH_HEIGHT : TREE_HEIGHT
     const base = wanted / Math.max(0.001, model.size.y)
-    const mesh = new THREE.InstancedMesh(model.geometry, material, crew.length) as StandardInstancedMesh
 
+    /*
+     * One mesh per species for the whole city, and deliberately not tiled.
+     *
+     * Tiling was tried here and reverted, which is worth recording. It does cull — only the tiles in
+     * front of the camera are drawn — but the set is already cut eleven ways by species, so tiling
+     * multiplies it rather than dividing it: eleven species across forty tiles is four hundred and
+     * forty meshes, and the overview went from ninety draw calls to twelve hundred. A tree is two
+     * hundred triangles; the geometry was never the problem here. A parked car is two thousand, and
+     * that is where the tiling belongs.
+     */
+    const mesh = new THREE.InstancedMesh(model.geometry, material, crew.length) as StandardInstancedMesh
     crew.forEach((tree, instance) => {
       const size = base * tree.scale
       matrix.compose(
@@ -83,9 +93,9 @@ export function addTrees(scene: THREE.Scene, blueprint: CityBlueprint, models: C
       mesh.setMatrixAt(instance, matrix)
       mesh.setColorAt(instance, WHITE)
     })
-
     mesh.castShadow = true
     mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+    mesh.computeBoundingSphere()
     scene.add(mesh)
     planting.push(mesh)
   })

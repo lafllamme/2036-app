@@ -171,7 +171,7 @@ function restart(): void {
         </section>
 
         <div v-if="rendererStats" class="render-badge">
-          {{ rendererStats.backend }} · {{ rendererStats.fps }} FPS · {{ rendererStats.drawCalls }} Draws · {{ rendererStats.buildings }} Gebäude
+          {{ rendererStats.backend }} · {{ rendererStats.fps }} FPS · {{ rendererStats.drawCalls }} Draws · {{ (rendererStats.triangles / 1000).toFixed(0) }}k Dreiecke · {{ rendererStats.buildings }} Gebäude
         </div>
 
         <NewsTicker />

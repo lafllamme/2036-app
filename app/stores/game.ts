@@ -48,6 +48,17 @@ function readSummary(): SaveSummary | null {
 
 export type ExperienceStage = 'title' | 'partyHall' | 'partyProfile' | 'manifesto' | 'intro' | 'gameplay'
 
+/**
+ * A call as the interface holds it: what the city said, plus when we heard it.
+ *
+ * The renderer counts in render seconds and the interface counts in wall clock, and neither should
+ * have to know about the other's clock — so the times are taken here, where they are displayed.
+ */
+export interface LiveReport extends IncidentReport {
+  raisedAt: number
+  endedAt: number | null
+}
+
 function openSaveDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, 1)
@@ -92,10 +103,12 @@ export const useGameStore = defineStore('game', () => {
    * Capped, because a ticker that grows for the length of a ten-year campaign is a memory leak with
    * a scroll animation.
    */
-  const cityReports = ref<IncidentReport[]>([])
+  const cityReports = ref<LiveReport[]>([])
   const CITY_REPORT_LIMIT = 8
+  /** How long a finished call stays listed, so the player sees it end rather than vanish. */
+  const CLEARED_LINGER_MS = 12_000
   /** The call the player has opened from the ticker, if any. */
-  const selectedReport = shallowRef<IncidentReport | null>(null)
+  const selectedReport = shallowRef<LiveReport | null>(null)
   /**
    * Where the player has asked to be taken.
    *
@@ -109,8 +122,49 @@ export const useGameStore = defineStore('game', () => {
     focusRequest.value = { x, z, at: Date.now() }
   }
 
+  /**
+   * Take in what the city says about a call and keep the list honest.
+   *
+   * A call was listed once, when it was raised, and then stayed for ever — so a player could click a
+   * headline and be flown to a junction where nothing was happening, because the crew had cleared
+   * and gone twenty minutes ago. The list now follows the call: it updates when a crew arrives, and
+   * a finished call is marked finished and drops off a few seconds later.
+   */
   function reportIncident(report: IncidentReport): void {
-    cityReports.value = [report, ...cityReports.value].slice(0, CITY_REPORT_LIMIT)
+    const existing = cityReports.value.find(entry => entry.id === report.id)
+
+    if (report.status === 'cleared') {
+      if (!existing)
+        return
+      existing.status = 'cleared'
+      existing.endedAt = Date.now()
+      // Trigger the list's own reactivity: the entry was mutated, not replaced.
+      cityReports.value = [...cityReports.value]
+      if (selectedReport.value?.id === report.id)
+        selectedReport.value = { ...existing }
+      return
+    }
+
+    if (existing) {
+      existing.status = report.status
+      cityReports.value = [...cityReports.value]
+      if (selectedReport.value?.id === report.id)
+        selectedReport.value = { ...existing }
+      return
+    }
+
+    const live: LiveReport = { ...report, raisedAt: Date.now(), endedAt: null }
+    cityReports.value = [live, ...cityReports.value].slice(0, CITY_REPORT_LIMIT)
+  }
+
+  /** Drop what has been over long enough to have been noticed. Driven by the campaign clock. */
+  function pruneReports(): void {
+    const now = Date.now()
+    const kept = cityReports.value.filter(entry => entry.endedAt === null || now - entry.endedAt < CLEARED_LINGER_MS)
+    if (kept.length !== cityReports.value.length)
+      cityReports.value = kept
+    if (selectedReport.value && !kept.some(entry => entry.id === selectedReport.value?.id))
+      selectedReport.value = null
   }
 
   /**
@@ -252,6 +306,7 @@ export const useGameStore = defineStore('game', () => {
         send({ type: 'ADVANCE', months: 1 })
       }
       monthProgress.value = accumulatedMs / MONTH_DURATION_MS
+      pruneReports()
     }, 250)
 
     onScopeDispose(() => worker?.terminate())

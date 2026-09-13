@@ -52,6 +52,7 @@ export function addTiled(
   material: THREE.Material,
   placements: Placement[],
   configure?: (mesh: InstancedMesh) => void,
+  tile = TILE,
 ): TiledSet {
   const tiles = new Map<string, Placement[]>()
   const at = new Matrix4()
@@ -60,7 +61,7 @@ export function addTiled(
     at.copy(placement.matrix)
     const x = at.elements[12] ?? 0
     const z = at.elements[14] ?? 0
-    const key = `${Math.floor(x / TILE)}:${Math.floor(z / TILE)}`
+    const key = `${Math.floor(x / tile)}:${Math.floor(z / tile)}`
     const bucket = tiles.get(key)
     if (bucket)
       bucket.push(placement)

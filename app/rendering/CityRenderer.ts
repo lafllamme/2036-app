@@ -14,6 +14,7 @@ import { updateAgents } from './world/agents'
 import { CityState } from './world/cityState'
 import { updateIncidentScenes } from './world/incidentScene'
 import { createWorld } from './world/index'
+import { fitParkedDetail } from './world/parkedCars'
 import { updateShips } from './world/ships'
 import { updateSignals } from './world/trafficLights'
 import { updateWater } from './world/water'
@@ -43,10 +44,20 @@ export interface RendererStats {
  * the same one-way rule the visual state follows, and the reason a police call can be read out on
  * the news bar without becoming an input to anything the council is scored on.
  */
+/**
+ * How far along a call is.
+ *
+ * `open` is raised with nobody there yet, `onScene` is a crew standing at it, `cleared` is over. The
+ * interface needs all three: a call left on the news bar after the cordon has gone is a link to an
+ * empty junction, which is worse than never having listed it.
+ */
+export type IncidentStatus = 'open' | 'onScene' | 'cleared'
+
 export interface IncidentReport {
   id: number
   kind: IncidentKind
   service: Exclude<Service, 'none'>
+  status: IncidentStatus
   /** The district it happened in, by name, or null out where the map has no districts. */
   district: string | null
   /** Where, so the interface can offer to take the player there instead of making them hunt. */
@@ -134,8 +145,8 @@ export class CityRenderer {
   private readonly onIncident: CityRendererOptions['onIncident']
   /** Kept only so a call can be told which district it happened in. */
   private readonly districts: CityBlueprint['definition']['districts']
-  /** The highest call number already reported, so each is announced exactly once. */
-  private reportedCall = 0
+  /** What was last said about each open call, so only actual changes are announced. */
+  private readonly announced = new Map<number, IncidentStatus>()
   private readonly buildingCount: number
 
   private frameCounter = 0
@@ -379,8 +390,8 @@ export class CityRenderer {
       })
       this.atmosphere.update(this.slowClock, this.rig.controls.target, distance)
       this.world.streetFurniture.visible = distance < FURNITURE_RANGE
-      const parked = distance < PARKING_RANGE
-      for (const mesh of this.world.parkedCars) mesh.visible = parked
+      // Proxies out to the parking range, the kit's own cars for the street the player is in.
+      fitParkedDetail(this.world.parkedCars, this.rig.camera.position, distance < PARKING_RANGE)
       updateShips(this.world.ships, this.animationElapsed)
       updateWater(this.world.water, this.animationElapsed)
       this.slowClock = 0
@@ -402,26 +413,45 @@ export class CityRenderer {
   }
 
   /**
-   * Announce anything that has just happened.
+   * Announce anything that has changed.
    *
-   * Calls carry a number that only ever rises, so "everything above the last one I mentioned" is
-   * the whole of the bookkeeping — no set to keep, nothing to clean up when a call clears.
+   * Three things are worth saying about a call and they are all changes of state: it was raised, a
+   * crew reached it, it is over. Everything in between is the same call still happening, and saying
+   * so thirty times a second would be thirty messages an interface has to ignore.
+   *
+   * The last thing said about each call is kept, so this is a comparison rather than a log — which
+   * is also what lets a call that ends be reported as ended rather than simply stopping.
    */
   private reportIncidents(): void {
     if (!this.onIncident)
       return
-    for (const incident of this.world.agents.incidents) {
-      if (incident.id <= this.reportedCall)
+    const open = this.world.agents.incidents
+
+    for (const incident of open) {
+      const status: IncidentStatus = incident.arrived === null ? 'open' : 'onScene'
+      if (this.announced.get(incident.id) === status)
         continue
-      this.reportedCall = incident.id
+      this.announced.set(incident.id, status)
       this.onIncident({
         id: incident.id,
         kind: incident.kind,
         service: incident.service,
+        status,
         district: this.districtAt(incident.x, incident.z),
         x: incident.x,
         z: incident.z,
       })
+    }
+
+    // Whatever is no longer on the list is over, whether it was reached or written off.
+    if (this.announced.size > open.length) {
+      const live = new Set(open.map(incident => incident.id))
+      for (const id of [...this.announced.keys()]) {
+        if (live.has(id))
+          continue
+        this.announced.delete(id)
+        this.onIncident({ id, kind: 'burglary', service: 'police', status: 'cleared', district: null, x: 0, z: 0 })
+      }
     }
   }
 

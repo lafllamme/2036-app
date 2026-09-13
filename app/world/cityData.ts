@@ -4,6 +4,7 @@ import { createRandomStream } from '../core/rng'
 import { districtAt, LINDENHAFEN } from './model/lindenhafen'
 import { buildOutskirts } from './outskirts'
 import { Relief } from './relief'
+import { roadClearance } from './roadClearance'
 
 /**
  * Lindenhafen's ground plan, read from a real one.
@@ -53,6 +54,14 @@ export async function loadCityBlueprint(seed = LINDENHAFEN.seed): Promise<CityBl
   return buildBlueprint(await response.json() as RawCity, seed)
 }
 
+/**
+ * How much room a planting leaves beside a carriageway.
+ *
+ * Just past the kerb: a verge inside a park legitimately comes right up to the road, and a street
+ * tree stands at the back of the pavement. What this stops is a trunk in the running lane.
+ */
+const PLANTING_CLEARANCE = 1.2
+
 export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
   const wear = createRandomStream(seed, 'condition')
 
@@ -95,6 +104,12 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
     bridge: entry.b === 1,
   })).concat(outskirts.roads)
 
+  /*
+   * Every carriageway in the city, in one index. Built once here so that everything placed beside a
+   * street is placed against the whole street plan rather than against the one road it came from.
+   */
+  const clearance = roadClearance(roads)
+
   return {
     definition: { ...LINDENHAFEN, seed },
     buildings,
@@ -108,7 +123,18 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
       bridge: entry.b === 1,
     })),
     areas,
-    trees: [...plantTrees(areas, raw.gardens ?? [], seed), ...lineTheStreets(roads, relief, seed), ...outskirts.trees],
+    /*
+     * Every planting in the city, and not one of them in a street.
+     *
+     * Filtered here rather than at each source, because there are three of them — parks, avenues and
+     * the country beyond the extract — and the one that was forgotten is exactly the one that put
+     * nine hundred trees in outskirt roads. A source cannot forget a filter it does not apply.
+     */
+    trees: [
+      ...plantTrees(areas, raw.gardens ?? [], seed),
+      ...lineTheStreets(roads, relief, seed),
+      ...outskirts.trees,
+    ].filter(tree => !clearance.blocked(tree.x, tree.z, PLANTING_CLEARANCE)),
     relief,
     waterway: raw.waterways[0]?.p ?? [],
   }

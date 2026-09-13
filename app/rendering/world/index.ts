@@ -4,6 +4,7 @@ import type { CityModels } from '../cityModels'
 import type { Agents } from './agents'
 import type { CityBuildings } from './buildings'
 import type { IncidentScenes } from './incidentScene'
+import type { ParkedCars } from './parkedCars'
 import type { RoadNetwork } from './roadNetwork'
 import type { Ships } from './ships'
 import type { StreetLights } from './streetLights'
@@ -41,7 +42,7 @@ export interface WorldVisuals extends CityBuildings, CityTrees {
   constructionSites: THREE.Group
   streetLights: StreetLights
   /** Cars at the kerb. They never move, so they cost a matrix each and nothing per frame. */
-  parkedCars: THREE.InstancedMesh[]
+  parkedCars: ParkedCars
   /** Signs, skips and cones down the kerbs: what makes street level look like a street. */
   streetFurniture: THREE.Group
   /** The cordon, the crowd and the marker at whatever is currently happening. */

@@ -29,12 +29,24 @@ const CALL_HEADLINES = {
  * Calls first, because they are what just happened; the council's own news behind them. They stay
  * separate all the way here — see `cityReports` in the store for why one may never become the other.
  */
+/** What is happening with it right now, in the two words a bar has room for. */
+const STATUS_WORDS = {
+  open: 'Kräfte unterwegs',
+  onScene: 'Kräfte vor Ort',
+  cleared: 'abgeschlossen',
+} as const
+
 const items = computed(() => [
   ...cityReports.value.map(report => ({
     id: `call-${report.id}`,
-    label: 'EINSATZ',
-    urgent: true,
-    headline: report.district ? `${CALL_HEADLINES[report.kind]} · ${report.district}` : CALL_HEADLINES[report.kind],
+    label: report.status === 'cleared' ? 'ERLEDIGT' : 'EINSATZ',
+    urgent: report.status !== 'cleared',
+    done: report.status === 'cleared',
+    headline: [
+      CALL_HEADLINES[report.kind],
+      report.district,
+      STATUS_WORDS[report.status],
+    ].filter(Boolean).join(' · '),
     open: () => { game.selectedReport = report },
   })),
   ...(snapshot.value?.news ?? []).map(item => ({
@@ -42,6 +54,7 @@ const items = computed(() => [
     label: SCOPE_LABELS[item.scope],
     urgent: false,
     headline: item.headline,
+    done: false,
     open: () => { game.selectedNews = item },
   })),
 ])
@@ -79,7 +92,7 @@ const duration = computed(() => `${Math.max(38, items.value.length * 8)}s`)
     <div ref="windowRef" class="ticker-window">
       <span class="ticker-track" :class="{ 'is-static': !scrolls }" :style="{ '--ticker-duration': duration }">
         <span ref="cycleRef" class="ticker-cycle">
-          <button v-for="item in items" :key="item.id" type="button" class="ticker-item" :class="{ 'is-call': item.urgent }" @click="item.open()">
+          <button v-for="item in items" :key="item.id" type="button" class="ticker-item" :class="{ 'is-call': item.urgent, 'is-done': item.done }" @click="item.open()">
             <b>{{ item.label }}</b>{{ item.headline }}
           </button>
         </span>
@@ -96,7 +109,7 @@ const duration = computed(() => `${Math.max(38, items.value.length * 8)}s`)
             type="button"
             tabindex="-1"
             class="ticker-item"
-            :class="{ 'is-call': item.urgent }"
+            :class="{ 'is-call': item.urgent, 'is-done': item.done }"
             @click="item.open()"
           >
             <b>{{ item.label }}</b>{{ item.headline }}

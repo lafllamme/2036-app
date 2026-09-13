@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useSound } from '~/composables/useSound'
 import { useSoundSettings } from '~/composables/useSoundSettings'
 import { getParty } from '~/content/parties'
@@ -58,6 +58,48 @@ const CALL_TONE: Record<string, string> = {
   accident: 'medical',
   fire: 'fire',
 }
+
+/** What is happening with the call, in words, and how long it has been going. */
+const REPORT_STATUS: Record<string, string> = {
+  open: 'Kräfte unterwegs',
+  onScene: 'Kräfte vor Ort',
+  cleared: 'Einsatz beendet',
+}
+
+/*
+ * A clock that ticks only while a call is open on screen.
+ *
+ * A call is a thing that is happening, and the one question a player has looking at it is how long
+ * it has been happening — so the dialog counts rather than showing a timestamp. Nothing runs when
+ * no dialog is open.
+ */
+const now = ref(Date.now())
+let ticking: ReturnType<typeof setInterval> | null = null
+watch(selectedReport, (report) => {
+  if (report && !ticking) {
+    now.value = Date.now()
+    ticking = setInterval(() => {
+      now.value = Date.now()
+    }, 1_000)
+    return
+  }
+  if (!report && ticking) {
+    clearInterval(ticking)
+    ticking = null
+  }
+})
+onBeforeUnmount(() => {
+  if (ticking)
+    clearInterval(ticking)
+})
+
+const reportElapsed = computed(() => {
+  const report = selectedReport.value
+  if (!report)
+    return ''
+  const seconds = Math.max(0, Math.round(((report.endedAt ?? now.value) - report.raisedAt) / 1000))
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+})
 
 /** Take the player there and get out of the way; the camera is the answer, not the dialog. */
 function flyToReport(): void {
@@ -265,19 +307,25 @@ function restart(): void {
           {{ CALL_TITLES[selectedReport.kind] }}
         </h2>
         <p class="report-meta">
-          Einsatz {{ String(selectedReport.id).padStart(3, '0') }} · {{ CALL_SUBTITLES[selectedReport.kind] }}
+          <span class="report-status" :class="selectedReport.status">
+            <i /> {{ REPORT_STATUS[selectedReport.status] }}
+          </span>
+          <span>· seit {{ reportElapsed }}</span>
+        </p>
+        <p class="report-cause">
+          {{ CALL_SUBTITLES[selectedReport.kind] }}
         </p>
         <!--
           The point of the whole thing: a call is a place, and the player should never have to go
           hunting across three kilometres of city for the one they were just told about.
         -->
         <div class="dialog-actions">
-          <button type="button" class="dialog-action" @click="flyToReport">
+          <button type="button" class="dialog-action" :disabled="selectedReport.status === 'cleared'" @click="flyToReport">
             <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
               <path d="M1.5 5.5v-4h4M14.5 5.5v-4h-4M1.5 10.5v4h4M14.5 10.5v4h-4" />
               <circle cx="8" cy="8" r="2.1" />
             </svg>
-            Zum Einsatzort
+            {{ selectedReport.status === 'cleared' ? 'Einsatz beendet' : 'Zum Einsatzort' }}
           </button>
           <button type="button" class="dialog-action ghost" @click="game.selectedReport = null">
             Später

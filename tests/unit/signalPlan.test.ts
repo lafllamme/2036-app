@@ -68,3 +68,33 @@ describe('the junction signals', () => {
     expect(isGreen(plan, unsignalled, network.nodes[unsignalled]!.edges[0]!, 0)).toBe(true)
   })
 })
+
+describe('one junction, one signal', () => {
+  it('does not put a second signal inside the first one', () => {
+    const raw = JSON.parse(readFileSync('public/city/lindenhafen.json', 'utf8'))
+    const city = buildBlueprint(raw, 2_036)
+    const plan = planSignals(buildRoadNetwork(city, city.relief))
+
+    /*
+     * A crossroads is one junction to a driver and up to eight nodes to OpenStreetMap — turning
+     * lanes, central reservations, dual carriageways. Signalling each of them stood twenty masts
+     * on twenty metres of street, every one on its own offset.
+     */
+    const tooClose = plan.signals.filter(signal =>
+      plan.signals.some(other => other !== signal && Math.hypot(other.x - signal.x, other.z - signal.z) < 35))
+    expect(tooClose.length).toBe(0)
+  })
+
+  it('still stops the traffic at every node of a merged junction', () => {
+    const raw = JSON.parse(readFileSync('public/city/lindenhafen.json', 'utf8'))
+    const city = buildBlueprint(raw, 2_036)
+    const plan = planSignals(buildRoadNetwork(city, city.relief))
+
+    // Merging must not quietly un-signal the nodes that joined: they share one cycle, not none.
+    for (const signal of plan.signals) {
+      for (const node of signal.nodes)
+        expect(plan.byNode.get(node)).toBe(signal)
+    }
+    expect(plan.signals.some(signal => signal.nodes.length > 1)).toBe(true)
+  })
+})

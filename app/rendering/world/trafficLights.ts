@@ -44,9 +44,14 @@ export function addTrafficLights(scene: THREE.Scene, network: RoadNetwork, relie
       const setback = Math.min(SETBACK, network.edges[approach.edge]!.length * 0.4)
       const kerb = approach.width / 2 + 1.6
       placements.push({
-        // Back up the approach, and out to the kerb on the hand the traffic arrives on.
-        x: signal.x + Math.sin(approach.bearing) * setback - Math.cos(approach.bearing) * kerb,
-        z: signal.z + Math.cos(approach.bearing) * setback + Math.sin(approach.bearing) * kerb,
+        /*
+         * Back up the approach, and out to the kerb on the hand the traffic arrives on — measured
+         * from the node this arm actually leaves, not from the middle of the junction. A junction
+         * merged out of several OSM nodes is tens of metres across, and measuring from its centre
+         * put heads in the middle of the road.
+         */
+        x: approach.x + Math.sin(approach.bearing) * setback - Math.cos(approach.bearing) * kerb,
+        z: approach.z + Math.cos(approach.bearing) * setback + Math.sin(approach.bearing) * kerb,
         // The head looks back out along the approach, at the traffic coming toward the junction.
         bearing: approach.bearing,
         signal: index,

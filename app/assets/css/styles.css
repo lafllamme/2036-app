@@ -472,6 +472,8 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
 .ticker-item b { margin-right: 10px; color: var(--dim); font-family: var(--mono); font-size: 9px; letter-spacing: 0.11em; }
 /* An emergency call is not council news, and the bar should not make the player read to find out. */
 .ticker-item.is-call b { color: var(--negative); }
+/* A call that is over stays a few seconds so the player sees it end, but it stops shouting. */
+.ticker-item.is-done { color: var(--dim); }
 
 @keyframes ticker-slide { to { transform: translateX(-50%); } }
 
@@ -520,9 +522,27 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
 .report-kicker { display: flex; align-items: center; gap: 8px; }
 .report-kicker i { width: 7px; height: 7px; border-radius: 50%; background: var(--call); }
 .report-meta {
-  margin: 0 0 16px; color: var(--dim);
+  display: flex; align-items: center; gap: 8px; margin: 0 0 4px; color: var(--dim);
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em;
 }
+.report-cause { margin: 0 0 16px; color: var(--faint); font-size: 10px; line-height: 1.5; }
+
+/*
+ * Whether anyone is there yet.
+ *
+ * A pulsing mark while the crew is still driving, a steady one once they have arrived, nothing once
+ * it is over — the same three states the cordon on the street is in, so the dialog and the city
+ * never disagree about what is happening.
+ */
+.report-status { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); }
+.report-status i { width: 6px; height: 6px; border-radius: 50%; background: var(--call); }
+.report-status.open i { animation: report-pulse 1.1s ease-in-out infinite; }
+.report-status.cleared { color: var(--dim); }
+.report-status.cleared i { background: var(--dim); }
+@keyframes report-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+.dialog-action:disabled { border-color: var(--rule); color: var(--dim); cursor: default; }
+.dialog-action:disabled:hover { background: transparent; }
 
 /*
  * The way out of a dialog and into the city.

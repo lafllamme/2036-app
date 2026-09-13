@@ -1,121 +1,112 @@
 /**
  * The music the city is played over.
  *
- * Generated rather than played back. A loop that fits in a download is two minutes long and a
- * campaign is hours: however good the two minutes are, the fourth time round the player hears the
- * seam and after that they hear nothing else. This has no seam because it has no loop.
+ * Four versions of this file were a piece of music: a tempo, a bar, a chord progression and a figure
+ * over the top. Each was better than the last and every one of them had the same fault underneath,
+ * which only became obvious once the sound itself stopped being the problem — a piece of music asks
+ * to be listened to. It has a downbeat you count without meaning to, a phrase you learn, and a point
+ * where it comes round again. That is exactly right for three minutes and exactly wrong for the
+ * eight hours somebody might leave this running while they govern a city.
  *
- * Four versions of this file are worth recording, because each was wrong in its own way and the
- * fourth is the one that says what this should sound like.
+ * So this is not a piece of music. It is the Music for Airports trick, which is the only honest
+ * answer to "must be interesting for hours and never irritating": several voices, each repeating on
+ * its own, with periods that do not divide into each other. Nothing is synchronised to anything. The
+ * combination of six voices at twenty-three, twenty-nine, thirty-seven, forty-one, fifty-three and
+ * sixty-one seconds comes back to where it started once every eighteen hours or so, and in between
+ * it is never quite the same texture twice — not because anything is random, but because that is
+ * what numbers with no common factor do.
  *
- * Sine and triangle oscillators through a gentle filter sound like a signal generator, and no amount
- * of rewriting the harmony fixed that. A sawtooth bass with the filter swept down on every note and
- * a kick on one and three is a good sound and a *dance* sound, and a city to sit and think in does
- * not want a floor thumping under it. And plucked strings by Karplus–Strong, which is the obvious
- * way to get a harp, are excited by a burst of raw noise — which is why they twang: the attack is
- * a rubber band, and past a certain brightness that is all you hear.
+ * Three rules fall out of that, and they are what the earlier versions kept breaking:
  *
- * What survived every version was the pad. So this is built around it: everything is a synthesiser
- * and everything is warm, rather than a chamber group pretending to be in a room.
+ * - **no meter.** There is no bar and no beat, so there is nothing to anticipate and nothing lands
+ *   on a downbeat. Every complaint about a clunk at the top of a part was a complaint about a grid;
+ * - **no wrong combination.** Every voice draws from one pentatonic collection — five notes with no
+ *   semitone and no tritone between any of them — so any two, or all six, are consonant. The
+ *   question "does this note fit the chord underneath" cannot be asked, because there is no chord
+ *   and no note that would not fit one;
+ * - **nothing has an attack.** Every note swells in over seconds and falls away over more. A sound
+ *   that arrives is an event; a sound that is simply there when you next notice it is weather.
  *
- * - the **bells** that carry the figure are two sines, one modulating the other, with the depth of
- *   the modulation falling away over the first fraction of a second. That is all FM is, and it is
- *   the whole of why a Rhodes and a tubular bell and a marimba can be the same four lines: what
- *   decides which is how fast the modulation dies and how far apart the two frequencies are;
- * - the **bass** is a sine with a triangle folded under it, plucked with a soft attack and a slow
- *   release, and filtered so the top never arrives at all;
- * - the **strings** are three sawtooths a few cents apart through a lowpass, swelling in and out.
- *   Three, because two beat against each other and three shimmer. This is the part that worked from
- *   the beginning and it has not been touched since;
- * - the **lead** is a bell held long, with a vibrato that arrives after the note has, because a
- *   player's does too.
- *
- * The harmony is the one thing carried over from the chamber version: sevenths and ninths rather
- * than triads, and a progression that opens from minor into major and goes round rather than
- * arriving.
+ * What is left to compose is timbre and register, and both are the same all the way through: soft
+ * detuned saw pads in the middle, a drone underneath, and one small bell voice far above for a point
+ * of light. The pad was the one part of every earlier version that worked.
  */
 
 /** How far ahead the score is written, and how often the writer wakes up. */
-const HORIZON = 4
-const TICK = 1.5
-
-/** The tempo. A walking pace, not a dancing one. */
-const BPM = 66
-const BEAT = 60 / BPM
-const BAR = BEAT * 4
+const HORIZON = 6
+const TICK = 2
 
 /**
- * F major, as semitones over the root, across three octaves.
+ * The collection: D minor pentatonic, as frequencies.
  *
- * The piece sits in its relative minor as often as in the major itself, which is the whole colour of
- * this kind of writing: the same seven notes, heard from two places, neither of them settled.
+ * Five notes, no semitone between any pair and no tritone anywhere, which is what makes every
+ * possible combination of them consonant. Everything the piece plays is one of these five in one of
+ * three octaves, and that is the whole of the harmony — which is why there is no moment where two
+ * voices disagree, and no way for one to arrive.
  */
-const ROOT = 174.61
-const SCALE = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24, 26, 28, 29]
+const PENTATONIC = [146.83, 174.61, 196.00, 220.00, 261.63]
 
 /**
- * The changes: four chords, two bars each.
+ * The voices, and this is the composition.
  *
- * Dm9 — B♭maj7 — Fmaj7 — Cadd9. It starts in the minor, opens into the major underneath it, and
- * stays there: the last chord is an added ninth rather than a seventh on purpose. A C7 has the
- * tritone in it and pulls hard back to F, which makes the turn an arrival and the arrival a cadence
- * — and a piece that arrives asks to be listened to. The added ninth simply hangs, so going round
- * again is the only thing that could happen next.
+ * Each is a note, a register, and a period: how long from one entry of that voice to the next. The
+ * periods share no common factor, so the pattern of which voices are sounding together changes every
+ * time round and does not repeat inside any session anyone will ever play.
+ *
+ * `spread` is how much the period is allowed to wander from entry to entry. A little, so that even
+ * the individual voice is not a metronome, but not so much that the layering thins out.
  */
-const CHANGES = [
-  [5, 7, 9, 11, 13],
-  [3, 5, 7, 9],
-  [0, 2, 4, 6],
-  [4, 6, 8, 12],
+interface Voice {
+  /** Which of the five, and how many octaves above the written one. */
+  note: number
+  octave: number
+  /** Seconds from one entry to the next, and how far that may drift. */
+  period: number
+  spread: number
+  /** How long the note takes to arrive, to hold, and to leave. */
+  rise: number
+  hold: number
+  fall: number
+  gain: number
+  /** A bell rather than a pad: the one voice with any edge to it at all. */
+  bell?: boolean
+  /** Only heard when the city is busy. */
+  busy?: boolean
+}
+
+const VOICES: Voice[] = [
+  { note: 0, octave: 1, period: 23, spread: 2.5, rise: 5, hold: 5, fall: 8, gain: 0.05 },
+  { note: 2, octave: 1, period: 29, spread: 3, rise: 6, hold: 4, fall: 9, gain: 0.045 },
+  { note: 4, octave: 1, period: 37, spread: 3.5, rise: 7, hold: 6, fall: 10, gain: 0.04 },
+  { note: 1, octave: 2, period: 41, spread: 4, rise: 8, hold: 5, fall: 11, gain: 0.032 },
+  { note: 3, octave: 2, period: 53, spread: 4.5, rise: 9, hold: 6, fall: 12, gain: 0.028 },
+  /*
+   * The one voice with a shape to it, three octaves up and rare. It is the only thing in the piece a
+   * listener could point at, which is why it comes round once a minute and not more.
+   */
+  { note: 0, octave: 3, period: 61, spread: 7, rise: 0.01, hold: 1.5, fall: 4, gain: 0.03, bell: true },
+  /*
+   * And two more that only appear when there is something going on outside, so a busy city is a
+   * fuller texture rather than a louder one. Same collection, so they cannot clash with anything.
+   */
+  { note: 3, octave: 1, period: 31, spread: 3, rise: 6, hold: 4, fall: 9, gain: 0.035, busy: true },
+  { note: 2, octave: 2, period: 47, spread: 4, rise: 8, hold: 5, fall: 10, gain: 0.025, busy: true },
 ]
-const BARS_PER_CHANGE = 2
 
 /**
- * How the figure runs through a chord: which note of its voicing, on each eighth of the bar.
+ * The drone: the bottom of the piece, and the only thing that never stops.
  *
- * Up through the chord to the octave, a rest, and a step back down. `null` is a rest, and the rests
- * are what give the bar a shape — a figure that runs straight through all eight eighths is a texture
- * rather than a phrase, and it is what made the piece feel like it never took a breath.
- *
- * Indices into the voicing rather than into the chord, which matters: the chords have four notes and
- * one of them has five, so indexing the chord directly made the fifth step wrap round to the root.
- * The arc peaked on the note it started on, which is not an arc — and it did it on three chords out
- * of four, which is where "some moments sound odd" was coming from.
+ * It crossfades between the root and the fifth over minutes. Nothing else in the piece changes key,
+ * because there is no key to change — but the ground under it shifting every few minutes is what
+ * keeps the whole thing from being one chord for eight hours.
  */
-const FIGURE: (number | null)[] = [0, 1, 2, 3, 4, null, 2, null]
+const DRONE_NOTES = [0, 2, 0, 4]
+const DRONE_LENGTH = 96
+const DRONE_GAIN = 0.05
 
-/** Which notes of the chord the lead reaches for, and how long it holds them. */
-const PHRASE: (number | null)[] = [2, null, null, 3, null, 1, null, null]
-const LEAD_LENGTH = BEAT * 1.3
-
-const BELL_GAIN = 0.07
-const BASS_GAIN = 0.12
-const LEAD_GAIN = 0.05
-const STRING_GAIN = 0.018
-
-/**
- * What the bells are made of.
- *
- * `ratio` is the modulator's frequency against the carrier's, and it decides the character: a whole
- * number gives a tone with harmonics where a tone should have them, and anything else gives a bell,
- * because a bell's partials are not whole multiples of anything. Two is a soft electric piano; the
- * lead sits a little below it, which sweetens it without making it glassy.
- *
- * `index` is how far the modulation pushes the carrier at the start of the note, and `decay` is how
- * fast that falls away. The fall is the entire sound: a bright attack collapsing to a near-sine is
- * what a struck thing does, and holding the index steady instead is what makes FM sound like 1985.
- */
-/**
- * `length` is how long a note rings, and it has to be shorter than it wants to be.
- *
- * At nearly two seconds the last notes of a change were still sounding a second and a half into the
- * next one — four notes of the old chord over the new one, every eight bars. A ring that crosses a
- * change does not sound like sustain, it sounds like a mistake. Just over a second leaves two or
- * three overlapping inside a bar, which is what makes a figure sound played rather than typed, and
- * almost nothing spilling past the end of it.
- */
-const BELL = { ratio: 2, index: 3.2, decay: 0.13, length: 1.15 }
-const LEAD = { ratio: 1.5, index: 1.4, decay: 0.35 }
+/** How bright the pads are, and how far the city may open them. */
+const PAD_CUTOFF = 760
+const DRIVE_LIFT = 900
 
 export class CityScore {
   private context: AudioContext | null = null
@@ -125,15 +116,16 @@ export class CityScore {
   private enabled = true
   private volume = 1
   private started = false
-  /** How far into the piece the writer has got, in context time. */
-  private written = 0
-  /** Which bar is being written. The progression and the figure are both read off it. */
-  private bar = 0
+  /** When each voice is next due, in context time. Independent of every other voice. */
+  private due: number[] = []
+  private droneDue = 0
+  private droneStep = 0
   /**
    * How much is going on in the city, 0 … 1.
    *
-   * The one thing outside the music that the music listens to. It brings in the second voice and
-   * opens the bass filter, so a quiet night is a figure and a bass and a busy street has weight.
+   * The one thing outside the music that the music listens to. It brings in two more voices and
+   * opens the filter a little; it never makes anything louder or faster, because a score that
+   * reacts is a score you notice.
    */
   private intensity = 0.3
 
@@ -158,18 +150,25 @@ export class CityScore {
     this.master = master
 
     /*
-     * A room to play it in. Two and a half seconds of decaying noise as an impulse response — not a
-     * real room, but the difference between notes that stop and notes that hang.
+     * A large room. Five seconds of decaying noise as an impulse response, which is longer than any
+     * real room and is the point: it is what stops each note having an end you can hear.
      */
     const reverb = context.createConvolver()
-    reverb.buffer = noise(context, 2.5, 2.6)
+    reverb.buffer = noise(context, 5, 2.2)
     const wet = context.createGain()
-    wet.gain.value = 0.42
+    wet.gain.value = 0.6
     reverb.connect(wet)
     wet.connect(master)
     this.reverb = reverb
 
-    this.written = context.currentTime + 0.3
+    /*
+     * Stagger the first entry of every voice across its own period, so the piece fades up out of
+     * nothing rather than all eight voices starting together on the first frame.
+     */
+    const now = context.currentTime + 0.5
+    this.due = VOICES.map(voice => now + Math.random() * voice.period)
+    this.droneDue = now
+
     this.timer = setInterval(() => this.write(), TICK * 1_000)
     this.write()
   }
@@ -187,7 +186,7 @@ export class CityScore {
   /** How busy the city is, 0 … 1. Followed slowly: music that lurches with the camera is worse. */
   setIntensity(value: number): void {
     const wanted = Math.min(1, Math.max(0, value))
-    this.intensity += (wanted - this.intensity) * 0.25
+    this.intensity += (wanted - this.intensity) * 0.2
   }
 
   stop(): void {
@@ -201,245 +200,99 @@ export class CityScore {
 
   private apply(): void {
     if (this.master && this.context)
-      this.master.gain.setTargetAtTime(this.enabled ? this.volume : 0, this.context.currentTime, 0.4)
+      this.master.gain.setTargetAtTime(this.enabled ? this.volume : 0, this.context.currentTime, 0.6)
   }
 
   /**
-   * Write whatever the next few seconds need, a bar at a time.
+   * Schedule whatever is due in the next few seconds.
    *
-   * Everything is scheduled against the audio clock rather than played when the timer fires, so a
-   * busy frame cannot make the music stutter: the browser has already been told what to play and
-   * when, and a late timer only means the horizon gets a little shorter.
+   * There is no bar to write, only voices that are each overdue or not. Everything is scheduled
+   * against the audio clock rather than played when the timer fires, so a busy frame cannot make
+   * the music stutter.
    */
   private write(): void {
     const context = this.context
     if (!context || !this.enabled)
       return
+    const until = context.currentTime + HORIZON
 
-    while (this.written < context.currentTime + HORIZON) {
-      const at = Math.max(this.written, context.currentTime + 0.05)
-      const chord = CHANGES[Math.floor(this.bar / BARS_PER_CHANGE) % CHANGES.length]!
-      const second = this.bar % BARS_PER_CHANGE === 1
-      const drive = this.intensity
-
-      /*
-       * The figure, an eighth at a time, right through the bar.
-       *
-       * This is what makes the piece move, and it is the reason there are no drums: something
-       * running underneath is a pulse the listener feels without being told where the bar is.
-       */
-      /*
-       * Five notes to run through, in order: the chord, plus the root an octave above it, sorted.
-       *
-       * Sorted, because a chord with a ninth in it already reaches higher than its own octave — on
-       * Cadd9 the added note sits above the octave, so appending the octave put the top of the arc
-       * one step below the note before it and the figure fell over at its peak. Sorting is one word
-       * and it is the difference between an arc and a stumble.
-       */
-      const voicing = [...chord, chord[0]! + 7].sort((a, b) => a - b).slice(0, 5)
-      FIGURE.forEach((index, eighth) => {
-        if (index === null)
-          return
-        // The second bar of a change is an octave up, so two bars of one chord are not one bar twice.
-        this.bell(this.pitch(voicing[index]! + (second ? 21 : 14)), at + eighth * BEAT * 0.5, BELL_GAIN, BELL)
-      })
-
-      // The bass: the root on the first beat, and the fifth on the third when the city is awake.
-      this.bass(this.pitch(chord[0]!) / 2, at, BEAT * 1.8)
-      if (drive > 0.3)
-        this.bass(this.pitch(chord[2]!) / 2, at + BEAT * 2, BEAT * 1.4)
-
-      /*
-       * The lead over the top, and only in the second bar of each change.
-       *
-       * A lead that plays every bar is not a melody, it is a texture. Leaving it out of the first
-       * bar gives the figure somewhere to be heard and gives the phrase somewhere to arrive.
-       */
-      if (second) {
-        PHRASE.forEach((index, eighth) => {
-          if (index === null)
-            return
-          this.lead(this.pitch(voicing[index % voicing.length]! + 14), at + eighth * BEAT * 0.5)
-        })
+    VOICES.forEach((voice, index) => {
+      while (this.due[index]! < until) {
+        const at = Math.max(this.due[index]!, context.currentTime + 0.05)
+        // A voice that only belongs to a busy city simply does not play when the city is quiet.
+        if (!voice.busy || this.intensity > 0.4)
+          this.play(voice, at)
+        this.due[index] = at + voice.period + (Math.random() - 0.5) * voice.spread
       }
+    })
 
-      // And the strings under all of it, once per change, swelling across both its bars.
-      if (!second) {
-        const held = BAR * BARS_PER_CHANGE
-        for (const step of chord.slice(0, 4))
-          this.strings(this.pitch(step + 7), at, held, drive)
-      }
-
-      this.bar += 1
-      this.written = at + BAR
+    while (this.droneDue < until) {
+      const at = Math.max(this.droneDue, context.currentTime + 0.05)
+      this.drone(PENTATONIC[DRONE_NOTES[this.droneStep % DRONE_NOTES.length]!]! / 2, at)
+      this.droneStep += 1
+      /*
+       * Each drone overlaps the one before it by a third of its length, so the ground moves under
+       * the piece without there ever being a moment where it changes.
+       */
+      this.droneDue = at + DRONE_LENGTH * 0.66
     }
   }
 
-  /** A step of the scale, as a frequency. Steps past the end of it simply go up an octave. */
-  private pitch(step: number): number {
-    const semitones = SCALE[((step % SCALE.length) + SCALE.length) % SCALE.length]!
-      + 12 * Math.floor(step / SCALE.length)
-    return ROOT * 2 ** (semitones / 12)
-  }
-
-  /**
-   * A bell, by frequency modulation: one sine pushing another one about.
-   *
-   * The modulator's output is added to the carrier's frequency, so as the modulator swings the
-   * carrier goes sharp and flat hundreds of times a second — far too fast to hear as a wobble, and
-   * what the ear makes of it instead is harmonics. How far it swings decides how many; how fast that
-   * collapses decides what the thing is.
-   *
-   * `decay` is the whole instrument. Falling away in a tenth of a second gives a struck sound with a
-   * bright edge that is gone before you can name it, which is what makes this sit next to a pad
-   * instead of on top of it. This is what replaced the plucked strings: Karplus–Strong is excited by
-   * a burst of raw noise, and that noise is audible as a twang at the front of every note.
-   */
-  private bell(
-    frequency: number,
-    at: number,
-    peak: number,
-    voice: { ratio: number, index: number, decay: number, length?: number },
-    hold = 0,
-    vibrato?: { rate: number, cents: number, onset: number },
-  ): void {
-    const context = this.context
-    if (!context || !this.reverb || !this.master)
-      return
-
-    const carrier = context.createOscillator()
-    carrier.type = 'sine'
-    carrier.frequency.value = frequency
-
-    const modulator = context.createOscillator()
-    modulator.type = 'sine'
-    modulator.frequency.value = frequency * voice.ratio
-
-    // The modulator's depth in hertz, falling from `index` times the carrier to nothing.
-    const depth = context.createGain()
-    depth.gain.setValueAtTime(frequency * voice.index, at)
-    depth.gain.exponentialRampToValueAtTime(frequency * 0.001, at + voice.decay)
-    modulator.connect(depth).connect(carrier.frequency)
-
-    const length = voice.length ?? 1.4
-    const gain = context.createGain()
-    gain.gain.setValueAtTime(0.0001, at)
-    // Six milliseconds to speak: struck, but without the click that no attack at all would give.
-    gain.gain.exponentialRampToValueAtTime(peak, at + 0.006)
-    if (hold > 0)
-      gain.gain.setValueAtTime(peak * 0.6, at + hold)
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + length + hold)
-
-    // Most of it in the room, a little of it dry, or the attack is lost and it stops being struck.
-    const dry = context.createGain()
-    dry.gain.value = 0.45
-    gain.connect(this.reverb)
-    gain.connect(dry)
-    dry.connect(this.master)
-
-    /*
-     * The vibrato, where the voice asks for one, on the carrier's detune rather than its frequency.
-     *
-     * It has to be built in here, because this is the only place the carrier exists. It was written
-     * outside for one draft and connected to nothing at all: two oscillators a note, running, doing
-     * nothing, and a lead with no vibrato on it.
-     */
-    if (vibrato) {
-      const wobble = context.createOscillator()
-      wobble.frequency.value = vibrato.rate
-      const depth = context.createGain()
-      depth.gain.setValueAtTime(0, at)
-      depth.gain.setValueAtTime(0, at + vibrato.onset)
-      depth.gain.linearRampToValueAtTime(vibrato.cents, at + length + hold)
-      wobble.connect(depth).connect(carrier.detune)
-      wobble.start(at)
-      wobble.stop(at + length + hold + 0.1)
-    }
-
-    carrier.connect(gain)
-    carrier.start(at)
-    carrier.stop(at + length + hold + 0.1)
-    modulator.start(at)
-    modulator.stop(at + length + hold + 0.1)
-  }
-
-  /**
-   * The lead: the same bell held long, with a vibrato that arrives after the note has.
-   *
-   * The late vibrato is the trick. A tone that wobbles from the first instant is a synthesiser
-   * setting; a player leans into it a moment after the note has spoken, and copying that is most of
-   * the difference between a lead and an oscillator with an LFO on it.
-   */
-  private lead(frequency: number, at: number): void {
-    this.bell(
-      frequency,
-      at,
-      LEAD_GAIN,
-      { ...LEAD, length: LEAD_LENGTH },
-      LEAD_LENGTH * 0.5,
-      { rate: 5, cents: 6, onset: LEAD_LENGTH * 0.35 },
-    )
-  }
-
-  /**
-   * The bass: a sine with a triangle folded under it, plucked soft and filtered dark.
-   *
-   * Not a plucked string and not a filter sweep. Both of those have an edge at the front of the
-   * note, and this one is meant to be felt rather than heard — a low note that arrives without
-   * announcing itself and leaves without being switched off.
-   */
-  private bass(frequency: number, at: number, length: number): void {
-    const context = this.context
-    if (!context || !this.master)
-      return
-
-    const filter = context.createBiquadFilter()
-    filter.type = 'lowpass'
-    filter.frequency.value = 420
-    filter.Q.value = 0.4
-
-    const gain = context.createGain()
-    gain.gain.setValueAtTime(0.0001, at)
-    // Twenty-five milliseconds: enough of an attack to be a note, soft enough not to be a pluck.
-    gain.gain.exponentialRampToValueAtTime(BASS_GAIN, at + 0.025)
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
-    filter.connect(gain)
-    gain.connect(this.master)
-
-    for (const [shape, ratio, level] of [['sine', 1, 1], ['triangle', 2, 0.28]] as const) {
-      const oscillator = context.createOscillator()
-      oscillator.type = shape
-      oscillator.frequency.value = frequency * ratio
-      const mix = context.createGain()
-      mix.gain.value = level
-      oscillator.connect(mix).connect(filter)
-      oscillator.start(at)
-      oscillator.stop(at + length + 0.05)
-    }
-  }
-
-  /** Three sawtooths a few cents apart through a lowpass: two beat, three shimmer. */
-  private strings(frequency: number, at: number, length: number, drive: number): void {
+  /** One entry of one voice: a note that arrives, stays a while and leaves. */
+  private play(voice: Voice, at: number): void {
     const context = this.context
     if (!context || !this.reverb)
       return
 
-    const gain = context.createGain()
-    const swell = length * 0.35
-    const peak = STRING_GAIN * (0.7 + drive * 0.6)
-    gain.gain.setValueAtTime(0.0001, at)
-    gain.gain.exponentialRampToValueAtTime(peak, at + swell)
-    gain.gain.setValueAtTime(peak, at + length - swell)
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
+    const frequency = PENTATONIC[voice.note]! * 2 ** voice.octave
+    const length = voice.rise + voice.hold + voice.fall
 
-    const filter = context.createBiquadFilter()
-    filter.type = 'lowpass'
-    filter.frequency.value = 1_500
-    filter.Q.value = 0.5
-    filter.connect(gain)
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(0.0001, at)
+    gain.gain.exponentialRampToValueAtTime(voice.gain, at + voice.rise)
+    gain.gain.setValueAtTime(voice.gain, at + voice.rise + voice.hold)
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
     gain.connect(this.reverb)
 
-    for (const cents of [-7, 0, 7]) {
+    if (voice.bell) {
+      /*
+       * The bell: two sines, one modulating the other, with the depth of the modulation collapsing
+       * over a tenth of a second. A bright edge that is gone before you can name it, and a near-sine
+       * after it.
+       */
+      const carrier = context.createOscillator()
+      carrier.type = 'sine'
+      carrier.frequency.value = frequency
+
+      const modulator = context.createOscillator()
+      modulator.type = 'sine'
+      modulator.frequency.value = frequency * 2
+
+      const depth = context.createGain()
+      depth.gain.setValueAtTime(frequency * 2.4, at)
+      depth.gain.exponentialRampToValueAtTime(frequency * 0.001, at + 0.12)
+      modulator.connect(depth).connect(carrier.frequency)
+
+      carrier.connect(gain)
+      carrier.start(at)
+      carrier.stop(at + length + 0.1)
+      modulator.start(at)
+      modulator.stop(at + length + 0.1)
+      return
+    }
+
+    /*
+     * A pad: three sawtooths a few cents apart through a lowpass. Three, because two beat against
+     * each other and three shimmer — and the filter is most of it, because a sawtooth with its top
+     * left on is a buzz and with its top taken off is a string section.
+     */
+    const filter = context.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.value = PAD_CUTOFF + DRIVE_LIFT * this.intensity
+    filter.Q.value = 0.5
+    filter.connect(gain)
+
+    for (const cents of [-6, 0, 6]) {
       const oscillator = context.createOscillator()
       oscillator.type = 'sawtooth'
       oscillator.frequency.value = frequency
@@ -449,9 +302,35 @@ export class CityScore {
       oscillator.stop(at + length + 0.1)
     }
   }
+
+  /** The bottom: two sines an octave apart, in and out over a minute and a half. */
+  private drone(frequency: number, at: number): void {
+    const context = this.context
+    if (!context || !this.master)
+      return
+
+    const gain = context.createGain()
+    const swell = DRONE_LENGTH * 0.35
+    gain.gain.setValueAtTime(0.0001, at)
+    gain.gain.exponentialRampToValueAtTime(DRONE_GAIN, at + swell)
+    gain.gain.setValueAtTime(DRONE_GAIN, at + DRONE_LENGTH - swell)
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + DRONE_LENGTH)
+    gain.connect(this.master)
+
+    for (const [ratio, level] of [[1, 1], [2, 0.3]] as const) {
+      const oscillator = context.createOscillator()
+      oscillator.type = 'sine'
+      oscillator.frequency.value = frequency * ratio
+      const mix = context.createGain()
+      mix.gain.value = level
+      oscillator.connect(mix).connect(gain)
+      oscillator.start(at)
+      oscillator.stop(at + DRONE_LENGTH + 0.2)
+    }
+  }
 }
 
-/** Decaying noise, for the reverb's impulse response. Cached per context and per length. */
+/** Decaying noise, for the reverb's impulse response. Cached per context. */
 const rooms = new WeakMap<AudioContext, Map<number, AudioBuffer>>()
 
 function noise(context: AudioContext, seconds: number, decay: number): AudioBuffer {
@@ -460,7 +339,6 @@ function noise(context: AudioContext, seconds: number, decay: number): AudioBuff
     cache = new Map()
     rooms.set(context, cache)
   }
-  // Keyed on both, or the flute's flat breath and the reverb's decaying tail collide.
   const key = seconds * 1_000 + decay
   const known = cache.get(key)
   if (known)

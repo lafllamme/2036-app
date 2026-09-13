@@ -49,13 +49,48 @@ describe('the ground the city stands on', () => {
     expect(steepest).toBeLessThan(0.16)
   })
 
-  it('puts every building on top of the highest ground under it', () => {
+  it('never lets the ground rise through a building, anywhere along its walls', () => {
+    /*
+     * The one that matters, and the one the corners alone never caught: a building stands on the
+     * highest ground under its outline, so what can still bury it is the ground *between* two
+     * corners. Every wall is walked, not just its ends.
+     *
+     * This is only answerable because `Relief.height` is the surface that gets drawn rather than a
+     * function the ground mesh approximates. While they were two different things the answer here
+     * was meaningless — and a hundred and sixty buildings in the corners of the extract were three
+     * metres into a country mesh this test could not see.
+     */
     const city = buildBlueprint(raw as never, 2_036)
+    let worst = 0
     for (const building of city.buildings) {
-      const base = city.relief.highestUnder(building.footprint)
-      for (let i = 0; i < building.footprint.length; i += 2)
-        expect(city.relief.height(building.footprint[i]!, building.footprint[i + 1]!)).toBeLessThanOrEqual(base + 1e-6)
+      const ring = building.footprint
+      const base = city.relief.highestUnder(ring)
+      for (let i = 0; i < ring.length; i += 2) {
+        const j = (i + 2) % ring.length
+        for (const along of [0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9]) {
+          const x = ring[i]! + (ring[j]! - ring[i]!) * along
+          const z = ring[i + 1]! + (ring[j + 1]! - ring[i + 1]!) * along
+          worst = Math.max(worst, city.relief.height(x, z) - base)
+        }
+      }
     }
+    // Half a metre is a step. Anything the eye reads as "sunk" is several.
+    expect(worst).toBeLessThan(0.5)
+  })
+
+  it('has no cliff between one ground cell and the next, out to the horizon', () => {
+    // One mesh, not two: the seam where the old plate and the old country ring overlapped had a
+    // five-metre step in it running right round the city.
+    const city = buildBlueprint(raw as never, 2_036)
+    let biggest = 0
+    for (let radius = 1_200; radius < 2_400; radius += 3) {
+      for (let angle = 0; angle < Math.PI * 2; angle += 0.05) {
+        const here = city.relief.height(Math.cos(angle) * radius, Math.sin(angle) * radius)
+        const next = city.relief.height(Math.cos(angle) * (radius + 3), Math.sin(angle) * (radius + 3))
+        biggest = Math.max(biggest, Math.abs(next - here))
+      }
+    }
+    expect(biggest).toBeLessThan(1.5)
   })
 
   it('has no footprint large enough to be a block rather than a roof', () => {

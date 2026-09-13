@@ -34,6 +34,24 @@ describe('architecture boundaries', () => {
     }
   })
 
+  it('lets nothing but the relief decide how high the ground is', () => {
+    /*
+     * The rule that the sunken buildings broke. `Relief` is the ground surface — its grid, its
+     * triangles, the answer to how high it is at a point — and the moment a second thing works that
+     * out for itself the two are different surfaces, however carefully they are kept in step.
+     *
+     * So the ground mesh gets its vertices from `relief.axis` and their heights from
+     * `relief.height`, and does no arithmetic of its own on either.
+     */
+    const ground = sourceFiles('app/rendering/world').find(file => file.path.endsWith('/ground.ts'))
+    expect(ground, 'app/rendering/world/ground.ts is missing').toBeDefined()
+    expect(ground!.source).toMatch(/relief\.axis|\{ axis \} = relief/)
+    expect(ground!.source, 'the ground mesh works out heights of its own').not.toMatch(/terrainHeight/)
+
+    const relief = readFileSync(resolve(projectRoot, 'app/world/relief.ts'), 'utf8')
+    expect(relief, 'the relief no longer owns the tessellation the ground is drawn from').toMatch(/axis/)
+  })
+
   it('never branches a simulation calculation on a party identifier', () => {
     // AGENTS.md: parties may only enter through their authored position vector and seat count.
     const partyIds = ['cdu', 'afd', 'spd', 'gruene', 'linke', 'fdp']

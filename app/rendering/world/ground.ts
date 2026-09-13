@@ -1,38 +1,29 @@
 import type { AreaKind, CityBlueprint } from '../../core/contracts'
 import type { Relief } from '../../world/relief'
 import * as THREE from 'three/webgpu'
+import { GROUND_SPAN } from '../../world/relief'
 import { groundVariation } from '../../world/terrain'
 import { groundNormalTexture, groundTexture } from './groundTexture'
 
 /**
  * The land, and every piece of ground the map calls something.
  *
- * The city's own plate is built on the relief's own lattice: one vertex per sample, at the sample's
- * own coordinate. That is not a detail. Everything that stands on the ground asks the relief how
- * high it is, and the ground can only draw straight lines between its vertices — so unless the
- * vertices *are* the samples, the two disagree, and a building placed at the height the relief gives
- * it stands several metres under the ground the player can see. Measured across the whole city, the
- * mesh and the field now differ by at most fifteen centimetres, all of it the twist inside a quad.
+ * There is one ground mesh and it is a tessellation of `Relief`, vertex for vertex — the same grid
+ * that answers when anything asks how high the ground is. That is not tidiness, it is the fix: as
+ * long as the mesh and the answer were built separately they were different surfaces, and buildings
+ * stood in ground that was somewhere else. See `app/world/relief.ts`.
+ *
+ * It used to be two meshes, a fine plate over the city and a coarse warped ring around it, drawn
+ * over one another in a band a hundred metres wide. In that band they disagreed by up to five
+ * metres, which is a step running right round the city, and the hundred and sixty buildings in the
+ * corners of the extract that the coarse one was drawn over lost up to three metres of their ground
+ * floor. One grid has no band and no seam.
  *
  * On top of it lie the land-use polygons the map actually has — parks, grass, works, rail yards —
  * subdivided until no triangle spans more than about thirty metres, because a flat sheet over a
  * three-hundred-metre park sinks into the hill in the middle of it and the park disappears.
  */
 
-/** The land reaches well past the point where haze has swallowed it, so it never shows an edge. */
-const GROUND_SPAN = 22_000
-/**
- * How far past the relief field the city plate carries on at the same spacing.
- *
- * The field stops at the edge of the extract and the buildings do not — they go right up to it. Out
- * there the plate keeps the field's own eighteen-metre step rather than handing over to the country
- * ring, whose cells are a hundred and thirty metres wide by then.
- */
-const CITY_MARGIN = 12
-/** The country around it, warped so its cells are finest where they meet the city. */
-const COUNTRY_SEGMENTS = 120
-/** How much of the country plate's middle is left out, so the city's own plate can fill it. */
-const COUNTRY_HOLE = 1_600
 /**
  * Land use sits just above the ground and below the roads.
  *
@@ -59,7 +50,6 @@ const AREA_COLOURS: Record<AreaKind, string> = {
 }
 
 export function addGround(scene: THREE.Scene, blueprint: CityBlueprint): void {
-  const relief = blueprint.relief
   const material = new THREE.MeshStandardMaterial({
     map: groundTexture(),
     normalMap: groundNormalTexture(),
@@ -71,39 +61,32 @@ export function addGround(scene: THREE.Scene, blueprint: CityBlueprint): void {
   material.map!.repeat.set(GROUND_SPAN / 46, GROUND_SPAN / 46)
   material.normalMap!.repeat.set(GROUND_SPAN / 9, GROUND_SPAN / 9)
 
-  /*
-   * Two meshes, because one cannot be both. The city needs a vertex per relief sample; the country
-   * needs to reach the horizon, where that spacing would be a thousand cells across.
-   *
-   * They overlap rather than meet: the ring's hole is well inside the city plate's edge, and a
-   * shared edge between grids of different densities is a crack while an overlap is not. Both read
-   * the same relief, so in the overlap they agree to the centimetre.
-   */
-  scene.add(cityPlate(relief, material))
-  scene.add(countryRing(relief, material))
-
+  scene.add(land(blueprint.relief, material))
   addAreas(scene, blueprint)
 }
 
 /**
- * The city's ground: one vertex per relief sample, plus a margin of the same spacing around it.
+ * The whole of the land, as one mesh.
+ *
+ * Every vertex sits on a coordinate the relief already knows about and carries the height the relief
+ * already answers with, so the mesh is the surface rather than a picture of it. The spacing is the
+ * relief field's own across the city and grows outward from there; the texture coordinates stay
+ * proportional to the world, so a cell six hundred metres wide at the horizon is not stretched.
  */
-function cityPlate(relief: Relief, material: THREE.Material): THREE.Mesh {
-  const first = -CITY_MARGIN
-  const last = relief.size - 1 + CITY_MARGIN
-  const across = last - first + 1
-  const span = relief.cell * across
+function land(relief: Relief, material: THREE.Material): THREE.Mesh {
+  const { axis } = relief
+  const across = axis.length
   const position: number[] = []
   const uv: number[] = []
   const colour: number[] = []
   const index: number[] = []
 
-  for (let row = first; row <= last; row += 1) {
-    for (let column = first; column <= last; column += 1) {
-      const x = relief.coordinate(column)
-      const z = relief.coordinate(row)
+  for (let row = 0; row < across; row += 1) {
+    for (let column = 0; column < across; column += 1) {
+      const x = axis[column]!
+      const z = axis[row]!
       position.push(x, relief.height(x, z), z)
-      uv.push((x + span / 2) / span, (z + span / 2) / span)
+      uv.push((x + GROUND_SPAN / 2) / GROUND_SPAN, (z + GROUND_SPAN / 2) / GROUND_SPAN)
       pushShade(colour, x, z, relief.seed)
     }
   }
@@ -111,59 +94,26 @@ function cityPlate(relief: Relief, material: THREE.Material): THREE.Mesh {
   for (let row = 0; row < across - 1; row += 1) {
     for (let column = 0; column < across - 1; column += 1) {
       const a = row * across + column
+      /*
+       * The diagonal runs from the far-x corner to the far-z one. `Relief.height` splits its cells
+       * on exactly this diagonal; if the two ever disagreed the ground would answer for one triangle
+       * while drawing the other.
+       */
       index.push(a, a + across, a + 1, a + 1, a + across, a + across + 1)
     }
   }
 
-  return finish(position, uv, colour, index, material)
-}
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3))
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colour, 3))
+  geometry.setIndex(index)
+  geometry.computeVertexNormals()
+  geometry.computeBoundingSphere()
 
-/**
- * The open country: a plane with a hole in it, its cells pulled toward the middle so what is left of
- * it is finest where it meets the city and coarsest at the horizon, where nothing is legible anyway.
- */
-function countryRing(relief: Relief, material: THREE.Material): THREE.Mesh {
-  const half = GROUND_SPAN / 2
-  const step = GROUND_SPAN / COUNTRY_SEGMENTS
-  const position: number[] = []
-  const uv: number[] = []
-  const colour: number[] = []
-  const index: number[] = []
-  const map = new Map<number, number>()
-  const warp = (value: number): number => (Math.abs(value) / half) ** 1.7 * half * Math.sign(value)
-
-  const vertexAt = (column: number, row: number): number => {
-    const key = row * (COUNTRY_SEGMENTS + 1) + column
-    const existing = map.get(key)
-    if (existing !== undefined)
-      return existing
-    const x = warp(-half + column * step)
-    const z = warp(-half + row * step)
-    const at = position.length / 3
-    position.push(x, relief.height(x, z), z)
-    uv.push((x + half) / GROUND_SPAN, (z + half) / GROUND_SPAN)
-    pushShade(colour, x, z, relief.seed)
-    map.set(key, at)
-    return at
-  }
-
-  for (let row = 0; row < COUNTRY_SEGMENTS; row += 1) {
-    for (let column = 0; column < COUNTRY_SEGMENTS; column += 1) {
-      const x0 = warp(-half + column * step)
-      const x1 = warp(-half + (column + 1) * step)
-      const z0 = warp(-half + row * step)
-      const z1 = warp(-half + (row + 1) * step)
-      if (Math.max(Math.abs(x0), Math.abs(x1)) < COUNTRY_HOLE && Math.max(Math.abs(z0), Math.abs(z1)) < COUNTRY_HOLE)
-        continue
-      const a = vertexAt(column, row)
-      const b = vertexAt(column + 1, row)
-      const c = vertexAt(column, row + 1)
-      const d = vertexAt(column + 1, row + 1)
-      index.push(a, c, b, b, c, d)
-    }
-  }
-
-  return finish(position, uv, colour, index, material)
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.receiveShadow = true
+  return mesh
 }
 
 /**
@@ -182,20 +132,6 @@ function pushShade(colour: number[], x: number, z: number, seed: number): void {
    * The base is the olive the whole country used to be painted in, #59674a, converted once by hand.
    */
   colour.push(0.100 * dry, 0.136 * dry * (1.07 - variation * 0.16), 0.068 * dry)
-}
-
-function finish(position: number[], uv: number[], colour: number[], index: number[], material: THREE.Material): THREE.Mesh {
-  const geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3))
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colour, 3))
-  geometry.setIndex(index)
-  geometry.computeVertexNormals()
-  geometry.computeBoundingSphere()
-
-  const mesh = new THREE.Mesh(geometry, material)
-  mesh.receiveShadow = true
-  return mesh
 }
 
 /**

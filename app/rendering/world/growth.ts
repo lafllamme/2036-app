@@ -22,12 +22,18 @@ export function createGrowth(scene: THREE.Scene, blueprint: CityBlueprint, model
   const footprint = Math.max(0.001, Math.max(model.size.x, model.size.z))
 
   slots.forEach((slot, index) => {
-    const base = slot.width / footprint
-    const stretch = THREE.MathUtils.clamp(slot.height / Math.max(0.001, model.size.y * base), 0.8, 1.5)
+    /*
+     * The height is set outright, not as a stretch of the model's own. A kit block is far taller
+     * than it is wide, so scaling it onto a twenty-six-metre parcel and then nudging it toward
+     * seventeen metres by a factor that could not go below 0.8 delivered a forty-metre tower every
+     * time. What the pipeline promises is what has to arrive.
+     */
+    const spread = slot.width / footprint
     matrix.compose(
-      position.set(slot.x, blueprint.relief.height(slot.x, slot.z), slot.z),
+      // On the highest ground the parcel covers, so a delivered block never arrives half buried.
+      position.set(slot.x, blueprint.relief.highestUnder(slot.footprint), slot.z),
       quaternion.setFromAxisAngle(AXIS_Y, slot.rotation),
-      scale.set(base, base * stretch, base),
+      scale.set(spread, slot.height / Math.max(0.001, model.size.y), spread),
     )
     mesh.setMatrixAt(index, matrix)
     mesh.setColorAt(index, WHITE)

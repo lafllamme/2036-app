@@ -30,6 +30,8 @@ export interface RendererStats {
   drawCalls: number
   triangles: number
   buildings: number
+  /** What the city is being drawn at, as a multiple of CSS pixels. The renderer tunes it itself. */
+  resolution: number
 }
 
 export interface CityRendererOptions {
@@ -64,6 +66,35 @@ const FURNITURE_RANGE = 1_400
  * pulls back — and nothing is lost, because at that height a kerb reads as a line either way.
  */
 const PARKING_RANGE = 900
+/**
+ * The resolution the city is drawn at, as a multiple of CSS pixels, and the frame rate it is aiming
+ * for.
+ *
+ * A fixed pixel ratio is a guess about a machine nobody has measured. At 1.65 a Retina display is
+ * being asked for two and three quarter times the fragments of a plain one, and the whole cost of a
+ * frame here is fragments — a ground plane under a land-use overlay under a carriageway under a
+ * pavement under its markings, plus a shadow map. So the renderer measures instead: below the floor
+ * it gives up resolution until the frame rate comes back, and above the ceiling it takes it again.
+ *
+ * The steps are coarse and the reaction is slow on purpose. A scaler that hunts is more distracting
+ * than the frames it saves, and resizing a swap chain is not free.
+ */
+const RESOLUTION_MIN = 0.85
+const RESOLUTION_MAX = 1.65
+const RESOLUTION_STEP = 0.12
+const TARGET_FPS_FLOOR = 58
+const TARGET_FPS_CEILING = 92
+/** How many one-second windows have to agree before the resolution moves. */
+const RESOLUTION_PATIENCE = 3
+/**
+ * Below this the reading is not about the machine.
+ *
+ * A browser clamps `requestAnimationFrame` to one hertz for a tab it considers hidden — which
+ * includes a window behind another one — and the scaler read that as a machine in trouble and gave
+ * away all its resolution to a tab nobody was looking at. Anything this slow is either throttled or
+ * beyond saving by a twelve-per-cent step.
+ */
+const RESOLUTION_FLOOR_FPS = 20
 
 export class CityRenderer {
   private readonly canvas: HTMLCanvasElement
@@ -91,6 +122,9 @@ export class CityRenderer {
   private lastFrame = 0
   /** Campaign time of day, so the streets fill and empty with it. */
   private hourOfDay = 9
+  /** What the city is currently being drawn at, and how long it has wanted to change. */
+  private resolution = 1
+  private resolutionPressure = 0
 
   constructor(options: CityRendererOptions) {
     this.canvas = options.canvas
@@ -99,7 +133,8 @@ export class CityRenderer {
 
     const forceWebGL = new URLSearchParams(window.location.search).has('webgl')
     this.renderer = new THREE.WebGPURenderer({ canvas: this.canvas, antialias: true, forceWebGL })
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.65))
+    this.resolution = Math.min(window.devicePixelRatio, RESOLUTION_MAX)
+    this.renderer.setPixelRatio(this.resolution)
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = 1.02
@@ -319,8 +354,39 @@ export class CityRenderer {
       this.fps = Math.round((this.frameCounter * 1_000) / (now - this.fpsWindowStart))
       this.frameCounter = 0
       this.fpsWindowStart = now
+      this.fitResolution()
       this.onStats(this.getStats())
     }
+  }
+
+  /**
+   * Trade resolution for frames, and take it back when there are frames to spare.
+   *
+   * Only ever one step per second, and only after the same verdict three windows running: a scaler
+   * that reacts to a single slow frame spends its life hunting, and every change reallocates the
+   * swap chain. The frame cap is left out of it — behind a menu the renderer is deliberately slow
+   * and that says nothing about what the machine can do.
+   */
+  private fitResolution(): void {
+    if (this.frameCap !== null || this.fps < RESOLUTION_FLOOR_FPS)
+      return
+
+    const wants = this.fps < TARGET_FPS_FLOOR ? -1 : this.fps > TARGET_FPS_CEILING ? 1 : 0
+    if (wants === 0 || Math.sign(this.resolutionPressure) !== wants)
+      this.resolutionPressure = wants
+    else this.resolutionPressure += wants
+
+    if (Math.abs(this.resolutionPressure) < RESOLUTION_PATIENCE)
+      return
+    this.resolutionPressure = 0
+
+    const ceiling = Math.min(window.devicePixelRatio, RESOLUTION_MAX)
+    const next = THREE.MathUtils.clamp(this.resolution + wants * RESOLUTION_STEP, RESOLUTION_MIN, ceiling)
+    if (Math.abs(next - this.resolution) < 0.01)
+      return
+    this.resolution = next
+    this.renderer.setPixelRatio(next)
+    this.resize()
   }
 
   private getStats(): RendererStats {
@@ -330,6 +396,7 @@ export class CityRenderer {
       fps: this.fps,
       drawCalls: info.drawCalls,
       triangles: info.triangles,
+      resolution: this.resolution,
       buildings: this.buildingCount,
     }
   }

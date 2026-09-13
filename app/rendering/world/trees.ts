@@ -50,14 +50,34 @@ export function addTrees(scene: THREE.Scene, blueprint: CityBlueprint, models: C
   }
 
   /*
-   * Deal the stock out between the species, so a wood is mixed rather than a plantation. The pick has
-   * to be a *positive* remainder: half the city is west or north of the origin, so the coordinates
-   * that go into it are negative, and JavaScript's `%` keeps the sign.
+   * Deal the stock out between the species, so a wood is mixed rather than a plantation — but not
+   * evenly.
+   *
+   * The kit's trees run from sixty-two triangles to four hundred, and eight thousand of them at the
+   * average of an even mix is one and a half million: more than every building in the city, drawn
+   * from every camera position, for the thing a player looks at least. Weighting the draw toward the
+   * cheaper models keeps all eleven species on screen — which is the whole point of using them — at
+   * about half the cost, and the difference between a two-hundred and a four-hundred triangle tree
+   * is not something anyone has ever seen from a street.
+   *
+   * The pick also has to be a *positive* remainder: half the city is west or north of the origin, so
+   * the coordinates that go into it are negative, and JavaScript's `%` keeps the sign. Getting that
+   * wrong stopped the city loading at all.
    */
+  const cost = pool.map(model => Math.max(1, model.geometry.index?.count ?? 600))
+  const cheapest = Math.min(...cost)
+  const weights = cost.map(triangles => cheapest / triangles)
+  const total = weights.reduce((sum, weight) => sum + weight, 0)
+
   const crews: (typeof blueprint.trees)[] = pool.map(() => [])
   blueprint.trees.forEach((tree, index) => {
-    const draw = (index * 7 + Math.round(Math.abs(tree.x) + Math.abs(tree.z))) % pool.length
-    crews[draw]!.push(tree)
+    let roll = (((index * 2_654_435_761) >>> 0) / 0x1_0000_0000) * total
+    let chosen = 0
+    while (chosen < weights.length - 1 && roll > weights[chosen]!) {
+      roll -= weights[chosen]!
+      chosen += 1
+    }
+    crews[chosen]!.push(tree)
   })
 
   const matrix = new THREE.Matrix4()

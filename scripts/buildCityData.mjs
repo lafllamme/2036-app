@@ -97,34 +97,60 @@ function parseMetres(value) {
   return Number.isFinite(number) ? number : null
 }
 
-function heightOf(tags) {
+/**
+ * How tall a building is, and how much of that is roof.
+ *
+ * The two have to be worked out together, and getting that wrong is what made half the old town look
+ * as though it had been pushed into the ground. OpenStreetMap's `height` is the whole building,
+ * ridge included, so the walls are `height` minus the roof. But `building:levels` is the opposite
+ * kind of number: it counts storeys, which stop at the eaves. Subtracting the roof from a height
+ * derived from storeys takes the roof out twice — a two-storey house came to 7,3 m, lost 3,6 m of
+ * roof, and was left with 3,7 m of wall: one row of windows under an enormous roof, which is exactly
+ * what a building buried to its eaves looks like. Two thousand of them were like that.
+ *
+ * So: an explicit height already contains the roof, and everything else is a wall height that the
+ * roof is added to.
+ */
+function massingOf(tags) {
+  const roof = roofHeightOf(tags)
   const explicit = parseMetres(tags.height)
-  if (explicit)
-    return explicit
+  if (explicit) {
+    // A roof can be most of a shed but never nearly all of a building.
+    return { height: explicit, roof: Math.min(roof, explicit * 0.55) }
+  }
+
   const levels = parseMetres(tags['building:levels'])
-  if (levels)
-    return levels * STOREY + PLINTH
-  const kind = tags.building
-  if (kind === 'house' || kind === 'detached' || kind === 'semidetached_house')
-    return 8.5
-  if (kind === 'garage' || kind === 'garages' || kind === 'shed' || kind === 'roof')
-    return 3.2
-  if (kind === 'apartments')
-    return 14
-  if (kind === 'industrial' || kind === 'warehouse')
-    return 9
-  return 10
+  const wall = levels ? levels * STOREY + PLINTH : wallDefault(tags)
+  return { height: wall + roof, roof }
 }
 
+/** How high the eaves are when the map says nothing at all, by what kind of building it is. */
+function wallDefault(tags) {
+  const kind = tags.building
+  if (kind === 'house' || kind === 'detached' || kind === 'semidetached_house')
+    return 6.5
+  if (kind === 'garage' || kind === 'garages' || kind === 'shed' || kind === 'roof')
+    return 2.6
+  if (kind === 'apartments')
+    return 13
+  if (kind === 'industrial' || kind === 'warehouse')
+    return 8.5
+  return 9.5
+}
+
+/**
+ * The roof's own height. A German pitched roof over a house ten metres deep is about three metres
+ * from eaves to ridge, and a roof storey is a low one.
+ */
 function roofHeightOf(tags) {
   const shape = tags['roof:shape']
   if (!shape || shape === 'flat')
     return 0
   const explicit = parseMetres(tags['roof:height'])
   if (explicit)
-    return Math.min(explicit, 12)
+    return Math.min(explicit, 10)
   const levels = parseMetres(tags['roof:levels'])
-  return Math.min(levels ? levels * 2.5 : 3.6, 12)
+  return Math.min(levels ? levels * 2.4 : 3.1, 10)
 }
 
 function project(point) {
@@ -748,7 +774,8 @@ for (const element of raw.elements) {
     if (!ring || !insideExtent(ring))
       continue
     const area = Math.abs(signedArea(ring))
-    const height = heightOf(tags)
+    const massing = massingOf(tags)
+    const height = massing.height
     if (area < MIN_AREA || height < MIN_HEIGHT)
       continue
     const outline = simplify(ring)
@@ -757,7 +784,7 @@ for (const element of raw.elements) {
     buildings.push({
       p: outline,
       h: round(height),
-      r: round(roofHeightOf(tags)),
+      r: round(massing.roof),
       t: buildingType(tags, height),
       x: round(x),
       z: round(z),

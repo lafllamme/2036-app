@@ -38,8 +38,17 @@ out geom;
 ## Was der Konverter entscheidet
 
 - **Projektion** auf lokale Meter um 53.0758 N / 8.8072 O, Norden ist −z.
-- **Höhe** aus `height`, sonst `building:levels` × 3,1 m + 1,1 m Sockel, sonst ein Wert nach Gebäudeart.
-- **Dach** aus `roof:shape` und `roof:levels`. Flach heißt flach; alles andere wird ein Pyramidenstumpf.
+- **Höhe und Dach zusammen**, denn getrennt geht es schief. `height` in OpenStreetMap ist das ganze
+  Gebäude einschließlich First — die Wand ist also `height` minus Dach. `building:levels` ist die
+  umgekehrte Art von Zahl: Geschosse enden an der Traufe. Zieht man von einer aus Geschossen
+  abgeleiteten Höhe das Dach ab, ist das Dach zweimal abgezogen. Ein zweigeschossiges Haus kam so auf
+  7,3 m, verlor 3,6 m Dach und behielt 3,7 m Wand: **eine Fensterreihe unter einem riesigen Dach —
+  genau das Bild eines bis zur Traufe eingegrabenen Hauses.** Zweitausend Gebäude sahen so aus.
+  Jetzt gilt: eine ausdrückliche `height` enthält das Dach schon, alles andere ist eine Wandhöhe, zu
+  der das Dach addiert wird. Der Anteil des Dachs an der Gesamthöhe ist damit von 42 % auf 14 % der
+  Steildach-Gebäude gefallen, und unter dem Dach stehen jetzt meist drei statt einem Geschoss.
+- **Dach** aus `roof:shape`, `roof:height` und `roof:levels`. Flach heißt flach; alles andere wird ein
+  Pyramidenstumpf. Ohne Angabe 3,1 m, was ein deutsches Satteldach über zehn Metern Bautiefe ist.
 - **Gebäudeart** aus dem Tag und der Dachform: ein Steildach auf vier Geschossen ist Gründerzeit,
   ein Flachdach in derselben Höhe ist Nachkriegsbau.
 - **Vereinfachung**: Punkte, die auf der Geraden zwischen ihren Nachbarn liegen, fallen weg. Aus

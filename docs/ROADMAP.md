@@ -32,6 +32,10 @@ Entscheidung dort eine Messung war und die Prioritäten sich daraus ergeben.
 | **Ton** | Verkehrsbett in zwei Bändern, vorbeifahrende Autos, Stimmengewirr, Hupen, Martinshorn — alles nach Entfernung zum Hörer. |
 | **Leistung** | 94–122 Draws, 2,6–3,9 Mio. Dreiecke, selbstregelnde Auflösung. |
 
+Der Plan für alles, was in der Stadt *passiert* — Feuerwehr, Einbrüche, Unfälle, Berufe, Herkünfte —
+steht in [`CITY_LIFE.md`](CITY_LIFE.md), mit der Regel, an der er hängt: kein Ereignis hat eine eigene
+Konstante, jedes hängt an einer Kennzahl, die die Politik verschiebt.
+
 ### Als Nächstes
 
 **1 — Einsätze an die Simulation hängen.**

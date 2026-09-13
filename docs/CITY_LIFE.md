@@ -140,6 +140,42 @@ Aus den letzten Sitzungen gelernt und deshalb vorher festgelegt:
 - **Vor jedem neuen Modell wird sein Dreieckszähler gemessen.** Ein Kit-Auto hat 2 032 statt der
   angenommenen 250; der Irrtum kostete 7,5 Millionen Dreiecke.
 
+## Der Bezirk als Wahlkreis
+
+Das Obige macht die Stadt lebendig. Damit sie auch *politisch* etwas bedeutet, fehlt ein Schritt, und
+es ist derselbe an drei Stellen: **die Kennzahlen sind stadtweit, die Stadt aber hat acht Bezirke.**
+
+`DistrictDefinition` hat Grenzen und Einwohnerzahl, jedes Gebäude kennt seinen Bezirk, und
+[`FEATURE_MATRIX.md`](FEATURE_MATRIX.md) nennt „district-level breakdown" schon als nächsten Schritt
+für die Kennzahlen und „district scope" für die Ereignisse. Zieht man das durch, fällt dreierlei
+gleichzeitig zusammen:
+
+**1 — Man sieht, wo man verliert.** Zufriedenheit je Bezirk heißt, dass die 3D-Ansicht sie zeigen
+kann. Nicht als Zahl über der Stadt, sondern dort, wo sie entsteht: leere Ladenlokale im Bezirk mit
+gestiegenen Mieten, volle Haltestellen dort, wo die Linie gebaut wurde, Container und vernagelte
+Fenster, wo die Instandhaltung gekürzt wurde. Jede Maßnahme hat Gewinner und Verlierer, und heute
+sind beide eine Zahl.
+
+**2 — Ereignisse bekommen eine Adresse.** Ein Einbruch im Wohnring-Süd ist etwas anderes als einer in
+der Innenstadt — für die Anwohner, für die Presse und für die Fraktion, die dort ihre Stimmen holt.
+Die Ereignisform aus diesem Dokument hat den Ort ohnehin schon; er muss nur einem Bezirk zugeordnet
+und in den Stadtfunk geschrieben werden.
+
+**3 — Die Wahl wird lesbar.** [`EVENT_MATRIX.md`](EVENT_MATRIX.md) setzt den Rat bei `GOV-04` aus
+„domain satisfaction and salience" neu zusammen. Mit Bezirken wird daraus etwas, das der Spieler
+*vorher* sehen kann: eine Karte, auf der man erkennt, wo die eigene Mehrheit wegbricht — und zwar in
+derselben 3D-Stadt, in der man die Ursache hat entstehen sehen. Das ist der Moment, in dem die
+Stadtansicht aufhört, Kulisse zu sein, und zum Instrument wird.
+
+Die Reihenfolge dafür: Kennzahlen je Bezirk (SIM-02) → Ereignisse mit Bezirk (EVT-01) → sichtbare
+Bezirksunterschiede im Stadtbild (REND-05) → Wahlkarte (POL-05). Jeder Schritt ist für sich nützlich,
+und keiner braucht den nächsten, um zu funktionieren.
+
+**Was dabei nicht passieren darf:** kein Bezirk bekommt eine Bevölkerungs*zusammensetzung*, die auf
+seine Zahlen wirkt. Die Regel aus dem vorigen Abschnitt gilt hier genauso, und
+[`AGENTS.md`](../AGENTS.md) hält sie mit einem Architekturtest fest — was gezeigt wird, darf nie
+zurück in das wirken, was gerechnet wird.
+
 ## Was ausdrücklich nicht dazugehört
 
 - Keine Wegfindung für einzelne Menschen. NPCs an einem Ereignis stehen dort; sie laufen nicht hin.

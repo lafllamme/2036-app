@@ -33,7 +33,7 @@ export class CityState {
    * Each pressure now has its own driver in `visualsFrom`, and each is visible as a different kind
    * of call. See `docs/CITY_LIFE.md`.
    */
-  pressure: CityPressure = { burglary: 0, accident: 0, violent: 0, response: 0.6, building: 0 }
+  pressure: CityPressure = { burglary: 0, fire: 0, accident: 0, violent: 0, response: 0.6, building: 0 }
   /**
    * Who is on the pavement: the share of people whose family came from somewhere else, and how many
    * are out during working hours because there is no work. Appearance only, never behaviour.
@@ -65,6 +65,7 @@ export class CityState {
     this.unrest = THREE.MathUtils.clamp(city.unrest, 0, 1)
     this.pressure = {
       burglary: city.burglaryPressure,
+      fire: city.fireRisk,
       accident: city.accidentPressure,
       violent: city.violentPressure,
       response: city.responseCapacity,

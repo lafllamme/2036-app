@@ -33,9 +33,9 @@ const DISTANT_IDS = [...'abcdefghijklmn'.split('').map(letter => `low-detail-bui
  * twenty thousand does not have one car in twelve being a fire engine.
  */
 export const COMMON_VEHICLES = ['sedan', 'sedan-sports', 'suv', 'suv-luxury', 'hatchback-sports', 'van', 'truck', 'delivery']
-export const RARE_VEHICLES = ['taxi', 'police', 'ambulance', 'garbage-truck']
-/** The two that carry a blue light and can be sent somewhere in a hurry. */
-export const EMERGENCY_VEHICLES = ['police', 'ambulance']
+export const RARE_VEHICLES = ['taxi', 'police', 'ambulance', 'firetruck', 'garbage-truck']
+/** The three that carry a blue light and can be sent somewhere in a hurry. */
+export const EMERGENCY_VEHICLES = ['police', 'ambulance', 'firetruck']
 const VEHICLE_IDS = [...COMMON_VEHICLES, ...RARE_VEHICLES]
 
 /**

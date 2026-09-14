@@ -15,6 +15,8 @@
 export interface CityPressure {
   /** Break-ins against the order service's ability to answer them. */
   burglary: number
+  /** Neglected fabric in a city that stopped maintaining it. */
+  fire: number
   /** Collisions: traffic the network is not carrying well. */
   accident: number
   /** The rare serious call — crime, polarisation, young people with nothing to do. */
@@ -44,12 +46,15 @@ const PRESSURE_FULL = 1.6
  * How serious calls are rationed.
  *
  * A shooting is not a fifth of a city's emergency traffic even in a bad year, so violence counts for
- * less per unit of pressure than a burglary does. Fires are rarer still and are raised separately,
- * by a building rather than by a junction.
+ * less per unit of pressure than a burglary does, and a building fire is rarer again — a German
+ * brigade attends a fraction of the calls the police do, and the first weight tried here made half
+ * of a badly-run city's emergency traffic house fires, which is a disaster film rather than a city. What makes a
+ * fire different from the rest is not how often it happens but where: it happens to a building, and
+ * everything else happens at a junction. `dispatch.ts` is where that is decided.
  */
-const KIND_WEIGHT = { burglary: 1, accident: 1, assault: 0.35 } as const
+const KIND_WEIGHT = { burglary: 1, accident: 1, assault: 0.35, fire: 0.08 } as const
 
-export type IncidentKind = keyof typeof KIND_WEIGHT | 'fire'
+export type IncidentKind = keyof typeof KIND_WEIGHT
 export type Service = 'police' | 'ambulance' | 'fire' | 'none'
 
 /** Who goes. A burglary is police, a collision is an ambulance, a fire is the brigade. */
@@ -65,12 +70,22 @@ function clamp01(value: number): number {
 }
 
 /** The three weights a call is drawn from, before it is drawn. */
-export function callWeights(pressure: CityPressure): { burglary: number, accident: number, assault: number } {
+export function callWeights(pressure: CityPressure): Record<IncidentKind, number> {
   return {
     burglary: (BASE_PRESSURE + clamp01(pressure.burglary)) * KIND_WEIGHT.burglary,
     accident: (BASE_PRESSURE + clamp01(pressure.accident)) * KIND_WEIGHT.accident,
     assault: clamp01(pressure.violent) * KIND_WEIGHT.assault,
+    /*
+     * A fire has a floor like the others: buildings catch fire in well-run cities too, just rarely.
+     * What a council decides is how far above that floor the city sits.
+     */
+    fire: (BASE_PRESSURE * 0.5 + clamp01(pressure.fire)) * KIND_WEIGHT.fire,
   }
+}
+
+/** Everything that can be drawn, and its weight. Summed wherever a total is needed. */
+function total(weights: Record<IncidentKind, number>): number {
+  return weights.burglary + weights.accident + weights.assault + weights.fire
 }
 
 /**
@@ -78,22 +93,20 @@ export function callWeights(pressure: CityPressure): { burglary: number, acciden
  * makes a policy legible: cut the order service and the city audibly gets louder.
  */
 export function callWait(pressure: CityPressure): number {
-  const weights = callWeights(pressure)
-  const total = weights.burglary + weights.accident + weights.assault
-  const load = clamp01(total / PRESSURE_FULL)
+  const load = clamp01(total(callWeights(pressure)) / PRESSURE_FULL)
   return CALL_INTERVAL_BUSY + (CALL_INTERVAL_CALM - CALL_INTERVAL_BUSY) * (1 - load)
 }
 
 /** Which kind this call is, drawn from the weights with `roll` in [0, 1). */
-export function pickKind(pressure: CityPressure, roll: number): Exclude<IncidentKind, 'fire'> {
+export function pickKind(pressure: CityPressure, roll: number): IncidentKind {
   const weights = callWeights(pressure)
-  const total = weights.burglary + weights.accident + weights.assault
-  const point = clamp01(roll) * total
-  if (point < weights.burglary)
-    return 'burglary'
-  if (point < weights.burglary + weights.accident)
-    return 'accident'
-  return 'assault'
+  let point = clamp01(roll) * total(weights)
+  for (const kind of ['burglary', 'accident', 'assault', 'fire'] as IncidentKind[]) {
+    point -= weights[kind]
+    if (point <= 0)
+      return kind
+  }
+  return 'burglary'
 }
 
 /** How much faster a vehicle travels on a call. Staffing is the only thing that moves it. */
@@ -115,9 +128,8 @@ export const CALL_LIMIT_MIN = 2
 export const CALL_LIMIT_MAX = 6
 
 export function callLimit(pressure: CityPressure): number {
-  const weights = callWeights(pressure)
-  const total = weights.burglary + weights.accident + weights.assault
-  return Math.round(CALL_LIMIT_MIN + (CALL_LIMIT_MAX - CALL_LIMIT_MIN) * clamp01(total / PRESSURE_FULL))
+  const load = clamp01(total(callWeights(pressure)) / PRESSURE_FULL)
+  return Math.round(CALL_LIMIT_MIN + (CALL_LIMIT_MAX - CALL_LIMIT_MIN) * load)
 }
 
 /**

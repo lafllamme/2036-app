@@ -78,6 +78,14 @@ export interface Incident {
 export interface Dispatcher {
   network: RoadNetwork
   relief: Relief
+  /**
+   * Where the buildings are, as x,z pairs.
+   *
+   * Only a fire needs them, and it is the whole difference between a fire and everything else: a
+   * break-in, a collision and a fight all happen where the streets are, and a building fire happens
+   * to a building. Raising one at a junction would put a burning house in the middle of a road.
+   */
+  buildings: Float32Array
   /** Every police car and ambulance in the fleet, so the beacons can find them. */
   emergency: Traveller[]
   /** The lamps on their roofs: one instanced quad each, lit only while they are on a call. */
@@ -142,19 +150,19 @@ export function dispatch(agents: Dispatcher, elapsed: number): void {
   if (elapsed >= agents.nextCall && incidents.length < callLimit(pressure) && network.nodes.length > 0) {
     agents.nextCall = elapsed + callWait(pressure) * (0.6 + Math.random() * 0.8)
 
-    const node = network.nodes[Math.floor(Math.random() * network.nodes.length)]
-    if (node) {
-      /*
-       * What kind of call, drawn from the three pressures. A city that cut its order service gets
-       * more break-ins; one that let its transport network rot gets more collisions. Neither is a
-       * die roll against a constant, which is the whole point.
-       */
-      const kind = pickKind(pressure, Math.random())
+    /*
+     * What kind of call, drawn from the pressures. A city that cut its order service gets more
+     * break-ins; one that let its transport network rot gets more collisions; one that stopped
+     * maintaining its housing gets more fires. Not one of them is a die roll against a constant.
+     */
+    const kind = pickKind(pressure, Math.random())
+    const where = kind === 'fire' ? burningBuilding(agents) : streetCorner(agents)
+    if (where) {
       agents.lastCallId += 1
       incidents.push({
         id: agents.lastCallId,
-        x: node.x,
-        z: node.z,
+        x: where.x,
+        z: where.z,
         kind,
         service: SERVICE_FOR[kind],
         raised: elapsed,
@@ -214,6 +222,39 @@ export function dispatch(agents: Dispatcher, elapsed: number): void {
   }
 
   agents.sirens = incidents.filter(incident => incident.responder !== null && incident.arrived === null).length
+}
+
+/** How close a street has to be for a crew to be able to get to a building. */
+const REACHABLE = 55
+
+/** Somewhere a street actually goes. Everything but a fire happens on the network. */
+function streetCorner(agents: Dispatcher): { x: number, z: number } | null {
+  const node = agents.network.nodes[Math.floor(Math.random() * agents.network.nodes.length)]
+  return node ? { x: node.x, z: node.z } : null
+}
+
+/**
+ * A building, and one a crew could plausibly reach.
+ *
+ * A house is picked at random and then checked against the street network: a fire in the middle of a
+ * block with no road within fifty metres is a fire nobody can be sent to, and it would sit there
+ * burning until the call timed out. Ten tries, and if none of them is reachable the call is dropped
+ * rather than raised somewhere unreachable — a dropped call is invisible and a stuck one is not.
+ */
+function burningBuilding(agents: Dispatcher): { x: number, z: number } | null {
+  const count = agents.buildings.length / 2
+  if (count === 0)
+    return null
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const at = Math.floor(Math.random() * count) * 2
+    const x = agents.buildings[at]!
+    const z = agents.buildings[at + 1]!
+    for (const node of agents.network.nodes) {
+      if (Math.hypot(node.x - x, node.z - z) < REACHABLE)
+        return { x, z }
+    }
+  }
+  return null
 }
 
 /**

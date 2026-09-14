@@ -19,8 +19,8 @@ import {
  * from something the council did. These pin that chain down without needing a GPU.
  */
 
-const CALM = { burglary: 0, accident: 0, violent: 0, response: 0.6, building: 0 }
-const WORST = { burglary: 1, accident: 1, violent: 1, response: 0.2, building: 1 }
+const CALM = { burglary: 0, fire: 0, accident: 0, violent: 0, response: 0.6, building: 0 }
+const WORST = { burglary: 1, fire: 1, accident: 1, violent: 1, response: 0.2, building: 1 }
 
 describe('emergency dispatch', () => {
   it('leaves a well-run city quiet for minutes at a time', () => {
@@ -46,13 +46,37 @@ describe('emergency dispatch', () => {
     }
   })
 
-  it('sends the right service, and only ever one of three kinds', () => {
+  it('sends the right service, and only ever a kind the city has', () => {
     expect(SERVICE_FOR[pickKind(WORST, 0)]).toBe('police')
     for (const roll of [0, 0.2, 0.4, 0.6, 0.8, 0.999]) {
       const kind = pickKind(WORST, roll)
-      expect(['burglary', 'accident', 'assault']).toContain(kind)
-      expect(SERVICE_FOR[kind]).toMatch(/police|ambulance/)
+      expect(['burglary', 'accident', 'assault', 'fire']).toContain(kind)
+      expect(SERVICE_FOR[kind]).toMatch(/police|ambulance|fire/)
     }
+  })
+
+  it('keeps fires rare, and follows neglected maintenance when it raises one', () => {
+    /*
+     * Measured against a city that has the other pressures too, because a share is a share of
+     * something. The first weight tried here looked reasonable against a city with nothing else
+     * wrong with it and made half of a neglected one's emergency traffic house fires.
+     */
+    const LIVED_IN = { ...CALM, burglary: 0.3, accident: 0.3, violent: 0.15 }
+    const rate = (fire: number): number => {
+      const steps = 600
+      let fires = 0
+      for (let step = 0; step < steps; step += 1) {
+        if (pickKind({ ...LIVED_IN, fire }, step / steps) === 'fire')
+          fires += 1
+      }
+      return fires / steps
+    }
+
+    // A well-kept city still has the odd one; a neglected one has several times as many.
+    expect(rate(0)).toBeLessThan(0.03)
+    expect(rate(1)).toBeGreaterThan(rate(0) * 3)
+    // And never a common call. A brigade attends a fraction of what the police do.
+    expect(rate(1)).toBeLessThan(0.14)
   })
 
   it('draws break-ins where policing is outrun, and collisions where the traffic is', () => {

@@ -32,7 +32,7 @@ import { sampleEdge } from './roadNetwork'
  */
 
 /** What a city under no pressure at all looks like, until the first snapshot arrives. */
-const CALM_CITY: CityPressure = { burglary: 0, accident: 0, violent: 0, response: 0.6, building: 0 }
+const CALM_CITY: CityPressure = { burglary: 0, fire: 0, accident: 0, violent: 0, response: 0.6, building: 0 }
 
 const CAR_COUNT = 620
 /**
@@ -186,7 +186,11 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
     speed: [9, 16],
     scale: model => (BIG_VEHICLES.has(model.id) ? BIG_CAR_LENGTH : CAR_LENGTH) / Math.max(0.001, Math.max(model.size.x, model.size.z)),
     weight: model => COMMON_VEHICLES.includes(model.id) ? 1 - RARE_VEHICLE_SHARE : RARE_VEHICLE_SHARE,
-    service: model => (EMERGENCY_VEHICLES.includes(model.id) ? (model.id === 'police' ? 'police' : 'ambulance') : 'none'),
+    service: (model) => {
+      if (!EMERGENCY_VEHICLES.includes(model.id))
+        return 'none'
+      return model.id === 'police' ? 'police' : model.id === 'firetruck' ? 'fire' : 'ambulance'
+    },
     seed,
   })
 
@@ -232,6 +236,11 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
     network,
     signals,
     relief: blueprint.relief,
+    /*
+     * Where the buildings are, flattened once. Only a fire uses it, and it is the reason a fire is
+     * not raised at a junction like everything else — see `burningBuilding` in `dispatch.ts`.
+     */
+    buildings: Float32Array.from(blueprint.buildings.flatMap(building => [building.x, building.z])),
     emergency,
     beacons: addBeacons(scene, emergency.length),
     bustle: 0,

@@ -55,7 +55,7 @@ const GATHER_RANGE = 300
 /** How long a car and a person are in metres, so a kit model can be scaled onto the street. */
 export const CAR_LENGTH = 4.4
 export const BIG_CAR_LENGTH = 7.2
-export const BIG_VEHICLES = new Set(['truck', 'delivery', 'ambulance', 'garbage-truck', 'van'])
+export const BIG_VEHICLES = new Set(['truck', 'delivery', 'ambulance', 'firetruck', 'garbage-truck', 'van'])
 export const PERSON_HEIGHT = 1.75
 /**
  * The beacon on a roof, and the two colours it alternates between.
@@ -70,6 +70,9 @@ export const PERSON_HEIGHT = 1.75
  * Six multipliers from cool to warm, all close to one so nothing is bleached or blackened — the
  * atlas already carries the actual colours and this only shifts them. They are a spread, not a set
  * of types: which one a figure gets says nothing and is never read back.
+ *
+ * Which one belongs to whom is worked out once, from the citizen's own number, and carried on the
+ * traveller. Deriving it from the mesh slot instead is what made the whole crowd flicker.
  */
 const COMPLEXION = /* @__PURE__ */ [
   new THREE.Color(1.04, 1.02, 0.99),
@@ -187,6 +190,15 @@ export interface Traveller {
   responding: boolean
   /** Its own phase in the walk, so a crowd does not step in time. */
   gait: number
+  /**
+   * This one's own complexion, as an index into `COMPLEXION`.
+   *
+   * On the traveller rather than on the mesh slot, and that is not a detail. Once a figure started
+   * walking it changed mesh — and slot — several times a second, and a colour written per slot at
+   * build time meant every person in the city flickered through six skin tones as they walked. It
+   * looked like a lighting fault and was a bookkeeping one.
+   */
+  tint: number
   /**
    * How tall this one is against a grown adult.
    *
@@ -338,6 +350,7 @@ export function buildFleet(
       responding: false,
       gait: draw() * Math.PI * 2,
       stature: plan.people ? statureAt(citizen, plan.seed) : 1,
+      tint: plan.people ? Math.abs(Math.imul(citizen + 1, 2_654_435_761)) % COMPLEXION.length : -1,
       /*
        * Unique across the whole city, not within a fleet: the pedestrians and the cyclists are two
        * fleets and one population, and a walker and a rider must never turn out to be the same
@@ -360,7 +373,7 @@ export function buildFleet(
       const size = plan.scale(model)
       const geometry = model.geometry.clone()
       geometry.scale(size, size, size)
-      const mesh = buildMesh(scene, geometry, material, crew.length, plan, index)
+      const mesh = buildMesh(scene, geometry, material, crew.length)
       row.push(fleet.meshes.length)
       fleet.meshes.push(mesh)
       fleet.drawn.push([])
@@ -372,26 +385,14 @@ export function buildFleet(
 }
 
 /** One instanced mesh: the same setup whichever phase of whichever character it holds. */
-function buildMesh(scene: THREE.Scene, geometry: THREE.BufferGeometry, material: THREE.Material, capacity: number, plan: FleetPlan, character: number): THREE.InstancedMesh {
+function buildMesh(scene: THREE.Scene, geometry: THREE.BufferGeometry, material: THREE.Material, capacity: number): THREE.InstancedMesh {
   const mesh = new THREE.InstancedMesh(geometry, material, capacity)
 
   /*
-   * A crowd of people rather than six people repeated.
-   *
-   * The kit bakes skin and clothes into one atlas, so the only thing an instance can change is a
-   * multiplier over the whole figure. Kept deliberately narrow and warm-to-neutral: enough that a
-   * pavement is not a handful of identical faces, never so much that it reads as a costume. Vehicles
-   * keep their own paint and are left alone.
-   *
-   * This is appearance and only appearance. Nothing anywhere reads it back — see the rule in
-   * `docs/CITY_LIFE.md` — and when the simulation's `originMix` drives the distribution it will
-   * still only decide who is on the pavement, never what they do there.
+   * Neutral to begin with. A fleet of people writes a complexion per instance as it draws, because
+   * which slot a figure occupies changes as it walks; a fleet of vehicles never touches it again.
    */
-  for (let instance = 0; instance < capacity; instance += 1) {
-    mesh.setColorAt(instance, plan.people
-      ? COMPLEXION[(instance * 7 + character * 3) % COMPLEXION.length]!
-      : WHITE)
-  }
+  for (let instance = 0; instance < capacity; instance += 1) mesh.setColorAt(instance, WHITE)
 
   /*
    * Traffic casts no shadow. Six hundred cars at two thousand triangles apiece go through the
@@ -433,6 +434,7 @@ export function drive(fleet: Fleet, streets: Streets, delta: number, elapsed: nu
   fleet.nearby = 0
 
   mounted = 0
+  let coloured = false
   for (const mesh of fleet.meshes) mesh.count = 0
 
   fleet.crews.forEach((crew, character) => {
@@ -465,12 +467,24 @@ export function drive(fleet: Fleet, streets: Streets, delta: number, elapsed: nu
       const mesh = fleet.meshes[at]!
       const slot = mesh.count
       place(mesh, slot, streets, fleet, traveller, elapsed, camera)
+      /*
+       * The colour goes with the person. It is written every pass because the slot a figure sits in
+       * is not the same one it sat in last frame.
+       */
+      if (traveller.tint >= 0) {
+        mesh.setColorAt(slot, COMPLEXION[traveller.tint]!)
+        coloured = true
+      }
       ;(fleet.drawn[at] ??= [])[slot] = traveller
       mesh.count = slot + 1
     }
   })
 
-  for (const mesh of fleet.meshes) mesh.instanceMatrix.needsUpdate = true
+  for (const mesh of fleet.meshes) {
+    mesh.instanceMatrix.needsUpdate = true
+    if (coloured && mesh.instanceColor)
+      mesh.instanceColor.needsUpdate = true
+  }
 
   if (fleet.mount) {
     fleet.mount.count = mounted

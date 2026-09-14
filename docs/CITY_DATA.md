@@ -108,3 +108,42 @@ hat.
 
 Ergebnis: 664 Füllgebäude, **kein einziges** mit einem Dach über 45 % seiner Höhe (vorher 642 von
 768), und 1 600 Gärten statt 902 Schuppen in der Vorstadt.
+
+
+## Das Umland ist ein Netz, kein Rad
+
+Was außerhalb des Ausschnitts liegt, war Polarkoordinaten: **30 Speichen** aus einem Punkt, **2
+konzentrische Ringe** quer darüber, **22 Dörfer** als einzelne Kreuze im Feld — und an jedem Meter
+jeder dieser Linien alle 27 m ein Haus. Aus zwei Kilometern Höhe ist das ein Rad, und gemessen war es
+schlimmer als es aussah:
+
+| Gemessen | vorher | jetzt |
+| --- | --- | --- |
+| Wege im Umland | 76 | 416 |
+| davon ohne Anschluss an irgendetwas | **32** | 0 |
+| zusammenhängende Teile des ganzen Straßennetzes | 126 | 62 |
+| Anteil des größten Teils an allen Knoten | 87,4 % | **95,4 %** |
+
+Ein Auto, das aus der Stadt fuhr, konnte nirgendwo ankommen, und die Menschenmenge, die sich um die
+Kamera sammelt, stand auf einem Weg, der im Feld anfing und im Feld aufhörte.
+
+Eine Landschaft ist kein Rad. Sie sind **Orte**, verbunden durch die Straße, die zufällig zwischen
+ihnen läuft, mit Feldern dazwischen. Genau das baut `outskirts.ts` jetzt:
+
+- **Erst die Orte, dann die Straßen.** Dörfer, Weiler und Höfe werden mit einem Mindestabstand
+  gestreut, der nach außen wächst — 430 m am Stadtrand, 1 150 m am fernen Rand. Damit dünnt das Land
+  aus, wie Land ausdünnt.
+- **Die Straßenenden der Stadt sind auch Orte.** Jede Straße der Karte, die den Ausschnitt verlässt,
+  ist ein Tor, und das Landnetz wird über Tore *und* Dörfer zusammen gebaut. Das ist der Grund, warum
+  es ein Straßenplan ist und nicht ein Muster, das um eine Stadt herumgezeichnet wurde.
+- **Das Netz ist der Gabriel-Graph** dieser Orte: zwei sind verbunden, wenn kein dritter im Kreis
+  liegt, den sie aufspannen. Auf Deutsch: „ist jemand zwischen uns?" — und wenn nicht, gibt es eine
+  Straße. Das ist die Frage, die tatsächlich entscheidet, ob zwei Dörfer direkt verbunden sind, und
+  sie liefert die Querverbindungen, die ein Stern nie haben kann.
+- **Häuser stehen an Orten, nicht an Straßen.** Die Wahrscheinlichkeit für ein Grundstück fällt mit
+  dem Abstand zum nächstgelegenen Ortsende ab, über eine Reichweite, die an der Größe des Orts hängt.
+  Ein Dorf hat ein paar hundert Meter Häuser um sich und dann Felder.
+- **Jede Landstraße ist mindestens 8 m breit.** Keine Optik: `DRIVABLE_WIDTH` in `agents.ts` ist 8,
+  und eine Straße, auf die der Verkehr nicht darf, ist wieder eine Insel — nur mit Asphalt drauf.
+- **190 Wäldchen** in der offenen Flur. Ohne sie ist das Land zwischen den Dörfern ein Rasen, und das
+  ist aus der Luft das flachste Grün, das es gibt. Bäume sind ohnehin instanziert.

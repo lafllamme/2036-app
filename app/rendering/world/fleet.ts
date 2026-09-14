@@ -51,6 +51,8 @@ export interface Streets {
  */
 const RECYCLE_RANGE = 420
 const GATHER_RANGE = 300
+/** How many frames apart the recycling pass runs. */
+const GATHER_EVERY = 12
 
 /** How long a car and a person are in metres, so a kit model can be scaled onto the street. */
 export const CAR_LENGTH = 4.4
@@ -146,6 +148,12 @@ export interface Fleet {
    * looking, because a city spread evenly over three kilometres is empty wherever anybody stands.
    */
   gathers: [number, number] | null
+  /** Metres of street this fleet wants per traveller, which is what decides how many are shown. */
+  spacing: number
+  /** How full the surroundings can be, 0 … 1. Multiplies the quality governor's own share. */
+  density: number
+  /** Frames since the last recycling pass. */
+  sinceGather: number
   /** Which stretches this fleet may be put back on, indexed by where they are. */
   index: EdgeIndex | null
 }
@@ -214,6 +222,14 @@ export interface FleetPlan {
    * business elsewhere in the city.
    */
   gatherRange?: [number, number]
+  /**
+   * How many metres of street one of these wants to itself.
+   *
+   * Measured against real streets: a pavement carries somebody every fifteen to twenty-five metres,
+   * and a road that is working rather than jammed has a car every ninety-odd. It is what keeps the
+   * fleet from emptying itself onto whatever single lane happens to be near the camera.
+   */
+  spacing: number
   /** Where this fleet's block of citizen numbers starts, so no two fleets share a person. */
   citizenBase?: number
   /** The city's seed, so a figure's height and their age are worked out from the same number. */
@@ -278,6 +294,9 @@ export function buildFleet(
     ground: plan.ground ?? null,
     nearby: 0,
     gathers: plan.gatherRange ?? (plan.people === true ? [RECYCLE_RANGE, GATHER_RANGE] : null),
+    spacing: plan.spacing,
+    density: 1,
+    sinceGather: 0,
     index: plan.gatherRange || plan.people === true ? indexEdges(network, allowed) : null,
   }
 
@@ -424,6 +443,17 @@ function buildMesh(scene: THREE.Scene, geometry: THREE.BufferGeometry, material:
 let mounted = 0
 const MOUNT_SCALE = /* @__PURE__ */ new THREE.Vector3(1, 1, 1)
 
+/**
+ * What share of a fleet the streets around the player can hold.
+ *
+ * One over the other, capped at all of them: `street` metres of road at `spacing` metres each is how
+ * many belong here, and `count` is how many there are. Pure, and separate from the fleet it is asked
+ * about, because it is the rule that decides whether a village looks like a village.
+ */
+export function crowdDensity(street: number, spacing: number, count: number): number {
+  return Math.min(1, street / Math.max(1, spacing * count))
+}
+
 /** Scratch instances reused across calls, so the loop allocates nothing at all. */
 const matrix = /* @__PURE__ */ new THREE.Matrix4()
 const quaternion = /* @__PURE__ */ new THREE.Quaternion()
@@ -454,7 +484,9 @@ export function drive(fleet: Fleet, streets: Streets, delta: number, elapsed: nu
      * on a call comes first, and the count is never allowed to cut one off.
      */
     const responders = promoteResponders(crew)
-    const visible = Math.max(responders, Math.min(crew.length, Math.round(crew.length * share)))
+    // The governor's share and what the surroundings can hold, which are different questions.
+    const shown = Math.round(crew.length * share * fleet.density)
+    const visible = Math.max(responders, Math.min(crew.length, shown))
 
     for (let index = 0; index < visible; index += 1) {
       const traveller = crew[index]!
@@ -499,7 +531,43 @@ function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, [stray, r
   if (!index)
     return
 
-  let candidates: number[] | null = null
+  /*
+   * Not every frame.
+   *
+   * Recycling is a decision about where somebody should be, not about where they are this instant,
+   * and it costs a spatial query plus a pass over the whole fleet. At twelve frames apart nothing is
+   * visibly different and it is a tenth of the work.
+   */
+  fleet.sinceGather += 1
+  if (fleet.sinceGather < GATHER_EVERY)
+    return
+  fleet.sinceGather = 0
+
+  const candidates = index.near(camera.x, camera.z, reach)
+  if (candidates.length === 0) {
+    fleet.density = 0
+    return
+  }
+
+  /*
+   * How much street there actually is around the player, and therefore how many of this fleet belong
+   * on it.
+   *
+   * This is the whole difference between a city and a country lane. The fleet is a fixed number kept
+   * near the camera; downtown that number is spread over kilometres of street and reads as a city,
+   * and out in the fields the same number landed on the one lane within reach — four hundred people
+   * on four hundred metres of road, marching down the middle of it in single file. Nobody built a
+   * crowd out there; the crowd was simply all of it, in one place.
+   *
+   * So the fleet is thinned to what the surroundings can carry, at this fleet's own spacing: about a
+   * person every sixteen metres of pavement, a bike every sixty, a car every ninety-five. A village
+   * gets a handful of people and the centre still gets all of them.
+   */
+  let street = 0
+  for (const candidate of candidates)
+    street += streets.network.edges[candidate]?.length ?? 0
+  fleet.density = crowdDensity(street, fleet.spacing, fleet.all.length)
+
   for (const traveller of fleet.all) {
     const edge = streets.network.edges[traveller.edge]
     if (!edge)
@@ -508,13 +576,20 @@ function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, [stray, r
     // thing that would break the dispatch.
     if (traveller.callout)
       continue
-    if (Math.hypot(edge.points[0]! - camera.x, edge.points[1]! - camera.z) < stray)
-      continue
 
-    // Looked up once per pass and only if somebody actually needs moving.
-    candidates ??= index.near(camera.x, camera.z, reach)
-    if (candidates.length === 0)
-      return
+    /*
+     * Where this traveller actually is — not where its street begins.
+     *
+     * The test used to read `edge.points[0]`, the first point of the stretch. On a city block those
+     * are the same place to within a few metres. On a country road they are not: a stretch can run a
+     * kilometre and a half, so somebody standing right beside the camera counted as far away, was
+     * teleported to a random point on a random nearby street, and counted as far away again on the
+     * very next frame. That is what the stream of people flickering past at impossible speed was,
+     * and it was the whole fleet doing it, every frame.
+     */
+    sampleEdge(edge, THREE.MathUtils.clamp(traveller.along, 0, edge.length), sample)
+    if (Math.hypot(sample.x - camera.x, sample.z - camera.z) < stray)
+      continue
 
     const next = candidates[Math.floor(traveller.rng() * candidates.length)]!
     const target = streets.network.edges[next]

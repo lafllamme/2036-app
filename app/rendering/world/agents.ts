@@ -183,6 +183,7 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
   const cars = buildFleet(scene, network, driveable, models.vehicles, models.vehicleMaterial, CAR_COUNT, draw, {
     laneOf: drivingLane,
     spread: DRIVING_SPREAD,
+    spacing: 95,
     lift: 0.05,
     obeysSignals: true,
     /*
@@ -216,6 +217,7 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
   const cyclists = buildFleet(scene, network, driveable, models.riders, models.peopleSkins, CYCLIST_COUNT, draw, {
     laneOf: cycleLane,
     spread: CYCLE_SPREAD,
+    spacing: 60,
     lift: SADDLE,
     obeysSignals: true,
     speed: CYCLIST_SPEED,
@@ -237,6 +239,7 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
     pedestrians: buildFleet(scene, network, walkable, models.people, models.peopleSkins, WALKER_COUNT, draw, {
       laneOf: pavementLane,
       spread: PAVEMENT_SPREAD,
+      spacing: 16,
       lift: 0.02,
       obeysSignals: false,
       speed: [1.1, 1.9],

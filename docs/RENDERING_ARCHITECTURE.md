@@ -153,3 +153,29 @@ Der Streifen ist jetzt eigene Geometrie in der Zeichengruppe des Dachs, die gar 
 hat: glatter, dunklerer Stein, so hoch wie die Schräge es verlangt und nie flacher als 35 cm. Die
 Wand darüber beginnt bei `v = 0` an der Erdgeschossebene. Damit kann unterhalb des Erdgeschosses kein
 Fenster mehr erscheinen — und jedes Haus steht auf etwas, statt aus dem Rasen zu wachsen.
+
+
+## Wie viele Menschen an einen Ort gehören
+
+Die Flotten sind feste Zahlen — 620 Autos, 220 Räder, 420 Fußgänger — die um die Kamera herum
+gehalten werden. In der Innenstadt verteilt sich das auf Kilometer Straße und liest sich als Stadt.
+Auf dem Land landete dieselbe Zahl auf dem einen Weg in Reichweite: **vierhundert Menschen auf
+vierhundert Metern**, im Gänsemarsch die Fahrbahn entlang. Niemand hat dort eine Menge gebaut; die
+Menge *war* einfach alles, an einem Ort.
+
+Zwei Fehler, einer davon der teure:
+
+**Die Rückholung maß den falschen Punkt.** Getestet wurde `edge.points[0]` — der Anfang des
+Straßenabschnitts, nicht die Position des Reisenden. In einem Häuserblock ist das derselbe Ort. Auf
+einer Landstraße, die anderthalb Kilometer lang sein kann, ist es das nicht: Wer direkt neben der
+Kamera stand, galt als weit weg, wurde auf eine zufällige Stelle einer zufälligen Straße gesetzt —
+und galt im nächsten Frame wieder als weit weg. **Das** war der Strom von Menschen, der in
+unmöglicher Geschwindigkeit vorbeizog, und es war die ganze Flotte, jeden Frame.
+
+**Nichts fragte, wie viel Straße da ist.** `crowdDensity(street, spacing, count)` fragt jetzt: so
+viele Meter Straße zu je so vielen Metern pro Person, gedeckelt auf alle. Die Abstände sind an echten
+Straßen gemessen — jemand alle 16 m Gehweg, ein Rad alle 60 m, ein Auto alle 95 m. Ein Dorf bekommt
+eine Handvoll Leute, die Innenstadt weiterhin alle. `tests/unit/lanes.test.ts` hält die Regel fest.
+
+Dazu läuft die Rückholung nur noch alle zwölf Frames. Wo jemand hingehört, ist keine Frage, die
+hundertzwanzigmal pro Sekunde neu beantwortet werden muss.

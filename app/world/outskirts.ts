@@ -4,38 +4,78 @@ import { createRandomStream } from '../core/rng'
 import { districtAt } from './model/lindenhafen'
 
 /**
- * The city beyond the extract — built by the same rules as the city inside it.
+ * The country around the city — built by the same rules as the city inside it, and joined to it.
  *
  * This used to be a second renderer. Inside 1 500 metres a building was a real footprint extruded
  * into walls with a façade texture, a gabled roof, a base course and a street with pavements either
  * side; outside it a building was a catalogue model with none of that, on a grey line. There was a
- * hard seam right round the city where one stopped and the other began, and the outside looked like
- * a different game.
+ * hard seam right round the city where one stopped and the other began.
  *
  * So there is one kind of building now. This produces the same records the map produces — outlines,
  * heights, roofs, streets — and hands them to the blueprint, where everything downstream treats them
- * exactly like Bremen's own. It is also ten times cheaper: a house as four extruded walls and a
- * gable is about twenty triangles against a kit model's thousand, which is what let the belt stop
- * being switched off whenever the camera came close.
+ * exactly like Bremen's own.
  *
- * The ground plan inside the extract is real. Everything here is ours, and it only has to be less
- * dense than the city and made of the same stuff.
+ * What it produced, though, was not a landscape. Thirty lanes ran straight out of one centre, two
+ * concentric rings crossed them, twenty-two villages sat out in the fields as isolated crossroads,
+ * and houses were strung along every metre of all of it at an even spacing. From two kilometres up
+ * that is a wheel, and measured it was worse than it looked: **32 of the 76 lanes touched nothing at
+ * all**, and the street plan came apart into **126 unconnected pieces**. A car that drove out of
+ * town could not arrive anywhere, and the crowd gathered around the camera stood on a lane that
+ * began and ended in a field.
+ *
+ * A landscape is not a wheel. It is *places*, joined to their neighbours by whatever road happens to
+ * run between them, with nothing in between but fields. So that is what this builds now:
+ *
+ * - **places first, roads second.** Villages, hamlets and farms are scattered with a minimum spacing
+ *   that grows with distance from the city, so the country thins out the way real country does;
+ * - **the city's own road ends are places too.** Every map road that reaches the edge of the extract
+ *   is a gate, and the country network is built over the gates and the villages together — which is
+ *   what makes the whole thing one street plan instead of two;
+ * - **the network is the Gabriel graph** of those places: two places are joined when no third place
+ *   lies inside the circle they span. It is the graph you get by asking "is there anything between
+ *   us?", which is the question that actually decides whether two villages have a road, and it has
+ *   the cross-connections a starburst never can;
+ * - **houses stand near places, not along roads.** A plot is built where a village is, and the
+ *   density falls away as the lane leaves it, so there are villages with fields between them rather
+ *   than one continuous ribbon of houses down every road in the county.
  */
 
-/** Where the built-up area gives out, and how far the suburbs and then the villages reach. */
-const CITY_EDGE = 1_900
-const SUBURB_DEPTH = 1_150
-const VILLAGE_COUNT = 22
-const VILLAGE_REACH = 4_400
 /** Never inside the ground plan the map actually gave us. */
 const EXTRACT_HALF = 1_500
+/** How far the country reaches beyond that. */
+const COUNTRY_REACH = 5_400
 
-/** How many lanes run out of the city and how many rings cross them. */
-const RADIAL_LANES = 30
-const RING_LANES = 2
-const LANE_STEP = 95
-/** Wide enough to be a road people live on and drive down, narrow enough not to be lit. */
-const LANE_WIDTH = 8
+/**
+ * How far apart two places stand, near the city and at the far edge.
+ *
+ * The whole density gradient is these two numbers. Near the extract the country is suburb: places
+ * are close together and their built-up patches almost touch. Out at the edge it is farmland with a
+ * hamlet every kilometre.
+ */
+const SPACING_NEAR = 430
+const SPACING_FAR = 1_150
+/** How many attempts are made to place one. Rejection sampling, so this is a budget, not a count. */
+const PLACE_TRIES = 4_000
+
+/**
+ * The longest road the graph may draw between two places.
+ *
+ * Without it the far corners of the map join to each other across eight kilometres of nothing, which
+ * is a road nobody built. With it a place can be left with no link at all, so anything isolated is
+ * given one back to its nearest neighbour afterwards.
+ */
+const MAX_LINK = 1_750
+
+/**
+ * How wide a country road is, between the smallest and the biggest.
+ *
+ * The floor is not a look, it is `DRIVABLE_WIDTH` in `agents.ts`: traffic refuses anything narrower
+ * than eight metres, and a road nothing can drive down is an island with tarmac on it — which is the
+ * whole fault this file was rewritten to fix. The spread above it is the hierarchy: a lane out to a
+ * farm against the road between two villages.
+ */
+const LANE_MIN = 8
+const LANE_MAX = 11
 
 /** Plot rhythm: how far apart front doors are and how far back from the kerb they stand. */
 const PLOT = 27
@@ -54,102 +94,257 @@ const BUILDABLE_SLOPE = 1.6
 /** One tree for roughly this share of plots, plus what stands in the gaps. */
 const TREE_SHARE = 0.55
 
+/** How many woods stand in the open country, and how many trees each holds. */
+const WOOD_COUNT = 190
+const WOOD_TREES = 34
+const WOOD_SPREAD = 110
+
 export interface Outskirts {
   buildings: BuildingRecord[]
   roads: RoadRecord[]
   trees: TreeRecord[]
 }
 
-export function buildOutskirts(seed: number, relief: Relief): Outskirts {
+interface Stream { next: () => number, between: (a: number, b: number) => number }
+
+/**
+ * A place in the country: a village, a hamlet, a farm — or a gate, which is where one of the city's
+ * own streets leaves the extract.
+ */
+interface Place {
+  x: number
+  z: number
+  /**
+   * How built-up it is, 0 … 1.
+   *
+   * Decides three things at once, which is why it is one number: how wide the roads leaving it are,
+   * how far its houses reach down them, and how big those houses get. A gate is a 1 because the city
+   * is on the other side of it.
+   */
+  weight: number
+  gate: boolean
+}
+
+export function buildOutskirts(seed: number, relief: Relief, cityRoads: RoadRecord[]): Outskirts {
   const rng = createRandomStream(seed, 'outskirts')
   const buildings: BuildingRecord[] = []
   const roads: RoadRecord[] = []
   const trees: TreeRecord[] = []
 
-  for (const path of layOutLanes(rng)) {
+  const places = [...gatesOf(cityRoads), ...scatterPlaces(rng)]
+  const links = gabrielLinks(places)
+
+  for (const [from, to] of links) {
+    const a = places[from]!
+    const b = places[to]!
+    const path = wander(a, b, rng)
     roads.push({
       id: `o-${roads.length.toString(36)}`,
       path,
-      width: LANE_WIDTH,
+      width: round(LANE_MIN + (LANE_MAX - LANE_MIN) * Math.max(a.weight, b.weight)),
       arterial: false,
       bridge: false,
     })
-    buildAlong(path, rng, relief, buildings, trees)
+    buildAlong(path, a, b, rng, relief, buildings, trees)
   }
+
+  scatterWoods(rng, relief, places, trees)
 
   return { buildings, roads, trees }
 }
 
 /**
- * A wandering edge to the built-up area, lanes running out of it, two rings crossing them, and a
- * short crossroads for every village out in the fields.
+ * Where the city's own streets leave the extract.
+ *
+ * These are what make the country part of the same street plan rather than a pattern drawn around
+ * it. Every map road that ends near the boundary is one; they are thinned onto a coarse grid so that
+ * a dual carriageway's two halves do not become two places a few metres apart.
  */
-function layOutLanes(rng: { next: () => number, between: (a: number, b: number) => number }): number[][] {
-  const lanes: number[][] = []
-  const phases = [rng.next() * Math.PI * 2, rng.next() * Math.PI * 2, rng.next() * Math.PI * 2]
-  const edge = (angle: number): number => CITY_EDGE * (
-    1
-    + 0.17 * Math.sin(angle * 3 + (phases[0] ?? 0))
-    + 0.10 * Math.sin(angle * 5 + (phases[1] ?? 0))
-    + 0.06 * Math.sin(angle * 8 + (phases[2] ?? 0))
-  )
+function gatesOf(cityRoads: RoadRecord[]): Place[] {
+  const CELL = 210
+  const taken = new Set<number>()
+  const gates: Place[] = []
 
-  for (let index = 0; index < RADIAL_LANES; index += 1) {
-    const angle = (index / RADIAL_LANES) * Math.PI * 2 + rng.between(-0.04, 0.04)
-    const from = edge(angle) - 320
-    const to = from + SUBURB_DEPTH + rng.between(-220, 320)
-    const path: number[] = []
-    let drift = 0
-    for (let radius = from; radius <= to; radius += LANE_STEP) {
-      drift += rng.between(-0.014, 0.014)
-      const bearing = angle + drift
-      path.push(round(Math.cos(bearing) * radius), round(Math.sin(bearing) * radius))
-    }
-    lanes.push(path)
-  }
-
-  for (let ring = 0; ring < RING_LANES; ring += 1) {
-    const radius = CITY_EDGE + 230 + ring * 520
-    const path: number[] = []
-    for (let angle = 0; angle <= Math.PI * 2 + 0.1; angle += 0.06) {
-      const wobble = radius * (1 + 0.05 * Math.sin(angle * 4 + ring) + 0.03 * Math.sin(angle * 7 - ring))
-      path.push(round(Math.cos(angle) * wobble), round(Math.sin(angle) * wobble))
-    }
-    lanes.push(path)
-  }
-
-  for (let village = 0; village < VILLAGE_COUNT; village += 1) {
-    const angle = rng.next() * Math.PI * 2
-    const radius = CITY_EDGE + SUBURB_DEPTH + rng.next() ** 0.7 * VILLAGE_REACH
-    const centreX = Math.cos(angle) * radius
-    const centreZ = Math.sin(angle) * radius
-    // A village is a crossroads with houses down both arms, which is what a village is.
-    for (let arm = 0; arm < 2; arm += 1) {
-      const heading = rng.next() * Math.PI
-      const reach = rng.between(150, 330)
-      lanes.push([
-        round(centreX - Math.cos(heading) * reach),
-        round(centreZ - Math.sin(heading) * reach),
-        round(centreX),
-        round(centreZ),
-        round(centreX + Math.cos(heading) * reach),
-        round(centreZ + Math.sin(heading) * reach),
-      ])
+  for (const road of cityRoads) {
+    const count = road.path.length / 2
+    if (count < 2)
+      continue
+    for (const index of [0, count - 1]) {
+      const x = road.path[index * 2]!
+      const z = road.path[index * 2 + 1]!
+      // Only where the extract runs out. A dead end in the middle of town is not a way out of it.
+      if (Math.max(Math.abs(x), Math.abs(z)) < EXTRACT_HALF - 190)
+        continue
+      const key = Math.round(x / CELL) * 100_000 + Math.round(z / CELL)
+      if (taken.has(key))
+        continue
+      taken.add(key)
+      gates.push({ x: round(x), z: round(z), weight: 1, gate: true })
     }
   }
 
-  return lanes
+  return gates
 }
 
-/** Walk a lane and put a house on every plot down both sides of it, where the land allows. */
+/**
+ * The villages, hamlets and farms, scattered by rejection with a spacing that grows outward.
+ *
+ * Rejection sampling rather than a grid or a ring, because the point is that there is no pattern to
+ * find. What it does keep is a minimum distance, so the country is irregular without being clumped —
+ * which is the difference between a landscape and a handful of dice.
+ */
+function scatterPlaces(rng: Stream): Place[] {
+  const places: Place[] = []
+
+  for (let attempt = 0; attempt < PLACE_TRIES; attempt += 1) {
+    const x = rng.between(-COUNTRY_REACH, COUNTRY_REACH)
+    const z = rng.between(-COUNTRY_REACH, COUNTRY_REACH)
+    const radius = Math.hypot(x, z)
+    if (radius > COUNTRY_REACH)
+      continue
+    // Never inside the real ground plan; that city is the map's, not ours.
+    if (Math.abs(x) < EXTRACT_HALF + 120 && Math.abs(z) < EXTRACT_HALF + 120)
+      continue
+
+    const out = Math.min(1, Math.max(0, (radius - EXTRACT_HALF) / (COUNTRY_REACH - EXTRACT_HALF)))
+    const spacing = SPACING_NEAR + (SPACING_FAR - SPACING_NEAR) * out
+    let clear = true
+    for (const place of places) {
+      if (Math.hypot(place.x - x, place.z - z) < spacing) {
+        clear = false
+        break
+      }
+    }
+    if (!clear)
+      continue
+
+    /*
+     * Big near the city, small out in the fields — and never quite predictable, so that there is the
+     * odd substantial village a long way out and the odd farm just past the ring road.
+     */
+    const weight = Math.min(1, Math.max(0.1, (1 - out) ** 1.4 * rng.between(0.75, 1.5)))
+    places.push({ x: round(x), z: round(z), weight, gate: false })
+  }
+
+  return places
+}
+
+/**
+ * The Gabriel graph: two places are joined when no third place lies inside the circle that has them
+ * as its diameter.
+ *
+ * In plain terms, "is there anybody between us?" — and if there is not, there is a road. It is the
+ * question that actually decides whether two villages are directly connected, and unlike a starburst
+ * it produces the cross-links that make a network a network. Links longer than `MAX_LINK` are cut,
+ * and anything left with no link at all is given one back to its nearest neighbour, so nothing ends
+ * up stranded.
+ */
+function gabrielLinks(places: Place[]): [number, number][] {
+  const links: [number, number][] = []
+  const degree = new Uint16Array(places.length)
+
+  for (let i = 0; i < places.length; i += 1) {
+    for (let j = i + 1; j < places.length; j += 1) {
+      const a = places[i]!
+      const b = places[j]!
+      const span = Math.hypot(b.x - a.x, b.z - a.z)
+      if (span > MAX_LINK)
+        continue
+      const midX = (a.x + b.x) / 2
+      const midZ = (a.z + b.z) / 2
+      const radius = span / 2
+
+      let between = false
+      for (let k = 0; k < places.length; k += 1) {
+        if (k === i || k === j)
+          continue
+        const other = places[k]!
+        if (Math.hypot(other.x - midX, other.z - midZ) < radius) {
+          between = true
+          break
+        }
+      }
+      if (between)
+        continue
+
+      links.push([i, j])
+      degree[i]! += 1
+      degree[j]! += 1
+    }
+  }
+
+  for (let i = 0; i < places.length; i += 1) {
+    if (degree[i]! > 0)
+      continue
+    let nearest = -1
+    let best = Infinity
+    for (let j = 0; j < places.length; j += 1) {
+      if (j === i)
+        continue
+      const span = Math.hypot(places[j]!.x - places[i]!.x, places[j]!.z - places[i]!.z)
+      if (span < best) {
+        best = span
+        nearest = j
+      }
+    }
+    if (nearest >= 0) {
+      links.push([i, nearest])
+      degree[i]! += 1
+      degree[nearest]! += 1
+    }
+  }
+
+  return links
+}
+
+/**
+ * The road between two places: a shallow bow with a little wander in it.
+ *
+ * A country road is not a straight line and it is not a random walk either — it goes where it is
+ * going, around whatever was in the way two hundred years ago. One bow across the whole length gives
+ * it that, and the jitter on top keeps two roads of the same length from having the same shape.
+ */
+function wander(a: Place, b: Place, rng: Stream): number[] {
+  const span = Math.hypot(b.x - a.x, b.z - a.z)
+  const steps = Math.max(2, Math.round(span / 150))
+  const ux = (b.x - a.x) / (span || 1)
+  const uz = (b.z - a.z) / (span || 1)
+  const bow = rng.between(-0.09, 0.09) * span
+
+  const path: number[] = []
+  for (let step = 0; step <= steps; step += 1) {
+    const t = step / steps
+    const across = Math.sin(Math.PI * t) * bow + (step === 0 || step === steps ? 0 : rng.between(-14, 14))
+    path.push(
+      round(a.x + (b.x - a.x) * t - uz * across),
+      round(a.z + (b.z - a.z) * t + ux * across),
+    )
+  }
+  return path
+}
+
+/**
+ * Walk a lane and put houses on it — but only near the places at its two ends.
+ *
+ * This is the difference between a landscape and a wiring diagram. A plot used to be built every
+ * twenty-seven metres down every lane in the county, so every road was a continuous terrace and the
+ * country between two villages looked exactly like the villages. The chance of a plot now falls away
+ * with distance from whichever end of the lane is nearer, over a reach set by how big that place is:
+ * a village has a few hundred metres of houses around it and then fields.
+ */
 function buildAlong(
   path: number[],
-  rng: { next: () => number, between: (a: number, b: number) => number },
+  from: Place,
+  to: Place,
+  rng: Stream,
   relief: Relief,
   buildings: BuildingRecord[],
   trees: TreeRecord[],
 ): void {
+  const total = pathLength(path)
+  let travelled = 0
   let carried = rng.next() * PLOT
+
   for (let i = 0; i < path.length / 2 - 1; i += 1) {
     const ax = path[i * 2]!
     const az = path[i * 2 + 1]!
@@ -163,19 +358,33 @@ function buildAlong(
     const facing = Math.atan2(ux, uz)
 
     for (let along = PLOT - carried; along < span; along += PLOT) {
+      /*
+       * How built-up it is here: near the end of the lane, at the reach of whichever place that end
+       * belongs to. A gate keeps its houses back — the far side of it is the map's own city and it
+       * already has buildings there.
+       */
+      const distance = travelled + along
+      const settled = Math.max(
+        from.gate ? 0 : reachOf(from) === 0 ? 0 : 1 - distance / reachOf(from),
+        to.gate ? 0 : reachOf(to) === 0 ? 0 : 1 - (total - distance) / reachOf(to),
+      )
+      if (settled <= 0)
+        continue
+
       for (const side of [1, -1]) {
         const x0 = ax + ux * along
         const z0 = az + uz * along
-        if (rng.next() > 0.84) {
-          // A gap in the row: a field, a yard, somewhere nobody built.
-          plant(x0, z0, ux, uz, side, rng, trees)
+        // A gap in the row: a field, a yard, somewhere nobody built. Commoner the further out it is.
+        if (rng.next() > 0.2 + 0.7 * settled) {
+          if (rng.next() < 0.25)
+            plant(x0, z0, ux, uz, side, rng, trees)
           continue
         }
 
-        const bigger = rng.next() < LARGER_SHARE
+        const bigger = rng.next() < LARGER_SHARE * (0.4 + settled)
         const width = bigger ? rng.between(17, 26) : rng.between(HOUSE_MIN, HOUSE_MAX)
         const depth = bigger ? rng.between(13, 19) : rng.between(DEPTH_MIN, DEPTH_MAX)
-        const offset = (LANE_WIDTH / 2 + SETBACK + depth / 2) * side
+        const offset = (LANE_MAX / 2 + SETBACK + depth / 2) * side
         const x = x0 - uz * offset + rng.between(-2, 2)
         const z = z0 + ux * offset + rng.between(-2, 2)
         if (Math.abs(x) < EXTRACT_HALF && Math.abs(z) < EXTRACT_HALF)
@@ -233,6 +442,57 @@ function buildAlong(
       }
     }
     carried = (carried + span) % PLOT
+    travelled += span
+  }
+}
+
+/** How far a place's houses reach down the lanes leaving it, in metres. */
+function reachOf(place: Place): number {
+  return place.gate ? 0 : 90 + place.weight * 620
+}
+
+function pathLength(path: number[]): number {
+  let total = 0
+  for (let i = 1; i < path.length / 2; i += 1)
+    total += Math.hypot(path[i * 2]! - path[(i - 1) * 2]!, path[i * 2 + 1]! - path[(i - 1) * 2 + 1]!)
+  return total
+}
+
+/**
+ * Woods in the open country.
+ *
+ * Without them the land between the villages is a lawn, which from the air is the flattest, emptiest
+ * green there is. A wood is the cheapest thing that breaks it up: the trees are already instanced,
+ * so seventy clumps cost seventy times nothing and give the country somewhere for the eye to stop.
+ * Kept well away from the places, because a wood in a village is a park and this is not one.
+ */
+function scatterWoods(rng: Stream, relief: Relief, places: Place[], trees: TreeRecord[]): void {
+  for (let wood = 0; wood < WOOD_COUNT; wood += 1) {
+    const angle = rng.next() * Math.PI * 2
+    const radius = EXTRACT_HALF + 400 + rng.next() ** 0.6 * (COUNTRY_REACH - EXTRACT_HALF - 400)
+    const centreX = Math.cos(angle) * radius
+    const centreZ = Math.sin(angle) * radius
+    if (Math.abs(centreX) < EXTRACT_HALF + 200 && Math.abs(centreZ) < EXTRACT_HALF + 200)
+      continue
+    if (places.some(place => Math.hypot(place.x - centreX, place.z - centreZ) < 260))
+      continue
+
+    const spread = WOOD_SPREAD * rng.between(0.6, 1.6)
+    for (let tree = 0; tree < WOOD_TREES; tree += 1) {
+      // Denser in the middle than at the edge, so a wood has an edge rather than a boundary.
+      const away = Math.sqrt(rng.next()) * spread
+      const bearing = rng.next() * Math.PI * 2
+      const x = centreX + Math.cos(bearing) * away
+      const z = centreZ + Math.sin(bearing) * away
+      if (relief.height(x, z) < 0.8)
+        continue
+      trees.push({
+        id: `o-wood-${trees.length.toString(36)}`,
+        x: round(x),
+        z: round(z),
+        scale: rng.between(0.85, 1.5),
+      })
+    }
   }
 }
 
@@ -243,7 +503,7 @@ function plant(
   ux: number,
   uz: number,
   side: number,
-  rng: { next: () => number, between: (a: number, b: number) => number },
+  rng: Stream,
   trees: TreeRecord[],
 ): void {
   const offset = rng.between(4, SETBACK) * side

@@ -88,21 +88,28 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
   }))
 
   const relief = new Relief(raw.relief, seed)
-  /*
-   * The country around the city, built out of the same kind of record the map gives us: outlines,
-   * heights, roofs and streets. It used to be a second renderer with its own models, its own material
-   * and no pavements, which is why there was a visible seam right round the city.
-   */
-  const outskirts = buildOutskirts(seed, relief)
-  buildings.push(...outskirts.buildings)
 
-  const roads = raw.roads.map((entry, index): RoadRecord => ({
+  const mapRoads = raw.roads.map((entry, index): RoadRecord => ({
     id: `r-${index.toString(36)}`,
     path: entry.p,
     width: entry.w,
     arterial: entry.a === 1,
     bridge: entry.b === 1,
-  })).concat(outskirts.roads)
+  }))
+
+  /*
+   * The country around the city, built out of the same kind of record the map gives us: outlines,
+   * heights, roofs and streets. It used to be a second renderer with its own models, its own material
+   * and no pavements, which is why there was a visible seam right round the city.
+   *
+   * It is given the map's own roads because it builds its network partly *out* of them: every street
+   * that leaves the extract is a gate the country network hangs off, which is what makes the two one
+   * street plan rather than a pattern drawn around a city it never touches.
+   */
+  const outskirts = buildOutskirts(seed, relief, mapRoads)
+  buildings.push(...outskirts.buildings)
+
+  const roads = mapRoads.concat(outskirts.roads)
 
   /*
    * Every carriageway in the city, in one index. Built once here so that everything placed beside a

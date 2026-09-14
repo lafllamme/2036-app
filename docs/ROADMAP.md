@@ -28,8 +28,8 @@ Entscheidung dort eine Messung war und die Prioritäten sich daraus ergeben.
 | **Straßen** | Fahrbahn, Mittellinie, Radfahrstreifen, Kreuzungsflächen. |
 | **Brücken** | 44 Stück, als Bauwerk gezogen statt in Klötzen gesetzt: 1,1 m Deckstärke, durchgehende Brüstung, geschlossene Untersicht, Pfeiler. Was darauf fährt und geht, folgt derselben Kuppe auf 8,4 cm genau. |
 | **Bürgersteige** | Streifen je Straßenseite, unterbrochen wo eine andere Fahrbahn darunterliegt; 3 236 von 3 924 Abschnitten begehbar, 279 km, 39 400 Dreiecke. Gemalt wird auf derselben Linie, auf der gelaufen wird. |
-| **Umland** | Dieselbe Pipeline wie die Stadt — keine zweite Sorte Gebäude, keine Naht, keine Sichtweiten-Abschaltung mehr. |
-| **Verkehr** | Straßennetz als Graph, 4 817 Abschnitte, Abstand halten, 400 Ampelkreuzungen, Berufsverkehr nach Uhrzeit. 620 Autos, 220 Radfahrer, 420 Fußgänger, alle um die Kamera versammelt. |
+| **Umland** | Dieselbe Pipeline wie die Stadt, und seit dem Umbau auch dasselbe Straßennetz: Orte statt Speichen, Gabriel-Graph statt Ring, Häuser um Dörfer statt an jedem Meter. 416 Landstraßen, 95,4 % aller Knoten in einem Stück. |
+| **Verkehr** | Straßennetz als Graph, 4 817 Abschnitte, Abstand halten, 400 Ampelkreuzungen, Berufsverkehr nach Uhrzeit. 620 Autos, 220 Radfahrer, 420 Fußgänger, um die Kamera versammelt — aber nur so viele, wie die Straßen dort tragen. |
 | **Menschen** | Jede Figur ein Mensch: Name, Alter, Geschlecht, Rolle, Herkunft, Hautton — rechtsklickbar wie ein Gebäude. Kinder gehen zur Schule, Erwachsene arbeiten, Rentner nicht. |
 | **Einsätze** | Vorfälle aus sechs Kennzahlen der Simulation, nicht mehr nur aus `unrest`. Nächstes freies Fahrzeug, Blaulicht, über Rot, Absperrung, Schaulustige, Meldung im Stadtfunk mit Dauer, und sie verschwindet wieder, wenn der Einsatz vorbei ist. |
 | **Ton** | Drei Instrumente an einem Mischpult: Aufnahmen für Verkehr, Menge und Park, synthetisch für Martinshorn und Partitur, `uisfx` für die Oberfläche. Alles nach Entfernung zum Hörer, nichts kämpft gegen etwas anderes. |
@@ -65,7 +65,11 @@ zwischen Kulisse und Spiel.
 Die Bürgersteig-Scheiben an den Knoten sind weg; die Fahrbahn-Scheiben sind noch Scheiben und keine
 echten Polygone. Es fehlen Zebrastreifen, Haltelinien, Kreisverkehre. Aus der Luft sieht man es.
 
-**6 — Straßenmöbel prüfen.**
+**6 — Wasser und Schiffe.**
+Der Flusslauf wirkt zufällig statt gewachsen, und die Schiffe sind immer noch die handgebauten Kähne.
+Beides steht als Nächstes an; das Umland ist jetzt der Rahmen, in den der Fluss gehört.
+
+**7 — Straßenmöbel prüfen.**
 `streetFurniture.ts` setzt Schilder, Container und Baken auf `Straßenbreite / 2 + 1,9` — genau die
 naive Rechnung, die bei Bäumen und Bürgersteigen schon zweimal falsch war. Beim Durchsehen standen
 Baken sichtbar im Grünen. Muss durch `carriageways()` wie alles andere.

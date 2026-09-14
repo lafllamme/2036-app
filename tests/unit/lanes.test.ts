@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { crowdDensity } from '../../app/rendering/world/fleet'
 import {
   acrossLane,
   CYCLE_MIN_WIDTH,
@@ -107,4 +108,35 @@ describe('the pavement that is painted, and the pavement that is walked on', () 
       expect(acrossLane(middle, PAVEMENT_SPREAD, 1)).toBeLessThan(outer)
     })
   }
+})
+
+describe('how many of a fleet the surroundings can hold', () => {
+  /*
+   * The fleet is a fixed number of figures kept near the camera — which is right downtown, where
+   * that number is spread over kilometres of street, and wrong everywhere else. Out in the country
+   * the same four hundred people landed on the one lane within reach and marched down the middle of
+   * it in single file, because nothing asked how much street there was to stand on.
+   *
+   * This is what asks. The spacings are measured against real streets: somebody every fifteen to
+   * twenty-five metres of pavement, a car every ninety-odd on a road that is moving.
+   */
+  it('shows all of them where there is street enough for all of them', () => {
+    expect(crowdDensity(420 * 16, 16, 420)).toBe(1)
+    expect(crowdDensity(90_000, 16, 420)).toBe(1)
+  })
+
+  it('shows a handful on a single country lane', () => {
+    // One 600 m lane within reach, against a crowd of 420: about nine people, not four hundred.
+    expect(Math.round(crowdDensity(600, 16, 420) * 420)).toBe(38)
+    expect(Math.round(crowdDensity(600, 95, 620) * 620)).toBe(6)
+  })
+
+  it('shows nobody where there is no street at all', () => {
+    expect(crowdDensity(0, 16, 420)).toBe(0)
+  })
+
+  it('never divides by nothing, whatever it is asked', () => {
+    expect(crowdDensity(100, 0, 0)).toBe(1)
+    expect(Number.isFinite(crowdDensity(100, 16, 0))).toBe(true)
+  })
 })

@@ -1,5 +1,6 @@
 import type { CityBlueprint, RoadRecord } from '../../core/contracts'
 import type { Relief } from '../../world/relief'
+import { pavementLane } from './lanes'
 import { deckOf } from './ribbon'
 
 /**
@@ -144,8 +145,6 @@ export function buildRoadNetwork(blueprint: CityBlueprint, relief: Relief): Road
 /** Cell pitch. Wide enough that a query touches few cells, narrow enough that each holds few edges. */
 const INDEX_CELL = 120
 
-/** How far out from the kerb the middle of a pavement sits. Matches `pavementLane` in `lanes.ts`. */
-const PAVEMENT_OFFSET = 1.15
 const PROBE = { x: 0, y: 0, z: 0, ux: 0, uz: 1 }
 
 /**
@@ -166,8 +165,10 @@ function layPavements(network: RoadNetwork): void {
       let clear = 0
       let tested = 0
       for (let along = 3; along < edge.length; along += 9) {
-        sample(edge, along, PROBE)
-        const half = edge.width / 2 + PAVEMENT_OFFSET
+        sampleEdge(edge, along, PROBE)
+        // The middle of the pavement, from `lanes.ts`, because this has to be the same place the
+        // crowd walks and the same place `roads.ts` paints. It has been three numbers before now.
+        const half = pavementLane(edge.width)
         const x = PROBE.x - PROBE.uz * half * side
         const z = PROBE.z + PROBE.ux * half * side
         tested += 1
@@ -185,8 +186,20 @@ function layPavements(network: RoadNetwork): void {
   }
 }
 
-/** Every carriageway in one grid, so a point can ask whether it is standing in a road. */
-function carriageways(network: RoadNetwork): { blocked: (x: number, z: number, own: RoadEdge) => boolean } {
+export interface Carriageways {
+  /** Whether a point is inside any road's running surface, ignoring `own`. */
+  blocked: (x: number, z: number, own: RoadEdge) => boolean
+}
+
+/**
+ * Every carriageway in one grid, so a point can ask whether it is standing in a road.
+ *
+ * Exported because two things need the same answer and must never disagree about it: where a
+ * pedestrian may walk, and where a pavement is drawn. They were decided separately, and a pavement
+ * painted in one place and walked on in another is how a crowd ends up looking like it is in the
+ * middle of the road even when it is not.
+ */
+export function carriageways(network: RoadNetwork): Carriageways {
   const cells = new Map<number, { edge: RoadEdge, ax: number, az: number, bx: number, bz: number }[]>()
   const key = (column: number, row: number): number => column * 100_000 + row
 
@@ -277,11 +290,6 @@ function cut(road: RoadRecord, surface: number[], from: number, to: number, clai
       points[(count - 1) * 2 + 1]! - points[(count - 2) * 2 + 1]!,
     ),
   }
-}
-
-/** The same as `sampleEdge`, under the name the pavement pass uses before that one is declared. */
-function sample(edge: RoadEdge, along: number, out: { x: number, y: number, z: number, ux: number, uz: number }): void {
-  sampleEdge(edge, along, out)
 }
 
 /** Where a point at `along` metres down a stretch is, written into `out` as x, z and heading. */

@@ -106,27 +106,31 @@ die Partei-IDs tut.
 
 ## In welcher Reihenfolge
 
-Jede Stufe ist für sich lieferbar und für sich sichtbar.
+Jede Stufe ist für sich lieferbar und für sich sichtbar. Stand der Umsetzung in Klammern.
 
-**Stufe 1 — Das Fundament.** `CityVisualState` um die acht Felder erweitern, die Simulation leitet sie
+**Stufe 1 — Das Fundament. ✅ steht.** `CityVisualState` um die acht Felder erweitern, die Simulation leitet sie
 ab, die heutigen Einsätze hängen an `burglaryPressure` und `accidentPressure` statt an `unrest`.
 *Nach dieser Stufe verändert eine Ratsentscheidung, was auf der Straße passiert.*
 
-**Stufe 2 — Der Einsatzort.** Absperrung, zweites Fahrzeug, Beamte zu Fuß, Schaulustige, Meldung im
-Stadtfunk. Gilt sofort für alle Ereignisarten, weil sie dieselbe Form haben.
+**Stufe 2 — Der Einsatzort. ✅ steht, bis auf die Streife.** Absperrung, zweites Fahrzeug,
+Schaulustige und eine Meldung im Stadtfunk, die altert und wieder verschwindet — alles über eine
+Formtabelle je Ereignisart in `incidents.ts`. Beamte zu Fuß gibt es nur am Ort, noch nicht auf
+Streife; das ist nach hinten gewandert, weil es eher zu Stufe 4 gehört.
 
-**Stufe 3 — Feuer.** Die erste neue Art, und die mit dem größten Bild: Rauch, Flammen, Löschzug, ein
-beschädigtes Gebäude danach. Rauch ist ein Partikelsystem — das erste im Projekt, deshalb eine eigene
-Stufe.
+**Stufe 3 — Feuer. 🟡 halb.** Der Brand selbst wird ausgelöst, das Löschfahrzeug fährt hin und der
+Ort wird abgesperrt. Was fehlt, ist genau das, wofür die Stufe da war: `fire.ts` ist geschrieben und
+an nichts angeschlossen, also gibt es keinen Rauch, keine Flamme und kein beschädigtes Gebäude
+danach. Nächster Punkt auf der Roadmap.
 
-**Stufe 4 — Berufe.** Handwerker auf Baustellen, Streifen zu Fuß, Sanitäter. Rollen statt
-austauschbarer Fußgänger.
+**Stufe 4 — Berufe. 🟡 halb.** Jede Figur hat Namen, Alter, Geschlecht, Herkunft und Rolle, und die
+Rolle sitzt richtig auf dem Modell — eine Uniform trägt nur, wer eine trägt. Was fehlt, ist die
+Rolle am richtigen *Ort*: Handwerker auf Baustellen, Streifen zu Fuß, Sanitäter.
 
-**Stufe 5 — Herkünfte.** Die Verteilung an `originMix` hängen, mit der Architekturregel und ihrem
-Test.
+**Stufe 5 — Herkünfte. 🟡 halb.** Die Herkünfte stehen mit Architekturregel und Test, und jede Figur
+hat eine. Die *Verteilung* hängt noch nicht an `originMix`.
 
-**Stufe 6 — Unfälle und Gewaltdelikte.** Die restlichen Arten, sobald Stufe 1 bis 3 den Rahmen
-tragen.
+**Stufe 6 — Unfälle und Gewaltdelikte. ✅ steht.** Beide Arten laufen über dieselbe Formtabelle wie
+Einbruch und Brand; ein Unfall sperrt eine ganze Fahrbahn und zieht einen Kreis Schaulustiger.
 
 ## Was das kosten darf
 

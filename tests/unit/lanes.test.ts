@@ -81,3 +81,30 @@ describe('where a street puts you', () => {
     }
   })
 })
+
+describe('the pavement that is painted, and the pavement that is walked on', () => {
+  /*
+   * These were two decisions for most of the project's life and they disagreed. `roads.ts` painted a
+   * ribbon two and a bit metres wider than the carriageway on both sides; the crowd walked at
+   * `pavementLane`. On a normal street those land in the same place, which is why nobody noticed —
+   * until a main road, where the painted surface stopped short of where people were walking and the
+   * crowd looked like it was in the road because half of it was.
+   *
+   * The strip is now derived from `pavementLane`, so this is the shape of that one decision.
+   */
+  const PAVEMENT_WIDTH_HALF = PAVEMENT_WIDTH / 2
+
+  for (const width of [4.5, 5, 6.5, 8, 11, 13, 17, 22, 30]) {
+    it(`covers every walker on a ${width} m street`, () => {
+      const middle = pavementLane(width)
+      const inner = middle - PAVEMENT_WIDTH_HALF
+      const outer = middle + PAVEMENT_WIDTH_HALF
+
+      // The kerb is where the strip starts. Not a centimetre of it is on the carriageway.
+      expect(inner).toBeCloseTo(width / 2, 10)
+      // And nobody, at either end of their jitter, is off the far side of it.
+      expect(acrossLane(middle, PAVEMENT_SPREAD, 0)).toBeGreaterThan(inner)
+      expect(acrossLane(middle, PAVEMENT_SPREAD, 1)).toBeLessThan(outer)
+    })
+  }
+})

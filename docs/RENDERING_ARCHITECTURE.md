@@ -54,6 +54,48 @@ liegen; die Form bleibt dieselbe. `tests/unit/paving.test.ts` hält das fest und
 den 922 Gebäuden gefehlt hat: gemessen wurde nur der Boden, und der Boden war unschuldig.
 
 
+## Der Bürgersteig ist da, wo jemand geht
+
+Ein Bürgersteig lag bis zuletzt als ein einziges Band unter der ganzen Stadt: dieselbe Mittellinie
+wie die Fahrbahn, 2,3 m breiter auf jeder Seite. Ein Draw für 3 924 Abschnitte, und für jede einzelne
+Straße für sich genommen richtig. Falsch wird es, sobald es eine zweite Straße gibt — denn „direkt
+außerhalb meines eigenen Bordsteins" ist an jeder Kreuzung die Mitte der Fahrbahn von jemand anderem.
+Im Zentrum, wo OpenStreetMap eine Kreuzung als ein halbes Dutzend sich überlappender Wege zeichnet,
+blieben davon helle Flecken auf dem Asphalt übrig — und eine Menschenmenge, die aussah, als liefe sie
+auf der Straße, weil Fahrbahn und Gehweg aufgehört hatten, verschiedene Orte zu sein.
+
+Der Belag wird jetzt streifenweise gelegt: jede Seite jedes Abschnitts alle vier Meter abgetastet,
+und der Streifen bricht dort ab, wo eine Abtastung in der Fahrbahn einer anderen Straße liegt. Das
+ist dieselbe Frage, die `layPavements` schon für die Fußgänger beantwortet, und beide lesen sie jetzt
+aus derselben Funktion — `carriageways()` in `roadNetwork.ts`. Die Linie, um die der Streifen gelegt
+wird, ist `pavementLane` aus `lanes.ts`: wo gemalt wird und wo gelaufen wird, ist eine Entscheidung.
+
+| Gemessen | vorher | jetzt |
+| --- | --- | --- |
+| Belag, der in der Fahrbahn einer anderen Straße liegt | 18,4 % der Positionen | wird nicht gezeichnet |
+| Kreuzungsflächen im Gehwegton, eine je Knoten | ~2 800 Scheiben | keine |
+| Abschnitte mit begehbarer Seite | — | 3 236 von 3 924 (82,5 %), 279 km |
+| Dreiecke für alle Bürgersteige der Stadt | — | 39 400 in einem Draw |
+
+Zwei Fehler steckten noch darunter, beide erst durch Messen sichtbar:
+
+**Der Belag lag auf der falschen Höhe.** Nimmt er die Höhe der Fahrbahn, verschwindet er im Hang,
+sobald das Land neben dem Bordstein ansteigt — und das tut es an **33,6 % aller Belagspositionen um
+mehr als 10 cm, im schlimmsten Fall um 6,85 m**. Nimmt er die Höhe des Bodens, fällt er unter jeder
+Brücke ins Wasser. Er nimmt jetzt die höhere der beiden, an jeder Kante einzeln. Dieselbe Regel gilt
+für die Fußgänger selbst, die vorher bis zum Knie im Hang standen.
+
+**Die linke Seite war unsichtbar.** Ein gespiegelter Streifen ist andersherum gewickelt, und mit
+Backface-Culling heißt das: jeder Bürgersteig auf der einen Straßenseite wurde von oben gar nicht
+gezeichnet. Die Reihenfolge der beiden Kanten hängt jetzt an der Seite.
+
+Vereinfacht wird der Streifen über die **Durchhängung**, nicht über den Höhenunterschied von
+Abtastung zu Abtastung. Der Unterschied ist der zwischen 39 400 und 241 000 Dreiecken: auf jeder
+Steigung unterscheiden sich aufeinanderfolgende Stützpunkte immer, eine gleichmäßige Rampe ist aber
+trotzdem eine Gerade. Was eine flache Fläche wirklich falsch macht, ist der Durchhang, und der ist
+auf 3 cm begrenzt — weniger als eine Bordsteinkante.
+
+
 ## Und der Sockel
 
 Ein Gebäude steht auf dem höchsten Punkt, den sein Grundriss überdeckt — sonst steckt das bergseitige

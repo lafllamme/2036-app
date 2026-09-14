@@ -135,6 +135,8 @@ export interface Fleet {
   mount: THREE.InstancedMesh | null
   /** How far below the rider the mount sits. */
   mountDrop: number
+  /** The ground under a fleet that walks beside the road, or null for one that keeps to it. */
+  ground: ((x: number, z: number) => number) | null
   /** How many of this fleet are within earshot of the camera, counted afresh on every pass. */
   nearby: number
   /**
@@ -217,6 +219,19 @@ export interface FleetPlan {
   /** The city's seed, so a figure's height and their age are worked out from the same number. */
   seed: number
   mount?: { geometry: THREE.BufferGeometry, material: THREE.Material, drop: number }
+  /**
+   * The ground, for a fleet whose lane is outside the kerb.
+   *
+   * A pedestrian walks on the pavement, and a pavement stands on the land beside the road, which is
+   * not the same height as the road: on this ground plan the verge is more than ten centimetres
+   * above the carriageway at a third of every pavement position, and as much as seven metres above
+   * it. Placed at the road's height, a third of the crowd walks buried to the knee in a bank.
+   *
+   * Given only to a fleet that needs it. Traffic and bicycles keep to the carriageway, which is flat
+   * and is exactly where the road's own surface is, and a bridge is the reason this takes the higher
+   * of the two rather than the ground alone.
+   */
+  ground?: (x: number, z: number) => number
 }
 
 export function buildFleet(
@@ -260,6 +275,7 @@ export function buildFleet(
     stride: plan.stride ?? !plan.obeysSignals,
     mount,
     mountDrop: plan.mount?.drop ?? 0,
+    ground: plan.ground ?? null,
     nearby: 0,
     gathers: plan.gatherRange ?? (plan.people === true ? [RECYCLE_RANGE, GATHER_RANGE] : null),
     index: plan.gatherRange || plan.people === true ? indexEdges(network, allowed) : null,
@@ -702,9 +718,14 @@ function place(mesh: THREE.InstancedMesh, index: number, streets: Streets, fleet
    * person at, it reads as walking.
    */
   const bob = fleet.stride ? Math.abs(Math.sin(traveller.gait + elapsed * STRIDE_RATE)) * STRIDE_BOB : 0
-  // The road's own surface, so traffic goes over a bridge instead of through the river under it.
+  /*
+   * The road's own surface, so traffic goes over a bridge instead of through the river under it —
+   * and, for anyone whose lane is outside the kerb, the ground if the ground is higher, so the
+   * crowd stands on the verge its pavement is laid on rather than inside it.
+   */
+  const surface = fleet.ground ? Math.max(sample.y, fleet.ground(x, z)) : sample.y
   scale.setScalar(traveller.stature)
-  matrix.compose(position.set(x, sample.y + fleet.lift * traveller.stature + bob, z), quaternion, scale)
+  matrix.compose(position.set(x, surface + fleet.lift * traveller.stature + bob, z), quaternion, scale)
   mesh.setMatrixAt(index, matrix)
 
   /*
@@ -715,7 +736,7 @@ function place(mesh: THREE.InstancedMesh, index: number, streets: Streets, fleet
   if (fleet.mount && mounted < fleet.mount.instanceMatrix.count) {
     // A child's bike is a child's bike: the machine takes the rider's own scale.
     MOUNT_SCALE.setScalar(traveller.stature)
-    matrix.compose(position.set(x, sample.y + (fleet.lift - fleet.mountDrop) * traveller.stature, z), quaternion, MOUNT_SCALE)
+    matrix.compose(position.set(x, surface + (fleet.lift - fleet.mountDrop) * traveller.stature, z), quaternion, MOUNT_SCALE)
     fleet.mount.setMatrixAt(mounted, matrix)
     mounted += 1
   }

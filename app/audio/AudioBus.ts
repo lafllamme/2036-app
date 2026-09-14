@@ -46,6 +46,14 @@ export class AudioBus {
   private volume = DEFAULT_VOLUME
   private pack: PackName = DEFAULT_PACK
   private readonly loops = new Map<SoundEvent, PlayingSFX>()
+  /**
+   * Which loops are meant to be running, whether or not there is yet anything to stop.
+   *
+   * Held apart from `loops` because a loop started inside the unlock handshake has no handle for a
+   * few milliseconds, and `stopLoop` arriving in that window used to do nothing at all — leaving the
+   * one cue in the game that repeats forever repeating forever.
+   */
+  private readonly wanted = new Set<SoundEvent>()
   private readonly recent: SoundTrace[] = []
   private readonly createPlayer: () => UISFXPlayer | Promise<UISFXPlayer>
 
@@ -103,23 +111,37 @@ export class AudioBus {
   }
 
   play(event: SoundEvent): PlayingSFX | null {
+    const started = this.start(event)
+    return started instanceof Promise ? null : started
+  }
+
+  /**
+   * Sound a cue, and hand back whatever there is to hold on to.
+   *
+   * A cue emitted while the unlock handshake is still in flight belongs to the gesture that started
+   * it — the click that opens the party hall raises `stage.forward` a tick before the AudioContext
+   * finishes resuming. Dropping it silenced the first navigation of every session. This defers those
+   * few milliseconds; it does not queue anything from before the gesture.
+   *
+   * The deferred case returns its promise rather than swallowing it, which `play` can ignore and
+   * `startLoop` cannot: a loop whose handle was dropped on the floor is a loop nothing can stop.
+   */
+  private start(event: SoundEvent): PlayingSFX | Promise<PlayingSFX | null> | null {
     if (!this.enabled) {
       this.record(event, false)
       return null
     }
-    /*
-     * A cue emitted while the unlock handshake is still in flight belongs to the gesture that
-     * started it — the click that opens the party hall raises `stage.forward` a tick before the
-     * AudioContext finishes resuming. Dropping it silenced the first navigation of every session.
-     * This defers those few milliseconds; it does not queue anything from before the gesture.
-     */
     if (!this.unlocked) {
       if (!this.unlocking) {
         this.record(event, false)
         return null
       }
-      void this.unlocking.then(opened => opened ? this.emit(event) : this.record(event, false))
-      return null
+      return this.unlocking.then((opened) => {
+        if (opened)
+          return this.emit(event)
+        this.record(event, false)
+        return null
+      })
     }
     return this.emit(event)
   }
@@ -150,11 +172,26 @@ export class AudioBus {
 
   /** Starts a looping cue, or does nothing if that loop is already running. */
   startLoop(event: SoundEvent): void {
-    if (this.loops.has(event))
+    if (this.loops.has(event) || this.wanted.has(event))
       return
-    const handle = this.play(event)
-    if (handle)
-      this.loops.set(event, handle)
+    this.wanted.add(event)
+
+    const hold = (handle: PlayingSFX | null): void => {
+      if (!handle)
+        return
+      /*
+       * It may have been stopped while it was still starting. Nothing had a handle to stop then, so
+       * it has to be stopped now — this is the other half of the loop that would not go away.
+       */
+      if (!this.wanted.has(event))
+        handle.stop()
+      else this.loops.set(event, handle)
+    }
+
+    const started = this.start(event)
+    if (started instanceof Promise)
+      void started.then(hold)
+    else hold(started)
   }
 
   /**
@@ -162,7 +199,11 @@ export class AudioBus {
    * audible, so a computation that finished in twelve milliseconds stays silent from end to end.
    */
   stopLoop(event: SoundEvent, resolvedWith?: SoundEvent): void {
+    // Withdrawn first, so a loop still inside the unlock handshake is stopped the moment it arrives.
+    this.wanted.delete(event)
     const handle = this.loops.get(event)
+    // Nothing audible yet: either it never started, or `startLoop` will find it withdrawn and stop
+    // it itself. Either way there is nothing to answer, which is what `resolvedWith` is for.
     if (!handle)
       return
     handle.stop()
@@ -199,6 +240,7 @@ export class AudioBus {
   stopAll(): void {
     for (const handle of this.loops.values()) handle.stop()
     this.loops.clear()
+    this.wanted.clear()
     this.player?.stopAll()
   }
 

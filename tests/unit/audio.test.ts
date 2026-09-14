@@ -195,3 +195,57 @@ describe('audioBus', () => {
     expect(played).toEqual(['processing', 'complete'])
   })
 })
+
+describe('the one cue that repeats until something stops it', () => {
+  /*
+   * `work.started` is the only looping cue in the game, and the mixer deliberately never ducks the
+   * interface — so anything that leaves this loop running leaves it running at full volume for the
+   * rest of the session, at every camera distance, over everything else. It did: a loop started
+   * while the AudioContext was still resuming had no handle to hold, so `stopLoop` found nothing
+   * and returned, and the game played a repeating tone for as long as the tab was open.
+   */
+  it('can be stopped again when it was started before the context finished opening', async () => {
+    const { player, played } = fakePlayer()
+    let open: (value: UISFXPlayer) => void = () => {}
+    const bus = new AudioBus({
+      createPlayer: () => new Promise<UISFXPlayer>((resolve) => {
+        open = resolve
+      }),
+    })
+
+    void bus.unlock()
+    bus.startLoop('work.started')
+    // Stopped while the handshake is still in flight: nothing audible yet, nothing to answer.
+    bus.stopLoop('work.started', 'work.finished')
+
+    open(player)
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    const handle = player.play('processing') as { stop: ReturnType<typeof vi.fn> }
+    expect(handle.stop).toHaveBeenCalled()
+    expect(played).not.toContain('complete')
+  })
+
+  it('starts once however many times it is asked', () => {
+    const { player, played } = fakePlayer()
+    const bus = new AudioBus({ createPlayer: () => player })
+    return bus.unlock().then(() => {
+      bus.startLoop('work.started')
+      bus.startLoop('work.started')
+      bus.startLoop('work.started')
+      expect(played.filter(cue => cue === 'processing')).toHaveLength(1)
+    })
+  })
+
+  it('stops and answers when it was audible', async () => {
+    const { player, played } = fakePlayer()
+    const bus = new AudioBus({ createPlayer: () => player })
+    await bus.unlock()
+    bus.startLoop('work.started')
+    bus.stopLoop('work.started', 'work.finished')
+    expect(played).toContain('complete')
+    // And it can be started again afterwards, or a second long computation would be silent.
+    bus.startLoop('work.started')
+    expect(played.filter(cue => cue === 'processing')).toHaveLength(2)
+  })
+})

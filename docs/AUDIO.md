@@ -213,6 +213,48 @@ hall raises `stage.forward` a tick before the AudioContext finishes resuming —
 navigation of every session was silent. A cue raised while that handshake is in flight now waits
 for it, a few milliseconds, because it belongs to the gesture that started the handshake.
 
+## The loop that could not be stopped
+
+`work.started` is the only looping cue in the game, and the mixer deliberately never ducks the
+interface. Both facts are right on their own and together they are a loaded gun: anything that leaves
+that loop running leaves a repeating tone playing at full volume, over everything, at every camera
+distance, for the rest of the session. It fired, and it took two separate faults to do it.
+
+**The trigger.** `REQUEST_SAVE` raises the store's `pendingCommand` flag like any other command, and
+the branch that receives `SAVE_STATE` returned without lowering it again. The campaign saves itself
+at the turn of every month — so a few hundred milliseconds after the first month ended, the flag was
+stuck, the "still working" timer fired, and the loop started. Nothing was actually still working.
+
+**The reason it could never stop.** `AudioBus.startLoop` kept the handle that `play` returned, and
+`play` returns `null` for a cue raised while the unlock handshake is in flight — the deferred case
+one section up. The cue still sounds, a few milliseconds later; nothing holds it. `stopLoop` then
+found no handle and returned, and there was no longer anything in the process that knew the sound
+existed.
+
+Both are fixed, and the bus now tracks *which loops are meant to be running* separately from which
+ones it has a handle for: a loop stopped while it is still starting is stopped the moment it arrives.
+Three unit tests hold it — stopped mid-handshake, started once however often it is asked, and
+restartable after a stop.
+
+The general rule this leaves behind: **a cue that repeats needs an owner that cannot lose it.** A
+one-shot that goes missing is a missing sound. A loop that goes missing is the sound of the game.
+
+## Where each sound actually comes from
+
+Worth writing down, because "I thought we built in assets" is the reasonable question to ask when
+something synthetic will not stop:
+
+| Heard | Made of | Where |
+| --- | --- | --- |
+| traffic, crowd, park, a car going past, a horn | recordings, CC0, in `public/audio/city/` | `cityAmbience.ts` |
+| the siren | synthesised, two notes stepped at 0.65 s | `cityAmbience.ts` |
+| the score | synthesised — saw pads, a bass drone, one FM bell | `cityScore.ts` |
+| every interface cue, including the `processing` loop | the `uisfx` library's `zen` pack | `AudioBus.ts` |
+
+Only the first row is recorded. Anything that sounds like an instrument rather than a street is one
+of the other three, and the score is the only one of them with no distance gate at all — from the
+map it is deliberately the loudest thing there is, because there is nothing else up there.
+
 ## Proof
 
 - Unit — every event maps to a cue the library ships, hover and press are rate-limited, `error` is

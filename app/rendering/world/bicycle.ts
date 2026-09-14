@@ -48,6 +48,15 @@ export function bicycleGeometry(): THREE.BufferGeometry {
   parts.push(across(WHEELBASE / 2, BAR_HEIGHT, 0.42, WIDTH))
 
   const merged = mergeGeometries(parts, false)
+  /*
+   * Turn it to face the way everything else does.
+   *
+   * The frame is laid out along X because that is the natural way to write "from the back wheel to
+   * the front" on paper, and every traveller in the city is oriented so that +Z is the direction of
+   * travel. Without this the bicycle sits across the road and its rider stands beside it, which is a
+   * person pushing a bike rather than riding one — and that is exactly what it looked like.
+   */
+  merged.rotateY(-Math.PI / 2)
   merged.computeVertexNormals()
   merged.computeBoundingSphere()
   return merged

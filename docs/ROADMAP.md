@@ -25,11 +25,14 @@ Entscheidung dort eine Messung war und die Prioritäten sich daraus ergeben.
 | **Grundriss** | OpenStreetMap, 3 × 3 km Bremen, 17 598 Gebäude. Blockumrisse verworfen, Tunnel verworfen, Stummel verworfen. |
 | **Boden** | Eine einzige Fläche. `Relief` **ist** die Fläche, `ground.ts` lädt sie hoch — kein Gebäude steht tiefer als 40 cm im Boden, kein Belag höher. |
 | **Gebäude** | Extrudierte Grundrisse, Fassadentextur nach Geschoss und Fensterachse, Giebeldächer auf Rechtecken, Sockel an jedem Haus. |
-| **Straßen** | Fahrbahn, Bürgersteig, Mittellinie, Kreuzungsflächen, 82 Brücken mit Deck, Geländer und Pfeilern. |
+| **Straßen** | Fahrbahn, Mittellinie, Radfahrstreifen, Kreuzungsflächen, 82 Brücken mit Deck, Geländer und Pfeilern. |
+| **Bürgersteige** | Streifen je Straßenseite, unterbrochen wo eine andere Fahrbahn darunterliegt; 3 236 von 3 924 Abschnitten begehbar, 279 km, 39 400 Dreiecke. Gemalt wird auf derselben Linie, auf der gelaufen wird. |
 | **Umland** | Dieselbe Pipeline wie die Stadt — keine zweite Sorte Gebäude, keine Naht, keine Sichtweiten-Abschaltung mehr. |
-| **Verkehr** | Straßennetz als Graph, 4 817 Abschnitte, Abstand halten, 400 Ampelkreuzungen, Berufsverkehr nach Uhrzeit. |
-| **Einsätze** | Vorfälle mit Ort, Art und Ende. Nächstes freies Fahrzeug fährt hin, Blaulicht, über Rot, halbe Minute am Ort. |
-| **Ton** | Verkehrsbett in zwei Bändern, vorbeifahrende Autos, Stimmengewirr, Hupen, Martinshorn — alles nach Entfernung zum Hörer. |
+| **Verkehr** | Straßennetz als Graph, 4 817 Abschnitte, Abstand halten, 400 Ampelkreuzungen, Berufsverkehr nach Uhrzeit. 620 Autos, 220 Radfahrer, 420 Fußgänger, alle um die Kamera versammelt. |
+| **Menschen** | Jede Figur ein Mensch: Name, Alter, Geschlecht, Rolle, Herkunft, Hautton — rechtsklickbar wie ein Gebäude. Kinder gehen zur Schule, Erwachsene arbeiten, Rentner nicht. |
+| **Einsätze** | Vorfälle aus sechs Kennzahlen der Simulation, nicht mehr nur aus `unrest`. Nächstes freies Fahrzeug, Blaulicht, über Rot, Absperrung, Schaulustige, Meldung im Stadtfunk mit Dauer, und sie verschwindet wieder, wenn der Einsatz vorbei ist. |
+| **Ton** | Drei Instrumente an einem Mischpult: Aufnahmen für Verkehr, Menge und Park, synthetisch für Martinshorn und Partitur, `uisfx` für die Oberfläche. Alles nach Entfernung zum Hörer, nichts kämpft gegen etwas anderes. |
+| **Speichern** | Vollständiger Simulationsstand in IndexedDB, automatisch zum Monatswechsel, „Kampagne fortführen" auf dem Titelbildschirm. |
 | **Leistung** | 94–122 Draws, 2,6–3,9 Mio. Dreiecke, selbstregelnde Auflösung. |
 
 Der Plan für alles, was in der Stadt *passiert* — Feuerwehr, Einbrüche, Unfälle, Berufe, Herkünfte —
@@ -38,33 +41,39 @@ Konstante, jedes hängt an einer Kennzahl, die die Politik verschiebt.
 
 ### Als Nächstes
 
-**1 — Einsätze an die Simulation hängen.**
-Sie kommen bisher nur aus `unrest`. Die Simulation liefert neun Werte und der Renderer liest vier.
-Ein Einbruch sollte aus der Kriminalitätszahl des Bezirks kommen, ein Rettungseinsatz aus Bevölkerung
-und Verkehr. Dann bedeutet ein Blaulicht etwas, das der Spieler auch im Lagebericht wiederfindet.
+**1 — Feuer sieht man nicht.**
+`fire.ts` ist geschrieben und hängt an nichts. Ein brennendes Gebäude ist der einzige Einsatz, bei dem
+der Ort selbst etwas tut, und er tut es bisher nicht: kein Rauch, keine Flamme, und danach steht das
+Haus da, als wäre nichts gewesen. Beschädigte Fassade nach dem Brand gehört dazu.
 
-**2 — Am Einsatzort passiert nichts.**
-Der Wagen steht mit Blaulicht da, und das war's. Es fehlen: ein zweites Fahrzeug, Absperrung, ein paar
-Schaulustige, eine Meldung im Stadtfunk. Der Vorfall ist das einzige Ereignis im Spiel, das der
-Spieler *sieht* statt es zu lesen — das ist zu wertvoll, um es bei einem stehenden Auto zu lassen.
+**2 — Streifengänge.**
+Polizei und Feuerwehr gibt es nur am Einsatzort. Sie sollten auch dann in der Stadt sein, wenn nichts
+passiert — zu Fuß, in der Zahl, die `responseCapacity` hergibt. Das ist der sichtbare Unterschied
+zwischen einer Stadt, die Personal eingestellt hat, und einer, die es gestrichen hat.
 
 **3 — Schiffe.**
 Der einzige Punkt aus deiner Liste, den ich nie angefasst habe: immer noch die handgebauten Kähne.
 
 **4 — Die Stadt reagiert sichtbar auf Politik.**
 `blight` → vernagelte Fenster und Container. `vacancyRate` → nachts dunkle Fenster. `nightLife` →
-erleuchtete Ladenzeilen. `constructionSites` → Gerüste und Lieferverkehr. Jeder Punkt einzeln
-lieferbar, und zusammen sind sie der Unterschied zwischen Kulisse und Spiel.
+erleuchtete Ladenzeilen. `constructionSites` → Gerüste und Lieferverkehr, `buildingActivity` →
+Handwerker auf der Baustelle. Jeder Punkt einzeln lieferbar, und zusammen sind sie der Unterschied
+zwischen Kulisse und Spiel.
 
 **5 — Kreuzungen und Übergänge.**
-Die Kreuzungsflächen sind Scheiben, keine echten Polygone. Es fehlen Zebrastreifen, Haltelinien,
-Kreisverkehre. Aus der Luft sieht man es.
+Die Bürgersteig-Scheiben an den Knoten sind weg; die Fahrbahn-Scheiben sind noch Scheiben und keine
+echten Polygone. Es fehlen Zebrastreifen, Haltelinien, Kreisverkehre. Aus der Luft sieht man es.
+
+**6 — Straßenmöbel prüfen.**
+`streetFurniture.ts` setzt Schilder, Container und Baken auf `Straßenbreite / 2 + 1,9` — genau die
+naive Rechnung, die bei Bäumen und Bürgersteigen schon zweimal falsch war. Beim Durchsehen standen
+Baken sichtbar im Grünen. Muss durch `carriageways()` wie alles andere.
 
 ### Später
 
 - **Fußgänger, die etwas tun** — stehen bleiben, an Haltestellen warten, in Gruppen gehen.
 - **ÖPNV** — Busse auf den Hauptachsen, Anzahl aus `transitDensity`. Kein Busmodell im Kit; müsste dazu.
-- **Interaktion** — Gebäude anklicken für seine eigenen Zahlen, einem Fahrzeug folgen.
+- **Interaktion** — einem Fahrzeug folgen. Gebäude und Menschen sind angebunden.
 - **Wetter** — Regen auf der Fahrbahn, Nebel über dem Fluss, Ton dazu.
 - **Ton räumlich** — bisher mono; eine Sirene links vom Bild klingt nicht von links.
 
@@ -92,3 +101,9 @@ die Kurzfassung:
 4. **Kacheln multiplizieren, wenn die Menge schon geteilt ist.** Elf Baumarten × vierzig Kacheln sind
    440 Meshes. Nur kacheln, was pro Instanz wirklich schwer ist.
 5. **Vorher messen.** Ein Kit-Auto hat 2 032 Dreiecke, nicht 250. Der Unterschied war 7,5 Millionen.
+6. **„Direkt neben meiner eigenen Straße" ist keine Ortsangabe.** Bäume, Fußgänger und Bürgersteige
+   sind nacheinander an derselben Rechnung gescheitert. Wer neben eine Straße etwas setzt, muss das
+   ganze Netz fragen, nicht diese eine Straße — `carriageways()` ist die Antwort, und es darf nur
+   eine geben.
+7. **Was sich wiederholt, braucht einen Besitzer, der es nicht verlieren kann.** Ein verlorener
+   Einzelton ist ein fehlendes Geräusch. Eine verlorene Schleife ist das Geräusch des Spiels.

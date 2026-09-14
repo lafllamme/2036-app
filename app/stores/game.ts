@@ -158,6 +158,14 @@ export const useGameStore = defineStore('game', () => {
       return
     }
     if (data.type === 'SAVE_STATE') {
+      /*
+       * A save answers a command like any other, and forgetting to say so here is what made the
+       * interface's "still working" loop the sound that never stopped. `REQUEST_SAVE` raised the
+       * flag, this branch returned without lowering it, and the campaign saves itself at the turn of
+       * every month — so a few hundred milliseconds after the first month ended, a looping cue that
+       * the mixer deliberately never ducks started and had nothing left that could stop it.
+       */
+      pendingCommand.value = false
       const deliver = pendingSave
       pendingSave = null
       deliver?.({

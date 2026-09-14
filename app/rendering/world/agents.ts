@@ -246,6 +246,8 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
       seed,
       people: true,
       citizenBase: CYCLIST_COUNT,
+      // The only fleet that walks beside the carriageway rather than on it. See `ground` above.
+      ground: (x, z) => blueprint.relief.height(x, z),
     }),
     network,
     signals,

@@ -1,9 +1,10 @@
 import type { CityBlueprint, RoadRecord } from '../../core/contracts'
 import type { Relief } from '../../world/relief'
-import type { RoadNetwork } from './roadNetwork'
+import type { RoadEdge, RoadNetwork } from './roadNetwork'
 import * as THREE from 'three/webgpu'
-import { CYCLE_MIN_WIDTH, CYCLE_WIDTH, PAVEMENT_WIDTH } from './lanes'
+import { CYCLE_MIN_WIDTH, CYCLE_WIDTH, PAVEMENT_WIDTH, pavementLane } from './lanes'
 import { deckOf, ribbonSections } from './ribbon'
+import { carriageways, sampleEdge } from './roadNetwork'
 
 /**
  * The street network, as the map draws it.
@@ -28,6 +29,8 @@ const ROAD_Y = 0.06
 const MARKING_Y = 0.07
 /** How wide the footway either side of the carriageway is. */
 const PAVEMENT = PAVEMENT_WIDTH
+/** How often a pavement strip is sampled along its stretch, in metres. */
+const PAVEMENT_STEP = 4
 /**
  * The cycle lane: a strip at the outside of the carriageway, in the brick red it is painted here.
  *
@@ -50,19 +53,28 @@ const PIER_SIZE = 2.2
 export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint, network: RoadNetwork): void {
   const relief = blueprint.relief
   /*
-   * The pavement goes down first: the same ribbon, a couple of metres wider each side, in the
-   * concrete grey that a footway is. It is one extra draw for the whole city and it is most of what
-   * makes a street read as a street rather than as a dark line drawn across a field — at ground level
-   * the carriageway used to run straight into the grass, which no street anywhere does.
+   * The pavement goes down first, as strips beside the streets that have one.
+   *
+   * It used to be the same ribbon as the carriageway, two metres wider each side — one draw for the
+   * whole city and most of what makes a street read as a street. What that ignores is every other
+   * street: a pavement sits just outside its own kerb, and at a junction that is the middle of
+   * somebody else's road. In the centre, where OpenStreetMap draws a crossroads as half a dozen
+   * overlapping ways, the result was pale shapes scattered across the tarmac with no relation to
+   * anything — and a crowd that looked like it was walking in the road because the road and the
+   * pavement had stopped being different places.
+   *
+   * Now each strip is laid on the side the network says has room for one, sample by sample, and
+   * broken wherever a sample is inside another carriageway. It reads the same `footpath` the
+   * pedestrians walk on, so where a pavement is drawn and where somebody walks are one decision.
    */
-  scene.add(ribbon(relief, blueprint.roads, PAVEMENT_Y, new THREE.MeshStandardMaterial({
+  scene.add(pavements(relief, network, new THREE.MeshStandardMaterial({
     color: '#6e6c66',
     roughness: 0.93,
     metalness: 0,
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
-  }), 1, PAVEMENT))
+  })))
   scene.add(ribbon(relief, blueprint.roads, ROAD_Y, new THREE.MeshStandardMaterial({
     color: '#33383b',
     roughness: 0.95,
@@ -71,14 +83,6 @@ export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint, network: 
     polygonOffsetFactor: -3,
     polygonOffsetUnits: -3,
   }), 1))
-  scene.add(junctions(network, PAVEMENT_Y, PAVEMENT, new THREE.MeshStandardMaterial({
-    color: '#6e6c66',
-    roughness: 0.93,
-    metalness: 0,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2,
-  })))
   scene.add(junctions(network, ROAD_Y, 1.2, new THREE.MeshStandardMaterial({
     color: '#33383b',
     roughness: 0.95,
@@ -106,6 +110,175 @@ export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint, network: 
     polygonOffsetUnits: -4,
   }), 1))
 }
+
+/**
+ * The pavements, as strips beside the streets that have room for one.
+ *
+ * Built from the network rather than from the ways, because the network already knows where a road's
+ * running surface is — and that is the whole question. A pavement sits just outside its own kerb,
+ * which at a junction is the middle of somebody else's street; drawn blindly, that is a scattering
+ * of pale shapes across the tarmac and a crowd that looks like it is walking in the road.
+ *
+ * So each side of each stretch is sampled along its length and the strip is broken wherever a sample
+ * falls inside another carriageway. The line it straddles is `pavementLane`, the same one the crowd
+ * walks along, so where a pavement is drawn and where somebody walks are one decision.
+ */
+function pavements(relief: Relief, network: RoadNetwork, material: THREE.Material): THREE.Mesh {
+  const position: number[] = []
+  const normal: number[] = []
+  const uv: number[] = []
+  const index: number[] = []
+  const roads = carriageways(network)
+  const at = { x: 0, y: 0, z: 0, ux: 0, uz: 1 }
+
+  /** One cross-section of a strip: the kerb edge, the outer edge, and how far down the street it is. */
+  interface Rung { ix: number, iz: number, iy: number, ox: number, oz: number, oy: number, along: number }
+
+  const emit = (run: Rung[], side: number): void => {
+    if (run.length < 2)
+      return
+    const first = position.length / 3
+    for (const rung of run) {
+      /*
+       * Kerb first going one way, outer edge first going the other. The strip on the left of a
+       * street is the mirror of the one on the right, and a mirrored quad is wound the other way
+       * round — which, with back faces culled as they are everywhere else, would have made every
+       * left-hand pavement in the city invisible from above.
+       */
+      if (side > 0)
+        position.push(rung.ix, rung.iy + PAVEMENT_Y, rung.iz, rung.ox, rung.oy + PAVEMENT_Y, rung.oz)
+      else position.push(rung.ox, rung.oy + PAVEMENT_Y, rung.oz, rung.ix, rung.iy + PAVEMENT_Y, rung.iz)
+      normal.push(0, 1, 0, 0, 1, 0)
+      uv.push(0, rung.along / 8, 1, rung.along / 8)
+    }
+    for (let i = 0; i < run.length - 1; i += 1) {
+      const a = first + i * 2
+      index.push(a, a + 2, a + 1, a + 1, a + 2, a + 3)
+    }
+  }
+
+  for (const edge of network.edges) {
+    /*
+     * The strip straddles the line the crowd walks along, rather than starting at the kerb and
+     * happening to end up there. Same numbers, one source: if `pavementLane` ever moves, the paint
+     * moves with it instead of leaving the pedestrians walking beside their own pavement.
+     */
+    const middle = pavementLane(edge.width)
+    const inner = middle - PAVEMENT / 2
+    const outer = middle + PAVEMENT / 2
+    // Whole steps, so the strip reaches the end of the stretch instead of stopping a metre short.
+    const steps = Math.max(1, Math.round(edge.length / PAVEMENT_STEP))
+
+    /*
+     * Both sides, not just the walkable one. `footpath` picks the better of the two because a
+     * traveller has to be on one or the other; a street has a pavement down each side wherever
+     * there is room for one, and drawing only the side the crowd happens to use left every street
+     * in the city with a kerb on one hand and grass on the other.
+     */
+    for (const side of [1, -1]) {
+      strip(edge, side, inner, outer, steps)
+    }
+  }
+
+  /** Lay one side of one street, breaking the strip wherever it would cross another carriageway. */
+  function strip(edge: RoadEdge, side: number, inner: number, outer: number, steps: number): void {
+    let run: Rung[] = []
+
+    for (let step = 0; step <= steps; step += 1) {
+      const along = edge.length * step / steps
+      sampleEdge(edge, along, at)
+      const ix = at.x - at.uz * inner * side
+      const iz = at.z + at.ux * inner * side
+      const ox = at.x - at.uz * outer * side
+      const oz = at.z + at.ux * outer * side
+      /*
+       * The higher of the road's own surface and the ground the strip is actually standing on.
+       *
+       * Neither alone will do. Laid on the ground, a pavement drops into the river under a bridge,
+       * because a deck is not the land beneath it. Laid at the road's height, it disappears into the
+       * hillside wherever the land rises away from the kerb — measured on this ground plan, that is
+       * a third of every pavement position in the city, by up to seven metres, which is why the
+       * crowd was walking down a street with grass where its footway should be.
+       */
+      const rung: Rung = {
+        ix,
+        iz,
+        iy: Math.max(at.y, relief.height(ix, iz)),
+        ox,
+        oz,
+        oy: Math.max(at.y, relief.height(ox, oz)),
+        along,
+      }
+
+      /*
+       * The middle of the strip decides whether there is room. Testing a corner would break the
+       * strip wherever a kerb merely brushes another road, and a pavement that stops every few
+       * metres is worse than one that overlaps a little.
+       */
+      if (roads.blocked((ix + ox) / 2, (iz + oz) / 2, edge)) {
+        emit(run, side)
+        run = []
+        continue
+      }
+
+      /*
+       * A straight stretch needs two rungs, not seventy. The samples are four metres apart because
+       * that is the resolution the blocked test needs to notice a side road, but the geometry only
+       * needs a rung where the street actually turns or the ground actually bends — which takes the
+       * city's pavements from 241,000 triangles to 39,400 for a surface that looks identical.
+       */
+      const last = run[run.length - 1]
+      const before = run[run.length - 2]
+      if (last && before && straight(before, last, rung))
+        run[run.length - 1] = rung
+      else run.push(rung)
+    }
+    emit(run, side)
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(position, 3))
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normal, 3))
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+  geometry.setIndex(index)
+  geometry.computeBoundingSphere()
+
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.receiveShadow = true
+  return mesh
+}
+
+/** How far a dropped rung may leave the surface, in metres. Three centimetres is under a kerb face. */
+const RUNG_SAG = 0.03
+
+/**
+ * Whether three rungs of a pavement run in a straight enough line that the middle one adds nothing.
+ *
+ * Height is judged by how far the middle rung would *sag* from the line between its neighbours, not
+ * by how much it differs from them. The difference matters: on any slope at all, consecutive rungs
+ * always differ, so comparing them kept every rung on every hill in the city and the simplification
+ * saved a fifth of nothing. What a flat quad actually gets wrong is the sag, and a long even gradient
+ * has none — it is a straight line that happens not to be level.
+ */
+function straight(a: Sample, b: Sample, c: Sample): boolean {
+  const span = Math.hypot(c.ix - a.ix, c.iz - a.iz)
+  if (span <= 0)
+    return false
+  const t = Math.hypot(b.ix - a.ix, b.iz - a.iz) / span
+  if (Math.abs(b.iy - (a.iy + (c.iy - a.iy) * t)) > RUNG_SAG)
+    return false
+  if (Math.abs(b.oy - (a.oy + (c.oy - a.oy) * t)) > RUNG_SAG)
+    return false
+  const ax = b.ix - a.ix
+  const az = b.iz - a.iz
+  const bx = c.ix - b.ix
+  const bz = c.iz - b.iz
+  const lengths = Math.hypot(ax, az) * Math.hypot(bx, bz)
+  return lengths > 0 && (ax * bx + az * bz) / lengths > 0.9995
+}
+
+/** What `straight` needs to see of a rung: where it is on the ground, and how high each edge is. */
+interface Sample { ix: number, iz: number, iy: number, oy: number }
 
 /**
  * Lay a flat ribbon along every path, hugging the ground the whole way.

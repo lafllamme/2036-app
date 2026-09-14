@@ -1,6 +1,7 @@
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import * as THREE from 'three/webgpu'
+import { complexions } from './world/complexion'
 
 /**
  * Everything in the city that is a model rather than geometry we generate: the housing the pipeline
@@ -113,6 +114,13 @@ export interface CityModels {
   commercialMaterial: THREE.MeshStandardMaterial
   vehicleMaterial: THREE.MeshStandardMaterial
   peopleMaterial: THREE.MeshStandardMaterial
+  /**
+   * The same material once per skin tone, each with its own recoloured copy of the atlas.
+   *
+   * A character is drawn with one of them for the session. See `world/complexion.ts` for why the
+   * atlas is recoloured rather than the figure tinted.
+   */
+  peopleSkins: THREE.MeshStandardMaterial[]
   natureMaterial: THREE.MeshStandardMaterial
   roadsMaterial: THREE.MeshStandardMaterial
   trafficLight: CityModel | null
@@ -385,6 +393,7 @@ export async function loadCityModels(): Promise<CityModels> {
     commercialMaterial: commercial.material,
     vehicleMaterial: vehicles.material,
     peopleMaterial: people.material,
+    peopleSkins: peopleAtlas ? complexions(people.material, peopleAtlas) : [people.material],
     natureMaterial: nature.material,
     roadsMaterial: roads.material,
     trafficLight: roads.models.find(model => model.id === TRAFFIC_LIGHT_ID) ?? null,

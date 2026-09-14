@@ -64,24 +64,6 @@ export const PERSON_HEIGHT = 1.75
  * distance at all a police car was a flashing dot and the Kenney model it belongs to was invisible.
  * The car is the thing worth looking at; the lamp only says which car it is.
  */
-/**
- * The range a kit character is tinted over.
- *
- * Six multipliers from cool to warm, all close to one so nothing is bleached or blackened — the
- * atlas already carries the actual colours and this only shifts them. They are a spread, not a set
- * of types: which one a figure gets says nothing and is never read back.
- *
- * Which one belongs to whom is worked out once, from the citizen's own number, and carried on the
- * traveller. Deriving it from the mesh slot instead is what made the whole crowd flicker.
- */
-const COMPLEXION = /* @__PURE__ */ [
-  new THREE.Color(1.04, 1.02, 0.99),
-  new THREE.Color(0.98, 0.94, 0.88),
-  new THREE.Color(0.9, 0.82, 0.73),
-  new THREE.Color(0.79, 0.69, 0.59),
-  new THREE.Color(0.66, 0.56, 0.47),
-  new THREE.Color(0.54, 0.45, 0.38),
-]
 
 /**
  * How a walk is drawn.
@@ -156,12 +138,12 @@ export interface Fleet {
   /** How many of this fleet are within earshot of the camera, counted afresh on every pass. */
   nearby: number
   /**
-   * Whether this fleet is kept near the listener rather than spread over the city.
+   * How far a traveller may stray before it is put back near the listener, and how near.
    *
-   * True for people, false for traffic. A car three kilometres away still matters — it might be the
-   * ambulance on its way to a call — but nobody is ever waiting for a particular pedestrian.
+   * Null for a fleet that has business elsewhere. Everything else is kept where the player is
+   * looking, because a city spread evenly over three kilometres is empty wherever anybody stands.
    */
-  gathers: boolean
+  gathers: [number, number] | null
   /** Which stretches this fleet may be put back on, indexed by where they are. */
   index: EdgeIndex | null
 }
@@ -190,15 +172,6 @@ export interface Traveller {
   responding: boolean
   /** Its own phase in the walk, so a crowd does not step in time. */
   gait: number
-  /**
-   * This one's own complexion, as an index into `COMPLEXION`.
-   *
-   * On the traveller rather than on the mesh slot, and that is not a detail. Once a figure started
-   * walking it changed mesh — and slot — several times a second, and a colour written per slot at
-   * build time meant every person in the city flickered through six skin tones as they walked. It
-   * looked like a lighting fault and was a bookkeeping one.
-   */
-  tint: number
   /**
    * How tall this one is against a grown adult.
    *
@@ -230,8 +203,15 @@ export interface FleetPlan {
   weight: (model: CityModel) => number
   service: (model: CityModel) => Service
   stride?: boolean
-  /** Whether this fleet is made of people, and so is tinted across a range of complexions. */
+  /** Whether this fleet is made of people, and so takes a gender, a height and a walk. */
   people?: boolean
+  /**
+   * How far a traveller may stray before it is put back, and how near it is put back to.
+   *
+   * Given for any fleet that should stay where the player is looking. Omitted for a fleet that has
+   * business elsewhere in the city.
+   */
+  gatherRange?: [number, number]
   /** Where this fleet's block of citizen numbers starts, so no two fleets share a person. */
   citizenBase?: number
   /** The city's seed, so a figure's height and their age are worked out from the same number. */
@@ -244,7 +224,13 @@ export function buildFleet(
   network: RoadNetwork,
   allowed: Uint8Array,
   models: CityModel[],
-  material: THREE.Material,
+  /**
+   * One material, or one per character.
+   *
+   * People get several: the kit gives its twelve characters about two skin tones between them, so
+   * each character is drawn with its own recoloured copy of the atlas. Vehicles get one.
+   */
+  material: THREE.Material | THREE.Material[],
   count: number,
   draw: () => number,
   plan: FleetPlan,
@@ -275,8 +261,8 @@ export function buildFleet(
     mount,
     mountDrop: plan.mount?.drop ?? 0,
     nearby: 0,
-    gathers: plan.people === true,
-    index: plan.people === true ? indexEdges(network, allowed) : null,
+    gathers: plan.gatherRange ?? (plan.people === true ? [RECYCLE_RANGE, GATHER_RANGE] : null),
+    index: plan.gatherRange || plan.people === true ? indexEdges(network, allowed) : null,
   }
 
   const open: number[] = []
@@ -350,7 +336,6 @@ export function buildFleet(
       responding: false,
       gait: draw() * Math.PI * 2,
       stature: plan.people ? statureAt(citizen, plan.seed) : 1,
-      tint: plan.people ? Math.abs(Math.imul(citizen + 1, 2_654_435_761)) % COMPLEXION.length : -1,
       /*
        * Unique across the whole city, not within a fleet: the pedestrians and the cyclists are two
        * fleets and one population, and a walker and a rider must never turn out to be the same
@@ -373,7 +358,8 @@ export function buildFleet(
       const size = plan.scale(model)
       const geometry = model.geometry.clone()
       geometry.scale(size, size, size)
-      const mesh = buildMesh(scene, geometry, material, crew.length)
+      const skin = Array.isArray(material) ? material[index % material.length]! : material
+      const mesh = buildMesh(scene, geometry, skin, crew.length)
       row.push(fleet.meshes.length)
       fleet.meshes.push(mesh)
       fleet.drawn.push([])
@@ -389,8 +375,13 @@ function buildMesh(scene: THREE.Scene, geometry: THREE.BufferGeometry, material:
   const mesh = new THREE.InstancedMesh(geometry, material, capacity)
 
   /*
-   * Neutral to begin with. A fleet of people writes a complexion per instance as it draws, because
-   * which slot a figure occupies changes as it walks; a fleet of vehicles never touches it again.
+   * Neutral, and left that way.
+   *
+   * A figure's skin comes from its own recoloured copy of the atlas — see `complexion.ts` — rather
+   * than from an instance colour. An instance colour multiplies the whole figure, clothes included,
+   * so a dark skin tone arrived with a brown shirt and the crowd ended up looking like one person
+   * under different lighting. It also had to be rewritten every pass once the walk cycle started
+   * moving figures between slots, and getting that wrong made the whole city flicker.
    */
   for (let instance = 0; instance < capacity; instance += 1) mesh.setColorAt(instance, WHITE)
 
@@ -428,13 +419,12 @@ export function drive(fleet: Fleet, streets: Streets, delta: number, elapsed: nu
   if (share > 0)
     advance(fleet, streets, Math.min(0.2, delta), elapsed)
   if (camera && fleet.gathers)
-    gather(fleet, streets, camera)
+    gather(fleet, streets, camera, fleet.gathers)
 
   // What this fleet has within earshot, counted fresh: the sound asks the fleets, not the reverse.
   fleet.nearby = 0
 
   mounted = 0
-  let coloured = false
   for (const mesh of fleet.meshes) mesh.count = 0
 
   fleet.crews.forEach((crew, character) => {
@@ -467,24 +457,12 @@ export function drive(fleet: Fleet, streets: Streets, delta: number, elapsed: nu
       const mesh = fleet.meshes[at]!
       const slot = mesh.count
       place(mesh, slot, streets, fleet, traveller, elapsed, camera)
-      /*
-       * The colour goes with the person. It is written every pass because the slot a figure sits in
-       * is not the same one it sat in last frame.
-       */
-      if (traveller.tint >= 0) {
-        mesh.setColorAt(slot, COMPLEXION[traveller.tint]!)
-        coloured = true
-      }
       ;(fleet.drawn[at] ??= [])[slot] = traveller
       mesh.count = slot + 1
     }
   })
 
-  for (const mesh of fleet.meshes) {
-    mesh.instanceMatrix.needsUpdate = true
-    if (coloured && mesh.instanceColor)
-      mesh.instanceColor.needsUpdate = true
-  }
+  for (const mesh of fleet.meshes) mesh.instanceMatrix.needsUpdate = true
 
   if (fleet.mount) {
     fleet.mount.count = mounted
@@ -500,7 +478,7 @@ export function drive(fleet: Fleet, streets: Streets, delta: number, elapsed: nu
  * so a fleet is as reproducible as it was before — a city that looks different on the second run
  * from the same seed is a city nobody can debug.
  */
-function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3): void {
+function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, [stray, reach]: [number, number]): void {
   const index = fleet.index
   if (!index)
     return
@@ -510,11 +488,15 @@ function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3): void {
     const edge = streets.network.edges[traveller.edge]
     if (!edge)
       continue
-    if (Math.hypot(edge.points[0]! - camera.x, edge.points[1]! - camera.z) < RECYCLE_RANGE)
+    // Anything on a call has somewhere to be. Moving it because the player panned away is the one
+    // thing that would break the dispatch.
+    if (traveller.callout)
+      continue
+    if (Math.hypot(edge.points[0]! - camera.x, edge.points[1]! - camera.z) < stray)
       continue
 
     // Looked up once per pass and only if somebody actually needs moving.
-    candidates ??= index.near(camera.x, camera.z, GATHER_RANGE)
+    candidates ??= index.near(camera.x, camera.z, reach)
     if (candidates.length === 0)
       return
 
@@ -698,7 +680,17 @@ function place(mesh: THREE.InstancedMesh, index: number, streets: Streets, fleet
    * traveller's own share of it only decides where within that lane they are, so that a pavement is
    * a crowd rather than a queue.
    */
+  /*
+   * How far out to sit, and on which hand.
+   *
+   * A fleet that walks takes the side the street actually has a pavement on — worked out once
+   * against the whole network, because "just outside my own kerb" is the middle of somebody else's
+   * carriageway at every junction in the city. Everything else keeps to the hand it is travelling
+   * on, which is what puts the two directions of traffic on opposite sides without anything having
+   * to decide which is which.
+   */
   const lane = acrossLane(fleet.laneOf(edge.width), fleet.spread, traveller.lane)
+    * (fleet.stride && edge.footpath !== 0 ? edge.footpath * (traveller.forward ? 1 : -1) : 1)
   const x = sample.x - uz * lane
   const z = sample.z + ux * lane
 

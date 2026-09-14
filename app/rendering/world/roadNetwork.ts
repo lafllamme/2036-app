@@ -37,6 +37,18 @@ export interface RoadEdge {
   /** The direction the stretch sets off in, and the direction it arrives in, in radians. */
   outBearing: number
   inBearing: number
+  /**
+   * Which side of this stretch has a pavement somebody can actually walk on: 1, -1, or 0 for
+   * neither.
+   *
+   * Worked out once against the whole network rather than against this road alone, and that is the
+   * entire point of it. A pavement sits just outside its own kerb — and where two streets cross, or
+   * where OpenStreetMap has drawn a service road a few metres from a main one, "just outside my
+   * kerb" is the middle of somebody else's carriageway. Measured on this ground plan: better than
+   * one pavement position in six was inside another road, which is where the crowd walking down the
+   * middle of the street came from.
+   */
+  footpath: number
 }
 
 export interface RoadNode {
@@ -124,7 +136,107 @@ export function buildRoadNetwork(blueprint: CityBlueprint, relief: Relief): Road
     }
   }
 
-  return { nodes, edges }
+  const network = { nodes, edges }
+  layPavements(network)
+  return network
+}
+
+/** Cell pitch. Wide enough that a query touches few cells, narrow enough that each holds few edges. */
+const INDEX_CELL = 120
+
+/** How far out from the kerb the middle of a pavement sits. Matches `pavementLane` in `lanes.ts`. */
+const PAVEMENT_OFFSET = 1.15
+const PROBE = { x: 0, y: 0, z: 0, ux: 0, uz: 1 }
+
+/**
+ * Decide, for every stretch, which side a pedestrian may walk on.
+ *
+ * Both sides are tested along the whole length of the stretch against every other carriageway in the
+ * city; the side with fewer blocked samples wins, and a stretch where both sides are mostly in
+ * somebody else's road gets none and is left out of the walkable set. Better a street with nobody on
+ * it than a street with everybody in the middle of it.
+ */
+function layPavements(network: RoadNetwork): void {
+  const index = carriageways(network)
+
+  for (const edge of network.edges) {
+    let best = 0
+    let bestClear = 0
+    for (const side of [1, -1]) {
+      let clear = 0
+      let tested = 0
+      for (let along = 3; along < edge.length; along += 9) {
+        sample(edge, along, PROBE)
+        const half = edge.width / 2 + PAVEMENT_OFFSET
+        const x = PROBE.x - PROBE.uz * half * side
+        const z = PROBE.z + PROBE.ux * half * side
+        tested += 1
+        if (!index.blocked(x, z, edge))
+          clear += 1
+      }
+      const share = tested === 0 ? 0 : clear / tested
+      if (share > bestClear) {
+        bestClear = share
+        best = side
+      }
+    }
+    // Two thirds clear is a pavement with the odd interruption. Less than that is not a pavement.
+    edge.footpath = bestClear >= 0.66 ? best : 0
+  }
+}
+
+/** Every carriageway in one grid, so a point can ask whether it is standing in a road. */
+function carriageways(network: RoadNetwork): { blocked: (x: number, z: number, own: RoadEdge) => boolean } {
+  const cells = new Map<number, { edge: RoadEdge, ax: number, az: number, bx: number, bz: number }[]>()
+  const key = (column: number, row: number): number => column * 100_000 + row
+
+  for (const edge of network.edges) {
+    for (let i = 0; i < edge.points.length / 2 - 1; i += 1) {
+      const piece = {
+        edge,
+        ax: edge.points[i * 2]!,
+        az: edge.points[i * 2 + 1]!,
+        bx: edge.points[(i + 1) * 2]!,
+        bz: edge.points[(i + 1) * 2 + 1]!,
+      }
+      const minColumn = Math.floor(Math.min(piece.ax, piece.bx) / INDEX_CELL)
+      const maxColumn = Math.floor(Math.max(piece.ax, piece.bx) / INDEX_CELL)
+      const minRow = Math.floor(Math.min(piece.az, piece.bz) / INDEX_CELL)
+      const maxRow = Math.floor(Math.max(piece.az, piece.bz) / INDEX_CELL)
+      for (let column = minColumn; column <= maxColumn; column += 1) {
+        for (let row = minRow; row <= maxRow; row += 1) {
+          const bucket = cells.get(key(column, row))
+          if (bucket)
+            bucket.push(piece)
+          else cells.set(key(column, row), [piece])
+        }
+      }
+    }
+  }
+
+  return {
+    blocked(x, z, own) {
+      const column = Math.floor(x / INDEX_CELL)
+      const row = Math.floor(z / INDEX_CELL)
+      for (let a = column - 1; a <= column + 1; a += 1) {
+        for (let b = row - 1; b <= row + 1; b += 1) {
+          for (const piece of cells.get(key(a, b)) ?? []) {
+            if (piece.edge === own)
+              continue
+            const dx = piece.bx - piece.ax
+            const dz = piece.bz - piece.az
+            const span = dx * dx + dz * dz
+            const t = span > 0
+              ? Math.max(0, Math.min(1, ((x - piece.ax) * dx + (z - piece.az) * dz) / span))
+              : 0
+            if (Math.hypot(x - (piece.ax + t * dx), z - (piece.az + t * dz)) < piece.edge.width / 2)
+              return true
+          }
+        }
+      }
+      return false
+    },
+  }
 }
 
 /** One stretch of a way, from one junction to the next. */
@@ -158,12 +270,18 @@ function cut(road: RoadRecord, surface: number[], from: number, to: number, clai
     arterial: road.arterial,
     from: claim(points[0]!, points[1]!),
     to: claim(points[(count - 1) * 2]!, points[(count - 1) * 2 + 1]!),
+    footpath: 0,
     outBearing: Math.atan2(points[2]! - points[0]!, points[3]! - points[1]!),
     inBearing: Math.atan2(
       points[(count - 1) * 2]! - points[(count - 2) * 2]!,
       points[(count - 1) * 2 + 1]! - points[(count - 2) * 2 + 1]!,
     ),
   }
+}
+
+/** The same as `sampleEdge`, under the name the pavement pass uses before that one is declared. */
+function sample(edge: RoadEdge, along: number, out: { x: number, y: number, z: number, ux: number, uz: number }): void {
+  sampleEdge(edge, along, out)
 }
 
 /** Where a point at `along` metres down a stretch is, written into `out` as x, z and heading. */
@@ -213,9 +331,6 @@ export function bearingFrom(edge: RoadEdge, node: number): number {
  * A grid rather than a tree because the question is always "what is near this point" over a fixed
  * radius, and a grid answers that by looking at the handful of cells around it.
  */
-
-/** Cell pitch. Wide enough that a query touches few cells, narrow enough that each holds few edges. */
-const INDEX_CELL = 120
 
 export interface EdgeIndex {
   /** Indices of every stretch whose midpoint is within `radius` of the point. */

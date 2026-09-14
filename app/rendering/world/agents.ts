@@ -39,11 +39,12 @@ const CAR_COUNT = 620
  * How many are out on foot.
  *
  * They are all kept within a few hundred metres of the camera — see `gather` in `fleet.ts` — so this
- * is not five hundred people spread over three kilometres of city, it is five hundred on the streets
- * around the player. Raised once that was true: at the old count, concentrated, a pavement was busy;
- * at this one it is a city.
+ * is not a number spread over three kilometres of city, it is the number on the streets around the
+ * player. Which is why it came back down: measured against the ground plan, nine hundred inside the
+ * gather radius is one person every seven metres of street, and a pavement at midday has one every
+ * fifteen to twenty-five. Four hundred and twenty is a busy city; nine hundred was a demonstration.
  */
-const WALKER_COUNT = 900
+const WALKER_COUNT = 420
 /**
  * How many are on a bike.
  *
@@ -175,7 +176,8 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
   const walkable = new Uint8Array(network.edges.length)
   network.edges.forEach((edge, index) => {
     driveable[index] = edge.arterial || edge.width >= DRIVABLE_WIDTH ? 1 : 0
-    walkable[index] = 1
+    // Only streets that have a pavement on one side or the other. See `footpath` in `roadNetwork.ts`.
+    walkable[index] = edge.footpath === 0 ? 0 : 1
   })
 
   const cars = buildFleet(scene, network, driveable, models.vehicles, models.vehicleMaterial, CAR_COUNT, draw, {
@@ -183,6 +185,17 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
     spread: DRIVING_SPREAD,
     lift: 0.05,
     obeysSignals: true,
+    /*
+     * Ordinary traffic is kept near the camera like the crowd is, and for the same reason: six
+     * hundred cars spread over two hundred kilometres of street is one every three hundred and
+     * forty metres, so the visible city had a hundred pedestrians and two cars in it. Gathered over
+     * a wider radius than the crowd — a car covers ground, and a street with a car every ten metres
+     * is a traffic jam — this comes to one every ninety-odd metres, which is a working road.
+     *
+     * Anything on a call is left out of it. A responder has somewhere to be, and moving it because
+     * the player panned away is the one thing that would break the dispatch.
+     */
+    gatherRange: [1_400, 900],
     speed: [9, 16],
     scale: model => (BIG_VEHICLES.has(model.id) ? BIG_CAR_LENGTH : CAR_LENGTH) / Math.max(0.001, Math.max(model.size.x, model.size.z)),
     weight: model => COMMON_VEHICLES.includes(model.id) ? 1 - RARE_VEHICLE_SHARE : RARE_VEHICLE_SHARE,
@@ -200,12 +213,13 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
    * The cyclists. Kit people on machines written out in `bicycle.ts`, riding the same graph the cars
    * do and stopping at the same signals — the one difference is where on the carriageway they sit.
    */
-  const cyclists = buildFleet(scene, network, driveable, models.riders, models.peopleMaterial, CYCLIST_COUNT, draw, {
+  const cyclists = buildFleet(scene, network, driveable, models.riders, models.peopleSkins, CYCLIST_COUNT, draw, {
     laneOf: cycleLane,
     spread: CYCLE_SPREAD,
     lift: SADDLE,
     obeysSignals: true,
     speed: CYCLIST_SPEED,
+    gatherRange: [800, 520],
     scale: model => PERSON_HEIGHT / Math.max(0.001, model.size.y),
     weight: () => 1,
     service: () => 'none' as Service,
@@ -220,7 +234,7 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
   return {
     cars,
     cyclists,
-    pedestrians: buildFleet(scene, network, walkable, models.people, models.peopleMaterial, WALKER_COUNT, draw, {
+    pedestrians: buildFleet(scene, network, walkable, models.people, models.peopleSkins, WALKER_COUNT, draw, {
       laneOf: pavementLane,
       spread: PAVEMENT_SPREAD,
       lift: 0.02,

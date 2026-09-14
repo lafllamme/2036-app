@@ -124,7 +124,12 @@ export function personAt(agents: Agents, mesh: THREE.Object3D, instance: number)
     const at = fleet.meshes.indexOf(mesh as THREE.InstancedMesh)
     if (at < 0)
       continue
-    const traveller = fleet.crews[at]?.[instance]
+    /*
+     * `drawn` rather than `crews`, and that is the whole difference the walk cycle made: which mesh
+     * a figure is drawn from changes as it walks, so the instance number only means something
+     * against the record of what was written this frame.
+     */
+    const traveller = fleet.drawn[at]?.[instance]
     if (!traveller)
       return null
     const edge = agents.network.edges[traveller.edge]
@@ -191,7 +196,7 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
    * The cyclists. Kit people on machines written out in `bicycle.ts`, riding the same graph the cars
    * do and stopping at the same signals — the one difference is where on the carriageway they sit.
    */
-  const cyclists = buildFleet(scene, network, driveable, models.people, models.peopleMaterial, CYCLIST_COUNT, draw, {
+  const cyclists = buildFleet(scene, network, driveable, models.riders, models.peopleMaterial, CYCLIST_COUNT, draw, {
     laneOf: cycleLane,
     spread: CYCLE_SPREAD,
     lift: SADDLE,

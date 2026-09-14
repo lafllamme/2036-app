@@ -26,8 +26,11 @@ export interface Origin {
   born: 'here' | 'there'
 }
 
+export type Gender = 'male' | 'female'
+
 export interface Citizen {
   name: string
+  gender: Gender
   age: number
   origin: Origin
   job: string
@@ -64,79 +67,85 @@ const ORIGINS: { country: string, weight: number }[] = [
 ]
 
 /**
- * Names, paired at random.
+ * Names, paired at random within a gender.
  *
- * Wide enough that a player clicking their way down a street does not meet the same person twice —
- * sixty given names against fifty family names is three thousand combinations for the seven hundred
- * figures that can be clicked. Not wide enough to make a repeat impossible, and deliberately so: in
- * a city of a hundred and twenty thousand there are several Anna Meyers, and a game where every name
- * is unique is a game with a cast rather than a population.
+ * Two lists rather than one, and the reason is a defect a player found: the figure and the card
+ * disagreed. The crowd's models carry a gender in their own filename, the names were drawn from one
+ * pooled list, and the result was a woman called Jonas often enough to notice. Whatever is on the
+ * card now has to match what is standing in the street — which means gender is derived from the
+ * citizen's number, in `genderAt`, and both the model and the name are read from it.
  *
- * Drawn from everywhere the city's people are from, and paired without regard to origin — a Yılmaz
- * called Lena and a Brandt called Emre are both entirely ordinary in a German city, and a generator
- * that matched them up would be inventing a rule that does not exist.
+ * Family names are shared, and paired without regard to origin — a Yılmaz called Lena and a Brandt
+ * called Emre are both entirely ordinary in a German city, and a generator that matched them up
+ * would be inventing a rule that does not exist.
+ *
+ * Wide enough that a player walking down a street does not meet the same person twice — thirty
+ * given names a side against fifty family names — and not so wide that a repeat is impossible,
+ * because a city of a hundred and twenty thousand has several Anna Meyers in it.
  */
-const FIRST_NAMES = [
-  'Anna',
+const MALE_NAMES = [
   'Lukas',
   'Mehmet',
-  'Sofia',
   'Jonas',
-  'Elif',
   'Paul',
-  'Katarzyna',
   'Emre',
-  'Marie',
   'Dragan',
-  'Lena',
-  'Ana',
   'Tobias',
-  'Fatma',
   'Piotr',
-  'Julia',
   'Nikos',
-  'Hannah',
   'Vlad',
-  'Irina',
   'Felix',
-  'Ayşe',
   'Milan',
-  'Greta',
   'Andrei',
   'Mateusz',
-  'Zeynep',
   'Karl',
-  'Olena',
   'Leon',
-  'Mia',
   'Hüseyin',
-  'Charlotte',
   'Finn',
-  'Aleksandra',
   'Matteo',
-  'Emilia',
   'Yusuf',
-  'Clara',
   'Ben',
-  'Nora',
   'Goran',
-  'Theresa',
   'Ivan',
+  'Jakob',
+  'Henrik',
+  'Oskar',
+  'Jan',
+  'Deniz',
+  'Til',
+  'Samir',
+]
+const FEMALE_NAMES = [
+  'Anna',
+  'Sofia',
+  'Elif',
+  'Katarzyna',
+  'Marie',
+  'Lena',
+  'Ana',
+  'Fatma',
+  'Julia',
+  'Hannah',
+  'Irina',
+  'Ayşe',
+  'Greta',
+  'Zeynep',
+  'Olena',
+  'Mia',
+  'Charlotte',
+  'Aleksandra',
+  'Emilia',
+  'Clara',
+  'Nora',
+  'Theresa',
   'Maja',
   'Kristina',
-  'Jakob',
   'Selin',
-  'Henrik',
   'Bianca',
-  'Oskar',
   'Amina',
-  'Jan',
   'Ruth',
-  'Deniz',
   'Magda',
-  'Til',
   'Vera',
-  'Samir',
 ]
 const SURNAMES = [
   'Brandt',
@@ -326,8 +335,10 @@ export function citizenAt(index: number, seed: number, share: number): Citizen {
     ? 2026 - age
     : 2026 - Math.max(1, Math.floor(roll(5) * Math.max(2, age - 14)))
 
+  const gender = genderAt(index, seed)
   return {
-    name: `${pick(FIRST_NAMES, roll(7))} ${pick(SURNAMES, roll(8))}`,
+    name: `${pick(gender === 'male' ? MALE_NAMES : FEMALE_NAMES, roll(7))} ${pick(SURNAMES, roll(8))}`,
+    gender,
     age,
     origin: { country, born },
     job: occupationFor(age, roll(6)),
@@ -349,6 +360,17 @@ export function ageAt(index: number, seed: number): number {
   // A second stream for the position inside the band, or everyone in a band would be the same age.
   const within = hash(index + 1, (seed & 0xFFFF) + 9)
   return band.from + Math.floor(within * (band.to - band.from))
+}
+
+/**
+ * Whether the figure with this index is drawn as a man or a woman.
+ *
+ * Apart from the rest for the same reason `ageAt` is: the renderer has to pick a model from it and
+ * has no business building a whole biography to do so, and the card has to agree with the figure the
+ * player is pointing at. One answer, read by both.
+ */
+export function genderAt(index: number, seed: number): Gender {
+  return hash(index + 1, (seed & 0xFFFF) + 11) < 0.5 ? 'male' : 'female'
 }
 
 /**

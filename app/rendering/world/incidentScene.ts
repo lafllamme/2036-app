@@ -1,7 +1,9 @@
 import type { Relief } from '../../world/relief'
 import type { CityModel, CityModels } from '../cityModels'
 import type { Incident } from './dispatch'
+import type { Service } from './incidents'
 import * as THREE from 'three/webgpu'
+import { CREW_IDS } from '../cityModels'
 import { AXIS_Y, FLAT, WHITE } from '../shared'
 import { carProxyGeometry, carProxyMaterial } from './carProxy'
 import { CALL_LIMIT_MAX, SHAPE } from './incidents'
@@ -35,21 +37,33 @@ const MAX_CREW = 3
 const CREW_RADIUS = 4.6
 
 /**
- * The crew, in the colour of their own service.
+ * What a crew wears, over the uniform the model already has.
  *
- * There is no police officer in the kit and there is not going to be: adding a second asset source
- * for three figures is not worth the licence page. A kit character tinted dark navy at this scale
- * reads as police, and one tinted high-visibility orange reads as fire — which is the whole of what
- * a uniform has to do from a camera twenty metres up.
+ * The first version tinted an ordinary civilian navy and called it police, which is what you do when
+ * you think the kit has no uniforms in it. It has six: reading each character's body UVs against the
+ * shared atlas shows `character-female-a` head to foot in blues and four more in dark greys and
+ * dark-with-white. Those are the crews now, and this only finishes the job — a touch of blue on the
+ * police, and high-visibility orange on a fire crew, which no character in the kit is wearing.
  *
- * The tint goes above one deliberately: an instance colour multiplies, so anything below one only
+ * Above one on purpose where it has to be: an instance colour multiplies, so anything below one only
  * darkens, and a fire crew has to be brighter than the street rather than dimmer.
  */
 const CREW_COLOUR = {
-  police: /* @__PURE__ */ new THREE.Color(0.24, 0.3, 0.62),
-  ambulance: /* @__PURE__ */ new THREE.Color(1.25, 0.95, 0.35),
-  fire: /* @__PURE__ */ new THREE.Color(1.5, 0.62, 0.16),
+  police: /* @__PURE__ */ new THREE.Color(0.85, 0.92, 1.15),
+  ambulance: /* @__PURE__ */ new THREE.Color(1.1, 1, 0.95),
+  fire: /* @__PURE__ */ new THREE.Color(1.5, 0.78, 0.3),
 } as const
+
+/** One instanced mesh per service, each built from the models that service actually wears. */
+function crewMeshes(scene: THREE.Scene, models: CityModels): IncidentScenes['crews'] {
+  const meshes: IncidentScenes['crews'] = {}
+  for (const [service, ids] of Object.entries(CREW_IDS) as [Exclude<Service, 'none'>, readonly string[]][]) {
+    const model = models.crew.find(entry => ids.includes(entry.id)) ?? models.people[0]
+    if (model)
+      meshes[service] = addModel(scene, model, models.peopleMaterial, SCENE_LIMIT * MAX_CREW)
+  }
+  return meshes
+}
 
 /** A crowd does not appear the moment something happens; it takes a few seconds to gather. */
 const GATHER_DELAY = 6
@@ -90,8 +104,8 @@ export interface IncidentScenes {
   marker: THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> | null
   cordon: THREE.InstancedMesh | null
   crowd: THREE.InstancedMesh[]
-  /** The crew standing at the scene, in the colour of the service that was called. */
-  officers: THREE.InstancedMesh | null
+  /** One mesh per service: the crew standing at the scene, in that service's own uniform. */
+  crews: Partial<Record<Exclude<Service, 'none'>, THREE.InstancedMesh>>
   /** The two cars left in the road after a collision. Nothing else in the city uses them. */
   wrecks: THREE.InstancedMesh
 }
@@ -111,9 +125,7 @@ export function createIncidentScenes(scene: THREE.Scene, models: CityModels): In
     marker: addMarker(scene),
     cordon: barrier ? addModel(scene, barrier, models.roadsMaterial, SCENE_LIMIT * MAX_CORDON) : null,
     crowd: crowdModels(models).map(model => addModel(scene, model, models.peopleMaterial, SCENE_LIMIT * MAX_CROWD)),
-    officers: models.people[0]
-      ? addModel(scene, models.people[0], models.peopleMaterial.clone(), SCENE_LIMIT * MAX_CREW)
-      : null,
+    crews: crewMeshes(scene, models),
     wrecks: addWrecks(scene),
   }
 }
@@ -219,7 +231,7 @@ export function updateIncidentScenes(
   let markers = 0
   let barriers = 0
   let wrecks = 0
-  let crew = 0
+  const crew: Partial<Record<Exclude<Service, 'none'>, number>> = {}
   const onlookers = scenes.crowd.map(() => 0)
 
   for (let index = 0; index < open; index += 1) {
@@ -284,7 +296,9 @@ export function updateIncidentScenes(
      * standing at it before anybody has driven there is a stage set, and the player has no way to
      * tell a call that was answered from one that was not.
      */
-    if (showCrowd && scenes.officers && incident.arrived !== null) {
+    const onDuty = scenes.crews[incident.service]
+    if (showCrowd && onDuty && incident.arrived !== null) {
+      const at = crew[incident.service] ?? 0
       for (let step = 0; step < MAX_CREW; step += 1) {
         const angle = (step / MAX_CREW) * Math.PI * 2 + index * 0.7
         const x = incident.x + Math.cos(angle) * CREW_RADIUS
@@ -292,11 +306,11 @@ export function updateIncidentScenes(
         position.set(x, relief.height(x, z), z)
         // Facing outward, at the cordon rather than at whatever is inside it.
         quaternion.setFromAxisAngle(AXIS_Y, Math.atan2(x - incident.x, z - incident.z))
-        scale.setScalar(PERSON_HEIGHT / Math.max(0.001, measure(scenes.officers.geometry)))
-        scenes.officers.setMatrixAt(crew, matrix.compose(position, quaternion, scale))
-        scenes.officers.setColorAt(crew, CREW_COLOUR[incident.service])
-        crew += 1
+        scale.setScalar(PERSON_HEIGHT / Math.max(0.001, measure(onDuty.geometry)))
+        onDuty.setMatrixAt(at + step, matrix.compose(position, quaternion, scale))
+        onDuty.setColorAt(at + step, CREW_COLOUR[incident.service])
       }
+      crew[incident.service] = at + MAX_CREW
     }
 
     for (let step = 0; step < shape.wrecks; step += 1) {
@@ -332,11 +346,11 @@ export function updateIncidentScenes(
   })
   scenes.wrecks.count = wrecks
   scenes.wrecks.instanceMatrix.needsUpdate = true
-  if (scenes.officers) {
-    scenes.officers.count = crew
-    scenes.officers.instanceMatrix.needsUpdate = true
-    if (scenes.officers.instanceColor)
-      scenes.officers.instanceColor.needsUpdate = true
+  for (const [service, mesh] of Object.entries(scenes.crews)) {
+    mesh.count = crew[service as Exclude<Service, 'none'>] ?? 0
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor)
+      mesh.instanceColor.needsUpdate = true
   }
 }
 

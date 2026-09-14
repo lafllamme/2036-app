@@ -4,7 +4,7 @@ import type { CityPressure, Service } from './incidents'
 import type { EdgeIndex, RoadEdge, RoadNetwork } from './roadNetwork'
 import type { SignalPlan } from './signalPlan'
 import * as THREE from 'three/webgpu'
-import { statureAt } from '../../world/citizens'
+import { genderAt, statureAt } from '../../world/citizens'
 import { AXIS_Y, WHITE } from '../shared'
 import { responseSpeed } from './incidents'
 import { acrossLane } from './lanes'
@@ -80,8 +80,16 @@ const COMPLEXION = /* @__PURE__ */ [
   new THREE.Color(0.54, 0.45, 0.38),
 ]
 
-/** How far a pedestrian rises and falls with each step, and how many steps a second they take. */
-const STRIDE_BOB = 0.045
+/**
+ * How a walk is drawn.
+ *
+ * `STRIDE_LENGTH` is how far somebody travels in one baked cycle, so the phase follows the ground
+ * covered rather than a clock: the cycle is tied to the distance, which is what stops a figure
+ * taking the same steps at twice the speed. The bob is what is left over — half a step's rise and
+ * fall, kept small now that the legs actually move.
+ */
+const STRIDE_LENGTH = 1.55
+const STRIDE_BOB = 0.02
 const STRIDE_RATE = 2.1
 /** How far a moving vehicle can be and still count toward what the city sounds like. */
 const TRAFFIC_EARSHOT = 260
@@ -107,8 +115,19 @@ const BRAKING = 14
  */
 /** One instanced mesh per model, and the travellers riding in it. */
 export interface Fleet {
+  /** Every mesh: one per character per baked phase of its walk. */
   meshes: THREE.InstancedMesh[]
+  /** The travellers of each character. A traveller belongs to a character, never to a phase. */
   crews: Traveller[][]
+  /** For each character, the indices into `meshes` of its phases, in order. */
+  phases: number[][]
+  /**
+   * Who was written into each instance of each mesh this frame.
+   *
+   * Rebuilt every pass, because which mesh a figure is drawn from changes as it walks. It is the
+   * only way back from a raycast hit — a mesh and an instance number — to a person.
+   */
+  drawn: Traveller[][]
   /** Every traveller in the fleet in one list, so the queue can be worked out in a single sort. */
   all: Traveller[]
   /** Which stretches this fleet is allowed on. */
@@ -218,8 +237,6 @@ export function buildFleet(
   draw: () => number,
   plan: FleetPlan,
 ): Fleet {
-  const meshes: THREE.InstancedMesh[] = []
-  const crews: Traveller[][] = []
   const all: Traveller[] = []
   const mount = plan.mount
     ? new THREE.InstancedMesh(plan.mount.geometry, plan.mount.material, count)
@@ -232,8 +249,10 @@ export function buildFleet(
   }
 
   const fleet: Fleet = {
-    meshes,
-    crews,
+    meshes: [],
+    crews: [],
+    phases: [],
+    drawn: [],
     all,
     allowed,
     obeysSignals: plan.obeysSignals,
@@ -259,13 +278,50 @@ export function buildFleet(
   // Weighted draw, so the ambulances stay rare without having to hand-place any of them.
   const weights = models.map(plan.weight)
   const total = weights.reduce((sum, weight) => sum + weight, 0)
-  const assigned: Traveller[][] = models.map(() => [])
+  /*
+   * Which models a figure of each gender may be drawn as.
+   *
+   * Empty for a fleet of vehicles, and the whole point for a fleet of people: the kit's characters
+   * carry a gender in their own filename, and a crowd that picked a model by weight and a name by a
+   * separate draw produced women called Jonas often enough for a player to notice. Gender comes off
+   * the citizen's number now, and both the model and the name are read from it.
+   */
+  /*
+   * The models grouped by the character they are, because several of them are the same person at
+   * different moments of the same walk. A traveller belongs to a character for life and is drawn
+   * from whichever of its phases matches where it is in its stride.
+   */
+  const characters: string[] = []
+  const phasesOf = new Map<string, number[]>()
+  models.forEach((model, index) => {
+    const who = model.id.split('#')[0]!
+    if (!phasesOf.has(who)) {
+      phasesOf.set(who, [])
+      characters.push(who)
+    }
+    phasesOf.get(who)!.push(index)
+  })
+
+  const byGender = {
+    male: characters.filter(who => who.includes('-male-')),
+    female: characters.filter(who => who.includes('-female-')),
+  }
+
+  const assigned: Traveller[][] = characters.map(() => [])
   for (let index = 0; index < count; index += 1) {
-    let roll = draw() * total
-    let chosen = 0
-    while (chosen < weights.length - 1 && roll > weights[chosen]!) {
-      roll -= weights[chosen]!
-      chosen += 1
+    const citizen = (plan.citizenBase ?? 0) + index
+    let chosen: number
+    const pool = plan.people ? byGender[genderAt(citizen, plan.seed)] : []
+    if (pool.length > 0) {
+      chosen = characters.indexOf(pool[Math.floor(draw() * pool.length)]!)
+    }
+    else {
+      let roll = draw() * total
+      chosen = 0
+      while (chosen < weights.length - 1 && roll > weights[chosen]!) {
+        roll -= weights[chosen]!
+        chosen += 1
+      }
     }
     const edge = open[Math.floor(draw() * open.length)]!
     const cruise = plan.speed[0] + draw() * (plan.speed[1] - plan.speed[0])
@@ -277,61 +333,77 @@ export function buildFleet(
       cruise,
       lane: draw(),
       rng: draw,
-      service: plan.service(models[chosen]!),
+      service: plan.service(models[phasesOf.get(characters[chosen]!)![0]!]!),
       callout: null,
       responding: false,
       gait: draw() * Math.PI * 2,
-      stature: plan.people ? statureAt((plan.citizenBase ?? 0) + index, plan.seed) : 1,
+      stature: plan.people ? statureAt(citizen, plan.seed) : 1,
       /*
        * Unique across the whole city, not within a fleet: the pedestrians and the cyclists are two
        * fleets and one population, and a walker and a rider must never turn out to be the same
        * person. `plan.citizenBase` is where this fleet's block of numbers starts.
        */
-      citizen: (plan.citizenBase ?? 0) + index,
+      citizen,
     }
     assigned[chosen]!.push(traveller)
     all.push(traveller)
   }
 
-  models.forEach((model, index) => {
+  characters.forEach((who, index) => {
     const crew = assigned[index]!
     if (crew.length === 0)
       return
-    const size = plan.scale(model)
-    const geometry = model.geometry.clone()
-    geometry.scale(size, size, size)
-    const mesh = new THREE.InstancedMesh(geometry, material, crew.length)
-    /*
-     * A crowd of people rather than twelve people repeated.
-     *
-     * The kit has twelve characters and bakes skin and clothes into one atlas, so the only thing an
-     * instance can change is a multiplier over the whole figure. Kept deliberately narrow and warm-
-     * to-neutral: enough that a pavement is not a dozen identical faces, never so much that it reads
-     * as a costume. Vehicles keep their own paint and are left alone.
-     *
-     * This is appearance and only appearance. Nothing anywhere reads it back — see the rule in
-     * `docs/CITY_LIFE.md` — and when the simulation's `originMix` drives the distribution it will
-     * still only decide who is on the pavement, never what they do there.
-     */
-    for (let instance = 0; instance < crew.length; instance += 1) {
-      mesh.setColorAt(instance, plan.people
-        ? COMPLEXION[(instance * 7 + index * 3) % COMPLEXION.length]!
-        : WHITE)
+    fleet.crews.push(crew)
+    const row: number[] = []
+    for (const modelIndex of phasesOf.get(who)!) {
+      const model = models[modelIndex]!
+      const size = plan.scale(model)
+      const geometry = model.geometry.clone()
+      geometry.scale(size, size, size)
+      const mesh = buildMesh(scene, geometry, material, crew.length, plan, index)
+      row.push(fleet.meshes.length)
+      fleet.meshes.push(mesh)
+      fleet.drawn.push([])
     }
-    /*
-     * Traffic casts no shadow. Six hundred cars at two thousand triangles apiece go through the
-     * shadow pass as well as the colour one, which is the single largest thing in a frame — measured
-     * at four and a half million triangles of the nine a shadow frame was costing. What it buys is a
-     * car-shaped smudge on a road that is already in the shade of the buildings either side of it.
-     */
-    mesh.castShadow = false
-    mesh.frustumCulled = false
-    scene.add(mesh)
-    meshes.push(mesh)
-    crews.push(crew)
+    fleet.phases.push(row)
   })
 
   return fleet
+}
+
+/** One instanced mesh: the same setup whichever phase of whichever character it holds. */
+function buildMesh(scene: THREE.Scene, geometry: THREE.BufferGeometry, material: THREE.Material, capacity: number, plan: FleetPlan, character: number): THREE.InstancedMesh {
+  const mesh = new THREE.InstancedMesh(geometry, material, capacity)
+
+  /*
+   * A crowd of people rather than six people repeated.
+   *
+   * The kit bakes skin and clothes into one atlas, so the only thing an instance can change is a
+   * multiplier over the whole figure. Kept deliberately narrow and warm-to-neutral: enough that a
+   * pavement is not a handful of identical faces, never so much that it reads as a costume. Vehicles
+   * keep their own paint and are left alone.
+   *
+   * This is appearance and only appearance. Nothing anywhere reads it back — see the rule in
+   * `docs/CITY_LIFE.md` — and when the simulation's `originMix` drives the distribution it will
+   * still only decide who is on the pavement, never what they do there.
+   */
+  for (let instance = 0; instance < capacity; instance += 1) {
+    mesh.setColorAt(instance, plan.people
+      ? COMPLEXION[(instance * 7 + character * 3) % COMPLEXION.length]!
+      : WHITE)
+  }
+
+  /*
+   * Traffic casts no shadow. Six hundred cars at two thousand triangles apiece go through the
+   * shadow pass as well as the colour one, which is the single largest thing in a frame — measured
+   * at four and a half million triangles of the nine a shadow frame was costing. What it buys is a
+   * car-shaped smudge on a road that is already in the shade of the buildings either side of it.
+   */
+  mesh.castShadow = false
+  mesh.frustumCulled = false
+  mesh.count = 0
+  scene.add(mesh)
+  return mesh
 }
 
 /**
@@ -361,24 +433,44 @@ export function drive(fleet: Fleet, streets: Streets, delta: number, elapsed: nu
   fleet.nearby = 0
 
   mounted = 0
+  for (const mesh of fleet.meshes) mesh.count = 0
 
-  for (let index = 0; index < fleet.meshes.length; index += 1) {
-    const mesh = fleet.meshes[index]!
-    const crew = fleet.crews[index]!
+  fleet.crews.forEach((crew, character) => {
+    const row = fleet.phases[character]
+    if (!row || row.length === 0 || crew.length === 0)
+      return
+
     /*
      * Thinning traffic hides the tail of each crew, and a car on a call was as likely to be in that
      * tail as anywhere else — so the blue light was drawn over an ambulance that was not. Whoever is
      * on a call comes first, and the count is never allowed to cut one off.
      */
     const responders = promoteResponders(crew)
-    const visible = Math.max(responders, Math.min(mesh.instanceMatrix.count, Math.round(crew.length * share)))
-    mesh.count = visible
-    if (visible === 0)
-      continue
-    for (let instance = 0; instance < visible; instance += 1)
-      place(mesh, instance, streets, fleet, crew[instance]!, elapsed, camera)
-    mesh.instanceMatrix.needsUpdate = true
-  }
+    const visible = Math.max(responders, Math.min(crew.length, Math.round(crew.length * share)))
+
+    for (let index = 0; index < visible; index += 1) {
+      const traveller = crew[index]!
+      /*
+       * Which moment of the walk this one is at.
+       *
+       * Its own phase plus how far it has travelled, over the length of a stride — so the cycle
+       * follows the ground covered rather than the clock, and somebody hurrying takes quicker steps
+       * rather than the same steps faster. A figure frozen at one moment slides down the street with
+       * its legs apart, which is what the crowd was doing before the walk was baked at four moments.
+       */
+      const step = row.length > 1
+        ? Math.floor((traveller.gait + traveller.along / STRIDE_LENGTH) % row.length + row.length) % row.length
+        : 0
+      const at = row[step]!
+      const mesh = fleet.meshes[at]!
+      const slot = mesh.count
+      place(mesh, slot, streets, fleet, traveller, elapsed, camera)
+      ;(fleet.drawn[at] ??= [])[slot] = traveller
+      mesh.count = slot + 1
+    }
+  })
+
+  for (const mesh of fleet.meshes) mesh.instanceMatrix.needsUpdate = true
 
   if (fleet.mount) {
     fleet.mount.count = mounted

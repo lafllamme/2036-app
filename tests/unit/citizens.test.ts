@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ageAt, citizenAt, statureAt } from '../../app/world/citizens'
+import { ageAt, citizenAt, genderAt, statureAt } from '../../app/world/citizens'
 
 /**
  * Everyone in the street is somebody, and nobody is stored.
@@ -114,5 +114,45 @@ describe('the people in the street', () => {
     const names = new Set(Array.from({ length: 700 }, (_, index) => citizenAt(index, 2_036, SHARE).name))
     // Repeats are correct — a city of this size has several Anna Meyers — but not many of them.
     expect(names.size).toBeGreaterThan(600)
+  })
+})
+
+describe('who the figure in the street is', () => {
+  it('gives a name that matches the figure it is attached to', () => {
+    /*
+     * A defect a player found rather than a rule anybody wrote down: the crowd's models carry a
+     * gender in their own filename, the names were drawn from one pooled list, and the result was a
+     * woman called Jonas often enough to notice. Both read from the same number now.
+     */
+    const MALE = new Set(['Lukas', 'Jonas', 'Paul', 'Emre', 'Felix', 'Leon', 'Ben', 'Jan', 'Karl', 'Oskar'])
+    const FEMALE = new Set(['Anna', 'Sofia', 'Elif', 'Marie', 'Lena', 'Julia', 'Hannah', 'Greta', 'Mia', 'Clara'])
+
+    for (let index = 0; index < 600; index += 1) {
+      const person = citizenAt(index, 2_036, SHARE)
+      expect(person.gender).toBe(genderAt(index, 2_036))
+      const given = person.name.split(' ')[0]!
+      if (MALE.has(given))
+        expect(person.gender, given).toBe('male')
+      if (FEMALE.has(given))
+        expect(person.gender, given).toBe('female')
+    }
+  })
+
+  it('has roughly as many of one as the other', () => {
+    const men = Array.from({ length: 1_000 }, (_, index) => genderAt(index, 2_036)).filter(g => g === 'male').length
+    expect(men).toBeGreaterThan(420)
+    expect(men).toBeLessThan(580)
+  })
+
+  it('does not let gender decide anything else about a person', () => {
+    // Appearance never feeds anything, and this is the newest piece of appearance in the model.
+    const people = Array.from({ length: 1_200 }, (_, index) => citizenAt(index, 2_036, 0.35))
+    const men = people.filter(person => person.gender === 'male')
+    const women = people.filter(person => person.gender === 'female')
+    const abroad = (group: typeof people): number =>
+      group.filter(person => person.origin.country !== 'Deutschland').length / group.length
+    expect(Math.abs(abroad(men) - abroad(women))).toBeLessThan(0.06)
+    const retired = (group: typeof people): number => group.filter(person => person.job === 'Rente').length / group.length
+    expect(Math.abs(retired(men) - retired(women))).toBeLessThan(0.05)
   })
 })

@@ -38,8 +38,28 @@ export const RARE_VEHICLES = ['taxi', 'police', 'ambulance', 'garbage-truck']
 export const EMERGENCY_VEHICLES = ['police', 'ambulance']
 const VEHICLE_IDS = [...COMMON_VEHICLES, ...RARE_VEHICLES]
 
-/** Twelve people, each with their own build, skin and clothes baked into the kit's atlas. */
-const PEOPLE_IDS = ['a', 'b', 'c', 'd', 'e', 'f'].flatMap(letter => [`character-male-${letter}`, `character-female-${letter}`])
+/**
+ * The people, split by what they are wearing.
+ *
+ * The kit ships twelve characters and they are not interchangeable, which was not obvious until a
+ * player pointed at one. Reading each model's body UVs against the shared atlas says what colour its
+ * outfit is: `character-female-a` is head to foot in blues — it is a police uniform — and `male-c`,
+ * `male-d`, `female-d` and both `e`s are dark greys and dark-with-white. Putting those in the crowd
+ * gives you a city where every sixth pedestrian looks like an officer on their way somewhere, which
+ * is exactly what it looked like.
+ *
+ * So the six with plain clothes are the public, and the six in uniform belong to whoever is actually
+ * on duty. Halving the crowd's models is also what pays for the walk cycle: the same number of draws
+ * now buys several poses each rather than one pose for twelve people.
+ */
+const CIVILIAN_IDS = ['character-male-a', 'character-male-b', 'character-male-f', 'character-female-b', 'character-female-c', 'character-female-f']
+/** Who wears what. Blue is police, dark-and-white is a medic, plain dark is a fire crew under a tint. */
+export const CREW_IDS = {
+  police: ['character-female-a', 'character-male-d'],
+  ambulance: ['character-female-e', 'character-male-e'],
+  fire: ['character-male-c', 'character-female-d'],
+} as const
+const SERVICE_IDS = Object.values(CREW_IDS).flat()
 
 const NATURE_IDS = ['tree_default', 'tree_detailed', 'tree_oak', 'tree_tall', 'tree_thin', 'tree_small', 'tree_fat', 'tree_pineTallA', 'tree_pineRoundA', 'plant_bushLarge', 'plant_bushSmall']
 
@@ -61,6 +81,23 @@ const ROAD_IDS = [TRAFFIC_LIGHT_ID, STREET_LAMP_ID, ...FURNITURE_IDS]
  * pavement full of them is a crowd mid-stride rather than a rank of scarecrows.
  */
 const WALK_CLIP = 'walk'
+/** A rider is not walking. The kit has a pose for sitting and it is what somebody on a bike does. */
+const SIT_CLIP = 'sit'
+/**
+ * How many moments of the walk each character is baked at.
+ *
+ * Four is the fewest that reads as walking rather than as a limp: contact, passing, contact, passing
+ * again on the other leg. It is also what halving the crowd's models paid for — six characters at
+ * four phases is twenty-four meshes, against the twelve at one phase it replaces, and only the ones
+ * near the camera are ever drawn.
+ */
+const WALK_PHASES = 4
+
+/** Which character a phased model belongs to, and which phase it is. `character-male-a#2`. */
+export function phaseOf(id: string): number {
+  const at = id.indexOf('#')
+  return at < 0 ? 0 : Number(id.slice(at + 1))
+}
 
 export interface CityModel {
   id: string
@@ -87,7 +124,12 @@ export interface CityModels {
   distant: CityModel[]
   trees: CityModel[]
   vehicles: CityModel[]
+  /** The public, in plain clothes, posed mid-stride. */
   people: CityModel[]
+  /** The same six, sitting, for anybody on a bike. */
+  riders: CityModel[]
+  /** The six in uniform. Only ever used by somebody on duty — see `CREW_IDS`. */
+  crew: CityModel[]
 }
 
 /**
@@ -233,19 +275,31 @@ interface Kit {
   material: THREE.MeshStandardMaterial
 }
 
-async function loadKit(loader: GLTFLoader, folder: string, ids: string[], atlas: THREE.Texture | null, failures: string[], poseClip?: string): Promise<Kit> {
+async function loadKit(loader: GLTFLoader, folder: string, ids: string[], atlas: THREE.Texture | null, failures: string[], poseClip?: string, phases = 1): Promise<Kit> {
   /*
    * One model that fails to arrive is a gap in the catalogue, not a reason to leave the player on a
    * loading screen forever. Whatever would have used it falls back to another model in the same
    * pool, and the failures are collected so the reason still reaches the surface.
    */
-  const loaded = await Promise.all(ids.map(async (id, index) => {
+  /*
+   * One entry per model, or several — one per phase of the clip — where a walk is wanted.
+   *
+   * Instancing cannot skin, so a figure is frozen. Frozen at one moment it slides down the street
+   * with its legs apart, which is what the crowd was doing. Frozen at four moments of its own walk
+   * cycle, and moved between those four as it goes, it walks: the mesh a figure is drawn from is
+   * chosen by where it is in its stride.
+   *
+   * The file is fetched once however many phases are taken — the browser's cache sees to that — and
+   * parsed once per phase, because a skeleton posed twice keeps only the second pose.
+   */
+  const wanted = ids.flatMap(id => Array.from({ length: phases }, (_, phase) => ({ id, phase })))
+  const loaded = await Promise.all(wanted.map(async ({ id, phase }) => {
     const url = `${MODELS_BASE}/${folder}/${id}.glb`
     try {
       const gltf = await loader.loadAsync(url)
       if (poseClip)
-        pose(gltf.scene, gltf.animations, poseClip, index / Math.max(1, ids.length))
-      return extract(id, gltf.scene)
+        pose(gltf.scene, gltf.animations, poseClip, phases > 1 ? phase / phases : ids.indexOf(id) / Math.max(1, ids.length))
+      return extract(phases > 1 ? `${id}#${phase}` : id, gltf.scene)
     }
     catch (cause) {
       failures.push(describe(url, cause))
@@ -309,12 +363,15 @@ export async function loadCityModels(): Promise<CityModels> {
   ])
 
   const failures: string[] = []
-  const [suburban, commercial, distant, vehicles, people, nature, roads] = await Promise.all([
+  const [suburban, commercial, distant, vehicles, people, riders, crew, nature, roads] = await Promise.all([
     loadKit(loader, 'city/suburban', HOUSE_IDS, suburbanAtlas, failures),
     loadKit(loader, 'city/commercial', [...OFFICE_IDS, ...TOWER_IDS], commercialAtlas, failures),
     loadKit(loader, 'city/commercial', DISTANT_IDS, commercialAtlas, failures),
     loadKit(loader, 'vehicles', VEHICLE_IDS, vehicleAtlas, failures),
-    loadKit(loader, 'people', PEOPLE_IDS, peopleAtlas, failures, WALK_CLIP),
+    loadKit(loader, 'people', CIVILIAN_IDS, peopleAtlas, failures, WALK_CLIP, WALK_PHASES),
+    // The same six again, sitting: a cyclist frozen mid-stride is somebody running on a bicycle.
+    loadKit(loader, 'people', CIVILIAN_IDS, peopleAtlas, failures, SIT_CLIP),
+    loadKit(loader, 'people', SERVICE_IDS, peopleAtlas, failures, WALK_CLIP),
     loadKit(loader, 'nature', NATURE_IDS, null, failures),
     loadKit(loader, 'roads', ROAD_IDS, roadsAtlas, failures),
   ])
@@ -340,5 +397,7 @@ export async function loadCityModels(): Promise<CityModels> {
     trees: nature.models,
     vehicles: vehicles.models,
     people: people.models,
+    riders: riders.models,
+    crew: crew.models,
   }
 }

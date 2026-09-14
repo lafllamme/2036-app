@@ -11,6 +11,7 @@ import { COMMON_VEHICLES, EMERGENCY_VEHICLES } from '../cityModels'
 import { bicycleGeometry, bicycleMaterial } from './bicycle'
 import { addBeacons, dispatch, paintBeacons } from './dispatch'
 import { BIG_CAR_LENGTH, BIG_VEHICLES, buildFleet, CAR_LENGTH, drive, PERSON_HEIGHT } from './fleet'
+import { CYCLE_SPREAD, cycleLane, DRIVING_SPREAD, drivingLane, PAVEMENT_SPREAD, pavementLane } from './lanes'
 import { sampleEdge } from './roadNetwork'
 
 /**
@@ -53,9 +54,9 @@ const WALKER_COUNT = 900
  */
 const CYCLIST_COUNT = 220
 const CYCLIST_RANGE = 1_400
-/** How fast a town cyclist goes, and how far out from the centre line they ride. */
+/** How fast a town cyclist goes. Where they ride depends on the street; see `cycleLane`. */
 const CYCLIST_SPEED: [number, number] = [3.8, 6.2]
-const CYCLIST_LANE = 4.1
+
 /** Saddle height: how far the bike sits below the rider the pedestrian fleet draws. */
 const SADDLE = 0.92
 /** Above these camera distances a car is a few pixels and a pedestrian is less than one. */
@@ -173,7 +174,8 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
   })
 
   const cars = buildFleet(scene, network, driveable, models.vehicles, models.vehicleMaterial, CAR_COUNT, draw, {
-    lane: 2.6,
+    laneOf: drivingLane,
+    spread: DRIVING_SPREAD,
     lift: 0.05,
     obeysSignals: true,
     speed: [9, 16],
@@ -190,7 +192,8 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
    * do and stopping at the same signals — the one difference is where on the carriageway they sit.
    */
   const cyclists = buildFleet(scene, network, driveable, models.people, models.peopleMaterial, CYCLIST_COUNT, draw, {
-    lane: CYCLIST_LANE,
+    laneOf: cycleLane,
+    spread: CYCLE_SPREAD,
     lift: SADDLE,
     obeysSignals: true,
     speed: CYCLIST_SPEED,
@@ -209,7 +212,8 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
     cars,
     cyclists,
     pedestrians: buildFleet(scene, network, walkable, models.people, models.peopleMaterial, WALKER_COUNT, draw, {
-      lane: 5.2,
+      laneOf: pavementLane,
+      spread: PAVEMENT_SPREAD,
       lift: 0.02,
       obeysSignals: false,
       speed: [1.1, 1.9],

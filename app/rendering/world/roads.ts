@@ -2,6 +2,7 @@ import type { CityBlueprint, RoadRecord } from '../../core/contracts'
 import type { Relief } from '../../world/relief'
 import type { RoadNetwork } from './roadNetwork'
 import * as THREE from 'three/webgpu'
+import { CYCLE_MIN_WIDTH, CYCLE_WIDTH, PAVEMENT_WIDTH } from './lanes'
 import { deckOf, ribbonSections } from './ribbon'
 
 /**
@@ -26,7 +27,7 @@ const PAVEMENT_Y = 0.04
 const ROAD_Y = 0.06
 const MARKING_Y = 0.07
 /** How wide the footway either side of the carriageway is. */
-const PAVEMENT = 2.3
+const PAVEMENT = PAVEMENT_WIDTH
 /**
  * The cycle lane: a strip at the outside of the carriageway, in the brick red it is painted here.
  *
@@ -35,8 +36,6 @@ const PAVEMENT = 2.3
  * and a half by parking in it. Only on streets that would actually have one: a residential street
  * in Germany has a cycle lane painted on it about as often as it has a tram.
  */
-const CYCLE_WIDTH = 1.5
-const CYCLE_MIN_WIDTH = 13
 const CYCLE_Y = 0.065
 /** How long a dash of centre line is, and the gap after it. */
 const DASH = 9

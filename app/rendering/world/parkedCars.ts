@@ -4,6 +4,7 @@ import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../core/rng'
 import { AXIS_Y } from '../shared'
 import { CAR_PAINT, carProxyGeometry, carProxyMaterial } from './carProxy'
+import { CYCLE_MIN_WIDTH } from './lanes'
 import { addTiled } from './tiledInstances'
 
 /**
@@ -48,7 +49,7 @@ const KERB = 0.4
  * to build — see `CYCLE_MIN_WIDTH` in `roads.ts`, which is the other half of this decision.
  */
 const MIN_WIDTH = 7
-const MAX_WIDTH = 13
+const MAX_WIDTH = CYCLE_MIN_WIDTH
 /** How much of the kerb is taken. A city is never fully parked and never empty either. */
 const OCCUPANCY = 0.78
 /**

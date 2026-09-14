@@ -7,6 +7,7 @@ import * as THREE from 'three/webgpu'
 import { statureAt } from '../../world/citizens'
 import { AXIS_Y, WHITE } from '../shared'
 import { responseSpeed } from './incidents'
+import { acrossLane } from './lanes'
 import { bearingFrom, indexEdges, sampleEdge } from './roadNetwork'
 import { isGreen } from './signalPlan'
 
@@ -113,7 +114,10 @@ export interface Fleet {
   /** Which stretches this fleet is allowed on. */
   allowed: Uint8Array
   obeysSignals: boolean
-  lane: number
+  /** Where the middle of this fleet's lane is, on a street of a given width. */
+  laneOf: (width: number) => number
+  /** How far across that lane its travellers may spread. */
+  spread: number
   lift: number
   /** Whether the things in it walk, and so should rise and fall with each step. */
   stride: boolean
@@ -147,7 +151,13 @@ export interface Traveller {
   along: number
   speed: number
   cruise: number
-  /** How far from the centre line this one keeps, always to the same hand. */
+  /**
+   * Where across its fleet's lane this one keeps, 0 to 1, always to the same hand.
+   *
+   * A position within a lane rather than a distance from the centre line, because the distance
+   * depends on the street: a fixed offset is the pavement on a residential street and the middle of
+   * the carriageway on a main road, and that is where the crowd was walking.
+   */
   lane: number
   rng: () => number
   /** Police, ambulance, or neither: what this vehicle is and whether it carries a beacon. */
@@ -178,7 +188,10 @@ export interface Traveller {
 
 /** Where a figure is and who it is, which is everything the interface needs to name one. */
 export interface FleetPlan {
-  lane: number
+  /** Where the middle of this fleet's lane is, on a street of a given width. */
+  laneOf: (width: number) => number
+  /** How far across that lane its travellers may spread. */
+  spread: number
   lift: number
   obeysSignals: boolean
   speed: [number, number]
@@ -224,7 +237,8 @@ export function buildFleet(
     all,
     allowed,
     obeysSignals: plan.obeysSignals,
-    lane: plan.lane,
+    laneOf: plan.laneOf,
+    spread: plan.spread,
     lift: plan.lift,
     stride: plan.stride ?? !plan.obeysSignals,
     mount,
@@ -261,7 +275,7 @@ export function buildFleet(
       along: draw() * network.edges[edge]!.length,
       speed: cruise,
       cruise,
-      lane: plan.lane * (0.82 + draw() * 0.36),
+      lane: draw(),
       rng: draw,
       service: plan.service(models[chosen]!),
       callout: null,
@@ -570,8 +584,17 @@ function place(mesh: THREE.InstancedMesh, index: number, streets: Streets, fleet
    * travel rather than from the street, so the two directions end up on opposite sides without
    * anything having to decide which is which.
    */
-  const x = sample.x - uz * traveller.lane
-  const z = sample.z + ux * traveller.lane
+  /*
+   * How far out to sit, worked out from the street rather than from a constant.
+   *
+   * The lane a fleet keeps is a function of the width of the road it is on: a pavement is outside
+   * the kerb wherever the kerb happens to be, and a carriageway lane is half of half the road. The
+   * traveller's own share of it only decides where within that lane they are, so that a pavement is
+   * a crowd rather than a queue.
+   */
+  const lane = acrossLane(fleet.laneOf(edge.width), fleet.spread, traveller.lane)
+  const x = sample.x - uz * lane
+  const z = sample.z + ux * lane
 
   quaternion.setFromAxisAngle(AXIS_Y, Math.atan2(ux, uz))
   /*

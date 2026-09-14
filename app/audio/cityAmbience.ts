@@ -41,9 +41,27 @@ const SIREN_GAIN = 0.03
 const SIREN_NEAR = 40
 const SIREN_FAR = 200
 
-/** Traffic is a street-level sound: from the strategic camera a city is quiet. */
+/**
+ * How the city fades with height, and how much of it is left from the top.
+ *
+ * It used to fade to nothing by sixteen hundred metres, and the campaign opens at twenty-seven
+ * hundred — so a player who loaded the game and did not zoom in heard no city at all, decided the
+ * sound was broken, and was right to. A city seen from a hill is not silent. It is a hum with no
+ * detail in it, which is what the floor and the filter below are between them.
+ */
 const TRAFFIC_NEAR = 200
-const TRAFFIC_FAR = 1_600
+const TRAFFIC_FAR = 2_400
+const FAR_FLOOR = 0.24
+
+/**
+ * And how dull it gets.
+ *
+ * Distance eats the top of a sound long before it eats the level — which is why a motorway a mile
+ * off is a hum and the same motorway from the verge is a hiss. One filter across all three beds,
+ * opening as the camera comes down.
+ */
+const FAR_CUTOFF = 620
+const NEAR_CUTOFF = 16_000
 /** How many of each within earshot counts as a street at its busiest. */
 const TRAFFIC_FULL = 26
 const PEOPLE_FULL = 30
@@ -81,6 +99,7 @@ export class CityAmbience {
   private master: GainNode | null = null
   private beds = new Map<CitySoundId, Bed>()
   private buffers = new Map<CitySoundId, AudioBuffer>()
+  private distant: BiquadFilterNode | null = null
   private siren: GainNode | null = null
   private sirenOscillator: OscillatorNode | null = null
   private enabled = true
@@ -113,6 +132,18 @@ export class CityAmbience {
     master.gain.value = this.enabled ? this.volume : 0
     master.connect(context.destination)
     this.master = master
+
+    /*
+     * One filter for the three beds together, so distance takes the top off the whole city at once.
+     * The one-shots and the siren go straight to the master: a horn heard from far away is already
+     * rare, and the siren has its own distance of its own.
+     */
+    const distant = context.createBiquadFilter()
+    distant.type = 'lowpass'
+    distant.frequency.value = NEAR_CUTOFF
+    distant.Q.value = 0.4
+    distant.connect(master)
+    this.distant = distant
 
     /*
      * The siren. One oscillator held for the whole session and stepped between two notes, rather
@@ -161,7 +192,7 @@ export class CityAmbience {
       // Each bed starts at its own point in its own loop, so two of them never breathe together.
       const gain = context.createGain()
       gain.gain.value = 0
-      source.connect(gain).connect(master)
+      source.connect(gain).connect(this.distant ?? master)
       source.start(context.currentTime, Math.random() * buffer.duration)
       this.beds.set(id, { sound: CITY_SOUNDS[id], gain })
     }
@@ -177,10 +208,19 @@ export class CityAmbience {
       return
 
     const now = context.currentTime
-    // Loud in the street, gone from the strategic camera — the city is a place, not a menu.
-    const height = 1 - clamp01((state.cameraDistance - TRAFFIC_NEAR) / (TRAFFIC_FAR - TRAFFIC_NEAR))
+    /*
+     * How close the listener is to the street, and how much city is left at that height.
+     *
+     * `near` is one down in it and nought from the map. `carry` is what actually reaches the ear:
+     * never nothing, because a city is audible from a hill, and the filter takes the detail out of
+     * it rather than the level.
+     */
+    const near = 1 - clamp01((state.cameraDistance - TRAFFIC_NEAR) / (TRAFFIC_FAR - TRAFFIC_NEAR))
+    const carry = FAR_FLOOR + (1 - FAR_FLOOR) * near
     const traffic = clamp01(state.trafficNearby / TRAFFIC_FULL)
     const crowd = clamp01(state.peopleNearby / PEOPLE_FULL)
+
+    this.distant?.frequency.setTargetAtTime(FAR_CUTOFF + (NEAR_CUTOFF - FAR_CUTOFF) * near ** 1.6, now, SMOOTHING)
 
     /*
      * The three beds against each other.
@@ -189,9 +229,10 @@ export class CityAmbience {
      * there is neither, which is what a side street off the centre actually sounds like, and it is
      * the reason a quiet part of the city is quiet rather than silent.
      */
-    this.level('traffic', height * traffic, now)
-    this.level('crowd', height * crowd * crowd, now)
-    this.level('park', height * (1 - Math.max(traffic, crowd)) ** 1.5, now)
+    this.level('traffic', carry * traffic, now)
+    // Voices do not carry. A crowd is a street-level sound and it goes with the street.
+    this.level('crowd', near * crowd * crowd, now)
+    this.level('park', carry * (1 - Math.max(traffic, crowd)) ** 1.5, now)
 
     /*
      * One siren, and only the nearest one. However many are out across the city, what a listener
@@ -199,14 +240,18 @@ export class CityAmbience {
      */
     if (this.siren && this.sirenOscillator) {
       const close = 1 - smoothstep(SIREN_NEAR, SIREN_FAR, state.nearestSiren)
-      this.siren.gain.setTargetAtTime(SIREN_GAIN * height * close, now, SMOOTHING)
+      this.siren.gain.setTargetAtTime(SIREN_GAIN * near * close, now, SMOOTHING)
       // Two notes a fourth apart, stepped rather than swept, which is what a Martinshorn does.
       const high = Math.floor(now / SIREN_STEP) % 2 === 0
       this.sirenOscillator.frequency.setTargetAtTime(high ? SIREN_HIGH : SIREN_LOW, now, 0.01)
     }
 
-    this.maybe('pass', now, height * traffic, PASS_CALM, PASS_BUSY)
-    this.maybeHorn(now, height * traffic)
+    /*
+     * The one-shots follow `near` rather than `carry`. A bed is a hum you can hear from anywhere; a
+     * single car going past is not something you pick out of a city from two kilometres up.
+     */
+    this.maybe('pass', now, near * traffic, PASS_CALM, PASS_BUSY)
+    this.maybeHorn(now, near * traffic)
   }
 
   setEnabled(enabled: boolean): void {
@@ -224,6 +269,7 @@ export class CityAmbience {
     void this.context?.close()
     this.context = null
     this.master = null
+    this.distant = null
     this.siren = null
     this.sirenOscillator = null
     this.beds.clear()

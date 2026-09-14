@@ -22,6 +22,48 @@ The active pack is `zen` — paper folds, soft brush, warm wood, quiet chimes. C
 product's sonic personality is a one-line change in `DEFAULT_PACK`, because components emit domain
 events and never name a cue.
 
+## What the city plays, and when
+
+Five recordings, listed once in [`citySounds.ts`](../app/audio/citySounds.ts). Nothing else in the
+audio layer names a file — everything names an entry in that table, so adding a sound is one entry
+and replacing one is one line, and the question "what does the city play?" has an answer you can
+read rather than assemble out of five files.
+
+| Sound | Kind | Comes up when | Level |
+| --- | --- | --- | --- |
+| `traffic` | bed | vehicles are moving within earshot of the camera | 0.50 |
+| `crowd` | bed | people are walking within earshot — a much shorter one | 0.34 |
+| `park` | bed | there is neither: birds and leaves are what is left | 0.30 |
+| `pass` | one-shot | a vehicle goes by; the wait shortens as the street fills | 0.42 |
+| `horn` | one-shot | rarely, and only where there is traffic to be annoyed by | 0.30 |
+
+The three beds run continuously from the moment the sound is opened and are faded against each
+other rather than switched, each starting at its own random point in its own loop so no two ever
+breathe together. The one-shots are jittered on purpose: a sound that arrives on a schedule is a
+metronome however good the sample is, and the car pass is played back at a slightly different rate
+each time, which is the cheapest way to make one recording of a car sound like several.
+
+The **siren** is not in that table and never will be. It steps between two notes and is placed by
+how far the nearest call is from the camera, which is something the game computes rather than
+something anyone recorded. Same for the score.
+
+### Why recordings for the bed and synthesis for everything else
+
+This is the one thing synthesis reliably loses at, and the reason is structural rather than a matter
+of effort. A real street is thousands of overlapping transients — tyres, footsteps, a door, a distant
+voice — and noise through a filter can only ever be a texture. A texture that sits still is heard as
+a machine within seconds, so it has to be modulated; every modulation has a period; and anything
+periodic in a sound that never stops is the first thing an ear finds and the last thing it lets go
+of. Two versions were built and repaired that way before the conclusion was accepted. The last fault
+was a resonant band sliding up and down every five seconds for as long as anybody played.
+
+Everything that has to answer to the game stays synthesised, because a recording cannot.
+
+Sources and licences are in [`public/audio/city/LICENSE.md`](../public/audio/city/LICENSE.md). All
+CC0, each verified on its own page before download rather than taken on trust from a search filter,
+and 1.7 MB for the five together — fetched after the player has opened the sound, so the city is
+quiet for a second rather than slow to start.
+
 ## Three instruments, one mixer
 
 The game makes sound in three ways, and until the mixer was written none of them knew the others

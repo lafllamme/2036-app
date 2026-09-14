@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CityAmbience } from '../../app/audio/cityAmbience'
+import { BEDS, CITY_SOUNDS } from '../../app/audio/citySounds'
 
 /**
  * The city's own sound, verified without an AudioContext.
@@ -15,7 +16,7 @@ describe('the city ambience', () => {
     expect(() => ambience.update({ trafficNearby: 20, peopleNearby: 12, nearestSiren: 60, cameraDistance: 80 })).not.toThrow()
     expect(() => ambience.setEnabled(false)).not.toThrow()
     expect(() => ambience.setVolume(0.4)).not.toThrow()
-    expect(() => ambience.dispose()).not.toThrow()
+    expect(() => ambience.stop()).not.toThrow()
   })
 
   it('survives a start where the browser has no audio at all', () => {
@@ -74,5 +75,34 @@ describe('when a siren is allowed to be heard', () => {
     expect(loudness(0)).toBe(1)
     expect(loudness(SIREN_NEAR)).toBe(1)
     expect(loudness(80)).toBeGreaterThan(0.7)
+  })
+})
+
+describe('the sound map', () => {
+  it('gives every sound a file, a job and a level', () => {
+    /*
+     * The table is the documentation. If an entry can exist without saying what it is for, the
+     * question "what does the city play, and when?" goes back to being answered by reading five
+     * files, which is what this table exists to stop.
+     */
+    for (const sound of Object.values(CITY_SOUNDS)) {
+      expect(sound.file, sound.id).toMatch(/^\/audio\/city\/[a-z]+\.ogg$/)
+      expect(sound.purpose.length, sound.id).toBeGreaterThan(30)
+      expect(sound.gain, sound.id).toBeGreaterThan(0)
+      // Nothing may be louder than the interface, which is the one thing never ducked.
+      expect(sound.gain, sound.id).toBeLessThanOrEqual(0.6)
+    }
+  })
+
+  it('layers exactly the beds and nothing else', () => {
+    for (const id of BEDS)
+      expect(CITY_SOUNDS[id].role).toBe('bed')
+    const beds = Object.values(CITY_SOUNDS).filter(sound => sound.role === 'bed')
+    expect(beds.length).toBe(BEDS.length)
+  })
+
+  it('keys every entry by its own id, so the table cannot lie about itself', () => {
+    for (const [key, sound] of Object.entries(CITY_SOUNDS))
+      expect(sound.id).toBe(key)
   })
 })

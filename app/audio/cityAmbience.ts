@@ -57,6 +57,16 @@ const SMOOTHING = 0.7
 /** At most this many one-off sounds at once, so a busy street cannot turn into a wall. */
 const VOICE_LIMIT = 5
 
+/** One band of the bed: a filter over noise, and where it is allowed to wander. */
+interface Band {
+  filter: BiquadFilterNode
+  base: number
+  swing: number
+  /** Roughly how often it moves, in hertz. The actual wait is drawn around it every time. */
+  pace: number
+  due: number
+}
+
 export interface CityAmbienceState {
   /** How many vehicles are moving within earshot of the camera. */
   trafficNearby: number
@@ -74,6 +84,8 @@ export class CityAmbience {
   private rumble: GainNode | null = null
   private roar: GainNode | null = null
   private murmur: GainNode | null = null
+  /** Every band, so its filter can be nudged somewhere new at an unpredictable moment. */
+  private bands: Band[] = []
   private siren: GainNode | null = null
   private sirenOscillator: OscillatorNode | null = null
   private noise: AudioBuffer | null = null
@@ -119,7 +131,7 @@ export class CityAmbience {
      * are, with a faster drift on top: close enough to a room full of people that the ear stops
      * asking, and far enough that no word is ever there to be misheard.
      */
-    this.murmur = this.layer(context, master, 'bandpass', 480, 3.2, 0.19)
+    this.murmur = this.layer(context, master, 'bandpass', 480, 1.1, 0.09)
 
     /*
      * The siren. One oscillator held for the whole session and stepped between two notes, rather
@@ -181,6 +193,7 @@ export class CityAmbience {
     const high = Math.floor(now / SIREN_STEP) % 2 === 0
     this.sirenOscillator.frequency.setTargetAtTime(high ? SIREN_HIGH : SIREN_LOW, now, 0.01)
 
+    this.stir(now)
     this.maybePass(now, height * traffic)
     this.maybeHorn(now, height * traffic)
   }
@@ -225,19 +238,42 @@ export class CityAmbience {
     gain.gain.value = 0
 
     /*
-     * The drift. Without it every band is a steady hiss and the ear locates it as a machine within a
-     * few seconds; with it the bed swells and falls the way a street does as things come and go.
+     * The drift, and how it is made is the whole of this.
+     *
+     * It used to be an oscillator on the filter's frequency, which is the obvious way and produces
+     * something with a period. The crowd band swung a hundred and thirty hertz either side of four
+     * hundred and eighty every five seconds, through a filter resonant enough to be a pitch rather
+     * than a colour — so what the player heard was not a crowd, it was a note sliding up and down
+     * every five seconds, for ever. Anything periodic in a sound that never stops is the first thing
+     * the ear finds and the last thing it lets go of.
+     *
+     * So there is no oscillator. The filter is nudged somewhere new at intervals that are themselves
+     * random, and it takes seconds to get there — see `stir`. The band still moves, and there is
+     * nothing in it to count.
      */
-    const wobble = context.createOscillator()
-    wobble.frequency.value = drift
-    const depth = context.createGain()
-    depth.gain.value = frequency * 0.28
-    wobble.connect(depth).connect(filter.frequency)
-    wobble.start()
-
     source.connect(filter).connect(gain).connect(master)
     source.start()
+    this.bands.push({ filter, base: frequency, swing: frequency * 0.22, pace: drift, due: 0 })
     return gain
+  }
+
+  /**
+   * Move each band somewhere else, at a moment nothing else shares.
+   *
+   * Called from `update`, so it runs on the renderer's slow clock and costs one scheduled ramp per
+   * band per few seconds. The wait is drawn fresh every time, so no two bands ever line up and no
+   * band lines up with itself.
+   */
+  private stir(now: number): void {
+    for (const band of this.bands) {
+      if (now < band.due)
+        continue
+      const wait = 1 / Math.max(0.01, band.pace)
+      band.due = now + wait * (0.45 + Math.random() * 1.3)
+      const target = band.base + (Math.random() * 2 - 1) * band.swing
+      // A long glide, so the move is something you notice having happened rather than happening.
+      band.filter.frequency.setTargetAtTime(target, now, wait * 0.5)
+    }
   }
 
   /**

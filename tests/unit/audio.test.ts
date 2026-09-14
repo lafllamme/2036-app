@@ -8,10 +8,11 @@ import { SILENT_BY_DESIGN, SOUND_CUES } from '~/audio/cues'
 
 const projectRoot = resolve(import.meta.dirname, '../..')
 
-function fakePlayer(unlockResults: boolean[] = []): { player: UISFXPlayer, played: string[] } {
+function fakePlayer(unlockResults: boolean[] = []): { player: UISFXPlayer, played: string[], stopped: ReturnType<typeof vi.fn> } {
   const played: string[] = []
   let attempt = 0
-  const handle: PlayingSFX = { stop: vi.fn(), ended: Promise.resolve() }
+  const stopped = vi.fn()
+  const handle: PlayingSFX = { stop: stopped, ended: Promise.resolve() }
   const player: UISFXPlayer = {
     unlock: async () => unlockResults[attempt++] ?? true,
     play: (cue) => {
@@ -28,7 +29,7 @@ function fakePlayer(unlockResults: boolean[] = []): { player: UISFXPlayer, playe
     stopAll: vi.fn(),
     destroy: async () => {},
   }
-  return { player, played }
+  return { player, played, stopped }
 }
 
 function appSources(): string[] {
@@ -205,7 +206,7 @@ describe('the one cue that repeats until something stops it', () => {
    * and returned, and the game played a repeating tone for as long as the tab was open.
    */
   it('can be stopped again when it was started before the context finished opening', async () => {
-    const { player, played } = fakePlayer()
+    const { player, played, stopped } = fakePlayer()
     let open: (value: UISFXPlayer) => void = () => {}
     const bus = new AudioBus({
       createPlayer: () => new Promise<UISFXPlayer>((resolve) => {
@@ -221,8 +222,8 @@ describe('the one cue that repeats until something stops it', () => {
     open(player)
     await new Promise(resolve => setTimeout(resolve, 0))
 
-    const handle = player.play('processing') as { stop: ReturnType<typeof vi.fn> }
-    expect(handle.stop).toHaveBeenCalled()
+    expect(stopped).toHaveBeenCalled()
+    // And nothing answered it, because nothing was ever audible to answer.
     expect(played).not.toContain('complete')
   })
 

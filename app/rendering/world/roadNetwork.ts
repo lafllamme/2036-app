@@ -1,5 +1,6 @@
 import type { CityBlueprint, RoadRecord } from '../../core/contracts'
 import type { Relief } from '../../world/relief'
+import type { Deck } from './ribbon'
 import { pavementLane } from './lanes'
 import { deckOf } from './ribbon'
 
@@ -107,17 +108,7 @@ export function buildRoadNetwork(blueprint: CityBlueprint, relief: Relief): Road
 
     // One profile for the whole way, so a stretch cut out of a bridge keeps the bridge's own deck.
     const deck = deckOf(road.path, road.bridge, (x, z) => relief.height(x, z))
-    let travelled = 0
-    const surface: number[] = []
-    for (let i = 0; i < count; i += 1) {
-      if (i > 0) {
-        travelled += Math.hypot(
-          road.path[i * 2]! - road.path[(i - 1) * 2]!,
-          road.path[i * 2 + 1]! - road.path[(i - 1) * 2 + 1]!,
-        )
-      }
-      surface.push(deck.bridge ? deck.at(travelled) : relief.height(road.path[i * 2]!, road.path[i * 2 + 1]!))
-    }
+    const profile = surfaceOf(road, deck, relief)
 
     let start = 0
     for (let i = 1; i < count; i += 1) {
@@ -125,7 +116,7 @@ export function buildRoadNetwork(blueprint: CityBlueprint, relief: Relief): Road
       const isJunction = (uses.get(key(road.path[i * 2]!, road.path[i * 2 + 1]!)) ?? 0) > 1
       if (!isEnd && !isJunction)
         continue
-      const edge = cut(road, surface, start, i, claim)
+      const edge = cut(road, profile, profile.mark[start]!, profile.mark[i]!, claim)
       if (edge) {
         const index = edges.length
         edges.push(edge)
@@ -140,6 +131,67 @@ export function buildRoadNetwork(blueprint: CityBlueprint, relief: Relief): Road
   const network = { nodes, edges }
   layPavements(network)
   return network
+}
+
+/** How far apart a bridge's own points are taken, so the curve of its deck survives. Matches `RIBBON_STEP`. */
+const DECK_STEP = 8
+
+interface Surface {
+  /** The polyline the network travels on, which on a bridge is denser than the map's own. */
+  path: number[]
+  /** How high the running surface is at each of those points. */
+  height: number[]
+  /** Where each of the way's original points ended up, so a junction is still cut in the right place. */
+  mark: number[]
+}
+
+/**
+ * The line a road is actually driven and walked along, and how high it is at every point of it.
+ *
+ * On the ground that is simply the way as the map drew it, read against the land. On a bridge it is
+ * not, and this is the whole reason the function exists: a deck is a *hump*, and the map draws most
+ * bridges as two points. Sampling the deck at two points gives the height at each abutment and a
+ * straight line between them — so the carriageway was drawn arching over the river while everything
+ * travelling on it followed the chord underneath, and in the middle of the span the crowd was up to
+ * seven metres inside its own bridge.
+ *
+ * A bridge therefore gets its own points every eight metres, the same spacing the deck is drawn at.
+ * The extra points are interior and can never be junctions — only the way's original points are —
+ * so `mark` says where each of those ended up and the stretch is still cut exactly where it was.
+ */
+function surfaceOf(road: RoadRecord, deck: Deck, relief: Relief): Surface {
+  const count = road.path.length / 2
+  const path: number[] = []
+  const height: number[] = []
+  const mark: number[] = []
+  let travelled = 0
+
+  const put = (x: number, z: number, along: number): void => {
+    path.push(x, z)
+    height.push(deck.bridge ? deck.at(along) : relief.height(x, z))
+  }
+
+  for (let i = 0; i < count; i += 1) {
+    const x = road.path[i * 2]!
+    const z = road.path[i * 2 + 1]!
+    if (i > 0) {
+      const ax = road.path[(i - 1) * 2]!
+      const az = road.path[(i - 1) * 2 + 1]!
+      const span = Math.hypot(x - ax, z - az)
+      // Only a bridge is subdivided. On the ground the ribbon does its own sampling and the network
+      // reads the land directly, so extra points here would be edges and memory for nothing.
+      const steps = deck.bridge ? Math.max(1, Math.ceil(span / DECK_STEP)) : 1
+      for (let stride = 1; stride < steps; stride += 1) {
+        const t = stride / steps
+        put(ax + (x - ax) * t, az + (z - az) * t, travelled + span * t)
+      }
+      travelled += span
+    }
+    mark.push(path.length / 2)
+    put(x, z, travelled)
+  }
+
+  return { path, height, mark }
 }
 
 /** Cell pitch. Wide enough that a query touches few cells, narrow enough that each holds few edges. */
@@ -253,14 +305,14 @@ export function carriageways(network: RoadNetwork): Carriageways {
 }
 
 /** One stretch of a way, from one junction to the next. */
-function cut(road: RoadRecord, surface: number[], from: number, to: number, claim: (x: number, z: number) => number): RoadEdge | null {
+function cut(road: RoadRecord, surface: Surface, from: number, to: number, claim: (x: number, z: number) => number): RoadEdge | null {
   const count = to - from + 1
   const points = new Float32Array(count * 2)
   const height = new Float32Array(count)
   for (let i = 0; i < count; i += 1) {
-    points[i * 2] = road.path[(from + i) * 2]!
-    points[i * 2 + 1] = road.path[(from + i) * 2 + 1]!
-    height[i] = surface[from + i] ?? 0
+    points[i * 2] = surface.path[(from + i) * 2]!
+    points[i * 2 + 1] = surface.path[(from + i) * 2 + 1]!
+    height[i] = surface.height[from + i] ?? 0
   }
 
   const distance = new Float32Array(count)

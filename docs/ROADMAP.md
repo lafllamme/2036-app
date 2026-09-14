@@ -25,7 +25,8 @@ Entscheidung dort eine Messung war und die Prioritäten sich daraus ergeben.
 | **Grundriss** | OpenStreetMap, 3 × 3 km Bremen, 17 598 Gebäude. Blockumrisse verworfen, Tunnel verworfen, Stummel verworfen. |
 | **Boden** | Eine einzige Fläche. `Relief` **ist** die Fläche, `ground.ts` lädt sie hoch — kein Gebäude steht tiefer als 40 cm im Boden, kein Belag höher. |
 | **Gebäude** | Extrudierte Grundrisse, Fassadentextur nach Geschoss und Fensterachse, Giebeldächer auf Rechtecken, Sockel an jedem Haus. |
-| **Straßen** | Fahrbahn, Mittellinie, Radfahrstreifen, Kreuzungsflächen, 82 Brücken mit Deck, Geländer und Pfeilern. |
+| **Straßen** | Fahrbahn, Mittellinie, Radfahrstreifen, Kreuzungsflächen. |
+| **Brücken** | 44 Stück, als Bauwerk gezogen statt in Klötzen gesetzt: 1,1 m Deckstärke, durchgehende Brüstung, geschlossene Untersicht, Pfeiler. Was darauf fährt und geht, folgt derselben Kuppe auf 8,4 cm genau. |
 | **Bürgersteige** | Streifen je Straßenseite, unterbrochen wo eine andere Fahrbahn darunterliegt; 3 236 von 3 924 Abschnitten begehbar, 279 km, 39 400 Dreiecke. Gemalt wird auf derselben Linie, auf der gelaufen wird. |
 | **Umland** | Dieselbe Pipeline wie die Stadt — keine zweite Sorte Gebäude, keine Naht, keine Sichtweiten-Abschaltung mehr. |
 | **Verkehr** | Straßennetz als Graph, 4 817 Abschnitte, Abstand halten, 400 Ampelkreuzungen, Berufsverkehr nach Uhrzeit. 620 Autos, 220 Radfahrer, 420 Fußgänger, alle um die Kamera versammelt. |

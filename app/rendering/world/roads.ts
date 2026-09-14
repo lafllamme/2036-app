@@ -43,9 +43,16 @@ const CYCLE_Y = 0.065
 /** How long a dash of centre line is, and the gap after it. */
 const DASH = 9
 const GAP = 7
-/** A bridge's parapet: how high the wall along its edge is, and how thick. */
+/** A bridge's parapet: how high the wall along its edge stands, and how thick it is. */
 const PARAPET = 1.1
 const PARAPET_THICKNESS = 0.45
+/**
+ * How deep the deck is, under the surface you drive on.
+ *
+ * The one number that decides whether a bridge reads as a structure or as a road that happens to be
+ * in the air. A carriageway ribbon has no thickness at all; seen from the bank, it was a line.
+ */
+const DECK_DEPTH = 1.1
 /** How far apart a bridge's piers stand, and how thick one is. */
 const PIER_SPACING = 26
 const PIER_SIZE = 2.2
@@ -451,28 +458,48 @@ function bridgeStructure(relief: Relief, roads: RoadRecord[]): THREE.Mesh {
   const normal: number[] = []
   const index: number[] = []
 
-  const box = (cx: number, cz: number, top: number, bottom: number, width: number, depth: number, angle: number): void => {
-    const cos = Math.cos(angle)
-    const sin = Math.sin(angle)
-    const outline: [number, number][] = [[-width / 2, -depth / 2], [width / 2, -depth / 2], [width / 2, depth / 2], [-width / 2, depth / 2]]
-    const corners = outline.map(([ox, oz]): [number, number] => [cx + ox * cos - oz * sin, cz + ox * sin + oz * cos])
-    for (let i = 0; i < 4; i += 1) {
-      const j = (i + 1) % 4
-      const [ax, az] = corners[i]!
-      const [bx, bz] = corners[j]!
-      const span = Math.hypot(bx - ax, bz - az) || 1
-      const nx = -(bz - az) / span
-      const nz = (bx - ax) / span
-      const base = position.length / 3
-      position.push(ax, bottom, az, bx, bottom, bz, bx, top, bz, ax, top, az)
-      normal.push(nx, 0, nz, nx, 0, nz, nx, 0, nz, nx, 0, nz)
-      index.push(base, base + 2, base + 1, base, base + 3, base + 2)
-    }
-    // A lid, so a pier seen from above is not an open tube.
+  /**
+   * One flat quad, wound so that its front face looks the way it is meant to.
+   *
+   * The winding is not trusted: the normal is computed from the corners, compared against the
+   * direction the face is supposed to look, and the order reversed if the two disagree. Every
+   * surface of a bridge is a different plane at a different angle and half of them are mirrors of
+   * the other half, so reasoning about handedness four times over is how a wall ends up invisible.
+   */
+  const quad = (corners: [number, number, number][], facing: [number, number, number]): void => {
+    const [a, b, c] = corners as [[number, number, number], [number, number, number], [number, number, number]]
+    let nx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1])
+    let ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2])
+    let nz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+    const length = Math.hypot(nx, ny, nz)
+    if (length < 1e-9)
+      return
+    nx /= length
+    ny /= length
+    nz /= length
+
+    const order = nx * facing[0] + ny * facing[1] + nz * facing[2] >= 0 ? corners : [...corners].reverse()
+    const sign = order === corners ? 1 : -1
     const base = position.length / 3
-    for (const [x, z] of corners) position.push(x, top, z)
-    for (let i = 0; i < 4; i += 1) normal.push(0, 1, 0)
-    index.push(base, base + 2, base + 1, base, base + 3, base + 2)
+    for (const [x, y, z] of order) {
+      position.push(x, y, z)
+      normal.push(nx * sign, ny * sign, nz * sign)
+    }
+    index.push(base, base + 1, base + 2, base, base + 2, base + 3)
+  }
+
+  /** A closed rectangular post, for the piers. */
+  const post = (cx: number, cz: number, top: number, bottom: number, size: number): void => {
+    const half = size / 2
+    const corners: [number, number][] = [[cx - half, cz - half], [cx + half, cz - half], [cx + half, cz + half], [cx - half, cz + half]]
+    for (let i = 0; i < 4; i += 1) {
+      const [ax, az] = corners[i]!
+      const [bx, bz] = corners[(i + 1) % 4]!
+      const midX = (ax + bx) / 2 - cx
+      const midZ = (az + bz) / 2 - cz
+      quad([[ax, bottom, az], [bx, bottom, bz], [bx, top, bz], [ax, top, az]], [midX, 0, midZ])
+    }
+    quad(corners.map(([x, z]): [number, number, number] => [x, top, z]), [0, 1, 0])
   }
 
   for (const road of roads) {
@@ -480,19 +507,87 @@ function bridgeStructure(relief: Relief, roads: RoadRecord[]): THREE.Mesh {
       continue
     const deck = deckOf(road.path, true, (x, z) => relief.height(x, z))
     const sections = ribbonSections(road.path, road.width / 2 + PAVEMENT)
+    if (sections.length < 2)
+      continue
 
-    // The parapets: a low wall run down each edge of the deck, as two thin boxes per section.
+    /*
+     * Everything below is *swept* along the deck rather than placed as blocks at intervals.
+     *
+     * The parapet used to be one box per eight-metre section, centred on that section and turned to
+     * its bearing. On a straight bridge on the flat that is a wall. On a real one it is not: the
+     * boxes separate on the outside of every bend and step apart wherever the deck climbs. Measured
+     * on this ground plan, neighbouring blocks stood up to 5.04 m apart with a 4.35 m height step
+     * between them, which is why the city's bridges looked like rubble tipped along a road.
+     *
+     * A swept band cannot do that. Each face shares its two corners with the face before it, so it
+     * is continuous by construction however the deck bends or climbs, and the whole structure
+     * follows the one deck profile the carriageway and the traffic already follow.
+     */
+    const edge = (at: number, side: number): [number, number] => {
+      const section = sections[at]!
+      return [section.x + section.ox * side, section.z + section.oz * side]
+    }
+    const inward = (at: number, side: number): [number, number] => {
+      const section = sections[at]!
+      const length = Math.hypot(section.ox, section.oz) || 1
+      return [-(section.ox / length) * side, -(section.oz / length) * side]
+    }
+
     for (let i = 1; i < sections.length; i += 1) {
       const previous = sections[i - 1]!
       const current = sections[i]!
-      const top = deck.at(current.along) + PARAPET
-      const bottom = deck.at(current.along) - 0.4
+      const deckBefore = deck.at(previous.along)
+      const deckNow = deck.at(current.along)
+
       for (const side of [1, -1]) {
-        const x = (previous.x + current.x) / 2 + ((previous.ox + current.ox) / 2) * side
-        const z = (previous.z + current.z) / 2 + ((previous.oz + current.oz) / 2) * side
-        const run = Math.hypot(current.x - previous.x, current.z - previous.z) || 1
-        box(x, z, top, bottom, PARAPET_THICKNESS, run + 0.2, Math.atan2(current.x - previous.x, current.z - previous.z))
+        const [ax, az] = edge(i - 1, side)
+        const [bx, bz] = edge(i, side)
+        const [aInX, aInZ] = inward(i - 1, side)
+        const [bInX, bInZ] = inward(i, side)
+        const out: [number, number, number] = [-(aInX + bInX) / 2, 0, -(aInZ + bInZ) / 2]
+
+        /*
+         * The outside of the bridge, in one face: the parapet above the deck and the depth of the
+         * deck below it. A carriageway ribbon is infinitely thin, and without this a bridge seen
+         * from the bank is a line hanging over the water.
+         */
+        quad([
+          [ax, deckBefore - DECK_DEPTH, az],
+          [bx, deckNow - DECK_DEPTH, bz],
+          [bx, deckNow + PARAPET, bz],
+          [ax, deckBefore + PARAPET, az],
+        ], out)
+
+        // The inside face of the parapet, which is the wall somebody walking the bridge sees.
+        const aIn: [number, number] = [ax + aInX * PARAPET_THICKNESS, az + aInZ * PARAPET_THICKNESS]
+        const bIn: [number, number] = [bx + bInX * PARAPET_THICKNESS, bz + bInZ * PARAPET_THICKNESS]
+        quad([
+          [aIn[0], deckBefore, aIn[1]],
+          [bIn[0], deckNow, bIn[1]],
+          [bIn[0], deckNow + PARAPET, bIn[1]],
+          [aIn[0], deckBefore + PARAPET, aIn[1]],
+        ], [-out[0], 0, -out[2]])
+
+        // And the coping along the top of it.
+        quad([
+          [ax, deckBefore + PARAPET, az],
+          [bx, deckNow + PARAPET, bz],
+          [bIn[0], deckNow + PARAPET, bIn[1]],
+          [aIn[0], deckBefore + PARAPET, aIn[1]],
+        ], [0, 1, 0])
       }
+
+      // The soffit: the underside of the deck, so a bridge is closed when seen from the water.
+      const [aLeftX, aLeftZ] = edge(i - 1, 1)
+      const [bLeftX, bLeftZ] = edge(i, 1)
+      const [aRightX, aRightZ] = edge(i - 1, -1)
+      const [bRightX, bRightZ] = edge(i, -1)
+      quad([
+        [aLeftX, deckBefore - DECK_DEPTH, aLeftZ],
+        [bLeftX, deckNow - DECK_DEPTH, bLeftZ],
+        [bRightX, deckNow - DECK_DEPTH, bRightZ],
+        [aRightX, deckBefore - DECK_DEPTH, aRightZ],
+      ], [0, -1, 0])
     }
 
     // The piers, reaching from under the deck down to the land or the riverbed below it.
@@ -501,10 +596,10 @@ function bridgeStructure(relief: Relief, roads: RoadRecord[]): THREE.Mesh {
       if (!section)
         continue
       const foot = relief.height(section.x, section.z) - 1
-      const top = deck.at(along) - 0.3
+      const top = deck.at(along) - DECK_DEPTH + 0.1
       if (top - foot < 1.5)
         continue
-      box(section.x, section.z, top, foot, PIER_SIZE, PIER_SIZE, 0)
+      post(section.x, section.z, top, foot, PIER_SIZE)
     }
   }
 

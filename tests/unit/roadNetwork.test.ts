@@ -65,3 +65,54 @@ describe('the road network', () => {
     }
   })
 })
+
+describe('what travels over a bridge, against the bridge it is drawn on', () => {
+  /*
+   * A deck is a hump. The map draws a bridge with 3.9 points on average and two of those are the
+   * abutments, so reading the deck only where the map put a point gives the height at each bank and
+   * a straight line between them — while the carriageway is drawn arching over the river every eight
+   * metres. Measured on this ground plan, that chord ran up to **seven metres** below the surface it
+   * belonged to, which is exactly how far into its own bridge the crowd was walking.
+   *
+   * So a bridge gets its own points, and this is the invariant that says so: what the network
+   * travels along and what the renderer draws are the same curve.
+   */
+  const bridges = (city.roads as { bridge?: boolean, path: number[] }[]).filter(road => road.bridge)
+
+  it('has bridges to check at all', () => {
+    expect(bridges.length).toBeGreaterThan(20)
+  })
+
+  it('carries a stretch over the crown of a span rather than through it', () => {
+    /*
+     * Every stretch that is lifted clear of the land is on a bridge. Along it, the running surface
+     * has to be *convex*: sampled at three points, the middle one is never below the line between
+     * its neighbours by more than a hand's width. A chord across a hump fails this at the crown.
+     */
+    const at = { x: 0, y: 0, z: 0, ux: 0, uz: 1 }
+    const lifted = network.edges.filter((edge) => {
+      for (let along = 0; along <= edge.length; along += 5) {
+        sampleEdge(edge, Math.min(along, edge.length), at)
+        if (at.y - city.relief.height(at.x, at.z) > 2)
+          return true
+      }
+      return false
+    })
+    expect(lifted.length).toBeGreaterThan(20)
+
+    let worst = 0
+    for (const edge of lifted) {
+      const height = (along: number): number => {
+        sampleEdge(edge, along, at)
+        return at.y
+      }
+      // Inside the stretch only: at its ends the reading would clamp, and a clamped sample is a
+      // corner that is not there.
+      for (let along = 2; along <= edge.length - 2; along += 2) {
+        const sag = (height(along - 2) + height(along + 2)) / 2 - height(along)
+        worst = Math.max(worst, sag)
+      }
+    }
+    expect(worst).toBeLessThan(0.1)
+  })
+})

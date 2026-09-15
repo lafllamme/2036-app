@@ -70,3 +70,33 @@ describe('what the city shows', () => {
     expect(settled.responseCapacity).toBeGreaterThan(0.3)
   })
 })
+
+describe('a policy decision you can see on the pavement', () => {
+  /*
+   * The city computed sixteen visual signals and looked different for about five of them. This is
+   * the first of the missing ones to be wired, and it is the most direct: how many officers are on
+   * foot is `responseCapacity` and nothing else — the same number the dispatch reads to decide how
+   * fast a crew reaches a call.
+   *
+   * Squared rather than straight, and that is the number worth holding: a linear map made the
+   * difference between hiring and cutting look like nothing.
+   */
+  const PATROL_COUNT = 70
+  const shown = (response: number): number => Math.round(PATROL_COUNT * response ** 2)
+
+  it('shows a well-staffed city many more officers than a stripped one', () => {
+    expect(shown(0.2)).toBeLessThan(4)
+    expect(shown(1)).toBe(PATROL_COUNT)
+    // The gap is the point: an order service cut to the floor is visibly empty streets.
+    expect(shown(1) / Math.max(1, shown(0.2))).toBeGreaterThan(20)
+  })
+
+  it('never leaves the city with nobody at all while the service exists', () => {
+    expect(shown(0.2)).toBeGreaterThan(0)
+  })
+
+  it('moves visibly for an ordinary swing, not only for an extreme one', () => {
+    // Baseline staffing is around 0.6. A decision that lifts it to 0.8 has to be noticeable.
+    expect(shown(0.8) - shown(0.6)).toBeGreaterThan(10)
+  })
+})

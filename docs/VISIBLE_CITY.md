@@ -30,7 +30,7 @@ Sortiert nach Verhältnis von Wirkung zu Aufwand. Jede Zeile ist für sich liefe
 | # | Kennzahl | Was man sieht | Woran es hängt |
 | --- | --- | --- | --- |
 | 1 ✅ | `support` | **Jeder NPC hat eine politische Neigung.** Rechtsklick sagt, wen diese Person wählen würde — und in fünf Jahren steht dort etwas anderes. | gebaut: `leaning.ts` |
-| 2 | `orderServiceCapacity` | **Polizei zu Fuß auf Streife**, in der Zahl, die die Kennzahl hergibt. Personal gestrichen heißt: leere Straßen. | Crew-Modelle vorhanden |
+| 2 ✅ | `responseCapacity` | **Polizei zu Fuß auf Streife**, in der Zahl, die die Kennzahl hergibt. Personal gestrichen heißt: leere Straßen. | gebaut: `agents.patrol` |
 | 3 | `burglaryRate` | **Einbrecher als eigene Rolle**, nachts unterwegs, an Häusern. Heute erzeugt die Zahl nur Einsätze. | Rolle + Verhalten |
 | 4 | Obdachlosigkeit (neu) | **Menschen in Eingängen.** Steigt mit Miete und auslaufenden Sozialbindungen, fällt mit Wohnungsbau. | neue Kennzahl + Platzierung |
 | 5 | `vacancyRate` | **Nachts dunkle Fenster**, vernagelte Erdgeschosse. Heute: null Leser. | Fenstermaterial vorhanden |
@@ -84,8 +84,17 @@ nichts passiert ist, ist auch das eine Auskunft.
    Partei nahm alle. Nähe fällt jetzt exponentiell.
 2. **Hover-Erklärungen mit Amtsantritts-Vergleich** — ohne Bezugspunkt bleibt jede weitere
    Sichtbarmachung unlesbar.
-3. **Polizei, Einbrecher, Obdachlose** — die drei, die der Spieler ausdrücklich sehen will, in
-   dieser Reihenfolge, weil Polizei die Modelle schon hat.
+3. 🟡 **Polizei ✅, Einbrecher, Obdachlose.** Die Streife steht: ein Vorrat von 70 Beamten, und wie
+   viele davon tatsächlich laufen, ist `responseCapacity` **im Quadrat** — 3 in der sichtbaren Stadt
+   bei heruntergefahrenem Dienst, 70 bei vollem. Quadriert und nicht linear, weil ein linearer
+   Zusammenhang den Unterschied zwischen einer guten und einer schlechten Entscheidung wie nichts
+   aussehen ließ.
+
+   Dabei wurden zwei Dinge getrennt, die dasselbe Flag waren: **wer ein Bürger ist** und **wer zu Fuß
+   geht**. Ein Beamter geht zu Fuß und ist kein Einwohner — er darf nicht im Personen-Picker mit
+   einem zufälligen Beruf auftauchen (genau der Fehler, der einer Pflegekraft eine Uniform gab) und
+   nicht als Streuner im Umland zurückbleiben; aber er muss um jemanden herumgehen statt sich
+   anzustellen, und er patrouilliert zu zweit.
 4. **Leerstand, Untätigkeit, Herkünfte** — drei Zahlen, die heute nichts tun.
 5. **Dunst, Baustellen, Demonstrationen, Busse** — Kür.
 

@@ -1,5 +1,5 @@
 import type { CityBlueprint } from '../../core/contracts'
-import type { CityModels } from '../cityModels'
+import type { CityModel, CityModels } from '../cityModels'
 import type { Dispatcher } from './dispatch'
 import type { Fleet, Streets } from './fleet'
 import type { CityPressure, Service } from './incidents'
@@ -7,7 +7,7 @@ import type { RoadNetwork } from './roadNetwork'
 import type { SignalPlan } from './signalPlan'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../core/rng'
-import { COMMON_VEHICLES, EMERGENCY_VEHICLES } from '../cityModels'
+import { COMMON_VEHICLES, CREW_IDS, EMERGENCY_VEHICLES } from '../cityModels'
 import { bicycleGeometry, bicycleMaterial } from './bicycle'
 import { addBeacons, dispatch, paintBeacons } from './dispatch'
 import { BIG_CAR_LENGTH, BIG_VEHICLES, buildFleet, CAR_LENGTH, drive, PERSON_HEIGHT } from './fleet'
@@ -49,6 +49,15 @@ const CAR_COUNT = 620
  * crowd the player stands in and the scattering that keeps the rest of the city from being empty.
  */
 const WALKER_COUNT = 520
+/**
+ * The largest patrol a fully staffed order service puts on the street.
+ *
+ * A pool rather than a count: how many of them are actually drawn is `responseCapacity` squared, so
+ * a stripped-back service shows three officers in the whole visible city and a well-funded one
+ * shows seventy. Squared rather than straight because a linear map made the difference between a
+ * good and a bad decision look like nothing.
+ */
+const PATROL_COUNT = 70
 /**
  * How many are on a bike.
  *
@@ -109,6 +118,15 @@ export interface Agents extends Dispatcher {
   /** People on bikes, in the lane painted for them. */
   cyclists: Fleet
   pedestrians: Fleet
+  /**
+   * Officers on foot, and the first thing in this city that a policy decision is *visible* in.
+   *
+   * How many of them are out is `responseCapacity` and nothing else — the same number the dispatch
+   * reads to decide how fast a crew reaches a call. A council that hires shows a street with two
+   * officers on it; a council that cuts shows an empty one. That is the whole point: the city had
+   * sixteen signals it computed and looked different for about five of them.
+   */
+  patrol: Fleet
   signals: SignalPlan
   /** How busy the city is at this hour, 0 … 1. The traffic model reads it; the sound does not. */
   bustle: number
@@ -169,6 +187,14 @@ export interface PersonAt {
   citizen: number
   x: number
   z: number
+}
+
+/** The two characters in police blue. The rest of the crew models belong to a different service. */
+function policeModels(models: CityModels): CityModel[] {
+  const wanted = new Set<string>(CREW_IDS.police)
+  const found = models.crew.filter(model => wanted.has(model.id))
+  // Never empty: an empty fleet is a silent one, and a patrol that never appears looks like a bug.
+  return found.length > 0 ? found : models.crew
 }
 
 export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels, network: RoadNetwork, signals: SignalPlan): Agents {
@@ -240,6 +266,27 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
   return {
     cars,
     cyclists,
+    /*
+     * The patrol. Built from the two uniformed characters rather than the civilian six, and
+     * deliberately not `people`: an officer is staff, not a resident. They must not turn up in the
+     * citizen picker with a random occupation — which is exactly the fault that put a uniform on
+     * somebody listed as a care worker — and must not be left out in the country as a roamer, since
+     * a patrol goes where the city is.
+     */
+    patrol: buildFleet(scene, network, walkable, policeModels(models), models.peopleSkins, PATROL_COUNT, draw, {
+      laneOf: pavementLane,
+      spread: PAVEMENT_SPREAD,
+      spacing: 120,
+      lift: 0.02,
+      obeysSignals: false,
+      speed: [1.05, 1.35],
+      scale: model => PERSON_HEIGHT / Math.max(0.001, model.size.y),
+      weight: () => 1,
+      service: () => 'police' as Service,
+      seed,
+      walks: true,
+      ground: (x, z) => blueprint.relief.height(x, z),
+    }),
     pedestrians: buildFleet(scene, network, walkable, models.people, models.peopleSkins, WALKER_COUNT, draw, {
       laneOf: pavementLane,
       spread: PAVEMENT_SPREAD,
@@ -337,6 +384,11 @@ export function updateAgents(
   drive(agents.cyclists, streets, delta, elapsed, cameraDistance > CYCLIST_RANGE ? 0 : busy, camera, focus)
   // People are out when the city is awake, but a pavement is never as empty as a road at night.
   drive(agents.pedestrians, streets, delta, elapsed, cameraDistance > WALKER_RANGE ? 0 : 0.35 + busy * 0.65, camera, focus)
+  /*
+   * And the patrol, whose entire number is a policy outcome. `response` runs 0.2 … 1; squared, that
+   * is three officers in the visible city at the bottom and seventy at the top.
+   */
+  drive(agents.patrol, streets, delta, elapsed, cameraDistance > WALKER_RANGE ? 0 : pressure.response ** 2, camera, focus)
 
   /*
    * What the sound reads, summed from the fleets rather than written by them.

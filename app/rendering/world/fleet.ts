@@ -295,6 +295,15 @@ export interface FleetPlan {
   /** Whether this fleet is made of people, and so takes a gender, a height and a walk. */
   people?: boolean
   /**
+   * Whether this fleet travels on foot, which is a different question from whether it is people.
+   *
+   * The two were one flag, and that was fine while the only thing on foot was the crowd. A police
+   * patrol is on foot and is *not* a citizen — it must not be pickable, must not be handed a random
+   * civilian occupation, and must not be left out in the country as a roamer; but it must walk
+   * around somebody rather than queue behind them, and it should patrol in pairs.
+   */
+  walks?: boolean
+  /**
    * How far a traveller may stray before it is put back, and how near it is put back to.
    *
    * Given for any fleet that should stay where the player is looking. Omitted for a fleet that has
@@ -367,15 +376,15 @@ export function buildFleet(
     laneOf: plan.laneOf,
     spread: plan.spread,
     lift: plan.lift,
-    stride: plan.stride ?? !plan.obeysSignals,
+    stride: plan.stride ?? (plan.walks ?? !plan.obeysSignals),
     mount,
     mountDrop: plan.mount?.drop ?? 0,
     ground: plan.ground ?? null,
     nearby: 0,
     gathers: plan.gatherRange ?? (plan.people === true ? [RECYCLE_RANGE, GATHER_RANGE] : null),
     spacing: plan.spacing,
-    queues: plan.people !== true,
-    straightness: plan.people === true ? WALKER_STRAIGHTNESS : DRIVER_STRAIGHTNESS,
+    queues: !(plan.walks ?? plan.people === true),
+    straightness: (plan.walks ?? plan.people === true) ? WALKER_STRAIGHTNESS : DRIVER_STRAIGHTNESS,
     occupancy: new Map(),
     density: 1,
     sinceGather: 0,
@@ -479,7 +488,7 @@ export function buildFleet(
    * Nobody is given a companion who already is one, so a group is a pair or a three and never a
    * conga line — which is what this whole change exists to stop.
    */
-  if (plan.people === true) {
+  if ((plan.walks ?? plan.people === true)) {
     for (let index = 1; index < all.length; index += 1) {
       const traveller = all[index]!
       const leader = all[index - 1]!

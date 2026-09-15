@@ -133,6 +133,21 @@ export function eligibleEvents(state: EventDrawState, monthOfYear: number): Even
     const trigger = event.trigger
     if (state.month < trigger.earliestMonth || state.month > trigger.latestMonth)
       return false
+    /*
+     * A motion the council has already decided never comes back.
+     *
+     * `firedOnce` is written when a decision is *resolved*, so this is exactly "has this been before
+     * the council". It used to apply only to the nine events flagged `oncePerCampaign`, and a defeat
+     * actively put the other nine back — cleared from `firedOnce` and with the cooldown cut to forty
+     * per cent — on the reasoning that a problem voted down is still a problem. That is true of the
+     * *problem* and not of the *motion*: what the player saw was the same sheet, with the same
+     * options, offered again until they voted the way the council wanted.
+     *
+     * The problem coming back is the job of the metrics, which get worse on their own, and of the
+     * other seventeen events that read them. This is the motion, and a motion is spent.
+     */
+    if (event.options.length > 0 && state.firedOnce.includes(event.id))
+      return false
     if (trigger.oncePerCampaign && state.firedOnce.includes(event.id))
       return false
     if ((state.cooldowns[event.id] ?? 0) > state.month)

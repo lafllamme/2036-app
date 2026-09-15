@@ -1,7 +1,8 @@
+import type { EventDrawState } from '../../app/simulation/events'
 import { describe, expect, it } from 'vitest'
 import { EVENTS } from '../../app/content/events'
 import { BASELINE_METRICS, BASELINE_STOCKS } from '../../app/simulation/baseline'
-import { applyMeasures, rampFactor } from '../../app/simulation/events'
+import { applyMeasures, eligibleEvents, rampFactor } from '../../app/simulation/events'
 import { advanceMonths, campaignFor, createInitialState, forecastsForEvent, negotiate, resolveDecision, snapshotOf } from '../../app/simulation/model'
 
 describe('event library', () => {
@@ -146,5 +147,52 @@ describe('modal arbitration', () => {
 
     game.dismissVoteResult()
     expect(game.openDecision?.definition.id).toBe('saf-burglary-series')
+  })
+})
+
+/** A city with nothing decided, nothing on cooldown and every metric at the baseline. */
+function drawState(): EventDrawState {
+  return {
+    month: 12,
+    metrics: BASELINE_METRICS,
+    firedOnce: [],
+    cooldowns: {},
+    streaks: {},
+    activeMeasureSources: [],
+    openDecisions: 0,
+  }
+}
+
+describe('a motion the council has decided', () => {
+  /*
+   * The complaint that produced this: put a motion to the vote, lose it, and a few months later the
+   * same sheet with the same options was back. It was deliberate — a problem voted down is still a
+   * problem — but it is true of the problem and not of the motion, and what it produced was a
+   * council you could keep asking until it said yes.
+   *
+   * Nine of the eighteen events were flagged `oncePerCampaign` and the other nine were actively put
+   * back on a defeat: cleared from `firedOnce`, cooldown cut to forty per cent.
+   */
+  const withOptions = EVENTS.filter(event => event.options.length > 0)
+
+  it('has motions to check at all', () => {
+    expect(withOptions.length).toBeGreaterThan(10)
+  })
+
+  it('never comes back once it has been before the council', () => {
+    for (const event of withOptions) {
+      const decided: EventDrawState = {
+        ...drawState(),
+        firedOnce: [event.id],
+        month: event.trigger.earliestMonth + 1,
+      }
+      expect(eligibleEvents(decided, 1).map(entry => entry.id), event.id).not.toContain(event.id)
+    }
+  })
+
+  it('is still eligible while it has not been decided', () => {
+    const undecided: EventDrawState = { ...drawState(), firedOnce: [] }
+    // At least something can happen, or the test above would pass for the wrong reason.
+    expect(eligibleEvents(undecided, 1).length).toBeGreaterThan(0)
   })
 })

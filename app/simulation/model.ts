@@ -269,13 +269,19 @@ export function resolveDecision(state: SimulationState, eventId: string, optionI
     })
   }
   else {
-    // A defeat is a real outcome: trust drops, and unless the situation was a one-off the same
-    // problem becomes eligible again sooner, with its conditions now worse.
+    /*
+     * A defeat is a real outcome: trust drops, and the motion is spent.
+     *
+     * It used to be put back — cleared from `firedOnce`, cooldown cut to forty per cent — on the
+     * reasoning that a problem voted down is still a problem. The problem is; the motion is not.
+     * What that produced was the same sheet with the same options offered again a few months later,
+     * and a council you could simply keep asking until it said yes. The problem coming back is the
+     * job of the metrics, which get worse on their own, and of the other seventeen events that read
+     * them.
+     */
     next = {
       ...next,
       perception: { ...next.perception, trust: clamp(next.perception.trust - 4.5) },
-      cooldowns: { ...next.cooldowns, [eventId]: state.month + Math.round(event.trigger.cooldownMonths * 0.4) },
-      firedOnce: event.trigger.oncePerCampaign ? next.firedOnce : next.firedOnce.filter(id => id !== eventId),
     }
     next = pushNews(next, {
       id: `vote-${eventId}-${state.month}`,

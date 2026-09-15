@@ -298,3 +298,18 @@ Five mechanisms make 2026 decisions still legible in 2036:
 - Whether district-level indicators are needed for Tier A events, or whether `districtScope` stays presentational until the district model exists.
 - Whether abstentions should count toward the majority denominator for budget motions specifically, as several German municipal codes require.
 - How far amendments (`Zugeständnis`) may shift an option before the effect model has to be re-authored rather than scaled.
+
+
+## Eine beschlossene Vorlage kommt nicht wieder
+
+Neun der achtzehn Ereignisse trugen `oncePerCampaign`; die anderen neun wurden bei einer Niederlage
+aktiv **zurückgelegt** — aus `firedOnce` gestrichen und die Sperrfrist auf vierzig Prozent gekürzt.
+Die Begründung war richtig und die Wirkung falsch: ein abgelehntes *Problem* ist weiter ein Problem,
+eine abgelehnte *Vorlage* ist erledigt. Was dabei herauskam, war dasselbe Blatt mit denselben
+Optionen ein paar Monate später — und ein Stadtrat, den man einfach so lange fragen konnte, bis er ja
+sagte.
+
+`firedOnce` wird beim **Beschluss** geschrieben, ist also genau „war schon im Rat". Jede Vorlage mit
+Optionen ist damit verbraucht, sobald über sie abgestimmt wurde, egal wie. Dass das Problem
+wiederkommt, ist Sache der Kennzahlen — die werden von allein schlechter — und der siebzehn anderen
+Ereignisse, die sie lesen. Die Niederlage selbst kostet weiterhin 4,5 Punkte Vertrauen.

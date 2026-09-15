@@ -250,12 +250,25 @@ mitbringt, ist das, was jede andere Fraktion immer mitgebracht hat: ihre Sitze u
 | | |
 | --- | --- |
 | Wer | die Partei außerhalb der Koalition, die eine der Optionen am stärksten will (`supportFor` ≥ 0,55) |
-| Wie oft | 24 % Grundchance, plus bis zu 50 % je nachdem, wie weit die Koalition von der Mehrheit entfernt ist |
-| Gemessen über ein Jahrzehnt | drei bis fünf fremde Vorlagen gegen fünf bis zwölf eigene |
+| Wie oft | 36 % Grundchance, plus bis zu 50 % je nachdem, wie weit die Koalition von der Mehrheit entfernt ist |
+| Die erste | **wird nicht ausgewürfelt** — sie kommt bei jeder Partei bis Monat 7 |
+| Gemessen über ein Jahrzehnt | 37 % aller Vorlagen; bei der kleinen FDP 56 %, bei den großen ein Drittel |
 | Was der Spieler tut | Dafür, Enthalten oder Dagegen. Keine Option wählen, keine Kampagne, keine Verhandlung |
 
 Wer den Rat zusammengehalten hat, setzt also überwiegend die Tagesordnung; wer ihn verloren hat,
 verbringt das Jahrzehnt damit, die Anträge anderer zu beantworten.
+
+### Warum die erste garantiert ist
+
+Der erste Wert war 24 %, und er sah auf dem Papier vernünftig aus. Was er übersah: ein Jahrzehnt
+hält nur etwa fünfzehn Vorlagen, also bedeuteten 24 % drei bis vier fremde in **zehn Spielstunden** —
+und die erste konnte zwei Jahre auf sich warten lassen. Eine Opposition, von der der Spieler nie
+erfährt, dass er sie hat, ist keine.
+
+Deshalb ist die erste nicht dem Würfel überlassen: sie kommt, sobald eine Fraktion außerhalb der
+Koalition das erste Mal etwas will. Gemessen: Monat 6 bei jeder Partei außer der FDP, dort Monat 7.
+Ein Test hält beide Enden fest — die Opposition darf nicht wieder verstummen, und sie darf den Rat
+auch nicht übernehmen.
 
 ### Drei Entscheidungen im Detail
 

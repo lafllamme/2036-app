@@ -115,6 +115,56 @@ describe('a motion somebody else tabled', () => {
       expect(motion.option, 'a proposer tabled nothing in particular').toBeTruthy()
   })
 
+  /*
+   * The first one is not rolled for, and the reason is the complaint that produced it: at a rate
+   * that only looked reasonable on paper, a decade holds about fifteen motions and a quarter of them
+   * being foreign meant a player could go two years without meeting the mechanic at all. An
+   * opposition the player never learns they have is not an opposition.
+   */
+  it('has the opposition table something within the first year, whoever the player is', () => {
+    for (const party of ['spd', 'cdu', 'gruene', 'linke', 'fdp', 'afd'] as PartyId[]) {
+      let state = createInitialState(2_036, party, ['housing', 'employment', 'mobility'])
+      let first = -1
+      for (let month = 0; month < 24 && first < 0; month += 1) {
+        const before = state.pending.map(entry => entry.eventId)
+        state = advanceMonths(state, 1)
+        for (const entry of state.pending) {
+          if (!before.includes(entry.eventId) && entry.tabledBy)
+            first = month + 1
+        }
+      }
+      expect(first, `${party} never met the chamber they are in`).toBeGreaterThan(0)
+      expect(first, `${party} waited too long for it`).toBeLessThanOrEqual(12)
+    }
+  })
+
+  /*
+   * And the other side of the same dial. The core of the game is the player's own agenda — choosing
+   * an option, campaigning for it, negotiating it through — so the opposition has to be a constant
+   * presence without taking the chamber over.
+   */
+  it('still leaves most of the agenda to the player', () => {
+    let foreign = 0
+    let own = 0
+    for (const party of ['spd', 'cdu', 'gruene', 'linke'] as PartyId[]) {
+      let state = createInitialState(2_036, party, ['housing', 'employment', 'mobility'])
+      for (let month = 0; month < 131; month += 1) {
+        const before = state.pending.map(entry => entry.eventId)
+        state = advanceMonths(state, 1)
+        for (const entry of state.pending) {
+          if (before.includes(entry.eventId))
+            continue
+          if (entry.tabledBy)
+            foreign += 1
+          else own += 1
+        }
+      }
+    }
+    const share = foreign / (foreign + own)
+    expect(share, 'the opposition has gone quiet again').toBeGreaterThan(0.2)
+    expect(share, 'the player is no longer running the council').toBeLessThan(0.45)
+  })
+
   it('is never tabled by the player or by anybody in their coalition', () => {
     let state = createInitialState(2_036, 'spd', ['housing', 'employment', 'mobility'])
     for (let month = 0; month < 131; month += 1) {

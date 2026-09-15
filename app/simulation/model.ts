@@ -110,6 +110,14 @@ export interface SimulationState {
   firedOnce: string[]
   /** Every choice the council carried, as `eventId:optionId`. What the city did, not what it was asked. */
   choices: string[]
+  /**
+   * How many motions somebody else has tabled so far.
+   *
+   * Kept because the first one is not rolled for. An opposition that happens not to table anything
+   * for two years because the dice went that way is an opposition the player never learns they have —
+   * and the whole point of the mechanic is that the chamber has five other groups in it.
+   */
+  tabledByOthers: number
   relationships: Partial<Record<PartyId, number>>
   seatsByParty: Record<PartyId, number>
   coalitionPartyIds: PartyId[]
@@ -200,6 +208,7 @@ export function createInitialState(seed = 2036, partyId: PartyId | null = null, 
     streaks: {},
     firedOnce: [],
     choices: [],
+    tabledByOthers: 0,
     relationships: {},
     seatsByParty: seatsFromContent(),
     coalitionPartyIds: formCoalition(partyId),
@@ -308,7 +317,7 @@ function adoptMeasure(state: SimulationState, sourceId: string, option: EventOpt
  * things, and a decade without a single opposition motion is not a chamber. The spread is what a
  * lost majority adds on top — at zero coalition seats it is more likely than not.
  */
-const FOREIGN_MOTION_FLOOR = 0.24
+const FOREIGN_MOTION_FLOOR = 0.36
 const FOREIGN_MOTION_SPREAD = 0.5
 /** Too small a group to command the agenda, however much it might want to. */
 const OPPOSITION_SEATS = 4
@@ -339,7 +348,9 @@ function tabler(state: SimulationState, event: EventDefinition, stream: RandomSt
 
   const held = state.coalitionPartyIds.reduce((sum, id) => sum + (state.seatsByParty[id] ?? 0), 0)
   const exposure = 1 - clamp(held / MAJORITY, 0, 1)
-  if (stream.next() > FOREIGN_MOTION_FLOOR + exposure * FOREIGN_MOTION_SPREAD)
+  // The first one is not rolled for: every player meets the chamber they are actually in.
+  const certain = state.tabledByOthers === 0
+  if (!certain && stream.next() > FOREIGN_MOTION_FLOOR + exposure * FOREIGN_MOTION_SPREAD)
     return null
 
   let best: { partyId: PartyId, optionId: string, wants: number } | null = null
@@ -473,6 +484,7 @@ export function migrateState(state: SimulationState): SimulationState {
     streaks: state.streaks ?? {},
     firedOnce: state.firedOnce ?? [],
     choices: state.choices ?? [],
+    tabledByOthers: state.tabledByOthers ?? 0,
   }
 }
 
@@ -881,6 +893,7 @@ function advanceOneMonth(state: SimulationState): SimulationState {
         }],
       }
       if (tabled) {
+        next = { ...next, tabledByOthers: next.tabledByOthers + 1 }
         next = pushNews(next, {
           id: `tabled-${drawn.id}-${month}`,
           month,

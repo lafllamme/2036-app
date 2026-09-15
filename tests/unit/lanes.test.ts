@@ -120,23 +120,31 @@ describe('how many of a fleet the surroundings can hold', () => {
    * This is what asks. The spacings are measured against real streets: somebody every fifteen to
    * twenty-five metres of pavement, a car every ninety-odd on a road that is moving.
    */
+  /** Places on the streets in reach: each stretch's usable length over this fleet's own spacing. */
+  const room = (metres: number, spacing: number): number => Math.floor(metres / spacing)
+
   it('shows all of them where there is street enough for all of them', () => {
-    expect(crowdDensity(420 * 16, 16, 420)).toBe(1)
-    expect(crowdDensity(90_000, 16, 420)).toBe(1)
+    expect(crowdDensity(room(420 * 16, 16), 420)).toBe(1)
+    expect(crowdDensity(room(90_000, 16), 420)).toBe(1)
   })
 
   it('shows a handful on a single country lane', () => {
-    // One 600 m lane within reach, against a crowd of 420: about nine people, not four hundred.
-    expect(Math.round(crowdDensity(600, 16, 420) * 420)).toBe(38)
-    expect(Math.round(crowdDensity(600, 95, 620) * 620)).toBe(6)
+    /*
+     * One 600 m lane in reach against a crowd of 420. On a city street that is a person every
+     * sixteen metres — thirty-seven of them. The same lane out in the country is six times sparser,
+     * which is six people, because a hamlet with nine houses does not have pavement traffic.
+     */
+    expect(Math.round(crowdDensity(room(600, 16), 420) * 420)).toBe(37)
+    expect(Math.round(crowdDensity(room(600, 16 * 6), 420) * 420)).toBe(6)
+    expect(Math.round(crowdDensity(room(600, 95), 620) * 620)).toBe(6)
   })
 
   it('shows nobody where there is no street at all', () => {
-    expect(crowdDensity(0, 16, 420)).toBe(0)
+    expect(crowdDensity(0, 420)).toBe(0)
   })
 
   it('never divides by nothing, whatever it is asked', () => {
-    expect(crowdDensity(100, 0, 0)).toBe(1)
-    expect(Number.isFinite(crowdDensity(100, 16, 0))).toBe(true)
+    expect(crowdDensity(6, 0)).toBe(1)
+    expect(Number.isFinite(crowdDensity(6, 0))).toBe(true)
   })
 })

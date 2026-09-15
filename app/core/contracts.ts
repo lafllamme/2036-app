@@ -77,6 +77,14 @@ export interface RoadRecord {
   width: number
   arterial: boolean
   /**
+   * Out in the country rather than in the city.
+   *
+   * A country lane is the same width as a residential street and carries a hundredth of the people,
+   * so width cannot tell them apart and something has to. Without it the crowd kept near the camera
+   * spread itself evenly over whatever street was in reach, and a hamlet got a rush hour.
+   */
+  rural?: boolean
+  /**
    * Carried on a deck over whatever is underneath — water, a railway, another road.
    *
    * Without this the map's forty-four bridges were drawn on the ground, so the main road across the

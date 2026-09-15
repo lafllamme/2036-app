@@ -144,6 +144,8 @@ export function buildOutskirts(seed: number, relief: Relief, cityRoads: RoadReco
       width: round(LANE_MIN + (LANE_MAX - LANE_MIN) * Math.max(a.weight, b.weight)),
       arterial: false,
       bridge: false,
+      // Country. What decides how many people and cars belong on it: see `gather` in `fleet.ts`.
+      rural: true,
     })
     buildAlong(path, a, b, rng, relief, buildings, trees)
   }

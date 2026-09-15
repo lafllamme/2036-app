@@ -446,12 +446,26 @@ const MOUNT_SCALE = /* @__PURE__ */ new THREE.Vector3(1, 1, 1)
 /**
  * What share of a fleet the streets around the player can hold.
  *
- * One over the other, capped at all of them: `street` metres of road at `spacing` metres each is how
- * many belong here, and `count` is how many there are. Pure, and separate from the fleet it is asked
- * about, because it is the rule that decides whether a village looks like a village.
+ * `room` is how many places there are on the streets in reach — each stretch's usable length over
+ * this fleet's spacing — and `count` is how many travellers there are. Pure, and separate from the
+ * fleet it is asked about, because it is the rule that decides whether a village looks like one.
  */
-export function crowdDensity(street: number, spacing: number, count: number): number {
-  return Math.min(1, street / Math.max(1, spacing * count))
+export function crowdDensity(room: number, count: number): number {
+  return Math.min(1, room / Math.max(1, count))
+}
+
+/**
+ * How many metres of *this* stretch one traveller wants to itself.
+ *
+ * A country lane is the same width as a residential street and carries a fraction of the people, so
+ * width cannot tell them apart — `rural` does, and it is the only thing that can. Without it the
+ * crowd kept near the camera spread itself evenly over whatever street happened to be in reach, and
+ * a hamlet with nine houses got the pavement traffic of a city centre.
+ */
+const RURAL_SPARSITY = 6
+
+function spacingOn(fleet: Fleet, edge: RoadEdge | undefined): number {
+  return fleet.spacing * (edge?.rural === true ? RURAL_SPARSITY : 1)
 }
 
 /** Scratch instances reused across calls, so the loop allocates nothing at all. */
@@ -550,23 +564,37 @@ function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, [stray, r
   }
 
   /*
-   * How much street there actually is around the player, and therefore how many of this fleet belong
-   * on it.
+   * How many of this fleet each stretch in reach can hold, and how many it already has.
    *
-   * This is the whole difference between a city and a country lane. The fleet is a fixed number kept
-   * near the camera; downtown that number is spread over kilometres of street and reads as a city,
-   * and out in the fields the same number landed on the one lane within reach — four hundred people
-   * on four hundred metres of road, marching down the middle of it in single file. Nobody built a
-   * crowd out there; the crowd was simply all of it, in one place.
+   * Both halves matter and the second is the one that was missing. Picking a stretch at random and a
+   * position on it at random is uniform *on average*, and on average is not what a street looks
+   * like: the same dice that give an even spread over a thousand passes give eight people shoulder
+   * to shoulder on this one. What the player sees is the one pass.
    *
-   * So the fleet is thinned to what the surroundings can carry, at this fleet's own spacing: about a
-   * person every sixteen metres of pavement, a bike every sixty, a car every ninety-five. A village
-   * gets a handful of people and the centre still gets all of them.
+   * So each stretch is given a capacity from its own length at this fleet's spacing, arrivals go to
+   * whichever stretch has the most room left, and each one is placed in its own slot along it rather
+   * than wherever the dice fall. A queue cannot form, because two travellers are never offered the
+   * same slot.
    */
-  let street = 0
-  for (const candidate of candidates)
-    street += streets.network.edges[candidate]?.length ?? 0
-  fleet.density = crowdDensity(street, fleet.spacing, fleet.all.length)
+  const capacity: number[] = []
+  const filled: number[] = []
+  let total = 0
+  for (const candidate of candidates) {
+    const edge = streets.network.edges[candidate]
+    /*
+     * Only the part of the stretch that is actually near the player. A country lane can run a
+     * kilometre and a half, and counting all of it as "street in reach" is how a hamlet was given a
+     * rush hour: the length was there, the street was not.
+     */
+    const usable = Math.min(edge?.length ?? 0, reach * 2)
+    const room = Math.max(0, Math.floor(usable / spacingOn(fleet, edge)))
+    capacity.push(room)
+    filled.push(0)
+    total += room
+  }
+  fleet.density = crowdDensity(total, fleet.all.length)
+  if (total === 0)
+    return
 
   for (const traveller of fleet.all) {
     const edge = streets.network.edges[traveller.edge]
@@ -591,13 +619,34 @@ function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, [stray, r
     if (Math.hypot(sample.x - camera.x, sample.z - camera.z) < stray)
       continue
 
-    const next = candidates[Math.floor(traveller.rng() * candidates.length)]!
+    // Wherever there is the most room left. Ties go to the first, which is stable and does not matter.
+    let pick = -1
+    let best = 0
+    for (let i = 0; i < candidates.length; i += 1) {
+      const room = capacity[i]! - filled[i]!
+      if (room > best) {
+        best = room
+        pick = i
+      }
+    }
+    // Everything in reach is as full as it should be: leave this one where it is rather than stack it.
+    if (pick < 0)
+      continue
+
+    const next = candidates[pick]!
     const target = streets.network.edges[next]
     if (!target)
       continue
+    /*
+     * Its own slot along the stretch, jittered inside that slot so the spacing is regular without
+     * being a fence. This is what actually breaks up the clump: the fifth arrival on a stretch goes
+     * to the fifth slot, not to wherever the dice put it.
+     */
+    const slot = filled[pick]!
+    filled[pick] = slot + 1
     traveller.edge = next
     traveller.forward = traveller.rng() > 0.5
-    traveller.along = traveller.rng() * target.length
+    traveller.along = Math.min(target.length, (slot + traveller.rng()) / Math.max(1, capacity[pick]!) * target.length)
     traveller.speed = traveller.cruise
   }
 }

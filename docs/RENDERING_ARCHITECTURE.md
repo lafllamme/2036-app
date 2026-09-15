@@ -172,10 +172,28 @@ Kamera stand, galt als weit weg, wurde auf eine zufällige Stelle einer zufälli
 und galt im nächsten Frame wieder als weit weg. **Das** war der Strom von Menschen, der in
 unmöglicher Geschwindigkeit vorbeizog, und es war die ganze Flotte, jeden Frame.
 
-**Nichts fragte, wie viel Straße da ist.** `crowdDensity(street, spacing, count)` fragt jetzt: so
-viele Meter Straße zu je so vielen Metern pro Person, gedeckelt auf alle. Die Abstände sind an echten
-Straßen gemessen — jemand alle 16 m Gehweg, ein Rad alle 60 m, ein Auto alle 95 m. Ein Dorf bekommt
-eine Handvoll Leute, die Innenstadt weiterhin alle. `tests/unit/lanes.test.ts` hält die Regel fest.
+**Nichts fragte, wie viel Straße da ist.** Jeder Abschnitt in Reichweite bekommt jetzt eine Kapazität
+aus seiner eigenen *nutzbaren* Länge — und nutzbar heißt höchstens der Durchmesser der Reichweite,
+denn eine Landstraße kann anderthalb Kilometer lang sein, und die ganze Länge als „Straße in der
+Nähe" zu zählen ist genau der Grund, warum ein Weiler einen Berufsverkehr bekam: die Länge war da,
+die Straße nicht. `crowdDensity(room, count)` ist der Rest.
+
+**Und der Würfel verteilte, nicht der Platz.** Ein zufälliger Abschnitt und eine zufällige Stelle
+darauf sind *im Mittel* gleichverteilt, und im Mittel ist nicht, wie eine Straße aussieht: dieselben
+Würfel, die über tausend Durchgänge gleichmäßig streuen, stellen in diesem einen acht Leute Schulter
+an Schulter. Der Spieler sieht den einen Durchgang. Ankommende gehen jetzt dorthin, wo am meisten
+Platz frei ist, und bekommen einen **eigenen Slot** auf dem Abschnitt statt einer Würfelposition —
+eine Schlange kann sich nicht bilden, weil zwei nie denselben Slot angeboten bekommen.
+
+**Land ist nicht Stadt, und die Breite verrät es nicht.** Eine Landstraße ist so breit wie eine
+Wohnstraße und trägt einen Bruchteil der Menschen. `RoadRecord.rural` sagt es, und draußen ist der
+Abstand sechsmal so groß.
+
+| Gemessen, 300-m-Umkreis | vorher | jetzt |
+| --- | --- | --- |
+| Innenstadt | 420 Menschen | 420, einer alle 41 m |
+| Dorf | 120 Menschen | **12**, einer alle 100 m |
+| offenes Land | 75 Menschen | **6**, einer alle 100 m |
 
 Dazu läuft die Rückholung nur noch alle zwölf Frames. Wo jemand hingehört, ist keine Frage, die
 hundertzwanzigmal pro Sekunde neu beantwortet werden muss.

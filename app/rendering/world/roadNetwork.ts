@@ -34,6 +34,8 @@ export interface RoadEdge {
   length: number
   width: number
   arterial: boolean
+  /** Out in the country. Carried from the road record; see `RoadRecord.rural`. */
+  rural: boolean
   from: number
   to: number
   /** The direction the stretch sets off in, and the direction it arrives in, in radians. */
@@ -333,6 +335,7 @@ function cut(road: RoadRecord, surface: Surface, from: number, to: number, claim
     length,
     width: road.width,
     arterial: road.arterial,
+    rural: road.rural === true,
     from: claim(points[0]!, points[1]!),
     to: claim(points[(count - 1) * 2]!, points[(count - 1) * 2 + 1]!),
     footpath: 0,

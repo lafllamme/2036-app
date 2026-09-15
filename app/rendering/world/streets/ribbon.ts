@@ -35,7 +35,7 @@ export const RIBBON_STEP = 8
  * The correction is the reciprocal of the cosine of half the turn, which at a hairpin runs away — and
  * a residential street flaring to fifteen metres wide lands on the houses either side of it.
  */
-export const MITRE_LIMIT = 1.8
+const MITRE_LIMIT = 1.8
 
 export function ribbonSections(path: number[], half: number, step = RIBBON_STEP): RibbonSection[] {
   const count = path.length / 2

@@ -21,7 +21,7 @@ import { BIG_CAR_LENGTH, BIG_VEHICLES, buildFleet, CAR_LENGTH, drive, PERSON_HEI
  * foot, which of them carry a blue light — and then hands the whole lot to the two modules that do
  * the work:
  *
- * - [`fleet.ts`](./fleet.ts) is a fleet and how it moves: the road graph, the queue, the lights, the
+ * - [`fleet/`](./fleet.ts) is a fleet and how it moves: the road graph, the queue, the lights, the
  *   lane. A police car in there is a vehicle with a label on it and nothing more;
  * - [`dispatch.ts`](./dispatch.ts) is what has happened and who was sent to it: the calls, the
  *   crews, the beacons, and how far the nearest siren is from the listener.
@@ -38,7 +38,7 @@ const CAR_COUNT = 620
 /**
  * How many are out on foot.
  *
- * They are all kept within a few hundred metres of the camera — see `gather` in `fleet.ts` — so this
+ * They are all kept within a few hundred metres of the camera — see `gather` in `fleet/` — so this
  * is not a number spread over three kilometres of city, it is the number on the streets around the
  * player. Which is why it came back down: measured against the ground plan, nine hundred inside the
  * gather radius is one person every seven metres of street, and a pavement at midday has one every

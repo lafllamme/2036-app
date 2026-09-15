@@ -82,8 +82,8 @@ export interface SoundBinding {
  * about -35 and -24 dBFS. A second attenuation on top put hover near -50 dBFS, which is inaudible
  * on a laptop speaker. Trust the pack's own mix; only the master volume is ours to set.
  */
-export const HOVER_COOLDOWN_MS = 110
-export const PRESS_COOLDOWN_MS = 45
+const HOVER_COOLDOWN_MS = 110
+const PRESS_COOLDOWN_MS = 45
 
 export const SOUND_CUES: Record<SoundEvent, SoundBinding> = {
   'ui.hover': {
@@ -208,8 +208,4 @@ export const SILENT_BY_DESIGN: Record<string, string> = {
    * refused — see `entry.priorityRejected`, which carries the `blocked` cue.
    */
   'ui.disabledClick': 'A disabled control dispatches no event, so the refusal is unhearable by delegation.',
-}
-
-export function cueFor(event: SoundEvent): SoundBinding {
-  return SOUND_CUES[event]
 }

@@ -44,7 +44,7 @@ describe('architecture boundaries', () => {
      * `relief.height`, and does no arithmetic of its own on either.
      */
     const ground = sourceFiles('app/rendering/world').find(file => file.path.endsWith('/ground.ts'))
-    expect(ground, 'app/rendering/world/ground.ts is missing').toBeDefined()
+    expect(ground, 'app/rendering/world/terrain/ground.ts is missing').toBeDefined()
     expect(ground!.source).toMatch(/relief\.axis|\{ axis \} = relief/)
     expect(ground!.source, 'the ground mesh works out heights of its own').not.toMatch(/terrainHeight/)
 

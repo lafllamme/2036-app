@@ -248,7 +248,7 @@ function asOption(policy: PolicyDefinition): EventOption {
   }
 }
 
-export function forecastFor(state: SimulationState, motionId: string, optionId: string): VoteForecast | null {
+function forecastFor(state: SimulationState, motionId: string, optionId: string): VoteForecast | null {
   const campaigned = preparationFor(state, motionId).campaignedOptionIds.includes(optionId)
   const policy = getPolicy(motionId)
   if (policy && policy.id === optionId)
@@ -392,12 +392,12 @@ export function migrateState(state: SimulationState): SimulationState {
 }
 
 /** How many seats the player's coalition holds. One place, because two places drift apart. */
-export function seatsOfCoalition(state: SimulationState): number {
+function seatsOfCoalition(state: SimulationState): number {
   return state.coalitionPartyIds.reduce((sum, id) => sum + (state.seatsByParty[id] ?? 0), 0)
 }
 
-export const NEGOTIATION_COST = 12
-export const CAMPAIGN_COST = 18
+const NEGOTIATION_COST = 12
+const CAMPAIGN_COST = 18
 
 function withPreparation(state: SimulationState, motionId: string, change: Partial<MotionPreparation>): SimulationState {
   const current = preparationFor(state, motionId)
@@ -636,7 +636,7 @@ export function snapshotOf(state: SimulationState): SimulationSnapshot {
   return buildSnapshot(state)
 }
 
-export function advanceOneMonth(state: SimulationState): SimulationState {
+function advanceOneMonth(state: SimulationState): SimulationState {
   if (state.month >= CAMPAIGN_LAST_MONTH)
     return state
   const month = state.month + 1

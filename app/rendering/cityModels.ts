@@ -34,7 +34,7 @@ const DISTANT_IDS = [...'abcdefghijklmn'.split('').map(letter => `low-detail-bui
  * twenty thousand does not have one car in twelve being a fire engine.
  */
 export const COMMON_VEHICLES = ['sedan', 'sedan-sports', 'suv', 'suv-luxury', 'hatchback-sports', 'van', 'truck', 'delivery']
-export const RARE_VEHICLES = ['taxi', 'police', 'ambulance', 'firetruck', 'garbage-truck']
+const RARE_VEHICLES = ['taxi', 'police', 'ambulance', 'firetruck', 'garbage-truck']
 /** The three that carry a blue light and can be sent somewhere in a hurry. */
 export const EMERGENCY_VEHICLES = ['police', 'ambulance', 'firetruck']
 const VEHICLE_IDS = [...COMMON_VEHICLES, ...RARE_VEHICLES]
@@ -117,7 +117,7 @@ export interface CityModels {
   /**
    * The same material once per skin tone, each with its own recoloured copy of the atlas.
    *
-   * A character is drawn with one of them for the session. See `world/complexion.ts` for why the
+   * A character is drawn with one of them for the session. See `world/structures/complexion.ts` for why the
    * atlas is recoloured rather than the figure tinted.
    */
   peopleSkins: THREE.MeshStandardMaterial[]

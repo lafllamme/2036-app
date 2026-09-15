@@ -91,7 +91,7 @@ function seasonal(monthOfYear: number, amplitude: number, phaseMonths: number): 
  * The sine of the sun's altitude at solar noon in the given month: the latitude's complement plus
  * the declination of the day.
  */
-export function noonElevation(monthOfYear: number): number {
+function noonElevation(monthOfYear: number): number {
   const declination = seasonal(monthOfYear, AXIAL_TILT_DEGREES, SEASON_PHASE_MONTHS)
   return Math.sin(((90 - LATITUDE_DEGREES + declination) * Math.PI) / 180)
 }

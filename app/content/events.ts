@@ -1055,7 +1055,3 @@ export const EVENTS: EventDefinition[] = [
 export function getEvent(eventId: string): EventDefinition | undefined {
   return EVENTS.find(event => event.id === eventId)
 }
-
-export function getEventOption(eventId: string, optionId: string) {
-  return getEvent(eventId)?.options.find(option => option.id === optionId)
-}

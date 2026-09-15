@@ -36,12 +36,28 @@ const STATUS_WORDS = {
   cleared: 'abgeschlossen',
 } as const
 
+/**
+ * The colour a call is marked in, by what kind it is rather than by which service turned out.
+ *
+ * The same four values the ring on the tarmac is drawn in, so a call read here and the same call
+ * seen from the camera are recognisably one thing. They were defined as design tokens, documented
+ * as being used for exactly this, and used by nothing — the tarmac had its own copy of the four hex
+ * values and the bar had none. `tests/unit/callColours.test.ts` now holds the two copies together.
+ */
+const CALL_COLOURS = {
+  burglary: 'var(--call-theft)',
+  assault: 'var(--call-police)',
+  accident: 'var(--call-medical)',
+  fire: 'var(--call-fire)',
+} as const
+
 const items = computed(() => [
   ...cityReports.value.map(report => ({
     id: `call-${report.id}`,
     label: report.status === 'cleared' ? 'ERLEDIGT' : 'EINSATZ',
     urgent: report.status !== 'cleared',
     done: report.status === 'cleared',
+    tone: CALL_COLOURS[report.kind],
     headline: [
       CALL_HEADLINES[report.kind],
       report.district,
@@ -55,6 +71,7 @@ const items = computed(() => [
     urgent: false,
     headline: item.headline,
     done: false,
+    tone: undefined,
     open: () => { game.selectedNews = item },
   })),
 ])
@@ -92,7 +109,7 @@ const duration = computed(() => `${Math.max(38, items.value.length * 8)}s`)
     <div ref="windowRef" class="ticker-window">
       <span class="ticker-track" :class="{ 'is-static': !scrolls }" :style="{ '--ticker-duration': duration }">
         <span ref="cycleRef" class="ticker-cycle">
-          <button v-for="item in items" :key="item.id" type="button" class="ticker-item" :class="{ 'is-call': item.urgent, 'is-done': item.done }" @click="item.open()">
+          <button v-for="item in items" :key="item.id" type="button" class="ticker-item" :class="{ 'is-call': item.urgent, 'is-done': item.done }" :style="item.tone ? { '--call-tone': item.tone } : undefined" @click="item.open()">
             <b>{{ item.label }}</b>{{ item.headline }}
           </button>
         </span>
@@ -110,6 +127,7 @@ const duration = computed(() => `${Math.max(38, items.value.length * 8)}s`)
             tabindex="-1"
             class="ticker-item"
             :class="{ 'is-call': item.urgent, 'is-done': item.done }"
+            :style="item.tone ? { '--call-tone': item.tone } : undefined"
             @click="item.open()"
           >
             <b>{{ item.label }}</b>{{ item.headline }}

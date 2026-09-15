@@ -2,7 +2,7 @@ import type { EffectTargetId, EventCategory } from '../core/contracts'
 
 export { formatNumber } from '../core/format'
 
-export const TARGET_LABELS: Record<string, string> = {
+const TARGET_LABELS: Record<string, string> = {
   population: 'Einwohner',
   households: 'Haushalte',
   netMigration: 'Wanderung',
@@ -67,7 +67,7 @@ export const CONFIDENCE_LABELS = { low: 'unsicher', medium: 'mittlere Sicherheit
  * `internationalShare` is deliberately `0`. It is a composition indicator that the game displays but
  * never judges, in line with the sensitive-indicator rule in docs/METRICS.md.
  */
-export const TARGET_DIRECTION: Record<string, 1 | 0 | -1> = {
+const TARGET_DIRECTION: Record<string, 1 | 0 | -1> = {
   population: 0,
   households: 0,
   netMigration: 0,

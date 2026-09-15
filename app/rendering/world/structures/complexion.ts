@@ -70,9 +70,6 @@ const TONES: { lightness: number, hue: number }[] = [
   { lightness: 0.46, hue: -0.012 },
 ]
 
-/** How many different people the crowd can be made of. */
-export const TONE_COUNT = TONES.length
-
 /**
  * Build one material per tone, each with its own copy of the atlas.
  *

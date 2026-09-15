@@ -175,7 +175,7 @@ button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; borde
  * Exactly one filled action per region. Everything else is text with a hairline, because the
  * interface reads as air and a page full of solid buttons destroys that immediately.
  */
-.btn-solid, .quiet-button.is-primary, .policy-card button.primary,
+.policy-card button.primary,
 .vote-actions button.primary, .vote-result button.primary, .time-controls .advance {
   border: 0; border-radius: var(--r-pill);
   background: var(--ink); color: #0b0f12;
@@ -183,7 +183,7 @@ button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; borde
   letter-spacing: 0.11em; text-transform: uppercase; cursor: pointer;
   transition: opacity 160ms ease, transform 160ms ease;
 }
-.btn-solid:hover, .policy-card button.primary:hover,
+.policy-card button.primary:hover,
 .vote-actions button.primary:hover, .time-controls .advance:hover { opacity: 0.86; }
 
 .quiet-button, .policy-card button, .vote-actions button.quiet-button,
@@ -285,7 +285,6 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
   font-family: var(--mono); font-size: 8px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
 }
 
-.live-dot { display: none; }
 
 /* --- Decision panel ----------------------------------------------------- */
 
@@ -483,8 +482,12 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
 }
 .ticker-item:hover, .ticker-item:focus-visible { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .ticker-item b { margin-right: 10px; color: var(--dim); font-family: var(--mono); font-size: 9px; letter-spacing: 0.11em; }
-/* An emergency call is not council news, and the bar should not make the player read to find out. */
-.ticker-item.is-call b { color: var(--negative); }
+/*
+ * An emergency call is not council news, and the bar should not make the player read to find out.
+ * The label takes the call's own colour — the same four the ring on the tarmac uses, so that a call
+ * read here and the same call seen from the camera are recognisably one thing.
+ */
+.ticker-item.is-call b { color: var(--call-tone, var(--negative)); }
 /* A call that is over stays a few seconds so the player sees it end, but it stops shouting. */
 .ticker-item.is-done { color: var(--dim); }
 
@@ -697,17 +700,6 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
 .negotiation__row button i { width: 7px; height: 7px; border-radius: 50%; }
 
 /* --- States ------------------------------------------------------------- */
-
-.loading-state {
-  position: absolute; inset: 0; z-index: 10;
-  display: grid; place-content: center; justify-items: center; gap: 14px;
-  background: var(--ground); transition: opacity 400ms ease;
-}
-.loading-state strong {
-  font-family: var(--display); font-stretch: var(--display-stretch);
-  font-size: clamp(70px, 11vw, 150px); font-weight: 700; letter-spacing: -0.04em;
-}
-.loading-state span { color: var(--dim); font-family: var(--mono); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; }
 
 .error-state {
   position: absolute; top: 50%; left: 50%; z-index: 50;

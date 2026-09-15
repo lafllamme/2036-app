@@ -1,6 +1,6 @@
 import type { CityDefinition, DistrictDefinition, DistrictId } from '../../core/contracts'
 
-export const DISTRICTS: DistrictDefinition[] = [
+const DISTRICTS: DistrictDefinition[] = [
   { id: 'innenstadt', name: 'Innenstadt / Altstadt', shortName: 'Innenstadt', type: 'historic-core', color: '#d7955f', bounds: { minX: -500, maxX: 450, minZ: -500, maxZ: 500 }, population: 22_500 },
   { id: 'bahnhof', name: 'Bahnhofsviertel', shortName: 'Bahnhof', type: 'mixed-transit', color: '#d85f4a', bounds: { minX: -450, maxX: 450, minZ: 500, maxZ: 1450 }, population: 15_000 },
   { id: 'gruenderzeit-nord', name: 'Gründerzeit Nord', shortName: 'Nord', type: 'dense-residential', color: '#b98d70', bounds: { minX: -1450, maxX: -500, minZ: 250, maxZ: 1450 }, population: 20_000 },

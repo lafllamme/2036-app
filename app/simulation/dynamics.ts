@@ -267,7 +267,7 @@ export function stepDynamics(
  * Perception moves toward reality with an asymmetric lag: roughly four times faster downward than
  * upward. This is why one bad month costs years of goodwill and cheap wins repair nothing.
  */
-export function stepPerception(metrics: CityMetrics, previous: PerceptionState): PerceptionState {
+function stepPerception(metrics: CityMetrics, previous: PerceptionState): PerceptionState {
   const attention = { ...previous.mediaAttention }
   for (const key of Object.keys(attention) as (keyof typeof attention)[]) attention[key] *= 0.82
 

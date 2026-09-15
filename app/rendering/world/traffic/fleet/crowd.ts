@@ -39,7 +39,7 @@ export function crowdDensity(room: number, count: number): number {
  */
 const RURAL_SPARSITY = 6
 
-export function spacingOn(fleet: Fleet, edge: RoadEdge | undefined): number {
+function spacingOn(fleet: Fleet, edge: RoadEdge | undefined): number {
   return fleet.spacing * (edge?.rural === true ? RURAL_SPARSITY : 1)
 }
 

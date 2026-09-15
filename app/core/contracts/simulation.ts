@@ -86,12 +86,6 @@ export type SimulationMessage
     | { type: 'FORECAST', eventId: string, forecasts: Record<string, VoteForecast> }
     | { type: 'ERROR', message: string }
 
-export type GameCommand
-  = | { type: 'FOCUS_BUILDING', buildingId: string }
-    | { type: 'FOCUS_DISTRICT', districtId: DistrictId }
-    | { type: 'SET_SPEED', speed: 0 | 1 | 2 | 4 }
-    | { type: 'SELECT_BUILDING', buildingId: string | null }
-
 export type SimulationCommandExtra
   = | { type: 'REQUEST_SAVE' }
     | { type: 'RESTORE', state: SimulationState }

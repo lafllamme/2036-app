@@ -74,7 +74,7 @@ Nutzen: Der Ordner beantwortet die Frage „wo lege ich das hin?" von selbst.
 
 | Datei | Zeilen | Was darin steckt |
 | --- | --- | --- |
-| `rendering/world/fleet.ts` | 1.149 | vier Aufgaben: `buildFleet`, `gather`, `advance`, `place` |
+| `rendering/world/traffic/fleet/` | 1.149 | vier Aufgaben: `buildFleet`, `gather`, `advance`, `place` |
 | `components/EntryExperience.vue` | 943 | fünf Bildschirme: Titel, Parteienhalle, Parteiprofil, Prioritäten, Mandat |
 | `simulation/model.ts` | 788 | Zustand, Monatsschritt, Ableitungen, Nachrichten |
 | `core/contracts.ts` | 672 | 56 Exporte aus **sechs** Domänen |
@@ -86,7 +86,7 @@ Dinge, die nichts miteinander zu tun haben außer der Datei. Schnitt: `core/cont
 `metrics.ts`, `politics.ts`, `simulation.ts`, `visuals.ts`, `save.ts` plus ein Barrel, damit kein
 einziger Import anderswo angefasst werden muss.
 
-`fleet.ts` zerfällt sauber entlang der vier Funktionen: `fleet/build.ts` (Meshes und Traveller
+`fleet/` zerfällt sauber entlang der vier Funktionen: `fleet/build.ts` (Meshes und Traveller
 anlegen), `fleet/gather.ts` (Verteilung um die Kamera), `fleet/advance.ts` (Fahren, Abstand,
 Ausweichen), `fleet/place.ts` (Matrix schreiben). Die gemeinsamen Typen in `fleet/types.ts`.
 
@@ -96,7 +96,7 @@ Ausweichen), `fleet/place.ts` (Matrix schreiben). Die gemeinsamen Typen in `flee
 
 | Fund | Zeilen | Befund |
 | --- | --- | --- |
-| `rendering/world/fire.ts` | 155 | **fertig gebaut, an nichts angeschlossen.** Kein Rauch, kein Feuer, kein beschädigtes Gebäude im Spiel. |
+| `rendering/world/life/fire.ts` | 155 | **fertig gebaut, an nichts angeschlossen.** Kein Rauch, kein Feuer, kein beschädigtes Gebäude im Spiel. |
 | `world/cityShape.ts` | 44 | wird von niemandem importiert |
 | `sky/precipitation.ts` | — | verdrahtet den Seed `2_036` hart, statt ihn wie jedes andere Weltmodul aus dem Blueprint zu nehmen |
 
@@ -202,7 +202,7 @@ seine zehn Zeilen in der Engine.
 | --- | --- |
 | `rendering/world/` in sechs Themenordner | **erledigt** — `569c789` |
 | `contracts.ts` in acht Domänen hinter einem Barrel | **erledigt** — `382dc87`, kein Import anderswo geändert |
-| `fleet.ts` in sechs Module | **erledigt** — `3f66709`, im laufenden Build bei 120 FPS geprüft |
+| `fleet/` in sechs Module | **erledigt** — `3f66709`, im laufenden Build bei 120 FPS geprüft |
 | READMEs für zehn Ordner | **erledigt** — `5186e63` |
 | Verzweigung verdrahtet, fünf Ereignisse hinter Türen, drei Sperren | **erledigt** |
 | `EntryExperience.vue` (943 Zeilen) aufteilen | offen |
@@ -210,3 +210,90 @@ seine zehn Zeilen in der Engine.
 | `fire.ts` anschließen oder als Vorbau dokumentieren | offen |
 | `cityShape.ts` entfernen oder anschließen | offen |
 | **Profiling-Sitzung, dann über `BatchedMesh` entscheiden** | offen — und weiterhin *nicht* vorher |
+
+
+---
+
+# Zweiter Durchgang — tiefer gegraben
+
+Das erste Audit hat auf Dateiebene gesucht. Dieses hier auf Symbolebene, plus Abhängigkeiten,
+Assets und Stylesheet. Was dabei herauskam, in der Reihenfolge, in der es gefunden wurde.
+
+## 1. Der Schaden aus dem eigenen Refactoring
+
+Dreißig Dateien verschoben heißt: jeder Pfad in jedem Dokument und jedem Kommentar zeigt ins Leere.
+Sieben Dateien betroffen, darunter ein Architekturtest, der einen Pfad prüft, den es nicht mehr gab —
+er wäre stillschweigend an einer leeren Menge vorbeigelaufen. Alle Doc-Links zeigen jetzt wieder auf
+existierende Dateien, und das ist eine Prüfung wert, wenn wieder etwas verschoben wird.
+
+## 2. Ungenutzte Exporte: 77 gefunden, 11 davon wirklich tot
+
+Der grobe Zähler fand 77. Nach der Trennung „wird nirgends benutzt, auch nicht in der eigenen Datei"
+gegen „wird nur intern benutzt, `export` überflüssig" blieben **11 echte Leichen** und **66
+überflüssige Exporte**.
+
+**Entfernt:** `setAudioBus` (eine Testnaht, die kein Test benutzt — also nur ein zusätzlicher Weg,
+den Singleton zu zerschießen), `cueFor`, `getEventOption`, `alignment`, `emptyAxes`, `TONE_COUNT`,
+`GameCommand` und das ganze Modul `app/world/cityShape.ts`.
+
+**Zugeklappt:** 26 Konstanten und Funktionen, die nur ihre eigene Datei benutzt, haben ihr `export`
+verloren. Ein Export ist ein Versprechen; diese 26 haben keins gehalten.
+
+**Nicht angefasst:** Typen, die zu einer öffentlichen Signatur gehören (`CityRendererOptions`,
+`DefeatReason`, `PartyRedLine` …). Der Zähler hält sie für ungenutzt, weil niemand sie *benennt* —
+sie werden strukturell benutzt, und sie zu verstecken macht die API schlechter, nicht sauberer.
+
+## 3. Abhängigkeiten: null tote
+
+Alle 24 Pakete werden benutzt, sechs davon indirekt (Typpakete, das ESLint-Plugin über das Preset,
+der Coverage-Provider, `vue-tsc` über `nuxt typecheck`). Hier gibt es nichts wegzuwerfen.
+
+## 4. Assets: 11 KB
+
+Der erste Lauf meldete 56 ungenutzte Modelle — ein Fehlalarm, weil `cityModels.ts` seine Kennungen
+programmatisch bildet (`building-type-${letter}`). Nach richtigem Abgleich: **zwei Dateien**, die
+Kit-eigenen Bäume aus `city/suburban`, ersetzt durch die aus `nature/`. Elf Kilobyte. Entfernt.
+
+Umgekehrt fehlt keine einzige Kennung eine Datei — das Kit ist vollständig.
+
+## 5. Das Stylesheet: eine Lüge im Kommentar
+
+Der interessanteste Fund des ganzen Durchgangs. Vier Design-Tokens — `--call-police`,
+`--call-medical`, `--call-theft`, `--call-fire` — waren definiert, ausführlich dokumentiert und von
+**nichts** gelesen. Der Kommentar daneben behauptete:
+
+> „Dieselben vier Werte sind das, worin der Ring auf dem Asphalt gezeichnet wird, sodass ein Einsatz
+> in der Nachrichtenleiste und derselbe Einsatz aus der Kamera erkennbar dasselbe sind."
+
+Der Asphalt hatte seine eigene Kopie der vier Hex-Werte in `incidentScene.ts`. Die Leiste hatte gar
+keine. Das ist schlimmer als toter Code: ein Kommentar, der ein Feature beschreibt, das nie gebaut
+wurde, und den niemand anzweifelt, weil er so genau klingt.
+
+**Gelöst durch Bauen statt Löschen.** Die Leiste färbt einen Einsatz jetzt nach seiner Art, über
+genau diese Tokens. Die zwei Kopien der vier Werte bleiben unvermeidlich — ein Renderer liest keine
+CSS-Variable und ein Stylesheet keine TypeScript-Konstante —, aber `tests/unit/callColours.test.ts`
+hält sie zusammen und schlägt an, wenn sie auseinanderlaufen.
+
+Dazu fünf CSS-Klassen, die kein Template nennt: `.btn-solid`, `.config`, `.is-primary`, `.live-dot`,
+`.loading-state`. Entfernt. Jetzt null.
+
+## 6. Was übrig bleibt — und warum ich es nicht angefasst habe
+
+| Fund | Warum es steht | Vorschlag |
+| --- | --- | --- |
+| `rendering/world/life/fire.ts`, 155 Zeilen, an nichts angeschlossen | Löschen wäre falsch: Brände und Katastrophen stehen im politischen Konzept, und der Code ist fertig | **anschließen**, nicht wegwerfen — Rauch und Flamme an einem Feuer-Einsatz sind ein kleiner Schritt |
+| `EVIDENCE` in `content/policies.ts` | Jede modellierte Wirkung nennt über `sourceIds` ihren Beleg — und **nichts löst die Kennung je auf**. Die Belege werden gesammelt und nie gezeigt | im Abstimmungs-Sheet anzeigen; es ist der Unterschied zwischen „gekennzeichnete Modellannahme" als Behauptung und als Nachweis |
+| `EntryExperience.vue`, 943 Zeilen | fünf Bildschirme in einer Datei | aufteilen, wenn dort ohnehin gearbeitet wird |
+| `simulation/model.ts`, 788 Zeilen | der Monatsschritt und alles daran | aufteilen |
+| **Profiling, dann `BatchedMesh`** | 34 Draws für Figuren, keiner davon gecullt | eine Messung, kein Umbau — und weiterhin nicht vorher |
+
+## Antwort auf „gibt es da nichts mehr, null, null?"
+
+Doch, aber deutlich weniger als beim ersten Mal, und das Verhältnis hat sich verschoben. Der erste
+Durchgang fand **Struktur**: zu große Dateien, fehlende Ordnung, fehlende READMEs. Dieser fand
+**Reste**: tote Symbole, tote Regeln, ein toter Kommentar. Das ist die Reihenfolge, in der so etwas
+auftaucht, und dass der zweite Durchgang nur noch elf echte Leichen und elf Kilobyte findet, ist
+eher ein gutes Zeichen als ein schlechtes.
+
+Die drei Dinge, die noch etwas wert sind, sind **keine Aufräumarbeiten**: das Feuer anschließen, die
+Belege sichtbar machen, und einmal wirklich profilen.

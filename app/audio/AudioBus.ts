@@ -3,7 +3,7 @@ import type { SoundEvent } from './cues'
 import { SOUND_CUES } from './cues'
 
 /** The pack chosen for 2036: paper folds, soft brush, warm wood, quiet chimes. */
-export const DEFAULT_PACK: PackName = 'zen'
+const DEFAULT_PACK: PackName = 'zen'
 /*
  * Full scale, and the pack's own balance underneath it. `zen` is the quietest of the twelve — a
  * press peaks at about -25 dBFS against -22 for every other pack — and that restraint is the
@@ -258,11 +258,5 @@ let shared: AudioBus | null = null
 /** The application-wide bus. Created on first use so server rendering never touches it. */
 export function useAudioBus(): AudioBus {
   shared ??= new AudioBus()
-  return shared
-}
-
-/** Test seam: replaces the shared instance and returns it. */
-export function setAudioBus(bus: AudioBus | null): AudioBus | null {
-  shared = bus
   return shared
 }

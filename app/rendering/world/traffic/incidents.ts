@@ -28,7 +28,7 @@ export interface CityPressure {
 }
 
 /** A city with none of these pressures still has the odd call; this is that floor. */
-export const BASE_PRESSURE = 0.12
+const BASE_PRESSURE = 0.12
 
 /**
  * Seconds between calls at no pressure and at full pressure.
@@ -70,7 +70,7 @@ function clamp01(value: number): number {
 }
 
 /** The three weights a call is drawn from, before it is drawn. */
-export function callWeights(pressure: CityPressure): Record<IncidentKind, number> {
+function callWeights(pressure: CityPressure): Record<IncidentKind, number> {
   return {
     burglary: (BASE_PRESSURE + clamp01(pressure.burglary)) * KIND_WEIGHT.burglary,
     accident: (BASE_PRESSURE + clamp01(pressure.accident)) * KIND_WEIGHT.accident,
@@ -110,8 +110,8 @@ export function pickKind(pressure: CityPressure, roll: number): IncidentKind {
 }
 
 /** How much faster a vehicle travels on a call. Staffing is the only thing that moves it. */
-export const RESPONSE_SPEED_MIN = 1.45
-export const RESPONSE_SPEED_MAX = 2.1
+const RESPONSE_SPEED_MIN = 1.45
+const RESPONSE_SPEED_MAX = 2.1
 
 export function responseSpeed(pressure: CityPressure): number {
   return RESPONSE_SPEED_MIN + (RESPONSE_SPEED_MAX - RESPONSE_SPEED_MIN) * clamp01(pressure.response)
@@ -124,7 +124,7 @@ export function responseSpeed(pressure: CityPressure): number {
  * because nobody has cleared the last one — which is exactly what a player should see when they cut
  * the budget, rather than a number in a panel.
  */
-export const CALL_LIMIT_MIN = 2
+const CALL_LIMIT_MIN = 2
 export const CALL_LIMIT_MAX = 6
 
 export function callLimit(pressure: CityPressure): number {

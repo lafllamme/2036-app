@@ -1,6 +1,5 @@
 import type {
   AxisId,
-  AxisVector,
   EventOption,
   PartyDefinition,
   PartyId,
@@ -20,7 +19,7 @@ import type { RandomStream } from '../core/rng'
  * has built. Swap the party list and the maths is unchanged.
  */
 
-export const AXES: AxisId[] = [
+const AXES: AxisId[] = [
   'fiscalRestraint',
   'marketVsPublic',
   'growthVsPreservation',
@@ -182,13 +181,4 @@ export function castVote(option: EventOption, context: VoteContext, stream: Rand
   }
 
   return { optionId: option.id, passed: yesSeats > noSeats, yesSeats, noSeats, abstainSeats, votes, forecast }
-}
-
-/** Distance between an option and the player's own platform, used for the "own camp" reading. */
-export function alignment(axes: Record<AxisId, number>, option: EventOption): number {
-  return 1 - weightedDistance(axes, option)
-}
-
-export function emptyAxes(): AxisVector {
-  return {}
 }

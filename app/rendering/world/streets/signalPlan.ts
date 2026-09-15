@@ -12,8 +12,8 @@ import { bearingFrom } from './roadNetwork'
 
 /** Seconds of green and of amber in one phase. A full cycle is two of each. */
 export const GREEN = 13
-export const AMBER = 3
-export const PHASE = GREEN + AMBER
+const AMBER = 3
+const PHASE = GREEN + AMBER
 export const CYCLE = PHASE * 2
 
 /** A junction is worth signalling if this many streets meet and one of them is a real road. */

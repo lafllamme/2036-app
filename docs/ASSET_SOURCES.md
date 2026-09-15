@@ -69,6 +69,6 @@ Stelle des Schritts. Ohne das steht die ganze Stadt in der Bindepose, also mit a
 | Ampel, Straßenlaterne, Straßenschilder, Baustellenkegel und -absperrung, Müllcontainer | Kenney City Kit (Roads), kenney.nl | CC0 1.0 | 2026-09-13 |
 
 Liegt unter `public/models/roads`. Die Ampel steht an jeder signalisierten Kreuzung einmal pro
-Zufahrt; welche Kreuzung eine bekommt und was sie zeigt, entscheidet `app/rendering/world/signalPlan.ts`
+Zufahrt; welche Kreuzung eine bekommt und was sie zeigt, entscheidet `app/rendering/world/streets/signalPlan.ts`
 — dieselbe Quelle, der auch der Verkehr gehorcht. Die Laterne ersetzt den früheren gestreckten
 Würfel.

@@ -1,0 +1,78 @@
+/**
+ * What the player can decide, and what it does to the city.
+ *
+ * A `PolicyEffect` names a target and a size; `StockId` is the handful of things that accumulate
+ * rather than being recomputed each month. `EvidenceReference` is what keeps a number honest — every
+ * modelled effect says where its order of magnitude came from.
+ */
+
+import type { EventCategory } from './events'
+import type { MetricId } from './metrics'
+import type { AxisVector } from './politics'
+
+export interface ActiveMeasureView {
+  id: string
+  label: string
+  category: EventCategory
+  startedMonth: number
+  monthlyCost: number
+}
+
+/**
+ * Slow structural capacities. Measures buy these; the dynamics turn them into outcomes. Buying
+ * order-service staff is possible, buying a crime rate is not.
+ */
+export type StockId
+  = | 'greenSpaceHectares'
+    | 'childcarePlaces'
+    | 'schoolPlaces'
+    | 'integrationPlaces'
+    | 'orderServiceFte'
+    | 'transitCapacity'
+    | 'maintenanceSpend'
+
+export type EffectTargetId = MetricId | StockId
+
+export interface PolicyEffect {
+  target: EffectTargetId
+  /**
+   * `rate` adds the value every month the measure is active (110 extra housing starts per month).
+   * `level` shifts the target permanently by the value once the ramp completes (+14 FTE, and it
+   * stays at +14 rather than growing without bound).
+   */
+  mode: 'rate' | 'level'
+  delayMonths: number
+  rampMonths: number
+  min: number
+  expected: number
+  max: number
+  confidence: 'low' | 'medium' | 'high'
+}
+
+export interface EvidenceReference {
+  id: string
+  publisher: string
+  title: string
+  url: string
+  publishedAt: string | null
+  accessedAt: string
+  claimType: 'position' | 'effect' | 'baseline'
+  applicability: string
+  notes?: string
+}
+
+export interface PolicyDefinition {
+  id: string
+  name: string
+  summary: string
+  category: 'housing' | 'transport' | 'tax'
+  jurisdiction: 'municipal'
+  implementationCost: number
+  monthlyCost: number
+  administrativeLoad: number
+  /** Political content, so a player-initiated motion goes through the same council vote. */
+  axes: AxisVector
+  salience: AxisVector
+  effects: PolicyEffect[]
+  sourceIds: string[]
+}

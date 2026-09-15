@@ -303,3 +303,21 @@ wo der Spieler hinsieht, leert alles andere: eine Außenstraße hatte niemanden,
 der Stadt dorthin getragen worden war, wo die Kamera zuletzt stand. Diese Fünftel bleiben, wo sie
 sind — dünn, denn sie verteilen sich über zweihundert Kilometer Straße, aber nicht niemand. Die Zahl
 der Fußgänger ist dafür von 420 auf 520 gestiegen: von 346 auf **440 belegte Straßen**.
+
+
+## Wer gezeichnet wird, wenn nicht alle gezeichnet werden
+
+Der Zeichen-Etat nimmt die ersten so-und-so-vielen jeder Figurengruppe. Das war die Reihenfolge, in
+der die Flotte gebaut wurde — und die hat mit **nichts** zu tun, schon gar nicht damit, wo jemand
+steht. Draußen bedeutete das: die Handvoll Leute, die tatsächlich in der Nähe waren, gehörten fast
+nie zu den Gezeichneten. Eine Außenstraße sah leer aus, während hundert Menschen darauf standen.
+
+Die Gruppen werden jetzt beim Rückholpass **nach Entfernung zur Kamera sortiert**. Eine Abtastung je
+Reisendem alle zwölf Frames, und ein Drittel einer Sekunde Verzug ist nicht zu sehen.
+
+| Gemessen, laufende Kampagne | in 400 m | davon gezeichnet |
+| --- | --- | --- |
+| Innenstadt | 29 | **29** |
+| offenes Land | 87 | **87** |
+
+Vorher war die zweite Spalte eine Zufallszahl.

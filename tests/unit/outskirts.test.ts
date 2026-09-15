@@ -110,3 +110,57 @@ describe('the country around the city', () => {
     expect(again).toEqual(belt)
   })
 })
+
+describe('a village has a middle', () => {
+  /*
+   * Every lane leaving a place started laying plots at its first twenty-seven metres. At a node
+   * where six lanes met, that put six rows of houses into the same fifty metres from six directions
+   * — a knot of overlapping roofs with a road somewhere under it, which is what a village looked
+   * like from above.
+   *
+   * A real one has a middle: a green, a square, the space the roads actually meet in. Two rules make
+   * it, and both are measured here rather than described: nothing within forty-two metres of a
+   * place, and no plot that would stand in a house already built.
+   */
+  const country = city.buildings.filter(building => building.id.startsWith('o-'))
+
+  it('never builds one house inside another', () => {
+    const CELL = 40
+    const grid = new Map<number, typeof country>()
+    const key = (x: number, z: number): number => Math.round(x / CELL) * 100_000 + Math.round(z / CELL)
+    for (const building of country) {
+      const bucket = grid.get(key(building.x, building.z))
+      if (bucket)
+        bucket.push(building)
+      else grid.set(key(building.x, building.z), [building])
+    }
+
+    let overlapping = 0
+    for (const building of country) {
+      const radius = Math.max(building.width, building.depth) / 2
+      let hit = false
+      for (let dx = -1; dx <= 1 && !hit; dx += 1) {
+        for (let dz = -1; dz <= 1 && !hit; dz += 1) {
+          for (const other of grid.get(key(building.x + dx * CELL, building.z + dz * CELL)) ?? []) {
+            if (other === building)
+              continue
+            const reach = radius + Math.max(other.width, other.depth) / 2
+            if (Math.hypot(other.x - building.x, other.z - building.z) < reach * 0.8) {
+              hit = true
+              break
+            }
+          }
+        }
+      }
+      if (hit)
+        overlapping += 1
+    }
+    // Measured before the two rules: 504 of 5,155, which is a tenth of the country standing in itself.
+    expect(overlapping).toBe(0)
+  })
+
+  it('still builds a country worth looking at', () => {
+    // The clearing costs about a fifth of the houses. What is left has to still be a landscape.
+    expect(country.length).toBeGreaterThan(3_000)
+  })
+})

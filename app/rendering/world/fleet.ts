@@ -231,6 +231,16 @@ export interface Traveller {
   /** Its own phase in the walk, so a crowd does not step in time. */
   gait: number
   /**
+   * How far this one is from the camera, in metres, as of the last recycling pass.
+   *
+   * Written so the draw budget can be spent on whoever is actually near enough to be seen. It used
+   * to be spent on `crew[0]` onward — the order the fleet happened to be built in, which has nothing
+   * to do with where anybody is. Out in the country that meant the few walkers who *were* nearby
+   * were almost never among the ones drawn, and an outer street looked empty while a hundred people
+   * stood on it.
+   */
+  fromCamera: number
+  /**
    * Somebody this one is walking with, or null.
    *
    * A crowd is not a set of individuals who happen to be on the same pavement. Most people are out
@@ -444,6 +454,7 @@ export function buildFleet(
       gait: draw() * Math.PI * 2,
       partner: null,
       partnerGap: 0,
+      fromCamera: 0,
       roams: plan.people === true && draw() < ROAMER_SHARE,
       stature: plan.people ? statureAt(citizen, plan.seed) : 1,
       /*
@@ -664,6 +675,25 @@ function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, [stray, r
   fleet.occupancy.clear()
   for (const traveller of fleet.all)
     fleet.occupancy.set(traveller.edge, (fleet.occupancy.get(traveller.edge) ?? 0) + 1)
+
+  /*
+   * How far everybody is from the camera, and then each crew sorted by it.
+   *
+   * This is what decides who gets drawn. The budget takes the first so many of each crew, and that
+   * used to be the order the fleet was built in — so the handful of walkers actually near an outer
+   * street were almost never among them, and the street looked empty while a hundred people stood on
+   * it. Sorted here rather than per frame: it costs one sample per traveller and twelve frames of
+   * staleness is a third of a second.
+   */
+  for (const traveller of fleet.all) {
+    const edge = streets.network.edges[traveller.edge]
+    if (!edge)
+      continue
+    sampleEdge(edge, THREE.MathUtils.clamp(traveller.along, 0, edge.length), sample)
+    traveller.fromCamera = Math.hypot(sample.x - camera.x, sample.z - camera.z)
+  }
+  for (const crew of fleet.crews)
+    crew.sort((a, b) => a.fromCamera - b.fromCamera)
 
   const candidates = index.near(camera.x, camera.z, reach)
   if (candidates.length === 0) {

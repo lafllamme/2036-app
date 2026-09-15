@@ -94,6 +94,14 @@ const BUILDABLE_SLOPE = 1.6
 /** One tree for roughly this share of plots, plus what stands in the gaps. */
 const TREE_SHARE = 0.55
 
+/**
+ * How much space a place keeps clear at its own centre, in metres.
+ *
+ * Wide enough that six lanes meeting there do not lay six rows of houses into the same ground, and
+ * narrow enough that the village still reads as one place rather than as a ring.
+ */
+const VILLAGE_CLEARING = 42
+
 /** How many woods stand in the open country, and how many trees each holds. */
 const WOOD_COUNT = 190
 const WOOD_TREES = 34
@@ -133,6 +141,14 @@ export function buildOutskirts(seed: number, relief: Relief, cityRoads: RoadReco
 
   const places = [...gatesOf(cityRoads), ...scatterPlaces(rng)]
   const links = gabrielLinks(places)
+  /*
+   * Everything already built, on a coarse grid.
+   *
+   * Two lanes leaving the same place run apart slowly, so their first plots are near each other and
+   * their houses were laid straight through one another — measured, a tenth of the country's
+   * buildings stood inside another one. A plot now has to find room.
+   */
+  const taken = new Map<number, { x: number, z: number, radius: number }[]>()
 
   for (const [from, to] of links) {
     const a = places[from]!
@@ -147,7 +163,7 @@ export function buildOutskirts(seed: number, relief: Relief, cityRoads: RoadReco
       // Country. What decides how many people and cars belong on it: see `gather` in `fleet.ts`.
       rural: true,
     })
-    buildAlong(path, a, b, rng, relief, buildings, trees)
+    buildAlong(path, a, b, rng, relief, buildings, trees, taken)
   }
 
   scatterWoods(rng, relief, places, trees)
@@ -342,6 +358,7 @@ function buildAlong(
   relief: Relief,
   buildings: BuildingRecord[],
   trees: TreeRecord[],
+  taken: Map<number, { x: number, z: number, radius: number }[]>,
 ): void {
   const total = pathLength(path)
   let travelled = 0
@@ -366,6 +383,18 @@ function buildAlong(
        * already has buildings there.
        */
       const distance = travelled + along
+      /*
+       * Nothing right at the crossroads.
+       *
+       * Every lane leaving a place started its plots at the first twenty-seven metres, so at a node
+       * where six lanes met, six rows of houses were laid into the same fifty metres from six
+       * directions — a knot of overlapping roofs with a road under it, which is what a village
+       * looked like from above. A real one has a middle: a green, a square, a churchyard, the space
+       * the roads actually meet in. This is that space, and it also happens to be the only thing
+       * standing between six rows of houses and each other.
+       */
+      if (Math.min(distance, total - distance) < VILLAGE_CLEARING)
+        continue
       const settled = Math.max(
         from.gate ? 0 : reachOf(from) === 0 ? 0 : 1 - distance / reachOf(from),
         to.gate ? 0 : reachOf(to) === 0 ? 0 : 1 - (total - distance) / reachOf(to),
@@ -411,6 +440,12 @@ function buildAlong(
         if (highest - lowest > BUILDABLE_SLOPE)
           continue
 
+        // And not on top of something already standing there. See `taken`.
+        const radius = Math.max(width, depth) / 2
+        if (occupied(taken, x, z, radius))
+          continue
+        claimPlot(taken, x, z, radius)
+
         /*
          * The same massing the converter gives the real city: storeys are walls and the roof goes on
          * top of them. Out here that is one or two storeys, which is what a suburb is.
@@ -446,6 +481,35 @@ function buildAlong(
     carried = (carried + span) % PLOT
     travelled += span
   }
+}
+
+/** Cell pitch for the "is anything already here" grid. Wider than any house this file builds. */
+const PLOT_CELL = 32
+
+function plotKey(x: number, z: number): number {
+  return Math.round(x / PLOT_CELL) * 100_000 + Math.round(z / PLOT_CELL)
+}
+
+/** Whether a house of this size would stand in one already built. */
+function occupied(taken: Map<number, { x: number, z: number, radius: number }[]>, x: number, z: number, radius: number): boolean {
+  for (let dx = -1; dx <= 1; dx += 1) {
+    for (let dz = -1; dz <= 1; dz += 1) {
+      for (const other of taken.get(plotKey(x + dx * PLOT_CELL, z + dz * PLOT_CELL)) ?? []) {
+        if (Math.hypot(other.x - x, other.z - z) < (other.radius + radius) * 0.9)
+          return true
+      }
+    }
+  }
+  return false
+}
+
+function claimPlot(taken: Map<number, { x: number, z: number, radius: number }[]>, x: number, z: number, radius: number): void {
+  const key = plotKey(x, z)
+  const bucket = taken.get(key)
+  const plot = { x, z, radius }
+  if (bucket)
+    bucket.push(plot)
+  else taken.set(key, [plot])
 }
 
 /** How far a place's houses reach down the lanes leaving it, in metres. */

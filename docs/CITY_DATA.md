@@ -145,5 +145,10 @@ ihnen läuft, mit Feldern dazwischen. Genau das baut `outskirts.ts` jetzt:
   Ein Dorf hat ein paar hundert Meter Häuser um sich und dann Felder.
 - **Jede Landstraße ist mindestens 8 m breit.** Keine Optik: `DRIVABLE_WIDTH` in `agents.ts` ist 8,
   und eine Straße, auf die der Verkehr nicht darf, ist wieder eine Insel — nur mit Asphalt drauf.
+- **Ein Dorf hat eine Mitte.** Jede Gasse begann ihre Grundstücke bei den ersten 27 m, also lagen an
+  einem Knoten mit sechs Gassen sechs Häuserreihen aus sechs Richtungen in denselben fünfzig Metern —
+  ein Knäuel überlappender Dächer mit einer Straße irgendwo darunter. Jetzt bleiben **42 m um jeden
+  Ort frei**, und kein Grundstück wird bebaut, das in einem schon stehenden Haus läge. Gemessen:
+  **504 von 5 155 überlappenden Gebäuden (9,8 %) auf 0 von 3 990.**
 - **190 Wäldchen** in der offenen Flur. Ohne sie ist das Land zwischen den Dörfern ein Rasen, und das
   ist aus der Luft das flachste Grün, das es gibt. Bäume sind ohnehin instanziert.

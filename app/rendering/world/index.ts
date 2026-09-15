@@ -2,6 +2,7 @@ import type * as THREE from 'three/webgpu'
 import type { CityBlueprint } from '../../core/contracts'
 import type { CityModels } from '../cityModels'
 import type { Precipitation } from '../sky/precipitation'
+import type { Protest } from './life/protest'
 import type { Prowlers } from './life/prowlers'
 import type { RoughSleeping } from './life/roughSleeping'
 import type { ParkedCars } from './streets/parkedCars'
@@ -17,6 +18,7 @@ import type { Railway } from './transit/railway'
 import type { Ships } from './transit/ships'
 import type { CitySurfaces } from './weatherSurfaces'
 import { addPrecipitation } from '../sky/precipitation'
+import { addProtest } from './life/protest'
 import { addProwlers } from './life/prowlers'
 import { addRoughSleeping } from './life/roughSleeping'
 import { addParkedCars } from './streets/parkedCars'
@@ -67,6 +69,11 @@ export interface WorldVisuals extends CityBuildings, CityTrees {
   roughSleeping: RoughSleeping
   /** Somebody at a house at two in the morning. Counted from the burglary pressure and the hour. */
   prowlers: Prowlers
+  /**
+   * People outside the town hall when the city has had enough. Three draws while they are there and
+   * none at all when they are not, which is most of a well-run decade.
+   */
+  protest: Protest
   /** Rain and snow: two draws, no triangles, and only while it is actually coming down. */
   precipitation: Precipitation
   /** Every material the weather is allowed to wet or whiten. Costs uniforms, never draws. */
@@ -99,6 +106,7 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
     railway: addRailway(scene, blueprint),
     roughSleeping: addRoughSleeping(scene, blueprint, models),
     prowlers: addProwlers(scene, blueprint, models),
+    protest: addProtest(scene, blueprint, models),
     precipitation: addPrecipitation(scene),
     surfaces: trackSurfaces(paved, soft),
   }

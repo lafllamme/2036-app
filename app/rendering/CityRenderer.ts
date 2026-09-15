@@ -105,6 +105,10 @@ const SLOW_UPDATE_HZ = 30
  */
 const SHADOW_HZ = 12
 /** A traffic cone two kilometres away is a fifth of a pixel. Above this the pavements are bare. */
+/** How close the camera has to be to the town hall for a demonstration to be heard, and where it goes. */
+const PROTEST_EARSHOT = 120
+const PROTEST_SILENCE = 520
+
 const FURNITURE_RANGE = 1_400
 /**
  * A parked car is two thousand triangles and, from further than this, about four pixels.
@@ -482,7 +486,8 @@ export class CityRenderer {
       })
       useCityAmbience().update({
         trafficNearby: this.world.agents.trafficNearby,
-        peopleNearby: this.world.agents.peopleNearby,
+        // The crowd the fleet does not know about: a demonstration is places, not travellers.
+        peopleNearby: this.world.agents.peopleNearby + this.protestWithinEarshot(),
         nearestSiren: this.world.agents.nearestSiren,
         nearestTrain: this.world.railway?.nearestTrain ?? Number.POSITIVE_INFINITY,
         cameraDistance: distance,
@@ -565,6 +570,21 @@ export class CityRenderer {
   }
 
   /** Which district a point is in, by the bounds the city definition gives each one. */
+  /**
+   * How much of the demonstration is close enough to be heard.
+   *
+   * It has to be added by hand, because the crowd bed follows what the *fleet* has near the camera
+   * and the people outside the town hall are not in any fleet — they are places. Without this a
+   * player could stand in a square with two hundred people in it and hear an empty street.
+   */
+  private protestWithinEarshot(): number {
+    const at = this.world.protest.at
+    if (!at || this.city.protesters === 0)
+      return 0
+    const away = Math.hypot(this.rig.controls.target.x - at.x, this.rig.controls.target.z - at.z)
+    return this.city.protesters * (1 - THREE.MathUtils.smoothstep(away, PROTEST_EARSHOT, PROTEST_SILENCE))
+  }
+
   private districtAt(x: number, z: number): string | null {
     for (const district of this.districts) {
       const { bounds } = district

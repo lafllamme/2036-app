@@ -3,6 +3,7 @@ import type { WorldVisuals } from './index'
 import type { CityPressure } from './traffic/incidents'
 import * as THREE from 'three/webgpu'
 import { paint } from '../picking'
+import { updateProtest } from './life/protest'
 import { updateRoughSleeping } from './life/roughSleeping'
 
 /**
@@ -34,8 +35,16 @@ export class CityState {
   occupancy = 1
   /** How much is in the air, 0 … 1. Thickens the fog and nothing else — no mesh, no draw. */
   haze = 0
-  /** How unsettled the city is, which is what decides how many blue lights are out. */
+  /**
+   * How unsettled the city is: how polarised, times how unhappy.
+   *
+   * It was computed by the simulation, copied into here and read by **nothing** for the life of the
+   * project. It now decides how many people are standing outside the town hall, which is what an
+   * unhappy city that has split into camps actually does — see `life/protest.ts`.
+   */
   unrest = 0
+  /** How many are out there, so the sound knows there is a crowd the fleet has not counted. */
+  protesters = 0
   /**
    * What the city is under, handed to the agents unchanged.
    *
@@ -76,6 +85,7 @@ export class CityState {
     this.occupancy = 1 - THREE.MathUtils.clamp((city.vacancyRate - 0.02) / 0.1, 0, 1) * 0.55
     this.haze = city.haze
     this.unrest = THREE.MathUtils.clamp(city.unrest, 0, 1)
+    this.protesters = updateProtest(this.visuals.protest, this.unrest)
     this.pressure = {
       burglary: city.burglaryPressure,
       fire: city.fireRisk,

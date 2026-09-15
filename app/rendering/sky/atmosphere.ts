@@ -42,6 +42,10 @@ const DAY_AMBIENT = /* @__PURE__ */ new THREE.Color('#d8e4e7')
 const NIGHT_GROUND = 0x4A5872
 const DAY_GROUND = /* @__PURE__ */ new THREE.Color('#4a4439')
 /** How strong the ambient is at night and how much the daylight adds on top of it. */
+/** The fog the scene is built with, and the colour a dirty one tends toward. */
+const CLEAR_DENSITY = 0.00021
+const SMOG = /* @__PURE__ */ new THREE.Color('#a89a78')
+
 const NIGHT_FILL = 2.9
 const DAY_FILL = 1.5
 /** Sun and moon ride well outside the ground plane, so they set at the horizon and not on the lawn. */
@@ -61,6 +65,23 @@ export class Atmosphere {
   private eased = { elevation: 0.55, arc: 1, sweep: 0.5 }
   /** How lively the city is after dark, which decides how many of its lamps and windows are lit. */
   private nightLife = 0.67
+  /**
+   * How much of the housing stock has somebody in it, 0 … 1.
+   *
+   * An empty flat has no light in it, and that is the only thing in this game that makes a vacancy
+   * rate *visible*. It was the one derived signal the renderer never read at all: the simulation
+   * computed it every month and the city looked identical whether a fiftieth or a seventh of it
+   * stood empty.
+   */
+  private occupancy = 1
+  /**
+   * How much is in the air, 0 … 1.
+   *
+   * The cheapest signal the city has: the scene already has exponential fog, and thickening and
+   * yellowing it costs nothing at all — no mesh, no draw, not one triangle. From the overview it is
+   * the difference between a city you can see across and one you cannot.
+   */
+  private haze = 0
 
   private readonly skyColour = new THREE.Color()
   private readonly sunColour = new THREE.Color()
@@ -84,6 +105,16 @@ export class Atmosphere {
 
   setNightLife(value: number): void {
     this.nightLife = value
+  }
+
+  /** What share of the stock is lived in. Dims the windows, and nothing else. */
+  setOccupancy(value: number): void {
+    this.occupancy = THREE.MathUtils.clamp(value, 0, 1)
+  }
+
+  /** How much is in the air. Thickens the fog the scene already has, and nothing else. */
+  setHaze(value: number): void {
+    this.haze = THREE.MathUtils.clamp(value, 0, 1)
   }
 
   update(delta: number, focus: THREE.Vector3, cameraDistance: number): void {
@@ -112,8 +143,14 @@ export class Atmosphere {
 
     const painted = this.skyColour.setHex(NIGHT_SKY).lerp(DAY_SKY, daylight).lerp(EMBER, horizonWarmth * 0.62)
     scene.background = painted
-    if (scene.fog instanceof THREE.FogExp2)
-      scene.fog.color.copy(painted)
+    if (scene.fog instanceof THREE.FogExp2) {
+      /*
+       * A dirty sky is thicker and browner, and both together are what reads as smog rather than as
+       * weather. The base density is the clear-day one the scene was built with.
+       */
+      scene.fog.color.copy(painted).lerp(SMOG, this.haze * 0.4)
+      scene.fog.density = CLEAR_DENSITY * (1 + this.haze * 2.1)
+    }
 
     /*
      * The scattered sky itself. Its direction vector is the same arc the sun body rides, so the warm
@@ -183,7 +220,12 @@ export class Atmosphere {
      * flat emissive on the entire building, which is why it had to stay so faint to avoid turning
      * every house into a lantern — and why the night had nothing in it.
      */
-    const glow = (1 - daylight) * (0.55 + this.nightLife * 0.75)
+    /*
+     * And how much of it is lived in. Night life decides how *brightly* the city burns; occupancy
+     * decides how much of it is there to burn at all, which is a different question and the one a
+     * housing policy answers.
+     */
+    const glow = (1 - daylight) * (0.55 + this.nightLife * 0.75) * this.occupancy
     for (const material of buildingMaterials)
       material.emissiveIntensity = glow
 

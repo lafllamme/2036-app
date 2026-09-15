@@ -388,6 +388,14 @@ export interface CityVisualState {
   buildingActivity: number
   /** The share of people on the pavement whose family came from somewhere else. */
   originMix: number
+  /**
+   * How much is in the air, 0 … 1.
+   *
+   * The cheapest visible signal in the whole game: it is the fog the scene already has, thickened
+   * and yellowed. No mesh, no draw, no triangle — and from any distance it is the difference between
+   * a city you can see across and one you cannot.
+   */
+  haze: number
   /** How many are out during working hours because there is no work. */
   idleness: number
   /**

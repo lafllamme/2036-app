@@ -555,6 +555,11 @@ function visualsFrom(metrics: CityMetrics, stocks: CityStocks): CityVisualState 
      * happens there: `docs/CITY_LIFE.md` states the separation and an architecture test holds it.
      */
     originMix: clamp(metrics.internationalShare / 100, 0, 1),
+    /*
+     * Against the baseline rather than against zero: a city with no emissions at all is not a city,
+     * and what the player changes is the distance from where they started.
+     */
+    haze: clamp((metrics.emissions - BASELINE_METRICS.emissions * 0.7) / (BASELINE_METRICS.emissions * 0.9), 0, 1),
     idleness: clamp(metrics.youthUnemployment / 24, 0, 1),
     /*
      * Against two thousand, which is roughly where this city's own dynamics top out under a decade

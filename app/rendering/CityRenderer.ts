@@ -284,6 +284,13 @@ export class CityRenderer {
   applySnapshot(snapshot: SimulationSnapshot): void {
     this.city.apply(snapshot)
     this.atmosphere.setNightLife(this.city.nightLife)
+    /*
+     * And how much of the stock has somebody in it. An empty flat has no light in it — the one thing
+     * that makes a vacancy rate visible, and the one derived signal nothing read at all.
+     */
+    this.atmosphere.setOccupancy(this.city.occupancy)
+    // And what is in the air. Free: it is the fog the scene already has.
+    this.atmosphere.setHaze(this.city.haze)
   }
 
   focusBuilding(buildingId: string): void {
@@ -389,6 +396,7 @@ export class CityRenderer {
         this.city.trafficFactor,
         this.hourOfDay,
         this.city.pressure,
+        this.city.idleness,
       )
       this.reportIncidents()
       updateIncidentScenes(

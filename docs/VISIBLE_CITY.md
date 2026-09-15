@@ -33,9 +33,9 @@ Sortiert nach Verhältnis von Wirkung zu Aufwand. Jede Zeile ist für sich liefe
 | 2 ✅ | `responseCapacity` | **Polizei zu Fuß auf Streife**, in der Zahl, die die Kennzahl hergibt. Personal gestrichen heißt: leere Straßen. | gebaut: `agents.patrol` |
 | 3 ✅ | `burglaryPressure` | **Jemand an einem Haus um zwei Uhr nachts** — abseits des Gehwegs, zur Wand gedreht. | gebaut: `prowlers.ts` |
 | 4 ✅ | `homelessPeople` (neu) | **Menschen in Eingängen.** Steigt mit Miete, fehlendem Leerstand und Arbeitslosigkeit, fällt mit gebundenem Bestand. | gebaut: `roughSleeping.ts` |
-| 5 | `vacancyRate` | **Nachts dunkle Fenster**, vernagelte Erdgeschosse. Heute: null Leser. | Fenstermaterial vorhanden |
-| 6 | `youthUnemployment` / `idleness` | **Leute stehen tagsüber herum**, statt zu gehen. Eine Stadt ohne Arbeit sieht anders aus als eine im Berufsverkehr. | Verhalten im `Fleet` |
-| 7 | `emissions` | **Dunst über der Stadt**, Farbe des Himmels am Horizont. | Atmosphäre vorhanden |
+| 5 ✅ | `vacancyRate` | **Nachts dunkle Fenster.** Vorher: null Leser. | gebaut, 0 zusätzliche Draws |
+| 6 ✅ | `idleness` | **Leute stehen tagsüber herum**, statt zu gehen. | gebaut, 0 zusätzliche Draws |
+| 7 ✅ | `emissions` | **Dunst über der Stadt**, dichter und brauner. | gebaut, 0 zusätzliche Draws |
 | 8 | `integrationCapacity` / `originMix` | **Zusammensetzung der Menge.** Die Herkünfte stehen, die Verteilung hängt an nichts. | `citizens.ts` fertig |
 | 9 | `unitsUnderConstruction` | **Gerüste, Kräne, Lieferverkehr.** Teils da, nicht an die Zahl gehängt. | `construction.ts` vorhanden |
 | 10 | `satisfaction` | **Demonstrationen** vor dem Rathaus, wenn sie tief genug fällt. | neu |
@@ -152,3 +152,34 @@ Einbruchsproblem sieht mittags aus wie jede andere, und das ist richtig. Was der
 dieselbe Straße um zwei Uhr nachts als eine andere Straße. Nichts vor 23 Uhr, nichts nach 5 Uhr, mit
 einer Stunde Überblendung an beiden Enden — ein Zähler, der zwischen zwei Frames umspringt, liest
 sich als Fehler, eine Stunde Überblendung als Einbruch der Nacht.
+
+
+## Was das alles kostet
+
+Der Grund, warum die letzten drei Bindungen in dieser Reihenfolge gebaut wurden: **keine davon
+kostet einen einzigen Draw.**
+
+| Bindung | Kosten |
+| --- | --- |
+| Leerstand → dunkle Fenster | `emissiveIntensity` an vorhandenen Materialien. **0** |
+| Untätigkeit → Herumstehen | dieselbe Instanz, Geschwindigkeit null. **0** |
+| Emissionen → Dunst | Dichte und Farbe des vorhandenen Nebels. **0** |
+| Polizei auf Streife | 1 Figur × 4 Gangphasen = **4 Draws** |
+| Obdachlosigkeit | 1 instanziertes Mesh = **1 Draw** |
+| Einbrüche | 1 instanziertes Mesh = **1 Draw** |
+
+Die Streife hätte acht gekostet: zwei Polizeifiguren, jede mit vier Gangphasen. Vier Draws sind ein
+echter Preis für eine Vielfalt, die der Spieler nicht gebrauchen kann — eine Streife trägt Uniform,
+und dass zwei Beamte gleich aussehen, *ist* eine Uniform. Die Vielfalt der Menge kommt aus zwölf
+Figuren und sechs Hauttönen; die Polizei braucht sie nicht.
+
+Gemessen im eingeschwungenen Zustand: **102 Draws, 2 563k Dreiecke** — innerhalb des alten Rahmens
+von 94–136 Draws und 2,4–3,9 Mio. Dreiecken.
+
+### Noch nicht gebaut, mit Grund
+
+**Herkünfte in der Zusammensetzung der Menge** (Punkt 8) ist aufgeschoben. Jede Figur ist ein eigenes
+instanziertes Mesh je Gangphase; die Mischung monatlich zu verschieben hieße, Reisende zwischen
+diesen Meshes umzubuchen — und eine Menge, die zwischen zwei Monaten ihr Aussehen tauscht, liest sich
+als Flackern. Die Herkunft steht bereits in jeder Person und im Personen-Panel; sichtbar zu machen,
+was sie *anders* aussehen lässt, ist ein eigener Umbau und keine zwanzig Zeilen.

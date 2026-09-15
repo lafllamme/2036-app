@@ -189,12 +189,36 @@ export interface PersonAt {
   z: number
 }
 
-/** The two characters in police blue. The rest of the crew models belong to a different service. */
+/**
+ * The character in police blue — one of the two, deliberately.
+ *
+ * Every character costs its own instanced mesh per walk phase, so two of them is eight draws and one
+ * is four. Four draws is a real price for variety the player cannot use: a patrol is in uniform, and
+ * two officers who look alike is what a uniform *is*. The crowd gets its variety from twelve
+ * characters and six skin tones; the police do not need it.
+ */
 function policeModels(models: CityModels): CityModel[] {
   const wanted = new Set<string>(CREW_IDS.police)
   const found = models.crew.filter(model => wanted.has(model.id))
   // Never empty: an empty fleet is a silent one, and a patrol that never appears looks like a bug.
-  return found.length > 0 ? found : models.crew
+  return found.length > 0 ? found.slice(0, 1) : models.crew.slice(0, 1)
+}
+
+/**
+ * How much of the day is a working one, 0 … 1.
+ *
+ * Standing about only means anything when everybody else is at work. Flat through the middle of the
+ * day, nothing at night, and an hour of slope at each end so the crowd does not all start walking
+ * again between two frames.
+ */
+function workingHours(hourOfDay: number): number {
+  if (hourOfDay <= 7 || hourOfDay >= 19)
+    return 0
+  if (hourOfDay < 8)
+    return hourOfDay - 7
+  if (hourOfDay > 18)
+    return 19 - hourOfDay
+  return 1
 }
 
 export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels, network: RoadNetwork, signals: SignalPlan): Agents {
@@ -364,6 +388,8 @@ export function updateAgents(
   trafficFactor: number,
   hourOfDay: number,
   pressure: CityPressure,
+  /** How much of the city has nowhere to be, 0 … 1. See `idleness` in `CityVisualState`. */
+  idleness: number,
 ): void {
   /*
    * How busy the city is at this hour, and how busy the council has made it. The two multiply: a
@@ -383,6 +409,11 @@ export function updateAgents(
   // Cycling follows the same hour as driving, and a little more of it in the middle of the day.
   drive(agents.cyclists, streets, delta, elapsed, cameraDistance > CYCLIST_RANGE ? 0 : busy, camera, focus)
   // People are out when the city is awake, but a pavement is never as empty as a road at night.
+  /*
+   * How many of the crowd have nowhere to be. Idleness times the working day: at three in the
+   * morning nobody is standing about, because nobody is out at all.
+   */
+  agents.pedestrians.idle = idleness * workingHours(hourOfDay)
   drive(agents.pedestrians, streets, delta, elapsed, cameraDistance > WALKER_RANGE ? 0 : 0.35 + busy * 0.65, camera, focus)
   /*
    * And the patrol, whose entire number is a policy outcome. `response` runs 0.2 … 1; squared, that

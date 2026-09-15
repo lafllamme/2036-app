@@ -24,6 +24,16 @@ export class CityState {
   /** How busy the roads are, and how lit the city is after dark. */
   trafficFactor = 1
   nightLife = 0.67
+  /**
+   * What share of the housing stock is lived in, 0 … 1.
+   *
+   * Frictional vacancy is a healthy two per cent — somebody is always moving — so only what stands
+   * empty *beyond* that counts as a dark window. Capped well short of black: a city with a seventh
+   * of its flats empty is a bleak place, not an unlit one.
+   */
+  occupancy = 1
+  /** How much is in the air, 0 … 1. Thickens the fog and nothing else — no mesh, no draw. */
+  haze = 0
   /** How unsettled the city is, which is what decides how many blue lights are out. */
   unrest = 0
   /**
@@ -63,6 +73,8 @@ export class CityState {
       1.25,
     )
     this.nightLife = city.nightLife
+    this.occupancy = 1 - THREE.MathUtils.clamp((city.vacancyRate - 0.02) / 0.1, 0, 1) * 0.55
+    this.haze = city.haze
     this.unrest = THREE.MathUtils.clamp(city.unrest, 0, 1)
     this.pressure = {
       burglary: city.burglaryPressure,

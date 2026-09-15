@@ -107,6 +107,14 @@ const COMPANY_SHARE = 0.34
  * nobody, which is what it was.
  */
 const ROAMER_SHARE = 0.2
+/**
+ * How much of the crowd is *able* to stand about, and how much of that actually does.
+ *
+ * The pool is fixed at build time so the same people are always the candidates — re-rolling it would
+ * make the crowd twitch between walking and standing. How many of the pool are stopped is
+ * `idleness` and the hour: nobody is idle at three in the morning, because nobody is out.
+ */
+const LOITER_POOL = 0.35
 const COMPANY_GAP: [number, number] = [1.1, 2.4]
 /** How close somebody will walk behind the person in front before easing off. A pavement, not a road. */
 const WALKING_GAP = 1.4
@@ -198,6 +206,13 @@ export interface Fleet {
   straightness: number
   /** How many of this fleet are on each stretch, counted on the recycling pass. */
   occupancy: Map<number, number>
+  /**
+   * How likely somebody with nowhere to be is to be standing still right now, 0 … 1.
+   *
+   * Set from outside every frame: it is the city's idleness and the hour of day multiplied, because
+   * nobody is idle at three in the morning — nobody is out.
+   */
+  idle: number
   /** How full the surroundings can be, 0 … 1. Multiplies the quality governor's own share. */
   density: number
   /** Frames since the last recycling pass. */
@@ -261,6 +276,17 @@ export interface Traveller {
    * which is what an outer street has.
    */
   roams: boolean
+  /**
+   * Somebody standing rather than walking.
+   *
+   * A city with no work in it looks exactly like one full of it, because everybody in both is on
+   * their way somewhere. What is actually different is that some of them have nowhere to be — and a
+   * figure standing still on a pavement at eleven in the morning says that without a word.
+   *
+   * Free: a stopped traveller is the same instance in the same mesh with a speed of nought. No new
+   * draw, no new triangle.
+   */
+  loiters: boolean
   /**
    * How tall this one is against a grown adult.
    *
@@ -386,6 +412,7 @@ export function buildFleet(
     queues: !(plan.walks ?? plan.people === true),
     straightness: (plan.walks ?? plan.people === true) ? WALKER_STRAIGHTNESS : DRIVER_STRAIGHTNESS,
     occupancy: new Map(),
+    idle: 0,
     density: 1,
     sinceGather: 0,
     index: plan.gatherRange || plan.people === true ? indexEdges(network, allowed) : null,
@@ -465,6 +492,11 @@ export function buildFleet(
       partnerGap: 0,
       fromCamera: 0,
       roams: plan.people === true && draw() < ROAMER_SHARE,
+      /*
+       * Drawn once and kept, so the same people are the ones standing about. Re-rolling it every
+       * month would make the whole crowd twitch between walking and standing.
+       */
+      loiters: plan.people === true && draw() < LOITER_POOL,
       stature: plan.people ? statureAt(citizen, plan.seed) : 1,
       /*
        * Unique across the whole city, not within a fleet: the pedestrians and the cyclists are two
@@ -839,6 +871,12 @@ function advance(fleet: Fleet, streets: Streets, delta: number, elapsed: number)
     const edge = network.edges[traveller.edge]!
     // A car on a call is quicker and does not wait, which is the whole point of the blue light.
     let limit = traveller.responding ? traveller.cruise * responseSpeed(streets.pressure) : traveller.cruise
+    /*
+     * And somebody with nowhere to be simply stops. It is the whole of the idleness signal: a city
+     * with no work in it is not emptier than one full of it, it has people standing in it.
+     */
+    if (traveller.loiters && traveller.rng() < fleet.idle)
+      limit = 0
     // And a crew that has arrived stands at the scene rather than driving round it.
     if (traveller.callout?.arrived !== null && traveller.callout !== null)
       limit = 0

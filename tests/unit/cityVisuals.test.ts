@@ -100,3 +100,31 @@ describe('a policy decision you can see on the pavement', () => {
     expect(shown(0.8) - shown(0.6)).toBeGreaterThan(10)
   })
 })
+
+describe('an empty flat has no light in it', () => {
+  /*
+   * `vacancyRate` was the one derived signal nothing in the renderer read at all — the simulation
+   * computed it every month and the city looked identical whether a fiftieth or a seventh of it
+   * stood empty. At night that is the most legible housing number there is.
+   *
+   * Frictional vacancy is a healthy two per cent, because somebody is always moving. Only what
+   * stands empty beyond that counts as a dark window.
+   */
+  const occupancy = (vacancy: number): number =>
+    1 - Math.min(1, Math.max(0, (vacancy - 0.02) / 0.1)) * 0.55
+
+  it('leaves a healthy market fully lit', () => {
+    expect(occupancy(0.02)).toBe(1)
+    expect(occupancy(0.01)).toBe(1)
+  })
+
+  it('dims the city as flats empty out', () => {
+    expect(occupancy(0.07)).toBeLessThan(occupancy(0.03))
+    expect(occupancy(0.12)).toBeLessThan(occupancy(0.07))
+  })
+
+  it('never turns the lights off altogether', () => {
+    // A city with a seventh of its flats empty is a bleak place, not an unlit one.
+    expect(occupancy(0.5)).toBeGreaterThan(0.4)
+  })
+})

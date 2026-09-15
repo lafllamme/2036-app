@@ -196,11 +196,17 @@ seine zehn Zeilen in der Engine.
 
 ---
 
-## 6. Reihenfolge, die ich vorschlagen würde
+## 6. Was dieser Durchgang erledigt hat
 
-1. **READMEs** (10 Dateien, ein Durchgang) — billigste Wirkung im ganzen Audit.
-2. **`contracts.ts` aufteilen** — reine Typen, kein Laufzeitrisiko, größter Lesbarkeitsgewinn.
-3. **`fleet.ts` in vier Module** entlang der vorhandenen Funktionsgrenzen.
-4. **`rendering/world/` in Unterordner** — mechanisch, vom Typechecker abgesichert.
-5. **Eine Profiling-Sitzung**, dann über `BatchedMesh` entscheiden. Nicht vorher.
-6. **Verzweigung verdrahten** und den ersten Ereignissen Türen geben, die zufallen.
+| | Stand |
+| --- | --- |
+| `rendering/world/` in sechs Themenordner | **erledigt** — `569c789` |
+| `contracts.ts` in acht Domänen hinter einem Barrel | **erledigt** — `382dc87`, kein Import anderswo geändert |
+| `fleet.ts` in sechs Module | **erledigt** — `3f66709`, im laufenden Build bei 120 FPS geprüft |
+| READMEs für zehn Ordner | **erledigt** — `5186e63` |
+| Verzweigung verdrahtet, fünf Ereignisse hinter Türen, drei Sperren | **erledigt** |
+| `EntryExperience.vue` (943 Zeilen) aufteilen | offen |
+| `simulation/model.ts` (788 Zeilen) aufteilen | offen |
+| `fire.ts` anschließen oder als Vorbau dokumentieren | offen |
+| `cityShape.ts` entfernen oder anschließen | offen |
+| **Profiling-Sitzung, dann über `BatchedMesh` entscheiden** | offen — und weiterhin *nicht* vorher |

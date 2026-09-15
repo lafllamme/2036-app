@@ -156,6 +156,7 @@ function drawState(): EventDrawState {
     month: 12,
     metrics: BASELINE_METRICS,
     firedOnce: [],
+    choices: [],
     cooldowns: {},
     streaks: {},
     activeMeasureSources: [],

@@ -338,3 +338,58 @@ Die anderen zehn sind Dinge, die der Stadt *zustoßen* — eine gesperrte Brück
 vom Land abgezogene Polizeistellen. Eine Krise wartet nicht auf deine Koalition, und das ist die
 Regel, die verhindert, dass die Schwelle zur Mauer wird: eine Stadt ganz ohne Koalition hat weiter
 Ereignisse, es sind nur die, die sie sich nicht ausgesucht hat. Keine Schwelle liegt über 30 von 60.
+
+
+## Türen: was eine Entscheidung unmöglich macht
+
+Seit dem Verzweigungs-Commit tragen Ereignisse Türen. Vier Felder auf `EventTrigger`, alle am
+**verschlossenen** Ereignis geschrieben:
+
+| Feld | Bedeutung |
+| --- | --- |
+| `requiresEventIds` | erst, nachdem der Rat danach gefragt wurde |
+| `requiresChoiceIds` | erst, nachdem die Stadt es getan hat — `eventId:optionId` |
+| `blockedByChoiceIds` | nie wieder, sobald diese Entscheidung getragen wurde |
+| `blockedByMeasureIds` | nicht, solange eine dieser Maßnahmen läuft |
+
+### Warum am verschlossenen Ereignis und nicht am öffnenden
+
+Weil eine Tür sich von der Tür aus leichter liest. Wer einen Trigger liest, weiß alles darüber, wann
+das Ereignis auftauchen kann. Die andere Richtung — eine Option, die aufzählt, was sie freischaltet —
+stand zwei Wochen im Vertrag, wurde von keinem Ereignis gesetzt und von keinem Code gelesen, und ist
+entfernt.
+
+### `firedOnce` gegen `choices`
+
+`firedOnce` sagt, worüber der Rat **abgestimmt** hat. `choices` sagt, was die Stadt **getan** hat —
+geschrieben in `adoptMeasure`, durch das jede getragene Entscheidung läuft, gleich ob sie aus einer
+Ratsvorlage, einer eigenen stehenden Vorlage oder einem Vorfall kam. Eine abgelehnte Vorlage
+erreicht die Stelle nie. Das ist genau richtig: sie verschiebt den Rückhalt und verändert keine
+einzige Straße, also schließt sie keine Tür.
+
+### Was heute hinter Türen liegt
+
+| Ereignis | Steht hinter |
+| --- | --- |
+| `saf-cctv-challenge` | Videoüberwachung beschlossen |
+| `hou-charter-breach` | Sozialcharta statt Vorkauf |
+| `hou-preempt-strain` | Vorkauf statt Charta |
+| `eco-datacenter-heat` | Rechenzentrum zugelassen (mit oder ohne Auflagen) |
+| `soc-childcare-judgment` | Klagen abgewehrt statt Plätze gebaut |
+
+Und drei Sperren:
+
+| Ereignis | Fällt weg, wenn |
+| --- | --- |
+| `env-green-offensive` | das Rechenzentrum ohne Auflagen kam |
+| `eco-datacenter` | das Grundstück entsiegelt und bepflanzt wurde |
+| `mob-federal-funding` | die Hafenbrücke durch eine Umleitung ersetzt wurde |
+
+Die ersten beiden sind dieselbe Gabelung von zwei Seiten: ein Grundstück, zwei Zukünfte.
+
+### Die Regel beim Schreiben
+
+**Was wird dadurch unmöglich?** Ein Ereignis ohne Antwort darauf ist eine Meldung, keine
+Entscheidung. Und `tests/unit/branching.test.ts` prüft, dass jede Tür eine Kennung nennt, die es
+gibt — ein Tippfehler dort warnt nicht, stürzt nicht ab und macht das Ereignis für den Rest des
+Jahrzehnts in jeder Kampagne unerreichbar.

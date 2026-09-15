@@ -90,6 +90,14 @@ export interface EventDrawState {
   cooldowns: Record<string, number>
   streaks: Record<string, number>
   firedOnce: string[]
+  /**
+   * Every choice the council actually carried, as `eventId:optionId`.
+   *
+   * Apart from `firedOnce` on purpose: that one says what has been *asked*, this one what the city
+   * has *done*. A motion the player tabled and lost changes what the street thinks of them, and it
+   * does not change a single street — so it closes no door and opens none.
+   */
+  choices: string[]
   openDecisions: number
   activeMeasureSources: string[]
   /** How many seats the player's coalition holds. See `minCoalitionSeats` on the trigger. */
@@ -160,6 +168,11 @@ export function eligibleEvents(state: EventDrawState, monthOfYear: number): Even
     if (trigger.minCoalitionSeats !== undefined && state.coalitionSeats < trigger.minCoalitionSeats)
       return false
     if (trigger.requiresEventIds?.some(id => !state.firedOnce.includes(id)))
+      return false
+    // The doors. See `EventTrigger` for why they are all written at the gated event.
+    if (trigger.requiresChoiceIds && !trigger.requiresChoiceIds.some(id => state.choices.includes(id)))
+      return false
+    if (trigger.blockedByChoiceIds?.some(id => state.choices.includes(id)))
       return false
     if (trigger.blockedByMeasureIds?.some(id => state.activeMeasureSources.includes(id)))
       return false

@@ -106,6 +106,8 @@ export interface SimulationState {
   cooldowns: Record<string, number>
   streaks: Record<string, number>
   firedOnce: string[]
+  /** Every choice the council carried, as `eventId:optionId`. What the city did, not what it was asked. */
+  choices: string[]
   relationships: Partial<Record<PartyId, number>>
   seatsByParty: Record<PartyId, number>
   coalitionPartyIds: PartyId[]
@@ -195,6 +197,7 @@ export function createInitialState(seed = 2036, partyId: PartyId | null = null, 
     cooldowns: {},
     streaks: {},
     firedOnce: [],
+    choices: [],
     relationships: {},
     seatsByParty: seatsFromContent(),
     coalitionPartyIds: formCoalition(partyId),
@@ -276,11 +279,21 @@ export function forecastsForEvent(state: SimulationState, eventId: string): Reco
   return result
 }
 
+/**
+ * Put a decision into effect, and write down that the city took this road.
+ *
+ * The choice is recorded here rather than where the vote is counted, because this is the one place
+ * every road runs through: a council motion that passed, a standing motion the player tabled
+ * themselves, an incident that simply happened. A motion that was voted down never reaches here,
+ * which is exactly right — it closes no door, because nothing was done.
+ */
 function adoptMeasure(state: SimulationState, sourceId: string, option: EventOption, category: ActiveMeasure['category']): SimulationState {
   const metrics = { ...state.metrics, cityBudget: Math.max(0, state.metrics.cityBudget - option.oneOffCost) }
+  const choice = `${sourceId}:${option.id}`
   return {
     ...state,
     metrics,
+    choices: state.choices.includes(choice) ? state.choices : [...state.choices, choice],
     measures: [...state.measures, measureFromOption(sourceId, option, category, state.month)],
   }
 }
@@ -374,6 +387,7 @@ export function migrateState(state: SimulationState): SimulationState {
     cooldowns: state.cooldowns ?? {},
     streaks: state.streaks ?? {},
     firedOnce: state.firedOnce ?? [],
+    choices: state.choices ?? [],
   }
 }
 
@@ -731,13 +745,14 @@ export function advanceOneMonth(state: SimulationState): SimulationState {
   }
 
   // Draw at most one new event.
-  next = { ...next, streaks: updateStreaks({ month, metrics: next.metrics, cooldowns: next.cooldowns, streaks: next.streaks, firedOnce: next.firedOnce, openDecisions: next.pending.length, activeMeasureSources: next.measures.map(measure => measure.sourceId), coalitionSeats: seatsOfCoalition(next) }) }
+  next = { ...next, streaks: updateStreaks({ month, metrics: next.metrics, cooldowns: next.cooldowns, streaks: next.streaks, firedOnce: next.firedOnce, choices: next.choices, openDecisions: next.pending.length, activeMeasureSources: next.measures.map(measure => measure.sourceId), coalitionSeats: seatsOfCoalition(next) }) }
   const drawState: EventDrawState = {
     month,
     metrics: next.metrics,
     cooldowns: next.cooldowns,
     streaks: next.streaks,
     firedOnce: next.firedOnce,
+    choices: next.choices,
     openDecisions: next.pending.length,
     activeMeasureSources: next.measures.map(measure => measure.sourceId),
     coalitionSeats: seatsOfCoalition(next),

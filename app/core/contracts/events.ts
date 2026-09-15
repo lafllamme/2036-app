@@ -49,7 +49,26 @@ export interface EventTrigger {
    * may table it, however small their group.
    */
   minCoalitionSeats?: number
+  /**
+   * Which way through the decade this is at the end of — the four fields that make a campaign a
+   * path rather than a list of incidents.
+   *
+   * They are all written at the *gated* event rather than at the one that opens it. A door is
+   * easier to reason about from the door: reading one event's trigger tells you everything about
+   * when it can appear, and nobody has to hold the whole graph in their head to answer "why have I
+   * never seen this?". The one-directional version of this — an option that names what it unlocks —
+   * existed here for two weeks, was set by no event and read by no code, and is gone.
+   *
+   * The distinction between the first two matters. `requiresEventIds` asks what the council has
+   * been asked*; `requiresChoiceIds` asks what the city has actually *done* — an option that was
+   * tabled and voted down is not a road taken. A choice id is `eventId:optionId`.
+   */
   requiresEventIds?: string[]
+  /** Only after one of these choices was carried. Format: `eventId:optionId`. */
+  requiresChoiceIds?: string[]
+  /** Never again once one of these choices was carried. The door this decision shut. */
+  blockedByChoiceIds?: string[]
+  /** Never while one of these measures is running. A problem somebody is already paying for. */
   blockedByMeasureIds?: string[]
   scheduledMonthOfYear?: number
 }
@@ -64,7 +83,6 @@ export interface EventOption {
   salience: AxisVector
   effects: PolicyEffect[]
   immediateEffects?: PolicyEffect[]
-  unlocksEventIds?: string[]
   sourceIds: string[]
 }
 

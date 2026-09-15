@@ -479,7 +479,12 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Ein Bundesprogramm fördert Taktverdichtung mit 70 Prozent. Die Antragsfrist läuft in zwei Monaten ab, der Eigenanteil belastet den Haushalt.',
     urgency: 'important',
-    trigger: { earliestMonth: 26, latestMonth: 72, conditions: [], baseWeight: 8, cooldownMonths: 60, oncePerCampaign: true, minCoalitionSeats: 20 },
+    /*
+     * Not after the detour. The tender is for more service on a reliable core network, and a city
+     * that answered a closed harbour bridge by sending the traffic round it does not have one — the
+     * ministry's own criteria say so before anybody in Lindenhafen gets to argue.
+     */
+    trigger: { earliestMonth: 26, latestMonth: 72, conditions: [], baseWeight: 8, cooldownMonths: 60, oncePerCampaign: true, minCoalitionSeats: 20, blockedByChoiceIds: ['mob-bridge-closure:mob-bridge-detour'] },
     immediateEffects: [],
     defaultOptionId: 'mob-funding-skip',
     expiresInMonths: 2,
@@ -535,7 +540,13 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die Grünfläche pro Kopf ist unter den Zielwert gefallen. Ein Entsiegelungs- und Pflanzprogramm wirkt erst in Jahren, aber nur, wenn es jetzt beginnt.',
     urgency: 'normal',
-    trigger: { earliestMonth: 10, latestMonth: 110, conditions: [{ metric: 'greenSpacePerCapita', operator: '<', value: 21.4 }], baseWeight: 7, cooldownMonths: 24, oncePerCampaign: false, minCoalitionSeats: 25 },
+    /*
+     * Blocked by the data centre, and the data centre is blocked by this. One site, two futures:
+     * whichever the council takes first, the other stops being on offer. That is the whole idea —
+     * a decade in which every road is still open at the end is a decade in which nothing was
+     * decided.
+     */
+    trigger: { earliestMonth: 10, latestMonth: 110, conditions: [{ metric: 'greenSpacePerCapita', operator: '<', value: 21.4 }], baseWeight: 7, cooldownMonths: 24, oncePerCampaign: false, minCoalitionSeats: 25, blockedByChoiceIds: ['eco-datacenter:eco-datacenter-accept'] },
     immediateEffects: [],
     defaultOptionId: 'env-green-none',
     expiresInMonths: 4,
@@ -626,7 +637,8 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Ein Betreiber sucht 14 Hektar in Gewerbe Ost. Gewerbesteuer und wenige Arbeitsplätze stehen gegen Stromverbrauch, Flächenfraß und Abwärme.',
     urgency: 'normal',
-    trigger: { earliestMonth: 24, latestMonth: 96, conditions: [], baseWeight: 5, cooldownMonths: 60, oncePerCampaign: true, minCoalitionSeats: 18 },
+    // The other half of the fork with the green offensive: the same site cannot be both.
+    trigger: { earliestMonth: 24, latestMonth: 96, conditions: [], baseWeight: 5, cooldownMonths: 60, oncePerCampaign: true, minCoalitionSeats: 18, blockedByChoiceIds: ['env-green-offensive:env-green-program'] },
     immediateEffects: [],
     defaultOptionId: 'eco-datacenter-reject',
     expiresInMonths: 3,
@@ -791,6 +803,251 @@ export const EVENTS: EventDefinition[] = [
     immediateEffects: [effect({ target: 'orderServiceFte', expected: -18, delayMonths: 1, rampMonths: 5, confidence: 'high' })],
     options: [],
     expiresInMonths: 0,
+    sourceIds: MODEL,
+  },
+  /*
+   * --- Behind the doors -----------------------------------------------------
+   *
+   * Everything below exists only at the end of one particular road. Each one names the choice it
+   * follows in `requiresChoiceIds`, and a choice is `eventId:optionId` — the council having *done*
+   * the thing, not having been asked about it. A player who went the other way never learns these
+   * are here, which is the point: a decade in which every event turns up regardless is a decade in
+   * which nothing was decided.
+   */
+  {
+    schemaVersion: 1,
+    id: 'saf-cctv-challenge',
+    kind: 'incident',
+    category: 'governance',
+    title: 'Landesdatenschutz beanstandet die Kameras',
+    briefing:
+      'Die Landesbeauftragte für Datenschutz hält die Videoüberwachung an achtzehn Knotenpunkten für unverhältnismäßig und fordert Rückbau. Eine Klage ist angekündigt. Die Stadt kann den Rechtsweg gehen, die Anlage auf wenige Brennpunkte zurückschneiden oder sie abbauen.',
+    urgency: 'important',
+    trigger: { earliestMonth: 6, latestMonth: 120, conditions: [], baseWeight: 9, cooldownMonths: 60, oncePerCampaign: true, requiresChoiceIds: ['saf-burglary-series:saf-burglary-cctv'] },
+    immediateEffects: [],
+    defaultOptionId: 'saf-cctv-reduce',
+    expiresInMonths: 3,
+    options: [
+      {
+        id: 'saf-cctv-defend',
+        label: 'Den Rechtsweg gehen',
+        rationale: 'Die Stadt verteidigt die Anlage vor Gericht und behält sie bis zur Entscheidung in Betrieb.',
+        oneOffCost: 1.8,
+        monthlyCost: 0.12,
+        axes: { securityAuthority: 0.8, opennessIntegration: -0.5, fiscalRestraint: -0.2 },
+        salience: { securityAuthority: 1, opennessIntegration: 0.8 },
+        effects: [effect({ target: 'orderServiceFte', expected: 3, rampMonths: 6, confidence: 'low' })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'saf-cctv-reduce',
+        label: 'Auf vier Brennpunkte zurückschneiden',
+        rationale: 'Vergleich mit der Aufsicht: vier Standorte bleiben, vierzehn werden abgebaut.',
+        oneOffCost: 0.9,
+        monthlyCost: 0,
+        axes: { securityAuthority: 0.2, opennessIntegration: 0.2 },
+        salience: { securityAuthority: 0.6, opennessIntegration: 0.6 },
+        effects: [effect({ target: 'orderServiceFte', expected: -3, rampMonths: 4 })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'saf-cctv-remove',
+        label: 'Anlage abbauen',
+        rationale: 'Die Stadt gibt die Überwachung auf und schreibt die Investition ab.',
+        oneOffCost: 1.2,
+        monthlyCost: 0,
+        axes: { securityAuthority: -0.7, opennessIntegration: 0.7 },
+        salience: { securityAuthority: 1, opennessIntegration: 0.9 },
+        effects: [effect({ target: 'orderServiceFte', expected: -8, rampMonths: 3 })],
+        sourceIds: MODEL,
+      },
+    ],
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'hou-charter-breach',
+    kind: 'decision',
+    category: 'housing',
+    title: 'Investor bricht die Sozialcharta',
+    briefing:
+      'Der Investor hat in achtzig Wohnungen modernisiert und die Miete über die vereinbarte Grenze gehoben. Die Charta war freiwillig — sie durchzusetzen heißt, sie einzuklagen.',
+    urgency: 'important',
+    trigger: { earliestMonth: 10, latestMonth: 120, conditions: [], baseWeight: 9, cooldownMonths: 60, oncePerCampaign: true, requiresChoiceIds: ['hou-investor-block:hou-investor-charter'] },
+    immediateEffects: [],
+    defaultOptionId: 'hou-charter-accept',
+    expiresInMonths: 3,
+    options: [
+      {
+        id: 'hou-charter-sue',
+        label: 'Charta einklagen',
+        rationale: 'Die Stadt zieht vor Gericht und setzt die Mietobergrenze für den gesamten Bestand durch.',
+        oneOffCost: 2.6,
+        monthlyCost: 0.1,
+        axes: { marketVsPublic: -0.8, redistribution: 0.6, fiscalRestraint: -0.3 },
+        salience: { marketVsPublic: 1, redistribution: 0.8 },
+        // Not the rent: the court order puts eighty flats back under a binding, and the market does the rest.
+        effects: [effect({ target: 'socialUnits', expected: 80, rampMonths: 10, confidence: 'low' })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'hou-charter-buy',
+        label: 'Bestand jetzt zurückkaufen',
+        rationale: 'Was freiwillig nicht hält, kauft die Stadt: vierhundert Wohnungen zum Marktpreis, drei Jahre nach dem Angebot.',
+        oneOffCost: 34,
+        monthlyCost: 0.9,
+        axes: { marketVsPublic: -1, redistribution: 0.7, fiscalRestraint: -0.9 },
+        salience: { marketVsPublic: 1, fiscalRestraint: 1 },
+        effects: [effect({ target: 'socialUnits', expected: 400, rampMonths: 6 })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'hou-charter-accept',
+        label: 'Zur Kenntnis nehmen',
+        rationale: 'Die Verwaltung stellt fest, dass die Charta keine Handhabe bietet.',
+        oneOffCost: 0,
+        monthlyCost: 0,
+        axes: { fiscalRestraint: 0.7, marketVsPublic: 0.5 },
+        salience: { fiscalRestraint: 0.8, marketVsPublic: 0.9 },
+        // Doing nothing is also a decision, and it is paid for in stock: eighty flats leave the binding.
+        effects: [effect({ target: 'socialUnits', expected: -80, rampMonths: 8, confidence: 'low' })],
+        sourceIds: MODEL,
+      },
+    ],
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'hou-preempt-strain',
+    kind: 'decision',
+    category: 'finance',
+    title: 'Der Ankauf drückt den Haushalt',
+    briefing:
+      'Die vorgekauften vierhundert Wohnungen sind im Bestand — und mit ihnen ein Sanierungsstau, den die Stadt vorher nicht hatte. Die Kämmerei verlangt eine Entscheidung, woher das Geld kommt.',
+    urgency: 'normal',
+    trigger: { earliestMonth: 14, latestMonth: 120, conditions: [], baseWeight: 8, cooldownMonths: 60, oncePerCampaign: true, requiresChoiceIds: ['hou-investor-block:hou-investor-preempt'] },
+    immediateEffects: [],
+    defaultOptionId: 'hou-preempt-defer',
+    expiresInMonths: 4,
+    options: [
+      {
+        id: 'hou-preempt-sell',
+        label: 'Ein Viertel an die Genossenschaft abgeben',
+        rationale: 'Hundert Wohnungen gehen an eine Baugenossenschaft, mit Bindung im Kaufvertrag.',
+        oneOffCost: 0,
+        monthlyCost: -0.35,
+        axes: { fiscalRestraint: 0.6, marketVsPublic: -0.2 },
+        salience: { fiscalRestraint: 0.9, marketVsPublic: 0.5 },
+        effects: [effect({ target: 'investmentBacklog', expected: -14, rampMonths: 8 })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'hou-preempt-invest',
+        label: 'Sanierung in einem Zug',
+        rationale: 'Der gesamte Bestand wird energetisch saniert, finanziert über Kassenkredite.',
+        oneOffCost: 21,
+        monthlyCost: 0.4,
+        axes: { fiscalRestraint: -0.9, climateAmbition: 0.7, marketVsPublic: -0.5 },
+        salience: { fiscalRestraint: 1, climateAmbition: 0.7 },
+        effects: [
+          effect({ target: 'investmentBacklog', expected: -28, rampMonths: 16 }),
+          effect({ target: 'emissions', expected: -1.6, rampMonths: 18, confidence: 'low' }),
+        ],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'hou-preempt-defer',
+        label: 'Aufschieben',
+        rationale: 'Die Sanierung wird in die mittelfristige Planung verschoben.',
+        oneOffCost: 0,
+        monthlyCost: 0,
+        axes: { fiscalRestraint: 0.8 },
+        salience: { fiscalRestraint: 1 },
+        effects: [effect({ target: 'investmentBacklog', expected: 11, mode: 'rate', rampMonths: 1, delayMonths: 1, confidence: 'low' })],
+        sourceIds: MODEL,
+      },
+    ],
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'eco-datacenter-heat',
+    kind: 'decision',
+    category: 'environment',
+    title: 'Abwärme aus dem Rechenzentrum',
+    briefing:
+      'Das Rechenzentrum wirft so viel Wärme ab, dass sie zweitausend Wohnungen heizen könnte. Nötig wäre eine Leitung zum Fernwärmenetz — und die Bereitschaft, auf Jahre an diesen Betreiber gebunden zu sein.',
+    urgency: 'normal',
+    trigger: { earliestMonth: 30, latestMonth: 120, conditions: [], baseWeight: 8, cooldownMonths: 60, oncePerCampaign: true, requiresChoiceIds: ['eco-datacenter:eco-datacenter-accept', 'eco-datacenter:eco-datacenter-conditions'] },
+    immediateEffects: [],
+    defaultOptionId: 'eco-heat-none',
+    expiresInMonths: 4,
+    options: [
+      {
+        id: 'eco-heat-network',
+        label: 'Leitung bauen und einspeisen',
+        rationale: 'Vier Kilometer Trasse zum Fernwärmenetz, gemeinsam mit den Stadtwerken.',
+        oneOffCost: 17,
+        monthlyCost: -0.28,
+        axes: { climateAmbition: 0.9, marketVsPublic: -0.4, fiscalRestraint: -0.6 },
+        salience: { climateAmbition: 1, fiscalRestraint: 0.7 },
+        effects: [effect({ target: 'emissions', expected: -3.4, rampMonths: 20 })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'eco-heat-none',
+        label: 'Nicht weiterverfolgen',
+        rationale: 'Die Abhängigkeit von einem einzelnen Betreiber wiegt schwerer als die Wärme.',
+        oneOffCost: 0,
+        monthlyCost: 0,
+        axes: { fiscalRestraint: 0.7, marketVsPublic: 0.3 },
+        salience: { fiscalRestraint: 0.8, climateAmbition: 0.6 },
+        effects: [],
+        sourceIds: MODEL,
+      },
+    ],
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'soc-childcare-judgment',
+    kind: 'incident',
+    category: 'social',
+    title: 'Verwaltungsgericht gibt den Eltern recht',
+    briefing:
+      'Die Klagen auf einen Kitaplatz sind entschieden — gegen die Stadt. Sie muss die Kosten privater Betreuung erstatten, rückwirkend und für alle, die geklagt haben. Der Rechtsanspruch bleibt, was er war.',
+    urgency: 'breaking',
+    trigger: { earliestMonth: 12, latestMonth: 120, conditions: [], baseWeight: 11, cooldownMonths: 60, oncePerCampaign: true, requiresChoiceIds: ['soc-childcare-gap:soc-childcare-litigate'] },
+    // The judgment itself: the back-payments land the month it arrives, whatever the council then does.
+    immediateEffects: [
+      effect({ target: 'cityBudget', expected: -9.5, mode: 'level', delayMonths: 0, rampMonths: 1 }),
+    ],
+    defaultOptionId: 'soc-judgment-build',
+    expiresInMonths: 3,
+    options: [
+      {
+        id: 'soc-judgment-build',
+        label: 'Plätze bauen, jetzt',
+        rationale: 'Drei Einrichtungen in Modulbauweise, das Schnellste, was das Vergaberecht hergibt.',
+        oneOffCost: 15,
+        monthlyCost: 0.85,
+        axes: { redistribution: 0.7, fiscalRestraint: -0.8, marketVsPublic: -0.5 },
+        salience: { redistribution: 1, fiscalRestraint: 0.8 },
+        effects: [effect({ target: 'childcarePlaces', expected: 260, rampMonths: 12 })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'soc-judgment-vouchers',
+        label: 'Betreuungsgeld zahlen',
+        rationale: 'Die Stadt erstattet private Betreuung weiter, statt selbst zu bauen.',
+        oneOffCost: 0,
+        monthlyCost: 1.15,
+        axes: { marketVsPublic: 0.8, redistribution: 0.2, fiscalRestraint: -0.4 },
+        salience: { marketVsPublic: 1, fiscalRestraint: 0.6 },
+        effects: [effect({ target: 'childcarePlaces', expected: 90, rampMonths: 4, confidence: 'low' })],
+        sourceIds: MODEL,
+      },
+    ],
     sourceIds: MODEL,
   },
 ]

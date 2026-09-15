@@ -116,6 +116,24 @@ survive: it is recomputed from its target every month, so the value is gone with
 `immediateEffects` is exempt on purpose. A fire that levels a plant, a storm that floods a depot — those
 are shocks to the figure, and a shock is allowed to be temporary because that is what a shock is.
 
+### Kassenglück: was passiert, ohne dass jemand abstimmt
+
+`fin-windfall-*` und `fin-shock-*` are a class of their own. Money used to move only when the council
+decided something, so it moved in one direction: no strategy over ten years ended above the reserve it
+started with, and the game was a countdown of a pile rather than a budget. A Betriebsprüfung, a
+Kreisumlage, a bequest, a storm are what actually unsettles a Kämmerei, and they carry no options —
+there is nothing to decide, only something to absorb, and occasionally something to enjoy.
+
+`tests/unit/crises.test.ts` holds them apart from the crises on purpose. A crisis has to be **earned**
+— more than half of them read the city, so a flood finds the council that never raised its quay wall.
+Fiscal luck must do the opposite, and gets its own three rules instead: both directions must exist,
+neither side may outweigh the other by more than two to one, and no single event may move more than
+20 Mio. € — beyond that it is not a mood, it is something the council should have been allowed to vote
+on.
+
+Measured over five seeds, a thrifty decade now ends between 227 and 352 Mio. against a start of 294,
+an expensive one between 24 and 202. Strategy decides the level, luck decides the spread.
+
 ### A permanent monthly cost has to be earned
 
 The city has **0,5 Mio. € a month** to spare. Thirty-eight of sixty-eight options used to bind money

@@ -72,6 +72,7 @@ describe('event library', () => {
       optionId: 'test',
       label: 'Test',
       category: 'safety' as const,
+      kind: 'decision' as const,
       startedMonth: 0,
       monthlyCost: 0,
       costMonths: null,
@@ -126,7 +127,7 @@ describe('event library', () => {
   })
 
   it('stops charging a time-limited measure, and keeps what it bought', () => {
-    const temporary = { key: 't', sourceId: 't', optionId: 't', label: 'T', category: 'economy' as const, startedMonth: 10, monthlyCost: 1.2, costMonths: 60, effects: [], applied: {} }
+    const temporary = { key: 't', kind: 'decision' as const, sourceId: 't', optionId: 't', label: 'T', category: 'economy' as const, startedMonth: 10, monthlyCost: 1.2, costMonths: 60, effects: [], applied: {} }
     expect(costThisMonth(temporary, 10)).toBe(1.2)
     expect(costThisMonth(temporary, 69)).toBe(1.2)
     expect(costThisMonth(temporary, 70)).toBe(0)

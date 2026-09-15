@@ -309,7 +309,7 @@ function adoptMeasure(state: SimulationState, sourceId: string, option: EventOpt
     ...state,
     metrics,
     choices: state.choices.includes(choice) ? state.choices : [...state.choices, choice],
-    measures: [...state.measures, measureFromOption(sourceId, option, category, state.month)],
+    measures: [...state.measures, measureFromOption(sourceId, option, category, state.month, option.id === 'sofort' ? 'incident' : 'decision')],
   }
 }
 
@@ -717,7 +717,7 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
   const health = healthFromState(state.metrics, state.perception)
   const date = dateForMonth(state.month)
   const coalitionSeats = seatsOfCoalition(state)
-  const measures: ActiveMeasureView[] = state.measures.map(measure => ({
+  const measures: ActiveMeasureView[] = state.measures.filter(measure => measure.kind === 'decision').map(measure => ({
     id: measure.key,
     label: measure.label,
     category: measure.category,

@@ -190,6 +190,15 @@ Jede Stufe ist für sich spielbar.
    Liste. Jetzt ist `costMonths` die Regel: ein Verfahren endet, ein Bauprogramm endet, eine
    Förderzusage endet. Dauerhaft bleiben zehn Optionen, die wirklich Personal und Betrieb sind.
    Die Preise sind unverändert — eine Entscheidung kostet, was sie kostet, sie kostet nur nicht ewig.
+   Drittens ging das Geld nur in **eine** Richtung, weil es sich ausschließlich bewegte, wenn der Rat
+   etwas beschloss: über fünf Seeds und fünf Strategien endete kein einziger Lauf über dem Startwert.
+   Jetzt gibt es elf Ereignisse, die einfach passieren — Betriebsprüfung, Vermächtnis, Bundesmittel
+   gegen Konzernklage, Kreisumlage, Altlasten, Sturm. Keine Optionen, nichts zu entscheiden, nur zu
+   verkraften oder zu freuen. Und viertens hing der gesamte Verfall der Stadt an einer falschen
+   Basiszahl: `arrivalsTrailingYear` und seine Formel meinten nicht dasselbe, die Integrationsquote
+   stürzte im ersten Jahr ab, und darüber stieg die Kriminalität zehn Jahre lang monoton.
+   Ergebnis: sparsam regieren endet jetzt zwischen 227 und 352 Mio. gegen einen Start von 294, teuer
+   regieren zwischen 24 und 202. Die Strategie entscheidet die Höhe, das Glück die Streuung.
    Details in [`METRICS.md`](METRICS.md#stocks--the-fourth-kind-of-number) und
    [`EVENT_MATRIX.md`](EVENT_MATRIX.md).
 1. **Dein Ja auf eigenen Vorlagen.** Der Widerspruch verschwindet. Kleinster Schritt, größte Klarheit.

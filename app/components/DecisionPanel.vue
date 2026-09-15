@@ -103,7 +103,7 @@ watch(() => openMotions.value.length, (now, before) => {
 
     <template v-if="measures.length > 0">
       <h3 class="group-title">
-        Laufende Maßnahmen · {{ formatNumber(monthlyCost, 1) }} Mio. €/Monat
+        Laufende Maßnahmen · {{ monthlyCost > 0 ? '−' : '+' }}{{ formatNumber(Math.abs(monthlyCost), 1) }} Mio. €/Monat
       </h3>
       <ul class="measure-list">
         <li v-for="measure in measures" :key="measure.id">

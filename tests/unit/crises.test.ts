@@ -14,8 +14,20 @@ import { EVENTS } from '../../app/content/events'
  * mean a minority council simply never has a flood.
  */
 
+/**
+ * Reines Kassenglück und Kassenpech: `fin-windfall-*` und `fin-shock-*`.
+ *
+ * These are held apart from the crises on purpose. A crisis is supposed to be earned — a flood finds
+ * the city that never raised its quay wall — and the rule below enforces it. A Betriebsprüfung, a
+ * Kreisumlage, a bequest are the opposite by design: they are the weather of a treasury, and the
+ * reason the money in this game moves in both directions instead of only down. They get their own
+ * rules further below, because "must read the city" is exactly what they must not do.
+ */
+const FISCAL_LUCK = EVENTS.filter(event => /^fin-(?:windfall|shock)-/.test(event.id))
+
 /** What happens *to* the player, as opposed to what they table. */
-const CRISES = EVENTS.filter(event => event.kind === 'incident' || event.kind === 'external')
+const CRISES = EVENTS.filter(event =>
+  (event.kind === 'incident' || event.kind === 'external') && !FISCAL_LUCK.includes(event))
 
 function named(event: EventDefinition): string {
   return `${event.id} (${event.title})`
@@ -85,6 +97,31 @@ describe('the crises', () => {
         for (const write of option.effects)
           expect(outcomeOnly, `${named(crisis)} sets ${write.target} directly`).not.toContain(write.target)
       }
+    }
+  })
+
+  /*
+   * Was für das Kassenglück gilt, statt „verdient sein".
+   */
+  it('keeps fiscal luck two-sided and bounded', () => {
+    const cash = (event: EventDefinition) =>
+      event.immediateEffects.filter(e => e.target === 'cityBudget').reduce((sum, e) => sum + e.expected, 0)
+
+    const up = FISCAL_LUCK.filter(event => cash(event) > 0)
+    const down = FISCAL_LUCK.filter(event => cash(event) < 0)
+    expect(up.length, 'kein Kassenglück, nur Pech').toBeGreaterThan(0)
+    expect(down.length, 'kein Kassenpech, nur Glück').toBeGreaterThan(0)
+
+    // Weder Seite darf die andere erdrücken: ein Jahrzehnt soll sich beides anfühlen können.
+    const plus = up.reduce((sum, event) => sum + cash(event), 0)
+    const minus = -down.reduce((sum, event) => sum + cash(event), 0)
+    expect(Math.max(plus, minus) / Math.min(plus, minus), 'eine Seite wiegt mehr als doppelt so schwer').toBeLessThan(2)
+
+    for (const event of FISCAL_LUCK) {
+      // 20 Mio. sind gut zwei Drittel eines Monatsumsatzes. Darüber ist es keine Laune mehr,
+      // sondern ein Ereignis, über das der Rat abstimmen können müsste.
+      expect(Math.abs(cash(event)), `${named(event)} bewegt zu viel auf einmal`).toBeLessThanOrEqual(20)
+      expect(event.options, `${named(event)} hat Optionen — dann gehört es zu den Entscheidungen`).toEqual([])
     }
   })
 })

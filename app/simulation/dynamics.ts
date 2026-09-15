@@ -121,7 +121,18 @@ export function stepDynamics(
     0,
     100,
   )
-  stocks.arrivalsTrailingYear = approach(previousStocks.arrivalsTrailingYear, inMigration * 12, 0.08)
+  /*
+   * Wer im letzten Jahr ankam und einen Integrationsplatz braucht.
+   *
+   * Counted `inMigration` in full for a while, against a baseline of 667 that was written for the
+   * international share — a factor of four apart. So `integrationCapacity` fell from 0,78 to 0,18
+   * inside two years, with nothing having happened: the denominator was converging on a number the
+   * numerator was never sized for. That single ratio drove `youthUnemployment` up five points and
+   * `crimeRate` from 52 to 67 over a decade, in a campaign where the player did nothing at all.
+   * A course place is for somebody who needs the language, so the arrivals counted here are the
+   * ones the model already calls international.
+   */
+  stocks.arrivalsTrailingYear = approach(previousStocks.arrivalsTrailingYear, internationalArrivals * 12, 0.08)
 
   // --- Rent -----------------------------------------------------------------
   const currentVacancy = vacancyRate(metrics)

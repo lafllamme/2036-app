@@ -81,10 +81,14 @@ export const BASELINE_STOCKS: CityStocks = {
   greenSpaceHectares: 258,
   childcarePlaces: 4_969,
   schoolPlaces: 10_144,
-  integrationPlaces: 520,
+  // 0,78 × 930 Ankünfte: die Quote, die BASELINE_METRICS.integrationCapacity nennt. Vorher standen
+  // hier 520 Plätze gegen 667 Ankünfte, während die Dynamik gegen 2.736 lief.
+  integrationPlaces: 726,
   orderServiceFte: 138,
   transitCapacity: 64,
-  arrivalsTrailingYear: 667,
+  // 120.000 × 0,0019 Zuzug × 0,34 international × 12 Monate. Muss mit der Dynamik übereinstimmen,
+  // sonst stürzt die Quote im ersten Jahr ab, ohne dass irgendetwas passiert ist.
+  arrivalsTrailingYear: 930,
   maintenanceSpend: 1,
   fiscalYearRevenue: 0,
   fiscalYearSpending: 0,

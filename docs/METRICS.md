@@ -150,6 +150,17 @@ A tax cut brings the most firms and does not pay for itself inside the decade �
 actually do, and the model says so rather than flattering it. A site decision pays, and costs something
 that is not money.
 
+**Die Nenner wachsen, die Zähler nicht.** Every per-capita indicator — `childcareCoverage`,
+`orderServiceCapacity`, `transitCoverage`, `integrationCapacity` — divides a stock the council must buy
+by a population that grows on its own. That is the intended pressure. What was not intended is that one
+of them was inconsistent with its own baseline: `arrivalsTrailingYear` started at 667 while the dynamics
+converged it on `inMigration × 12` ≈ 2 736, a factor of four, so `integrationCapacity` fell from 0,78 to
+0,18 inside two years with nothing having happened. Through `youthUnemployment` (−7,5 per point of it)
+that drove `crimeRate` from 52 to 67 over a decade in a campaign where the player did nothing at all —
+a monotone ramp with no counter-force anywhere. An integration place is for somebody who needs the
+language, so the stock now tracks the **international** arrivals the model already computes, and the
+baseline is sized to match. Crime cycles now (52 → 48 → 57) instead of climbing.
+
 **A balance is not a flow.** The rail showed only `cityBudget`, which is a reserve. A reserve that falls
 looks exactly like „nothing is coming in" while 26,1 Mio. € arrives every month — and a player who cannot
 see the rate cannot tell an expensive decision from a broken economy. `monthlyBalance` is that rate, and

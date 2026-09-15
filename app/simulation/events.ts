@@ -39,6 +39,15 @@ const isStock = (target: EffectTargetId): target is StockId => target in STOCKS
 
 export interface ActiveMeasure {
   key: string
+  /**
+   * Whether the council chose this or it merely happened.
+   *
+   * A storm and a resolution both arrive here as something with effects that unfold over months, and
+   * by the time they are in this list the difference is gone — „Chemieunfall im Hafen" and
+   * „Werkschließung im Hafen" stood under „Laufende Maßnahmen" next to things the player had
+   * actually voted for. An incident is the city's weather, not its policy.
+   */
+  kind: 'decision' | 'incident'
   sourceId: string
   optionId: string
   label: string
@@ -250,9 +259,11 @@ export function measureFromOption(
   option: EventOption,
   category: EventCategory,
   month: number,
+  kind: 'decision' | 'incident' = 'decision',
 ): ActiveMeasure {
   return {
     key: `${sourceId}:${option.id}`,
+    kind,
     sourceId,
     optionId: option.id,
     label: option.label,

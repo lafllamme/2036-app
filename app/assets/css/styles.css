@@ -157,6 +157,13 @@ button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; borde
 .campaign-track i { position: absolute; inset: 0 auto 0 0; background: rgba(246, 243, 236, 0.5); }
 
 .coalition-block { display: flex; align-items: center; gap: 9px; margin-left: auto; }
+.coalition-block + .coalition-block { margin-left: 18px; }
+/* The seats read as a warning the moment they stop being a majority. */
+.coalition-block.tight strong { color: var(--warn, #d9834f); }
+.seatline i.support { background: var(--accent, #7fd6b5); }
+.coalition-block strong em { font-style: normal; font-size: 10px; margin-left: 4px; opacity: 0.85; }
+.coalition-block strong em.up { color: var(--good, #7fd6b5); }
+.coalition-block strong em.down { color: var(--warn, #d9834f); }
 .seatline { display: flex; width: 74px; height: 5px; overflow: hidden; border-radius: var(--r-pill); background: var(--hairline); }
 .seatline i { display: block; height: 100%; background: var(--positive); }
 .coalition-block strong { font-family: var(--mono); font-size: 13px; font-weight: 500; }

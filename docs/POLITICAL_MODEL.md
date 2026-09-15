@@ -152,8 +152,10 @@ Das Ziel ist „Die Insel der 1000 Gefahren": Was du entscheidest, schließt Tü
 
 Jede Stufe ist für sich spielbar und für sich sichtbar.
 
-1. **Rückhalt bewegt sich.** Die Verteilung, ihre zwei Quellen, sichtbar im HUD. Ohne das gibt es
-   weder Wahl noch Abwahl.
+1. ✅ **Rückhalt bewegt sich.** `electorate.ts`: sechs Anteile, die sich zu eins addieren, bewegt von
+   der Lage der Stadt und von jeder Entscheidung. Im HUD steht er neben den Sitzen, mit Pfeil.
+   Gemessen: eine schlecht regierte Stadt kostet über eine Wahlperiode mehr als drei Punkte, ein
+   einzelner Monat nie mehr als einen, eine einzelne Vorlage nie mehr als einen.
 2. **Wahlen 2031 und 2036.** Neu gezählt, neu koaliert, Wahlabend als Ereignis.
 3. **Niederlage.** Abwahl und die drei harten Kanten, beide im selben Abschlussbericht.
 4. **Verzweigung.** Die drei vorhandenen Felder füllen, `unlocksEventIds` verdrahten,

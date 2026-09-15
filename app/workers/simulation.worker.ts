@@ -6,10 +6,11 @@ import {
   campaignFor,
   createInitialState,
   forecastsForEvent,
+  migrateState,
   negotiate,
   proposePolicy,
-  resolveDecision,
 
+  resolveDecision,
   snapshotOf,
 } from '../simulation/model'
 
@@ -58,7 +59,9 @@ globalThis.onmessage = ({ data }: MessageEvent<SimulationCommand>) => {
         post({ type: 'SAVE_STATE', state, snapshot: snapshotOf(state) })
         return
       case 'RESTORE':
-        state = data.state
+        // A save written before a field existed has to be brought up to shape, or the first read of
+        // that field takes the interface down. See `migrateState`.
+        state = migrateState(data.state)
         publish('SNAPSHOT')
         return
       case 'REQUEST_FORECAST':

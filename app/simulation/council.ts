@@ -20,7 +20,7 @@ import type { RandomStream } from '../core/rng'
  * has built. Swap the party list and the maths is unchanged.
  */
 
-const AXES: AxisId[] = [
+export const AXES: AxisId[] = [
   'fiscalRestraint',
   'marketVsPublic',
   'growthVsPreservation',
@@ -68,7 +68,7 @@ function crossesRedLine(party: PartyDefinition, option: EventOption): boolean {
   })
 }
 
-function weightedDistance(partyAxes: Record<AxisId, number>, option: EventOption): number {
+export function weightedDistance(partyAxes: Record<AxisId, number>, option: EventOption): number {
   let weighted = 0
   let weight = 0
   for (const axis of AXES) {

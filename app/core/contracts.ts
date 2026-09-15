@@ -293,6 +293,14 @@ export interface SimulationSnapshot {
   councilSeatsByParty: Record<PartyId, number>
   coalitionPartyIds: PartyId[]
   coalitionSupport: number
+  /**
+   * Who the city would vote for today, as six shares that add to one.
+   *
+   * Not the same thing as seats, and the difference is the point: seats do not move between
+   * elections, support does, and governing with a majority that is no longer the city is the
+   * position the player is meant to feel.
+   */
+  support: Record<PartyId, number>
   causalEdges: CausalEdge[]
   news: NewsItem[]
   cityVisuals: CityVisualState

@@ -18,6 +18,7 @@ import type {
 } from '../core/contracts'
 import type { CityStocks } from './baseline'
 import type { VoteContext } from './council'
+import type { Support } from './electorate'
 import type { ActiveMeasure, EventDrawState } from './events'
 import { getEvent } from '../content/events'
 import { getParty, mapParties, PARTIES } from '../content/parties'
@@ -34,6 +35,7 @@ import {
 } from './baseline'
 import { castVote, forecastVote, supportFor } from './council'
 import { clamp, healthFromState, stepDynamics } from './dynamics'
+import { driftFromCity, initialSupport, shiftFromDecision } from './electorate'
 import {
 
   applyMeasures,
@@ -87,6 +89,13 @@ export interface SimulationState {
   relationships: Partial<Record<PartyId, number>>
   seatsByParty: Record<PartyId, number>
   coalitionPartyIds: PartyId[]
+  /**
+   * Who the city would vote for today, as six shares that add to one.
+   *
+   * Kept apart from `seatsByParty` on purpose: seats do not move between elections and support does.
+   * The gap between the two *is* the game — you govern with a majority that is no longer the city.
+   */
+  support: Support
   news: NewsItem[]
   causalEdges: CausalEdge[]
   /** Legacy view for the three directly adoptable policies. */
@@ -156,6 +165,7 @@ export function createInitialState(seed = 2036, partyId: PartyId | null = null, 
     relationships: {},
     seatsByParty: seatsFromContent(),
     coalitionPartyIds: formCoalition(partyId),
+    support: initialSupport(),
     news: [{ id: 'news-opening', month: 0, scope: 'city', urgency: 'important', headline: 'LINDENHAFEN: Neuer Stadtrat nimmt Arbeit für das Jahrzehnt 2026–2036 auf' }],
     causalEdges: [],
     policies: [],
@@ -250,8 +260,14 @@ export function resolveDecision(state: SimulationState, eventId: string, optionI
   const context = voteContext(state, option, preparationFor(state, eventId).campaignedOptionIds.includes(optionId))
   const result = castVote(option, context, stream)
 
+  /*
+   * The street judges the decision, not the result. A motion the player fought for and lost still
+   * says what they stand for, and an electorate answers that — which is why this is outside the
+   * branch below.
+   */
   let next: SimulationState = {
     ...state,
+    support: shiftFromDecision(state.support, option),
     pending: state.pending.filter(entry => entry.eventId !== eventId),
     motionPrep: withoutPreparation(state.motionPrep, eventId),
     firedOnce: state.firedOnce.includes(eventId) ? state.firedOnce : [...state.firedOnce, eventId],
@@ -293,6 +309,29 @@ export function resolveDecision(state: SimulationState, eventId: string, optionI
   }
 
   return { state: next, result }
+}
+
+/**
+ * Bring a restored campaign up to the current shape of the state.
+ *
+ * A save holds the whole `SimulationState`, so every field added afterwards is missing from every
+ * save written before it. `support` was the first one, and without this the HUD read
+ * `snapshot.support[partyId]` on a ten-year-old campaign and threw — the city rendered, the entire
+ * interface did not, and the only clue was one line in the console.
+ *
+ * Defaults rather than a version number, because what matters is that a field has a sane value and
+ * not which build wrote it. A restored campaign keeps everything it had.
+ */
+export function migrateState(state: SimulationState): SimulationState {
+  return {
+    ...state,
+    support: state.support ?? initialSupport(),
+    relationships: state.relationships ?? {},
+    motionPrep: state.motionPrep ?? {},
+    cooldowns: state.cooldowns ?? {},
+    streaks: state.streaks ?? {},
+    firedOnce: state.firedOnce ?? [],
+  }
 }
 
 /** How many seats the player's coalition holds. One place, because two places drift apart. */
@@ -504,6 +543,7 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     councilSeatsByParty: state.seatsByParty,
     coalitionPartyIds: state.coalitionPartyIds,
     coalitionSupport: coalitionSeats,
+    support: state.support ?? initialSupport(),
     causalEdges: state.causalEdges,
     news: state.news,
     cityVisuals: visualsFrom(state.metrics, state.stocks),
@@ -560,6 +600,12 @@ export function advanceOneMonth(state: SimulationState): SimulationState {
       next = pushNews(next, { id: `expired-${event.id}-${month}`, month, scope: 'city', urgency: 'normal', headline: `RATHAUS: Ohne Beschluss greift „${fallback.label}“ bei ${event.title}` })
     }
   }
+
+  /*
+   * A month of government, credited or debited. It runs after the metrics have settled and before
+   * the next event is drawn, so the draw already sees the city the player has just made.
+   */
+  next = { ...next, support: driftFromCity(next.support, next.metrics, next.perception, next.coalitionPartyIds) }
 
   // Draw at most one new event.
   next = { ...next, streaks: updateStreaks({ month, metrics: next.metrics, cooldowns: next.cooldowns, streaks: next.streaks, firedOnce: next.firedOnce, openDecisions: next.pending.length, activeMeasureSources: next.measures.map(measure => measure.sourceId), coalitionSeats: seatsOfCoalition(next) }) }

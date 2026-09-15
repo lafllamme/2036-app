@@ -29,6 +29,49 @@ const {
 const selectedParty = computed(() => selectedPartyId.value ? getParty(selectedPartyId.value) : null)
 
 /*
+ * The two numbers that are deliberately not the same number.
+ *
+ * Seats are what the player has; support is what the city would give them if it were asked today.
+ * They only move together at an election, and the gap between them is the position the whole
+ * political model exists to put the player in — governing with a majority that is no longer the
+ * city. Showing one without the other would hide exactly that.
+ */
+const ownSupport = computed(() => {
+  const id = selectedPartyId.value
+  return id && snapshot.value ? (snapshot.value.support[id] ?? null) : null
+})
+
+/** What it was at the last committed month, so the arrow says which way the city is going. */
+const previousSupport = ref<Record<string, number>>({})
+watch(() => snapshot.value?.month, () => {
+  const support = snapshot.value?.support
+  if (support)
+    previousSupport.value = { ...support }
+})
+
+/** Which way it has moved since the last committed month, as −1, 0 or 1. A tenth of a point counts. */
+const supportDrift = computed(() => {
+  const id = selectedPartyId.value
+  const now = ownSupport.value
+  const before = id ? previousSupport.value[id] : undefined
+  if (!id || now === null || before === undefined)
+    return 0
+  const change = now - before
+  return Math.abs(change) < 0.0005 ? 0 : Math.sign(change)
+})
+
+const hasMajority = computed(() => (snapshot.value?.coalitionSupport ?? 0) > 30)
+
+const supportHint = computed(() => {
+  if (ownSupport.value === null)
+    return ''
+  const share = formatNumber(ownSupport.value * 100, 1)
+  return hasMajority.value
+    ? `${share} % der Stimmen. Die Koalition hält noch eine Mehrheit.`
+    : `${share} % der Stimmen. Die Koalition hat keine Mehrheit mehr.`
+})
+
+/*
  * A call, said three ways.
  *
  * The bar has room for one line and says who was sent and what for. The dialog has room to split
@@ -198,7 +241,17 @@ function restart(): void {
               <i :style="{ width: `${campaignProgress}%` }" />
             </div>
           </div>
-          <div v-if="snapshot" class="coalition-block">
+          <div v-if="snapshot && ownSupport !== null" class="coalition-block" :title="supportHint">
+            <small>Rückhalt</small>
+            <div class="seatline" role="img" :aria-label="supportHint">
+              <i class="support" :style="{ width: `${ownSupport * 100}%` }" />
+            </div>
+            <strong>
+              {{ formatNumber(ownSupport * 100, 1) }}<i>%</i>
+              <em v-if="supportDrift !== 0" :class="supportDrift > 0 ? 'up' : 'down'">{{ supportDrift > 0 ? '▲' : '▼' }}</em>
+            </strong>
+          </div>
+          <div v-if="snapshot" class="coalition-block" :class="{ tight: !hasMajority }">
             <small>Koalition</small>
             <div class="seatline" role="img" :aria-label="`${snapshot.coalitionSupport} von 60 Sitzen`">
               <i :style="{ width: `${(snapshot.coalitionSupport / 60) * 100}%` }" />

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { buildRoadNetwork } from '../../app/rendering/world/roadNetwork'
-import { CYCLE, GREEN, isGreen, phaseOf, planSignals } from '../../app/rendering/world/signalPlan'
+import { buildRoadNetwork } from '../../app/rendering/world/streets/roadNetwork'
+import { CYCLE, GREEN, isGreen, phaseOf, planSignals } from '../../app/rendering/world/streets/signalPlan'
 import { buildBlueprint } from '../../app/world/cityData'
 
 /**

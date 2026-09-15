@@ -1,9 +1,9 @@
-import type { CityBlueprint } from '../../core/contracts'
-import type { CityModels } from '../cityModels'
-import type { StandardInstancedMesh } from '../shared'
+import type { CityBlueprint } from '../../../core/contracts'
+import type { CityModels } from '../../cityModels'
+import type { StandardInstancedMesh } from '../../shared'
 import * as THREE from 'three/webgpu'
-import { createRandomStream } from '../../core/rng'
-import { AXIS_Y, WHITE } from '../shared'
+import { createRandomStream } from '../../../core/rng'
+import { AXIS_Y, WHITE } from '../../shared'
 
 /**
  * Everything that grows, from the nature kit rather than the city kit.

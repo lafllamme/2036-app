@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { darkness } from '../../app/rendering/world/prowlers'
+import { darkness } from '../../app/rendering/world/life/prowlers'
 
 /**
  * Somebody at a house at two in the morning.

@@ -1,9 +1,9 @@
-import type { CityBlueprint } from '../../core/contracts'
-import type { CityModels } from '../cityModels'
-import type { StandardInstancedMesh } from '../shared'
+import type { CityBlueprint } from '../../../core/contracts'
+import type { CityModels } from '../../cityModels'
+import type { StandardInstancedMesh } from '../../shared'
 import * as THREE from 'three/webgpu'
-import { AXIS_Y, FLAT, WHITE } from '../shared'
-import { glowTexture } from '../sky/textures'
+import { AXIS_Y, FLAT, WHITE } from '../../shared'
+import { glowTexture } from '../../sky/textures'
 
 /** The city's own light at night: lamp heads that glow and the pools they throw on the asphalt. */
 export interface StreetLights {

@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu'
-import { glowTexture } from '../sky/textures'
+import { glowTexture } from '../../sky/textures'
 
 /**
  * A building on fire: flames at the bottom, smoke going up.

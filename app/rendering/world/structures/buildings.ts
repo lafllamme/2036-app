@@ -1,7 +1,7 @@
-import type { BuildingRecord, BuildingType, CityBlueprint } from '../../core/contracts'
-import type { Relief } from '../../world/relief'
+import type { BuildingRecord, BuildingType, CityBlueprint } from '../../../core/contracts'
+import type { Relief } from '../../../world/relief'
 import * as THREE from 'three/webgpu'
-import { createRandomStream } from '../../core/rng'
+import { createRandomStream } from '../../../core/rng'
 import { BAY_WIDTH, facadeTexture, STOREY_HEIGHT, windowLightTexture } from './facade'
 
 /**

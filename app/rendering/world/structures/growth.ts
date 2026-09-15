@@ -1,7 +1,7 @@
-import type { CityBlueprint } from '../../core/contracts'
-import type { CityModels } from '../cityModels'
+import type { CityBlueprint } from '../../../core/contracts'
+import type { CityModels } from '../../cityModels'
 import * as THREE from 'three/webgpu'
-import { AXIS_Y, WHITE } from '../shared'
+import { AXIS_Y, WHITE } from '../../shared'
 
 /**
  * New housing on the land the map says is unbuilt. Hidden until the pipeline delivers.

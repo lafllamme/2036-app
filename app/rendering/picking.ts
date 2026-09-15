@@ -1,8 +1,8 @@
 import type { BuildingRecord } from '../core/contracts'
-import type { Agents, PersonAt } from './world/agents'
-import type { CityBuildings } from './world/buildings'
+import type { CityBuildings } from './world/structures/buildings'
+import type { Agents, PersonAt } from './world/traffic/agents'
 import * as THREE from 'three/webgpu'
-import { peopleMeshes, personAt } from './world/agents'
+import { peopleMeshes, personAt } from './world/traffic/agents'
 
 /**
  * Which building the pointer is on, and what that looks like.

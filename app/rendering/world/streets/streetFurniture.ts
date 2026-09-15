@@ -1,8 +1,8 @@
-import type { CityBlueprint } from '../../core/contracts'
-import type { CityModels } from '../cityModels'
+import type { CityBlueprint } from '../../../core/contracts'
+import type { CityModels } from '../../cityModels'
 import * as THREE from 'three/webgpu'
-import { createRandomStream } from '../../core/rng'
-import { AXIS_Y, WHITE } from '../shared'
+import { createRandomStream } from '../../../core/rng'
+import { AXIS_Y, WHITE } from '../../shared'
 
 /**
  * What a pavement has on it.

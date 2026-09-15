@@ -1,5 +1,5 @@
-import type { CityBlueprint, RoadRecord } from '../../core/contracts'
-import type { Relief } from '../../world/relief'
+import type { CityBlueprint, RoadRecord } from '../../../core/contracts'
+import type { Relief } from '../../../world/relief'
 import type { Deck } from './ribbon'
 import { pavementLane } from './lanes'
 import { deckOf } from './ribbon'

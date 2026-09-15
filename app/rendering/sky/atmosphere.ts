@@ -1,5 +1,5 @@
 import type { SkyState } from '../../core/contracts'
-import type { StreetLights } from '../world/streetLights'
+import type { StreetLights } from '../world/streets/streetLights'
 import type { CelestialBody } from './celestialBody'
 import type { SkyVisuals } from './index'
 import * as THREE from 'three/webgpu'

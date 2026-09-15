@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { buildRoadNetwork } from '../../app/rendering/world/roadNetwork'
+import { buildRoadNetwork } from '../../app/rendering/world/streets/roadNetwork'
 import { buildBlueprint } from '../../app/world/cityData'
 
 /**

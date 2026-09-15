@@ -1,15 +1,15 @@
-import type { CityModel } from '../cityModels'
+import type { CityModel } from '../../cityModels'
+import type { EdgeIndex, RoadEdge, RoadNetwork } from '../streets/roadNetwork'
+import type { SignalPlan } from '../streets/signalPlan'
 import type { Incident } from './dispatch'
 import type { CityPressure, Service } from './incidents'
-import type { EdgeIndex, RoadEdge, RoadNetwork } from './roadNetwork'
-import type { SignalPlan } from './signalPlan'
 import * as THREE from 'three/webgpu'
-import { genderAt, statureAt } from '../../world/citizens'
-import { AXIS_Y, WHITE } from '../shared'
+import { genderAt, statureAt } from '../../../world/citizens'
+import { AXIS_Y, WHITE } from '../../shared'
+import { acrossLane } from '../streets/lanes'
+import { bearingFrom, indexEdges, sampleEdge } from '../streets/roadNetwork'
+import { isGreen } from '../streets/signalPlan'
 import { responseSpeed } from './incidents'
-import { acrossLane } from './lanes'
-import { bearingFrom, indexEdges, sampleEdge } from './roadNetwork'
-import { isGreen } from './signalPlan'
 
 /**
  * A fleet of things that move, and how they move.

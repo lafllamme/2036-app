@@ -1,4 +1,4 @@
-import type { CityBlueprint } from '../../core/contracts'
+import type { CityBlueprint } from '../../../core/contracts'
 import * as THREE from 'three/webgpu'
 
 /**

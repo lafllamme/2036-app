@@ -1,10 +1,10 @@
-import type { Relief } from '../../world/relief'
-import type { CityModels } from '../cityModels'
+import type { Relief } from '../../../world/relief'
+import type { CityModels } from '../../cityModels'
 import type { RoadNetwork } from './roadNetwork'
 import type { SignalPlan } from './signalPlan'
 import * as THREE from 'three/webgpu'
-import { AXIS_Y, WHITE } from '../shared'
-import { glowTexture } from '../sky/textures'
+import { AXIS_Y, WHITE } from '../../shared'
+import { glowTexture } from '../../sky/textures'
 import { phaseOf, planSignals } from './signalPlan'
 
 /**

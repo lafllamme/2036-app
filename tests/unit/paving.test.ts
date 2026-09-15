@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { ribbonSections } from '../../app/rendering/world/ribbon'
+import { ribbonSections } from '../../app/rendering/world/streets/ribbon'
 import { buildBlueprint } from '../../app/world/cityData'
 
 /**

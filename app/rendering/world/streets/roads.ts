@@ -1,5 +1,5 @@
-import type { CityBlueprint, RoadRecord } from '../../core/contracts'
-import type { Relief } from '../../world/relief'
+import type { CityBlueprint, RoadRecord } from '../../../core/contracts'
+import type { Relief } from '../../../world/relief'
 import type { RoadEdge, RoadNetwork } from './roadNetwork'
 import * as THREE from 'three/webgpu'
 import { CYCLE_MIN_WIDTH, CYCLE_WIDTH, cycleLane, PAVEMENT_WIDTH, pavementLane } from './lanes'

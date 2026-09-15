@@ -8,7 +8,7 @@ import {
   responseSpeed,
   SERVICE_FOR,
   SHAPE,
-} from '../../app/rendering/world/incidents'
+} from '../../app/rendering/world/traffic/incidents'
 
 /**
  * What a siren is allowed to mean.

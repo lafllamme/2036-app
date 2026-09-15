@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { crowdDensity } from '../../app/rendering/world/fleet'
 import {
   acrossLane,
   CYCLE_MIN_WIDTH,
@@ -11,7 +10,8 @@ import {
   PAVEMENT_SPREAD,
   PAVEMENT_WIDTH,
   pavementLane,
-} from '../../app/rendering/world/lanes'
+} from '../../app/rendering/world/streets/lanes'
+import { crowdDensity } from '../../app/rendering/world/traffic/fleet'
 
 /**
  * Nobody walks in the road.

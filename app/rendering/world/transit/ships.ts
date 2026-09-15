@@ -1,8 +1,8 @@
-import type { CityBlueprint } from '../../core/contracts'
+import type { CityBlueprint } from '../../../core/contracts'
 import * as THREE from 'three/webgpu'
-import { createRandomStream } from '../../core/rng'
-import { AXIS_Y } from '../shared'
-import { WATER_LEVEL } from './water'
+import { createRandomStream } from '../../../core/rng'
+import { AXIS_Y } from '../../shared'
+import { WATER_LEVEL } from '../terrain/water'
 
 /**
  * Barges on the river.

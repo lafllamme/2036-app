@@ -1,8 +1,8 @@
-import type { CityBlueprint } from '../../core/contracts'
-import type { CityModel, CityModels } from '../cityModels'
+import type { CityBlueprint } from '../../../core/contracts'
+import type { CityModel, CityModels } from '../../cityModels'
 import * as THREE from 'three/webgpu'
-import { createRandomStream } from '../../core/rng'
-import { AXIS_Y } from '../shared'
+import { createRandomStream } from '../../../core/rng'
+import { AXIS_Y } from '../../shared'
 
 /**
  * Somebody at a house at two in the morning.

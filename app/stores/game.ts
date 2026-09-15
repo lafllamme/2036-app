@@ -13,7 +13,7 @@ import type {
   VoteResult,
 } from '~/core/contracts'
 import type { RendererStats } from '~/rendering/CityRenderer'
-import type { PersonAt } from '~/rendering/world/agents'
+import type { PersonAt } from '~/rendering/world/traffic/agents'
 import type { Citizen } from '~/world/citizens'
 import { useIntervalFn } from '@vueuse/core'
 import { defineStore } from 'pinia'

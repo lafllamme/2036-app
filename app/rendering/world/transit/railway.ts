@@ -1,8 +1,8 @@
-import type { CityBlueprint, RoadRecord } from '../../core/contracts'
-import type { Relief } from '../../world/relief'
+import type { CityBlueprint, RoadRecord } from '../../../core/contracts'
+import type { Relief } from '../../../world/relief'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import * as THREE from 'three/webgpu'
-import { createRandomStream } from '../../core/rng'
+import { createRandomStream } from '../../../core/rng'
 
 /**
  * The railway: the track, what holds the wires up, and the trains on it.

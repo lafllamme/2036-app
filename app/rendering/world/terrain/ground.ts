@@ -1,8 +1,8 @@
-import type { AreaKind, CityBlueprint } from '../../core/contracts'
-import type { Relief } from '../../world/relief'
+import type { AreaKind, CityBlueprint } from '../../../core/contracts'
+import type { Relief } from '../../../world/relief'
 import * as THREE from 'three/webgpu'
-import { GROUND_SPAN } from '../../world/relief'
-import { groundVariation } from '../../world/terrain'
+import { GROUND_SPAN } from '../../../world/relief'
+import { groundVariation } from '../../../world/terrain'
 import { groundNormalTexture, groundTexture } from './groundTexture'
 
 /**

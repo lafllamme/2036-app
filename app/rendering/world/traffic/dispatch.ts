@@ -1,11 +1,11 @@
-import type { Relief } from '../../world/relief'
+import type { Relief } from '../../../world/relief'
+import type { RoadNetwork } from '../streets/roadNetwork'
 import type { Traveller } from './fleet'
 import type { CityPressure, IncidentKind, Service } from './incidents'
-import type { RoadNetwork } from './roadNetwork'
 import * as THREE from 'three/webgpu'
-import { glowTexture } from '../sky/textures'
+import { glowTexture } from '../../sky/textures'
+import { sampleEdge } from '../streets/roadNetwork'
 import { callLimit, callWait, pickKind, SERVICE_FOR } from './incidents'
-import { sampleEdge } from './roadNetwork'
 
 /**
  * What has happened in the city, who was sent to it, and the light on their roof.

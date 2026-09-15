@@ -1,11 +1,11 @@
-import type { Relief } from '../../world/relief'
-import type { CityModel, CityModels } from '../cityModels'
+import type { Relief } from '../../../world/relief'
+import type { CityModel, CityModels } from '../../cityModels'
 import type { Incident } from './dispatch'
 import type { Service } from './incidents'
 import * as THREE from 'three/webgpu'
-import { CREW_IDS } from '../cityModels'
-import { AXIS_Y, FLAT, WHITE } from '../shared'
-import { carProxyGeometry, carProxyMaterial } from './carProxy'
+import { CREW_IDS } from '../../cityModels'
+import { AXIS_Y, FLAT, WHITE } from '../../shared'
+import { carProxyGeometry, carProxyMaterial } from '../streets/carProxy'
 import { CALL_LIMIT_MAX, SHAPE } from './incidents'
 
 /**

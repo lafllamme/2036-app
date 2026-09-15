@@ -1,7 +1,7 @@
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import * as THREE from 'three/webgpu'
-import { complexions } from './world/complexion'
+import { complexions } from './world/structures/complexion'
 
 /**
  * Everything in the city that is a model rather than geometry we generate: the housing the pipeline

@@ -1,9 +1,9 @@
 import type { CityBlueprint, SimulationSnapshot } from '../../core/contracts'
-import type { CityPressure } from './incidents'
 import type { WorldVisuals } from './index'
+import type { CityPressure } from './traffic/incidents'
 import * as THREE from 'three/webgpu'
 import { paint } from '../picking'
-import { updateRoughSleeping } from './roughSleeping'
+import { updateRoughSleeping } from './life/roughSleeping'
 
 /**
  * The city reacting to the simulation.

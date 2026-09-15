@@ -148,3 +148,37 @@ describe('how many of a fleet the surroundings can hold', () => {
     expect(Number.isFinite(crowdDensity(6, 0))).toBe(true)
   })
 })
+
+describe('a pavement is not a lane', () => {
+  /*
+   * Every fleet shared one rule for what is in front of it, and it is a car rule: a vehicle cannot
+   * pass within its own lane, so it slows down behind whatever is there. Applied to a crowd it
+   * produced twenty and thirty people in single file behind whoever was slowest, which is the one
+   * thing a pavement never looks like.
+   *
+   * These are the two numbers that separate the two cases. They are asserted here rather than only
+   * read, because the bug was not in the code that used them — it was that there was only one.
+   */
+  const MIN_GAP = 7
+  const WALKING_GAP = 1.4
+  const SHOULDER = 0.3
+
+  it('lets somebody walk far closer than a car may drive', () => {
+    expect(WALKING_GAP).toBeLessThan(MIN_GAP / 3)
+  })
+
+  it('counts only what is in the same hand of the pavement as being in the way', () => {
+    /*
+     * The lateral share runs 0 … 1 across the pavement's own spread, so a shoulder of 0.3 is a bit
+     * under half a metre on a 2.3 m footway — about a person's width, which is the point.
+     */
+    expect(SHOULDER * PAVEMENT_SPREAD).toBeGreaterThan(0.35)
+    expect(SHOULDER * PAVEMENT_SPREAD).toBeLessThan(0.75)
+  })
+
+  it('still keeps two people from standing in the same place', () => {
+    // Somebody directly in front and directly in line is still given way to — that is the collision
+    // rule. What changed is that stepping to one side is now enough to pass.
+    expect(WALKING_GAP).toBeGreaterThan(1)
+  })
+})

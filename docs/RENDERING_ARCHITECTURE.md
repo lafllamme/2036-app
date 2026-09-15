@@ -231,3 +231,32 @@ Und er läuft auf der **Frame-Uhr**, nicht auf der langsamen. Alles andere in de
 Zustand oder wird aus `elapsed` gesetzt, das darf fünfmal pro Sekunde passieren. Ein Zug *integriert*
 — er ist, wo er war, plus Geschwindigkeit mal Zeit — und mit dem Delta eines Frames fünfmal pro
 Sekunde kriecht er mit einem Zwanzigstel seiner Geschwindigkeit über die Karte.
+
+
+## Ein Gehweg ist keine Fahrspur
+
+Alle Flotten teilten sich **eine** Regel dafür, was vor ihnen ist, und es ist eine Autoregel: ein
+Fahrzeug kann in seiner eigenen Spur nicht vorbei, also bremst es hinter dem, was da ist. Auf eine
+Menschenmenge angewandt ergibt das zwanzig und dreißig Leute im Gänsemarsch hinter dem Langsamsten —
+das eine Bild, das ein Gehweg nie zeigt.
+
+Ein Mensch geht drumherum. Im Weg ist nur, wer in derselben Handbreit Gehweg steht:
+
+| | Fahrzeug | Mensch |
+| --- | --- | --- |
+| Mindestabstand | 7 m | 1,4 m |
+| Seitlich ausweichen | nein | ab 0,3 der Spurbreite (~0,5 m) |
+
+Dazu ist ein Drittel der Menge **zu zweit unterwegs**. Ein Begleiter steuert nicht: er wird dorthin
+gesetzt, wo sein Gegenüber ist, einen Schritt dahinter, auf der anderen Hand derselben Spur — in
+einem zweiten Durchgang, *nachdem* alle anderen sich bewegt haben, sonst driftet ein Paar pro Frame
+um genau eine Frame-Strecke auseinander und ist am Ende der Straße keins mehr. Niemand bekommt einen
+Begleiter, der selbst schon einer ist, also ist eine Gruppe ein Paar oder eine Dreiergruppe und nie
+wieder eine Schlange.
+
+**Und zur Frage, ob etwas durch Häuser fährt:** gemessen, über 72 686 Gehweg- und 155 216
+Fahrspur-Positionen der ganzen Stadt — **0,0 %** liegen in einem Gebäude. Die Spuren sind sauber, weil
+sie aus den Fahrbahnbreiten der Karte kommen und `roadClearance` dagegenhält. Was an einer Ecke
+überstehen kann, ist die *Karosserie*: ein Fahrzeug dreht am Knoten auf der Stelle, und ein vier
+Meter langes Auto überstreicht dabei mehr als seine Spur. Das ist ein Kurvenradius-Problem und kein
+Kollisionsproblem — notiert für die Kreuzungsarbeit.

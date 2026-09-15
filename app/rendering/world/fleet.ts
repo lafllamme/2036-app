@@ -86,6 +86,21 @@ const PEOPLE_EARSHOT = 90
 /** Bumper to bumper, and the distance over which a car gives way to the one in front. */
 const MIN_GAP = 7
 const REACTION = 2.2
+/**
+ * How near two people have to be across the pavement before one gives way to the other.
+ *
+ * The following rule above is a *car* rule — a vehicle cannot pass within its own lane, so it slows
+ * down. Every fleet shared it, including the crowd, and a pavement is not a lane: what it produced
+ * was twenty and thirty people in single file behind whoever was slowest, which is the one thing a
+ * crowd never looks like. People walk around each other. Only somebody in the same hand's width of
+ * pavement is in the way at all.
+ */
+const SHOULDER = 0.3
+/** How many of the crowd are out with somebody, and how far behind their companion walks. */
+const COMPANY_SHARE = 0.34
+const COMPANY_GAP: [number, number] = [1.1, 2.4]
+/** How close somebody will walk behind the person in front before easing off. A pavement, not a road. */
+const WALKING_GAP = 1.4
 /** How far before a junction a car starts braking for a red, and where it comes to rest. */
 const STOP_ZONE = 34
 const STOP_LINE = 5
@@ -150,6 +165,13 @@ export interface Fleet {
   gathers: [number, number] | null
   /** Metres of street this fleet wants per traveller, which is what decides how many are shown. */
   spacing: number
+  /**
+   * Whether this fleet queues behind what is in front of it.
+   *
+   * True for anything on wheels, which cannot pass within its own lane. False for the crowd, which
+   * walks around.
+   */
+  queues: boolean
   /** How full the surroundings can be, 0 … 1. Multiplies the quality governor's own share. */
   density: number
   /** Frames since the last recycling pass. */
@@ -182,6 +204,17 @@ export interface Traveller {
   responding: boolean
   /** Its own phase in the walk, so a crowd does not step in time. */
   gait: number
+  /**
+   * Somebody this one is walking with, or null.
+   *
+   * A crowd is not a set of individuals who happen to be on the same pavement. Most people are out
+   * with somebody, and a pavement of evenly spaced singles reads as traffic rather than as a street.
+   * A companion does not steer: it holds a fixed distance behind its partner and keeps its own hand
+   * of the pavement, so a pair stays a pair round a corner and through a junction.
+   */
+  partner: Traveller | null
+  /** How far behind that partner, in metres. Its own, so pairs do not all match. */
+  partnerGap: number
   /**
    * How tall this one is against a grown adult.
    *
@@ -295,6 +328,7 @@ export function buildFleet(
     nearby: 0,
     gathers: plan.gatherRange ?? (plan.people === true ? [RECYCLE_RANGE, GATHER_RANGE] : null),
     spacing: plan.spacing,
+    queues: plan.people !== true,
     density: 1,
     sinceGather: 0,
     index: plan.gatherRange || plan.people === true ? indexEdges(network, allowed) : null,
@@ -370,6 +404,8 @@ export function buildFleet(
       callout: null,
       responding: false,
       gait: draw() * Math.PI * 2,
+      partner: null,
+      partnerGap: 0,
       stature: plan.people ? statureAt(citizen, plan.seed) : 1,
       /*
        * Unique across the whole city, not within a fleet: the pedestrians and the cyclists are two
@@ -380,6 +416,30 @@ export function buildFleet(
     }
     assigned[chosen]!.push(traveller)
     all.push(traveller)
+  }
+
+  /*
+   * Pair some of the crowd up.
+   *
+   * Two thirds of a pavement is people out with somebody — a couple, two colleagues, a parent and a
+   * child — and evenly spaced singles is the one thing a street never looks like. A companion is
+   * bound to whoever was made before it, which is arbitrary and exactly right: they are two people
+   * who happen to be walking together, not two people who are alike.
+   *
+   * Nobody is given a companion who already is one, so a group is a pair or a three and never a
+   * conga line — which is what this whole change exists to stop.
+   */
+  if (plan.people === true) {
+    for (let index = 1; index < all.length; index += 1) {
+      const traveller = all[index]!
+      const leader = all[index - 1]!
+      if (leader.partner || draw() > COMPANY_SHARE)
+        continue
+      traveller.partner = leader
+      traveller.partnerGap = COMPANY_GAP[0] + draw() * (COMPANY_GAP[1] - COMPANY_GAP[0])
+      // Beside rather than behind: the companion takes the other hand of the same lane.
+      traveller.lane = leader.lane > 0.5 ? leader.lane - 0.35 : leader.lane + 0.35
+    }
   }
 
   characters.forEach((who, index) => {
@@ -604,6 +664,9 @@ function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, [stray, r
     // thing that would break the dispatch.
     if (traveller.callout)
       continue
+    // And somebody out with a companion goes where their companion goes, not where the dice say.
+    if (traveller.partner)
+      continue
 
     /*
      * Where this traveller actually is — not where its street begins.
@@ -672,11 +735,17 @@ function advance(fleet: Fleet, streets: Streets, delta: number, elapsed: number)
     if (traveller.callout?.arrived !== null && traveller.callout !== null)
       limit = 0
 
-    // Whatever is directly in front, if it is on the same stretch going the same way.
+    /*
+     * Whatever is directly in front, if it is on the same stretch going the same way — and, for a
+     * crowd, only if it is also in the same hand's width of pavement. A vehicle cannot pass within
+     * its own lane and so it queues; a person walks around, and the crowd used to queue because it
+     * was being driven by a car rule.
+     */
     const ahead = fleet.all[index + 1]
-    if (ahead && ahead.edge === traveller.edge && ahead.forward === traveller.forward) {
+    const sameLine = ahead && (fleet.queues || Math.abs(ahead.lane - traveller.lane) < SHOULDER)
+    if (ahead && sameLine && ahead.edge === traveller.edge && ahead.forward === traveller.forward) {
       const gap = traveller.forward ? ahead.along - traveller.along : traveller.along - ahead.along
-      limit = Math.min(limit, Math.max(0, (gap - MIN_GAP) / REACTION))
+      limit = Math.min(limit, Math.max(0, (gap - (fleet.queues ? MIN_GAP : WALKING_GAP)) / REACTION))
     }
 
     // The junction this one is heading for, and whether it is being let through it.
@@ -696,6 +765,22 @@ function advance(fleet: Fleet, streets: Streets, delta: number, elapsed: number)
 
     if (traveller.forward ? traveller.along >= edge.length : traveller.along <= 0)
       turn(network, traveller, edge)
+  }
+
+  /*
+   * And then everybody who is out with somebody. A companion does not steer, brake or turn: it is
+   * put where its partner is, a step behind, on its own hand of the pavement. Done in a second pass
+   * because a partner has to have finished moving first — otherwise a pair drifts apart by exactly
+   * one frame's travel, every frame, and is a pair no longer by the end of the street.
+   */
+  for (const traveller of fleet.all) {
+    const partner = traveller.partner
+    if (!partner)
+      continue
+    traveller.edge = partner.edge
+    traveller.forward = partner.forward
+    traveller.speed = partner.speed
+    traveller.along = Math.max(0, partner.along - (partner.forward ? traveller.partnerGap : -traveller.partnerGap))
   }
 }
 

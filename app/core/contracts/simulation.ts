@@ -39,11 +39,21 @@ export interface SimulationSnapshot {
    * one thing the player can actually act on — the question being answered is not "why is crime 52"
    * but "what did *I* do to it".
    */
-  drivers: Partial<Record<MetricId, { label: string, delta: number }[]>>
+  drivers: Partial<Record<MetricId, { id: string, label: string, delta: number }[]>>
   health: HealthScores
   perception: PerceptionState
   activePolicyIds: string[]
   activeMeasures: ActiveMeasureView[]
+  /**
+   * Every choice the council carried, as `eventId:optionId`.
+   *
+   * Out here rather than only inside the simulation because the closing report is about the road
+   * taken, and the road taken is exactly this list. What the player never saw is the other half of
+   * the story, and it can only be worked out from what they did.
+   */
+  choices: string[]
+  /** The three the player ran on. The closing report scores them against what they left behind. */
+  priorityIds: CampaignPriorityId[]
   pendingDecisions: PendingDecision[]
   /** Negotiation and campaigning already paid for, keyed by motion id. */
   motionPreparation: Record<string, MotionPreparationView>

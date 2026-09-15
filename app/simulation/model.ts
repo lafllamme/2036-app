@@ -92,7 +92,7 @@ export interface SimulationState {
    * number every month and would drown out the one thing the player can act on. The question is not
    * "why is crime 52" — the model answers that — but "what did I do to it".
    */
-  drivers: Partial<Record<MetricId, Record<string, number>>>
+  drivers: Partial<Record<MetricId, Record<string, { label: string, delta: number }>>>
   stocks: CityStocks
   perception: PerceptionState
   measures: ActiveMeasure[]
@@ -606,6 +606,8 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     perception: state.perception,
     activePolicyIds: state.policies.map(policy => policy.id),
     activeMeasures: measures,
+    choices: state.choices,
+    priorityIds: state.priorityIds,
     pendingDecisions: state.pending,
     motionPreparation: state.motionPrep,
     councilSeatsByParty: state.seatsByParty,
@@ -622,7 +624,7 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
       Object.entries(state.drivers ?? {}).map(([metric, sources]) => [
         metric,
         Object.entries(sources ?? {})
-          .map(([label, delta]) => ({ label, delta }))
+          .map(([id, source]) => ({ id, label: source.label, delta: source.delta }))
           .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)),
       ]),
     ),
@@ -667,13 +669,19 @@ function advanceOneMonth(state: SimulationState): SimulationState {
    * not a thing anybody chose. A measure that has since expired keeps its total, because it did
    * happen and the player did it.
    */
-  const drivers: Partial<Record<MetricId, Record<string, number>>> = { ...state.drivers }
+  const drivers: Partial<Record<MetricId, Record<string, { label: string, delta: number }>>> = { ...state.drivers }
   for (const edge of edges) {
     if (!edge.label)
       continue
     const metric = edge.to as MetricId
     const sources = { ...(drivers[metric] ?? {}) }
-    sources[edge.label] = (sources[edge.label] ?? 0) + edge.delta
+    /*
+     * Keyed by the measure rather than by its name, so the closing report can tell a decision the
+     * council took from the immediate cost of a crisis it did not. Both arrive here as an edge with
+     * a label on it, and by the time it is a string the difference is gone.
+     */
+    const held = sources[edge.from]
+    sources[edge.from] = { label: edge.label, delta: (held?.delta ?? 0) + edge.delta }
     drivers[metric] = sources
   }
 

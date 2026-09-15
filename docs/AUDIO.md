@@ -248,8 +248,17 @@ something synthetic will not stop:
 | --- | --- | --- |
 | traffic, crowd, park, a car going past, a horn | recordings, CC0, in `public/audio/city/` | `cityAmbience.ts` |
 | the siren | synthesised, two notes stepped at 0.65 s | `cityAmbience.ts` |
+| the train | synthesised, pink noise through a narrow band, pulsed at the wheels | `cityAmbience.ts` |
 | the score | synthesised — saw pads, a bass drone, one FM bell | `cityScore.ts` |
 | every interface cue, including the `processing` loop | the `uisfx` library's `zen` pack | `AudioBus.ts` |
+
+The train is synthesised for the same reason the siren is. What a train sounds like from a distance
+is almost entirely *where it is*: a rumble that arrives before you see it, a beat under it at the
+speed of the wheels, and nothing at all four streets away. All three are things the game computes and
+nothing anybody recorded. It carries much further than a siren — full to 90 m, gone by 620 m against
+the siren's 200 — because a train does, and it is deliberately not tied to how close the camera is to
+the street: a goods train heard from the hill above the city is exactly the sound of a city with a
+railway in it.
 
 Only the first row is recorded. Anything that sounds like an instrument rather than a street is one
 of the other three, and the score is the only one of them with no distance gate at all — from the

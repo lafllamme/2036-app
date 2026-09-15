@@ -42,6 +42,23 @@ const SIREN_NEAR = 40
 const SIREN_FAR = 200
 
 /**
+ * The train, and why it is synthesised like the siren rather than played like the traffic.
+ *
+ * What a train sounds like from a distance is almost entirely *where it is*: a rumble that arrives
+ * before you see it, a beat under it at the speed of the wheels, and nothing at all four streets
+ * away. All three are things the game computes and nothing anybody recorded — the same reason the
+ * Martinshorn is built rather than fetched.
+ *
+ * Noise through a narrow band is the rumble; the same noise gated by a slow oscillator is the beat
+ * of the bogies over the joints. It carries further than a siren because a train does.
+ */
+const TRAIN_NEAR = 90
+const TRAIN_FAR = 620
+const TRAIN_GAIN = 0.16
+const TRAIN_BAND = 165
+const TRAIN_BEAT = 2.6
+
+/**
  * How the city fades with height, and how much of it is left from the top.
  *
  * It used to fade to nothing by sixteen hundred metres, and the campaign opens at twenty-seven
@@ -84,8 +101,29 @@ export interface CityAmbienceState {
   peopleNearby: number
   /** How far the nearest siren is from the camera in metres, or Infinity when none is out. */
   nearestSiren: number
+  /** How far the nearest train is, in metres, or Infinity when none is on the map. */
+  nearestTrain: number
   /** How far the camera is from what it is looking at, in metres. */
   cameraDistance: number
+}
+
+/**
+ * A second of noise, looped.
+ *
+ * Pink rather than white — a running average of white noise, which takes the hiss off the top and
+ * leaves the low end a train actually has. One buffer, built once, shared by everything that needs
+ * a rumble.
+ */
+function noiseBuffer(context: AudioContext): AudioBuffer {
+  const buffer = context.createBuffer(1, context.sampleRate, context.sampleRate)
+  const data = buffer.getChannelData(0)
+  let last = 0
+  for (let i = 0; i < data.length; i += 1) {
+    const white = Math.random() * 2 - 1
+    last = (last * 0.96 + white * 0.04)
+    data[i] = last * 6
+  }
+  return buffer
 }
 
 /** One bed: its own source, its own level, running from the moment the sound is opened. */
@@ -102,6 +140,7 @@ export class CityAmbience {
   private distant: BiquadFilterNode | null = null
   private siren: GainNode | null = null
   private sirenOscillator: OscillatorNode | null = null
+  private train: GainNode | null = null
   private enabled = true
   private volume = 1
   private started = false
@@ -167,6 +206,36 @@ export class CityAmbience {
     oscillator.start()
     this.sirenOscillator = oscillator
     this.siren = siren
+
+    /*
+     * The train. One noise source held for the session, banded down to a rumble and pulsed by a slow
+     * oscillator for the beat of the wheels — started and stopped nowhere, gated only by how far the
+     * nearest train is, exactly like the siren above it.
+     */
+    const rumble = context.createBufferSource()
+    rumble.buffer = noiseBuffer(context)
+    rumble.loop = true
+
+    const band = context.createBiquadFilter()
+    band.type = 'bandpass'
+    band.frequency.value = TRAIN_BAND
+    band.Q.value = 0.9
+
+    const beat = context.createGain()
+    beat.gain.value = 1
+    const wheels = context.createOscillator()
+    wheels.type = 'sine'
+    wheels.frequency.value = TRAIN_BEAT
+    const depth = context.createGain()
+    depth.gain.value = 0.35
+    wheels.connect(depth).connect(beat.gain)
+    wheels.start()
+
+    const train = context.createGain()
+    train.gain.value = 0
+    rumble.connect(band).connect(beat).connect(train).connect(master)
+    rumble.start()
+    this.train = train
 
     void this.fetchAll(context, master)
   }
@@ -244,6 +313,16 @@ export class CityAmbience {
       // Two notes a fourth apart, stepped rather than swept, which is what a Martinshorn does.
       const high = Math.floor(now / SIREN_STEP) % 2 === 0
       this.sirenOscillator.frequency.setTargetAtTime(high ? SIREN_HIGH : SIREN_LOW, now, 0.01)
+    }
+
+    /*
+     * The train, on its own distance and nothing else. It carries further than a siren because a
+     * train does, and it is not tied to `near`: a goods train heard from the hill above the city is
+     * exactly the sound of a city with a railway in it.
+     */
+    if (this.train) {
+      const close = 1 - smoothstep(TRAIN_NEAR, TRAIN_FAR, state.nearestTrain)
+      this.train.gain.setTargetAtTime(TRAIN_GAIN * close, now, SMOOTHING)
     }
 
     /*

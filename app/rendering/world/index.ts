@@ -5,6 +5,7 @@ import type { Agents } from './agents'
 import type { CityBuildings } from './buildings'
 import type { IncidentScenes } from './incidentScene'
 import type { ParkedCars } from './parkedCars'
+import type { Railway } from './railway'
 import type { RoadNetwork } from './roadNetwork'
 import type { Ships } from './ships'
 import type { StreetLights } from './streetLights'
@@ -18,6 +19,7 @@ import { addGround } from './ground'
 import { createGrowth } from './growth'
 import { createIncidentScenes } from './incidentScene'
 import { addParkedCars } from './parkedCars'
+import { addRailway } from './railway'
 import { buildRoadNetwork } from './roadNetwork'
 import { addRoads } from './roads'
 import { addShips } from './ships'
@@ -52,6 +54,7 @@ export interface WorldVisuals extends CityBuildings, CityTrees {
   network: RoadNetwork
   water: Water | null
   ships: Ships | null
+  railway: Railway | null
 }
 
 export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): WorldVisuals {
@@ -77,5 +80,6 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
     network,
     water: addWater(scene, blueprint),
     ships: addShips(scene, blueprint),
+    railway: addRailway(scene, blueprint),
   }
 }

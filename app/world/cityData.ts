@@ -1,4 +1,4 @@
-import type { AreaKind, BuildingRecord, BuildingType, CityBlueprint, RoadRecord, TreeRecord } from '../core/contracts'
+import type { AreaKind, AreaRecord, BuildingRecord, BuildingType, CityBlueprint, RoadRecord, TreeRecord } from '../core/contracts'
 import type { ReliefField } from './relief'
 import { createRandomStream } from '../core/rng'
 import { districtAt, LINDENHAFEN } from './model/lindenhafen'
@@ -81,11 +81,11 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
     roofHeight: entry.r,
   }))
 
-  const areas = raw.areas.map((entry, index) => ({
+  const areas = railwayLand(raw.areas.map((entry, index) => ({
     id: `a-${index.toString(36)}`,
     kind: entry.k,
     polygon: entry.p,
-  }))
+  })), raw.rails)
 
   const relief = new Relief(raw.relief, seed)
 
@@ -323,4 +323,83 @@ function lineTheStreets(roads: RoadRecord[], relief: Relief, seed: number): Tree
   }
 
   return trees
+}
+
+/** How near a point has to be to a track to count as railway land, and how finely land is sampled. */
+const RAIL_REACH = 22
+const RAIL_SAMPLE = 25
+/** What share of a piece of land has to be track before it stops being a works and becomes a railway. */
+const RAIL_SHARE = 0.4
+
+/**
+ * Tell the railway apart from the industrial estate it is tagged as.
+ *
+ * OpenStreetMap files the land a railway runs on as `landuse=railway`, and the converter has nowhere
+ * to put that but `industrial` — so the corridor through the middle of the city was painted the
+ * brown of a works. It is the largest single piece of ground in the extract and it read as mud.
+ *
+ * There is no tag left to read by this point, so it is decided by what is actually on the land:
+ * sample the piece, count how much of it is within twenty-odd metres of a track, and if most of it
+ * is, it is a railway. Cheap, because it only ever looks at industrial and building land.
+ */
+function railwayLand(areas: AreaRecord[], rails: { p: number[] }[]): AreaRecord[] {
+  const CELL = 60
+  const near = new Set<number>()
+  const key = (x: number, z: number): number => Math.round(x / CELL) * 100_000 + Math.round(z / CELL)
+  for (const rail of rails) {
+    for (let i = 0; i < rail.p.length - 2; i += 2) {
+      const ax = rail.p[i]!
+      const az = rail.p[i + 1]!
+      const bx = rail.p[i + 2]!
+      const bz = rail.p[i + 3]!
+      const steps = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / (RAIL_REACH / 2)))
+      for (let step = 0; step <= steps; step += 1) {
+        const t = step / steps
+        near.add(key(ax + (bx - ax) * t, az + (bz - az) * t))
+      }
+    }
+  }
+
+  return areas.map((area) => {
+    if (area.kind !== 'industrial' && area.kind !== 'construction')
+      return area
+    let minX = Infinity
+    let maxX = -Infinity
+    let minZ = Infinity
+    let maxZ = -Infinity
+    for (let i = 0; i < area.polygon.length; i += 2) {
+      minX = Math.min(minX, area.polygon[i]!)
+      maxX = Math.max(maxX, area.polygon[i]!)
+      minZ = Math.min(minZ, area.polygon[i + 1]!)
+      maxZ = Math.max(maxZ, area.polygon[i + 1]!)
+    }
+
+    let inside = 0
+    let tracked = 0
+    for (let x = minX; x <= maxX; x += RAIL_SAMPLE) {
+      for (let z = minZ; z <= maxZ; z += RAIL_SAMPLE) {
+        if (!within(area.polygon, x, z))
+          continue
+        inside += 1
+        if (near.has(key(x, z)))
+          tracked += 1
+      }
+    }
+    return inside > 0 && tracked / inside >= RAIL_SHARE ? { ...area, kind: 'railway' as const } : area
+  })
+}
+
+/** Whether a point is inside a closed ring, by the even-odd rule. */
+function within(ring: number[], x: number, z: number): boolean {
+  let hit = false
+  const count = ring.length / 2
+  for (let i = 0, j = count - 1; i < count; j = i, i += 1) {
+    const ax = ring[i * 2]!
+    const az = ring[i * 2 + 1]!
+    const bx = ring[j * 2]!
+    const bz = ring[j * 2 + 1]!
+    if ((az > z) !== (bz > z) && x < ((bx - ax) * (z - az)) / (bz - az) + ax)
+      hit = !hit
+  }
+  return hit
 }

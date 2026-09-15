@@ -13,7 +13,7 @@ import { BEDS, CITY_SOUNDS } from '../../app/audio/citySounds'
 describe('the city ambience', () => {
   it('does nothing at all before a gesture has opened it', () => {
     const ambience = new CityAmbience()
-    expect(() => ambience.update({ trafficNearby: 20, peopleNearby: 12, nearestSiren: 60, cameraDistance: 80 })).not.toThrow()
+    expect(() => ambience.update({ trafficNearby: 20, peopleNearby: 12, nearestSiren: 60, nearestTrain: 400, cameraDistance: 80 })).not.toThrow()
     expect(() => ambience.setEnabled(false)).not.toThrow()
     expect(() => ambience.setVolume(0.4)).not.toThrow()
     expect(() => ambience.stop()).not.toThrow()
@@ -23,7 +23,7 @@ describe('the city ambience', () => {
     // Node, a locked-down browser, a server render: all three reach this and none may fail.
     const ambience = new CityAmbience()
     expect(() => ambience.start()).not.toThrow()
-    expect(() => ambience.update({ trafficNearby: 4, peopleNearby: 0, nearestSiren: Number.POSITIVE_INFINITY, cameraDistance: 500 })).not.toThrow()
+    expect(() => ambience.update({ trafficNearby: 4, peopleNearby: 0, nearestSiren: Number.POSITIVE_INFINITY, nearestTrain: Number.POSITIVE_INFINITY, cameraDistance: 500 })).not.toThrow()
   })
 
   it('clamps the volume to something a player can actually have asked for', () => {
@@ -39,9 +39,11 @@ describe('the city ambience', () => {
      * put a siren in the player's ear and left it there. The state it accepts is the reason it
      * cannot do that again: there is nowhere to put a count.
      */
-    const state: Record<string, unknown> = { trafficNearby: 0, peopleNearby: 0, nearestSiren: Number.POSITIVE_INFINITY, cameraDistance: 100 }
-    expect(Object.keys(state)).toEqual(['trafficNearby', 'peopleNearby', 'nearestSiren', 'cameraDistance'])
+    const state: Record<string, unknown> = { trafficNearby: 0, peopleNearby: 0, nearestSiren: Number.POSITIVE_INFINITY, nearestTrain: Number.POSITIVE_INFINITY, cameraDistance: 100 }
+    expect(Object.keys(state)).toEqual(['trafficNearby', 'peopleNearby', 'nearestSiren', 'nearestTrain', 'cameraDistance'])
     expect(Object.keys(state)).not.toContain('sirens')
+    // The train learned the same lesson without having to make the mistake: nearest, never a count.
+    expect(Object.keys(state)).not.toContain('trains')
   })
 })
 
@@ -104,5 +106,37 @@ describe('the sound map', () => {
   it('keys every entry by its own id, so the table cannot lie about itself', () => {
     for (const [key, sound] of Object.entries(CITY_SOUNDS))
       expect(sound.id).toBe(key)
+  })
+})
+
+describe('when a train is allowed to be heard', () => {
+  /*
+   * The same curve `CityAmbience.update` uses for the railway. A train carries much further than a
+   * siren — it is a rumble that arrives before you see it — but it still stops: a train on the far
+   * side of the city is not something you hear from the hill above it.
+   */
+  const TRAIN_NEAR = 90
+  const TRAIN_FAR = 620
+
+  const loudness = (metres: number): number => {
+    if (!Number.isFinite(metres))
+      return 0
+    const t = Math.min(1, Math.max(0, (metres - TRAIN_NEAR) / (TRAIN_FAR - TRAIN_NEAR)))
+    return 1 - t * t * (3 - 2 * t)
+  }
+
+  it('is silent when no train is out', () => {
+    expect(loudness(Number.POSITIVE_INFINITY)).toBe(0)
+  })
+
+  it('carries further than a siren, and still stops', () => {
+    expect(loudness(300)).toBeGreaterThan(0.4)
+    expect(loudness(TRAIN_FAR)).toBe(0)
+    expect(loudness(900)).toBe(0)
+  })
+
+  it('is full only when the line is more or less under you', () => {
+    expect(loudness(0)).toBe(1)
+    expect(loudness(TRAIN_NEAR)).toBe(1)
   })
 })

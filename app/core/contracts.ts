@@ -94,7 +94,7 @@ export interface RoadRecord {
 }
 
 /** A piece of ground that is not plain land: water, parkland, a rail yard, a works. */
-export type AreaKind = 'water' | 'park' | 'pitch' | 'forest' | 'grass' | 'industrial' | 'commercial' | 'construction'
+export type AreaKind = 'water' | 'park' | 'pitch' | 'forest' | 'grass' | 'industrial' | 'commercial' | 'construction' | 'railway'
 
 export interface AreaRecord {
   id: string

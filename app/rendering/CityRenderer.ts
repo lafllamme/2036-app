@@ -18,6 +18,7 @@ import { CityState } from './world/cityState'
 import { updateIncidentScenes } from './world/incidentScene'
 import { createWorld } from './world/index'
 import { fitParkedDetail } from './world/parkedCars'
+import { updateRailway } from './world/railway'
 import { updateShips } from './world/ships'
 import { updateSignals } from './world/trafficLights'
 import { updateWater } from './world/water'
@@ -363,6 +364,16 @@ export class CityRenderer {
       this.sky.sun.light.shadow.needsUpdate = true
     }
 
+    /*
+     * The trains run on the frame clock, not the slow one.
+     *
+     * Everything else in that block either reads a state or is placed from `elapsed`, so running it
+     * five times a second is invisible. A train *integrates* — it is where it was plus speed times
+     * time — and given a frame's delta five times a second it crawls across the map at a twentieth
+     * of its own speed.
+     */
+    updateRailway(this.world.railway, delta, this.rig.camera.position)
+
     this.slowClock += delta
     if (this.slowClock >= 1 / SLOW_UPDATE_HZ) {
       const distance = this.rig.distance
@@ -416,6 +427,7 @@ export class CityRenderer {
         trafficNearby: this.world.agents.trafficNearby,
         peopleNearby: this.world.agents.peopleNearby,
         nearestSiren: this.world.agents.nearestSiren,
+        nearestTrain: this.world.railway?.nearestTrain ?? Number.POSITIVE_INFINITY,
         cameraDistance: distance,
       })
       this.atmosphere.update(this.slowClock, this.rig.controls.target, distance)

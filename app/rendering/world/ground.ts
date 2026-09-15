@@ -47,6 +47,12 @@ const AREA_COLOURS: Record<AreaKind, string> = {
   industrial: '#5c5b52',
   commercial: '#605d55',
   construction: '#6d6453',
+  /*
+   * The land a railway runs on. OpenStreetMap tags it `landuse=railway`, which this city read as
+   * industrial — so the corridor through the middle of it was painted the brown of a works, and from
+   * the air it was a river of mud. It is ballast: a grey with the dust of a hundred years in it.
+   */
+  railway: '#63605b',
 }
 
 export function addGround(scene: THREE.Scene, blueprint: CityBlueprint): void {

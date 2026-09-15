@@ -26,6 +26,7 @@ Entscheidung dort eine Messung war und die Prioritäten sich daraus ergeben.
 | **Boden** | Eine einzige Fläche. `Relief` **ist** die Fläche, `ground.ts` lädt sie hoch — kein Gebäude steht tiefer als 40 cm im Boden, kein Belag höher. |
 | **Gebäude** | Extrudierte Grundrisse, Fassadentextur nach Geschoss und Fensterachse, Giebeldächer auf Rechtecken, Sockel an jedem Haus. |
 | **Straßen** | Fahrbahn, Mittellinie, Radfahrstreifen, Kreuzungsflächen. |
+| **Bahn** | 49,3 km Gleis als Schotter und zwei Schienen, Oberleitung mit Masten alle 48 m, und fünf Züge auf den fünf längsten Strecken — die längste 5 556 m quer über die Karte. Zu hören nach Entfernung, wie die Sirene. |
 | **Brücken** | 44 Stück, als Bauwerk gezogen statt in Klötzen gesetzt: 1,1 m Deckstärke, durchgehende Brüstung, geschlossene Untersicht, Pfeiler. Was darauf fährt und geht, folgt derselben Kuppe auf 8,4 cm genau. |
 | **Bürgersteige** | Streifen je Straßenseite, unterbrochen wo eine andere Fahrbahn darunterliegt; 3 236 von 3 924 Abschnitten begehbar, 279 km, 39 400 Dreiecke. Gemalt wird auf derselben Linie, auf der gelaufen wird. |
 | **Umland** | Dieselbe Pipeline wie die Stadt, und seit dem Umbau auch dasselbe Straßennetz: Orte statt Speichen, Gabriel-Graph statt Ring, Häuser um Dörfer statt an jedem Meter. 416 Landstraßen, 95,4 % aller Knoten in einem Stück. |
@@ -67,7 +68,7 @@ echten Polygone. Es fehlen Zebrastreifen, Haltelinien, Kreisverkehre. Aus der Lu
 
 **6 — Wasser und Schiffe.**
 Der Flusslauf wirkt zufällig statt gewachsen, und die Schiffe sind immer noch die handgebauten Kähne.
-Beides steht als Nächstes an; das Umland ist jetzt der Rahmen, in den der Fluss gehört.
+Das Umland und die Bahn sind jetzt der Rahmen, in den der Fluss gehört.
 
 **7 — Straßenmöbel prüfen.**
 `streetFurniture.ts` setzt Schilder, Container und Baken auf `Straßenbreite / 2 + 1,9` — genau die

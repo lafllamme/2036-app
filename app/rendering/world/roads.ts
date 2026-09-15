@@ -176,15 +176,12 @@ export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint, network: 
     polygonOffsetUnits: -4,
   }), CYCLE_LANES))
   scene.add(markings(relief, blueprint.roads))
+  /*
+   * The rails are no longer drawn here. They used to be one flat brown ribbon, which from the air
+   * read as a river of mud through the middle of the city; `railway.ts` lays ballast, two rails, the
+   * catenary and the trains on them instead.
+   */
   scene.add(bridgeStructure(relief, [...blueprint.roads, ...blueprint.rails]))
-  scene.add(ribbon(relief, blueprint.rails, ROAD_Y, new THREE.MeshStandardMaterial({
-    color: '#473f36',
-    roughness: 0.9,
-    metalness: 0.1,
-    polygonOffset: true,
-    polygonOffsetFactor: -4,
-    polygonOffsetUnits: -4,
-  }), 1))
 }
 
 /**

@@ -197,3 +197,37 @@ Abstand sechsmal so groß.
 
 Dazu läuft die Rückholung nur noch alle zwölf Frames. Wo jemand hingehört, ist keine Frage, die
 hundertzwanzigmal pro Sekunde neu beantwortet werden muss.
+
+
+## Die Bahn
+
+49,3 km Gleis lagen als **ein flaches braunes Band** auf dem Boden, und darauf ist nie etwas
+gefahren. Aus der Luft war das ein Schlammfluss mitten durch die Stadt — genau die Frage, die dazu
+kam. Dazu kam ein zweiter Fehler, der es schlimmer machte: OpenStreetMap führt die Fläche, auf der
+eine Bahn liegt, als `landuse=railway`, und der Konverter hatte nur `industrial` dafür. Also war die
+größte zusammenhängende Fläche des Ausschnitts im Braun eines Werks gestrichen. **16 Flächen** werden
+jetzt daran erkannt, was tatsächlich auf ihnen liegt — Anteil der Fläche, der näher als 22 m an einem
+Gleis liegt, über 40 % — und bekommen die Farbe von Schotter.
+
+Drei Dinge machen eine Bahn zur Bahn, und keins davon ist ein Modell:
+
+- **Schotter und zwei Schienen.** Ein einzelnes Farbband ist ein Weg. Zwei dünne Stahllinien auf
+  einem grauen Bett sind ein Gleis, aus jeder Entfernung, aus der man es überhaupt sieht.
+- **Oberleitung.** Maste alle 48 m mit einem Ausleger über dem Gleis und dem Draht dazwischen. Sie
+  sagen *elektrifizierte Bahn* statt *Feldweg*, und sie sind das Einzige daran, was über einen Zaun
+  reicht. Der Draht ist ein dünner Quader und keine Linie: eine Linie hat in keiner Entfernung eine
+  Breite und verschwindet, sobald die Kamera zurückgeht.
+- **Ein Zug, der irgendwohin fährt.** Die Karte zerschneidet die Bahn in **357 Stücke**; aneinander
+  gekettet ergeben sie **104 Strecken**, 16 davon über 700 m und die längste **5 556 m** gegen 803 m
+  des längsten Einzelstücks. Fünf Züge fahren die fünf längsten, von einem Kartenrand zum anderen und
+  am Ende der Strecke wieder zurück.
+
+Ein Wagen ist selbst gebaut, nicht heruntergeladen: das Kit, aus dem diese Stadt besteht, hat keinen
+Zug, und ein Zug von einer anderen Hand ist ein anderes Spiel in einer Bildschirmecke — genau der
+Fehler, den das Umland früher gemacht hat. Er ist geschrieben wie das Fahrrad und die Schiffe:
+Quader, verschmolzen, Farben in den Vertices, **ein Draw für alle Wagen aller Züge**.
+
+Und er läuft auf der **Frame-Uhr**, nicht auf der langsamen. Alles andere in dem Block liest einen
+Zustand oder wird aus `elapsed` gesetzt, das darf fünfmal pro Sekunde passieren. Ein Zug *integriert*
+— er ist, wo er war, plus Geschwindigkeit mal Zeit — und mit dem Delta eines Frames fünfmal pro
+Sekunde kriecht er mit einem Zwanzigstel seiner Geschwindigkeit über die Karte.

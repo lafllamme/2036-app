@@ -556,6 +556,12 @@ function visualsFrom(metrics: CityMetrics, stocks: CityStocks): CityVisualState 
      */
     originMix: clamp(metrics.internationalShare / 100, 0, 1),
     idleness: clamp(metrics.youthUnemployment / 24, 0, 1),
+    /*
+     * Against two thousand, which is roughly where this city's own dynamics top out under a decade
+     * of bad housing policy. Not against the population: a share of 120,000 would leave the signal
+     * sitting at a hundredth for the whole campaign and nothing would ever be visible.
+     */
+    roughSleeping: clamp(metrics.homelessPeople / 2_000, 0, 1),
   }
 }
 

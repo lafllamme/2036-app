@@ -32,7 +32,7 @@ Sortiert nach Verhältnis von Wirkung zu Aufwand. Jede Zeile ist für sich liefe
 | 1 ✅ | `support` | **Jeder NPC hat eine politische Neigung.** Rechtsklick sagt, wen diese Person wählen würde — und in fünf Jahren steht dort etwas anderes. | gebaut: `leaning.ts` |
 | 2 ✅ | `responseCapacity` | **Polizei zu Fuß auf Streife**, in der Zahl, die die Kennzahl hergibt. Personal gestrichen heißt: leere Straßen. | gebaut: `agents.patrol` |
 | 3 | `burglaryRate` | **Einbrecher als eigene Rolle**, nachts unterwegs, an Häusern. Heute erzeugt die Zahl nur Einsätze. | Rolle + Verhalten |
-| 4 | Obdachlosigkeit (neu) | **Menschen in Eingängen.** Steigt mit Miete und auslaufenden Sozialbindungen, fällt mit Wohnungsbau. | neue Kennzahl + Platzierung |
+| 4 ✅ | `homelessPeople` (neu) | **Menschen in Eingängen.** Steigt mit Miete, fehlendem Leerstand und Arbeitslosigkeit, fällt mit gebundenem Bestand. | gebaut: `roughSleeping.ts` |
 | 5 | `vacancyRate` | **Nachts dunkle Fenster**, vernagelte Erdgeschosse. Heute: null Leser. | Fenstermaterial vorhanden |
 | 6 | `youthUnemployment` / `idleness` | **Leute stehen tagsüber herum**, statt zu gehen. Eine Stadt ohne Arbeit sieht anders aus als eine im Berufsverkehr. | Verhalten im `Fleet` |
 | 7 | `emissions` | **Dunst über der Stadt**, Farbe des Himmels am Horizont. | Atmosphäre vorhanden |
@@ -84,7 +84,7 @@ nichts passiert ist, ist auch das eine Auskunft.
    Partei nahm alle. Nähe fällt jetzt exponentiell.
 2. **Hover-Erklärungen mit Amtsantritts-Vergleich** — ohne Bezugspunkt bleibt jede weitere
    Sichtbarmachung unlesbar.
-3. 🟡 **Polizei ✅, Einbrecher, Obdachlose.** Die Streife steht: ein Vorrat von 70 Beamten, und wie
+3. 🟡 **Polizei ✅, Obdachlose ✅, Einbrecher.** Die Streife steht: ein Vorrat von 70 Beamten, und wie
    viele davon tatsächlich laufen, ist `responseCapacity` **im Quadrat** — 3 in der sichtbaren Stadt
    bei heruntergefahrenem Dienst, 70 bei vollem. Quadriert und nicht linear, weil ein linearer
    Zusammenhang den Unterschied zwischen einer guten und einer schlechten Entscheidung wie nichts
@@ -110,3 +110,27 @@ niemandem auf und ist den Umzug nicht wert.
 
 **Keine neuen Ereignisse, bis das hier steht.** Mehr Ereignisse machen ein Spiel, das nichts bedeutet,
 nicht bedeutender. Sie machen es länger.
+
+
+## Obdachlosigkeit
+
+Die einzige Wohnungs-Auswirkung, für die das Modell **gar keine Zahl** hatte — und die einzige, die
+man unmittelbar sehen kann. Alles andere in dem Block ist Bestand und Preis; das hier ist, wen dieser
+Bestand und dieser Preis draußen lassen, und genau das macht aus Wohnungspolitik eine politische
+Frage statt einer Tabelle.
+
+Nichts daran ist neu erfunden: es sind die Wohnungszahlen, die das Modell ohnehin führt, einmal nach
+etwas gefragt, wonach sie nie gefragt wurden. **Drei Kräfte drücken** — Miete über dem, was die Stadt
+tragen kann; ein Markt ohne Luft; Leute ohne Arbeit. **Zwei ziehen** — gebundener Bestand und
+freier Bestand. Und alles bewegt sich langsam, weil eine Wohnung zu verlieren Monate dauert und eine
+zurückzubekommen länger. Eine Zahl, die sich in einem Monat verdoppeln kann, lernt der Spieler zu
+farmen statt zu regieren.
+
+Sichtbar als **Plätze, nicht als Reisende**: 260 Schlafplätze an Gebäuden ab 8 m Höhe — dort, wo
+Eingänge, Unterführungen und Bahnhofsvorplätze sind — einmal gewürfelt und nie neu. Wie viele davon
+besetzt sind, ist ein Präfix der Liste, **von der Stadtmitte nach außen sortiert**: eine Stadt, der es
+schlechter geht, füllt sich von innen nach außen, eine, der es besser geht, leert sich von außen nach
+innen. Jeden Monat neu zu würfeln, welcher Eingang besetzt ist, läse sich als Flackern.
+
+Das Modell dafür ist die **Sitz-Pose**, die für die Radfahrer ohnehin geladen wird — dieselben zwölf
+Figuren, sitzend eingefroren. Kostet nichts.

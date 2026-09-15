@@ -100,6 +100,7 @@ const detail = computed(() => {
     { label: 'Wohnungsbestand', value: formatNumber(m.housingUnits) },
     { label: 'Davon Sozialbindung', value: `${formatNumber(m.socialUnits)} · ${formatNumber((m.socialUnits / m.housingUnits) * 100, 1)} %` },
     { label: 'Im Bau', value: `${formatNumber(m.unitsUnderConstruction)} Wohnungen` },
+    { label: 'Ohne Wohnung', value: `${formatNumber(m.homelessPeople)} Personen` },
     { label: 'Einbrüche', value: `${formatNumber(m.burglaryRate, 1)} / 1.000 Haushalte` },
     { label: 'Ordnungsdienst', value: `${formatNumber(m.orderServiceCapacity, 1)} VZÄ / 10.000` },
     { label: 'Jugendarbeitslosigkeit', value: `${formatNumber(m.youthUnemployment, 1)} %` },

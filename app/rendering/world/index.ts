@@ -7,6 +7,7 @@ import type { IncidentScenes } from './incidentScene'
 import type { ParkedCars } from './parkedCars'
 import type { Railway } from './railway'
 import type { RoadNetwork } from './roadNetwork'
+import type { RoughSleeping } from './roughSleeping'
 import type { Ships } from './ships'
 import type { StreetLights } from './streetLights'
 import type { TrafficSignals } from './trafficLights'
@@ -22,6 +23,7 @@ import { addParkedCars } from './parkedCars'
 import { addRailway } from './railway'
 import { buildRoadNetwork } from './roadNetwork'
 import { addRoads } from './roads'
+import { addRoughSleeping } from './roughSleeping'
 import { addShips } from './ships'
 import { addStreetFurniture } from './streetFurniture'
 import { addStreetLights } from './streetLights'
@@ -55,6 +57,8 @@ export interface WorldVisuals extends CityBuildings, CityTrees {
   water: Water | null
   ships: Ships | null
   railway: Railway | null
+  /** People the housing market has left outside. Placed once, counted every month. */
+  roughSleeping: RoughSleeping
 }
 
 export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): WorldVisuals {
@@ -81,5 +85,6 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
     water: addWater(scene, blueprint),
     ships: addShips(scene, blueprint),
     railway: addRailway(scene, blueprint),
+    roughSleeping: addRoughSleeping(scene, blueprint, models),
   }
 }

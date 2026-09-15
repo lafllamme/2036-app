@@ -145,6 +145,14 @@ export interface CityMetrics {
   socialUnits: number
   unitsUnderConstruction: number
   averageRent: number
+  /**
+   * People without a home of their own.
+   *
+   * The one housing outcome the model had no number for, and the one a player can actually see.
+   * Everything else in this block is stock and price; this is who that stock and that price leave
+   * outside, and it is what makes the housing loop a political question rather than a spreadsheet.
+   */
+  homelessPeople: number
   // Labour and economy
   employment: number
   youthUnemployment: number
@@ -382,6 +390,13 @@ export interface CityVisualState {
   originMix: number
   /** How many are out during working hours because there is no work. */
   idleness: number
+  /**
+   * How many people the housing market has left outside, as a share of the worst this city gets.
+   *
+   * The most legible consequence in the game: rents that ran away and bindings nobody renewed are a
+   * number in a panel, and somebody sitting in a doorway is not.
+   */
+  roughSleeping: number
 }
 
 export interface ActiveMeasureView {

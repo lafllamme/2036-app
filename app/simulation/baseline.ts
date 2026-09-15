@@ -33,6 +33,12 @@ export const BASELINE_METRICS: CityMetrics = {
   socialUnits: 8_400,
   unitsUnderConstruction: 620,
   averageRent: 13.2,
+  /*
+   * About 0.4 % of the population, which is where a mid-sized German city with a tight market
+   * actually sits. Not zero: a city that starts with nobody outside cannot get worse in a way the
+   * player would believe.
+   */
+  homelessPeople: 480,
 
   employment: 72.4,
   youthUnemployment: 8.6,

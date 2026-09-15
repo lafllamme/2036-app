@@ -81,6 +81,27 @@ export function stepDynamics(
   metrics.socialUnits = Math.max(0, metrics.socialUnits - expiringBindings)
   note('socialUnits', -expiringBindings, 'Sozialbindungen ausgelaufen')
 
+  /*
+   * Who the market leaves outside.
+   *
+   * Three pressures push, two pull, and none of them is a new idea — they are the housing numbers
+   * the model already keeps, asked a question it had never been asked. Rent above what the city
+   * could bear, a market with no slack in it, and people out of work push; bound rents and a market
+   * with room in it pull. The whole thing moves slowly, because losing a flat takes months and
+   * getting one back takes longer.
+   */
+  const rentStrain = Math.max(0, previous.averageRent - BASE.averageRent) / 2.2
+  const slack = Math.max(0, FRICTIONAL_VACANCY - vacancyRate(metrics)) * 34
+  const workStrain = Math.max(0, BASE.employment - previous.employment) / 6
+  const bound = (metrics.socialUnits / Math.max(1, metrics.housingUnits)) - (BASE.socialUnits / BASE.housingUnits)
+  const drift = (rentStrain + slack + workStrain - bound * 42) * 26 - previous.homelessPeople * 0.022
+  metrics.homelessPeople = Math.max(0, previous.homelessPeople + drift)
+  note(
+    'homelessPeople',
+    metrics.homelessPeople - previous.homelessPeople,
+    'Mietniveau, fehlender Leerstand und Beschäftigung gegen den gebundenen Bestand',
+  )
+
   // --- Demography and migration --------------------------------------------
   const naturalChange = previous.population * -0.00012
   const headroomUnits = metrics.housingUnits - previous.households - metrics.housingUnits * FRICTIONAL_VACANCY

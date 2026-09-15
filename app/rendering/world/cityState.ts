@@ -3,6 +3,7 @@ import type { CityPressure } from './incidents'
 import type { WorldVisuals } from './index'
 import * as THREE from 'three/webgpu'
 import { paint } from '../picking'
+import { updateRoughSleeping } from './roughSleeping'
 
 /**
  * The city reacting to the simulation.
@@ -89,6 +90,11 @@ export class CityState {
 
     this.applyBlight(city.blight)
     this.applyGreenery(city.greenery)
+    /*
+     * And who the housing market has left outside. One number, one prefix of the doorways — the
+     * most direct line in the game between a council decision and something the player can see.
+     */
+    updateRoughSleeping(this.visuals.roughSleeping, city.roughSleeping)
   }
 
   /** Vacancy above the blight threshold drains colour out of a matching share of the stock. */

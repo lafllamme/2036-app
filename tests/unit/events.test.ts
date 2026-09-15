@@ -2,8 +2,8 @@ import type { EventDrawState } from '../../app/simulation/events'
 import { describe, expect, it } from 'vitest'
 import { EVENTS } from '../../app/content/events'
 import { BASELINE_METRICS, BASELINE_STOCKS } from '../../app/simulation/baseline'
-import { applyMeasures, eligibleEvents, rampFactor } from '../../app/simulation/events'
-import { advanceMonths, campaignFor, createInitialState, forecastsForEvent, negotiate, resolveDecision, snapshotOf } from '../../app/simulation/model'
+import { applyMeasures, costThisMonth, eligibleEvents, rampFactor } from '../../app/simulation/events'
+import { advanceMonths, campaignFor, createInitialState, forecastsForEvent, migrateState, negotiate, resolveDecision, snapshotOf } from '../../app/simulation/model'
 
 describe('event library', () => {
   it('uses unique ids and gives every decision a default', () => {
@@ -28,7 +28,27 @@ describe('event library', () => {
 
   it('buys capacity rather than writing outcomes directly', () => {
     // Measures may not set a crime rate, a satisfaction value, or an employment rate.
-    const outcomeOnly = ['crimeRate', 'burglaryRate', 'satisfaction', 'employment', 'youthUnemployment', 'averageRent']
+    /*
+     * Every figure the dynamics chase a target for. A `level` effect on one of these is erased within
+     * months — the convergence simply takes it back — so an option that writes one is an option that
+     * promises something the model never delivers. Ten of them wrote `businessStock` and the whole
+     * economic loop was quietly temporary; see `businessSites` in `baseline.ts`.
+     *
+     * `immediateEffects` are deliberately not checked here: a chemical accident's spike or an
+     * attack's polarisation *should* fade, and writing the metric directly is how a shock is said.
+     */
+    const outcomeOnly = [
+      'crimeRate',
+      'burglaryRate',
+      'satisfaction',
+      'employment',
+      'youthUnemployment',
+      'averageRent',
+      'businessStock',
+      'emissions',
+      'polarisation',
+      'transitReliability',
+    ]
     for (const event of EVENTS) {
       for (const option of event.options) {
         for (const effect of option.effects) expect(outcomeOnly).not.toContain(effect.target)
@@ -54,11 +74,31 @@ describe('event library', () => {
       category: 'safety' as const,
       startedMonth: 0,
       monthlyCost: 0,
+      costMonths: null,
       applied: {},
       effects: [{ target: 'orderServiceFte' as const, mode: 'level' as const, delayMonths: 0, rampMonths: 4, min: 10, expected: 14, max: 18, confidence: 'high' as const }],
     }
     for (let month = 1; month <= 40; month += 1) applyMeasures([measure], metrics, stocks, month, [])
     expect(stocks.orderServiceFte).toBeCloseTo(BASELINE_STOCKS.orderServiceFte + 14, 6)
+  })
+
+  it('heals a save that has NaN in it instead of rendering one', () => {
+    const state = createInitialState(2036, 'spd', [])
+    const poisoned = { ...state, metrics: { ...state.metrics, population: Number.NaN, cityBudget: Number.NaN }, stocks: { ...state.stocks, businessSites: Number.NaN } }
+    const healed = migrateState(poisoned)
+    expect(healed.metrics.population).toBe(BASELINE_METRICS.population)
+    expect(healed.metrics.cityBudget).toBe(BASELINE_METRICS.cityBudget)
+    expect(healed.stocks.businessSites).toBe(BASELINE_STOCKS.businessSites)
+    // Everything that was a number stays exactly the number it was.
+    expect(migrateState(state).metrics).toEqual(state.metrics)
+  })
+
+  it('stops charging a time-limited measure, and keeps what it bought', () => {
+    const temporary = { key: 't', sourceId: 't', optionId: 't', label: 'T', category: 'economy' as const, startedMonth: 10, monthlyCost: 1.2, costMonths: 60, effects: [], applied: {} }
+    expect(costThisMonth(temporary, 10)).toBe(1.2)
+    expect(costThisMonth(temporary, 69)).toBe(1.2)
+    expect(costThisMonth(temporary, 70)).toBe(0)
+    expect(costThisMonth({ ...temporary, costMonths: null }, 200)).toBe(1.2)
   })
 
   it('ramps from zero to full between delay and ramp length', () => {

@@ -12,6 +12,39 @@ The model separates three kinds of number and never conflates them in the UI.
 
 Raw values stay visible next to every health score. Normalization for the vertical slice is provisional and labeled as such.
 
+## Stocks — the fourth kind of number
+
+Most raw indicators are **recomputed every month** from a target the dynamics chase. Writing to one of
+those directly is pointless: convergence erases it within a year, so a decision that added four hundred
+and twenty firms had forty-four of them left after a decade.
+
+A **stock** is what accumulates instead. It is never recomputed; it is only written by measures and read
+by the dynamics. The rule is one sentence:
+
+> **Measures buy capacity. The dynamics turn capacity into outcomes.** Hiring order-service staff is
+> possible; buying a crime rate is not.
+
+| Stock | Unit | The outcome it drives |
+| --- | --- | --- |
+| `businessSites` | sites a firm can occupy | `businessStock` — and through it the trade tax |
+| `cleanHeat` | MW of district and recovered heat | `emissions` |
+| `greenSpaceHectares` | ha | `greenSpacePerCapita` |
+| `childcarePlaces` | places | `childcareCoverage` |
+| `schoolPlaces` | places | `schoolUtilisation` |
+| `integrationPlaces` | places | `integrationCapacity` |
+| `orderServiceFte` | FTE | `recordedCrimeRate`, `burglaryRate` |
+| `transitCapacity` | vehicle-km | `transitReliability`, `modalSplit` |
+| `maintenanceSpend` | € m/month | `investmentBacklog` |
+
+`tests/unit/events.test.ts` enforces the rule from the other side: an option's `effects` may not name
+`businessStock`, `emissions`, `polarisation` or `transitReliability`, because those are outcomes. Its
+`immediateEffects` still may — a fire that destroys a plant *is* a shock to the figure, not a capacity.
+
+`StockId` is a union type and `app/simulation/events.ts` keys a `Record<StockId, true>` off it, so
+adding a stock to the type fails to compile until it is listed. That guard exists because the previous
+hand-maintained array silently routed `businessSites` effects into a metric that did not exist, and the
+whole campaign turned to `NaN`.
+
 ## Tiers
 
 Tier A is the next implementation target. Tier B follows once events and council voting run. Tier C is post-slice.
@@ -44,7 +77,8 @@ Tier A is the next implementation target. Tier B follows once events and council
 | `employmentRate` | % | A | implemented |
 | `youthUnemployment` | % | A | prevention driver for safety |
 | `tradeTaxRevenue` | € m/year | A | splits the budget into revenue and spending |
-| `businessStock` | establishments | B | investor and closure events write here |
+| `businessStock` | establishments | B | **an outcome, not a lever.** Chases `businessSites`; nothing writes it directly |
+| `businessSites` | sites | A | the stock behind it. Ansiedlungen add, Werkschließungen subtract |
 
 ### Public safety
 
@@ -89,7 +123,47 @@ Tier A is the next implementation target. Tier B follows once events and council
 | `cityBudget` | € m free liquidity | A | implemented |
 | `debt` | € m | A | cash credits; triggers supervision events |
 | `investmentBacklog` | € m | A | the decade's quiet killer: unrepaired bridges, schools, sewers |
-| `annualBalance` | € m/year | A | |
+| `annualBalance` | € m/year | A | resets every January |
+| `monthlyBalance` | € m/month | A | **the rate.** What the month did to `cityBudget − debt`, one-offs included |
+
+**How a decision becomes revenue.** This is the only loop that turns an investment into money, and it is
+deliberately slow:
+
+```
+Maßnahme → businessSites → businessStock (3 %/Monat) → Gewerbesteuer → cityBudget
+```
+
+One establishment yields **1 973 € per month** (`businessStock × 0.00196 × employment/BASE`), roughly
+23,7 k€ a year — the right order for German Gewerbesteuer. Because `businessStock` converges at 3 % a
+month on top of the measure's own ramp, full revenue arrives four to six years after the decision. That
+lag is the point: it is what makes a ten-year term the unit of play rather than a budget year.
+
+Two routes to the same firms, priced differently, and the contrast is the lesson:
+
+| over ten years | Gewerbesteuer-Pakt | Rechenzentrum-Ansiedlung |
+| --- | --- | --- |
+| new establishments | +474 | +410 |
+| net effect on budget and debt | **−41,7 Mio. €** | **+116,5 Mio. €** |
+| other price | none | −1,64 m²/Kopf Grün, +1,19 Emissionen |
+
+A tax cut brings the most firms and does not pay for itself inside the decade — that is what tax cuts
+actually do, and the model says so rather than flattering it. A site decision pays, and costs something
+that is not money.
+
+**A balance is not a flow.** The rail showed only `cityBudget`, which is a reserve. A reserve that falls
+looks exactly like „nothing is coming in" while 26,1 Mio. € arrives every month — and a player who cannot
+see the rate cannot tell an expensive decision from a broken economy. `monthlyBalance` is that rate, and
+it is deliberately measured against the **net position** (`cityBudget − debt`) rather than against the
+reserve: `cityBudget` stops at zero and the shortfall rolls into `debt`, so a month paid for out of cash
+credit would otherwise read as a balance of zero. It also includes one-off payments and crisis costs,
+which are written straight into `cityBudget` before the month is stepped — without them the line said
+`+0,0` in a month the reserve fell by nine million.
+
+**Temporary costs.** `monthlyCost` used to run for all hundred and twenty months even where the content
+said otherwise — the Pakt's own summary promised „eine zeitlich begrenzte Senkung" while the model
+charged it forever. An option may now carry `costMonths`; when it elapses the charge stops and the
+capacity it bought stays. `voteContext` also discounts a bounded cost, so a five-year commitment is a
+smaller ask in the chamber than an endless one.
 
 ### Politics
 

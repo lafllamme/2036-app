@@ -377,7 +377,7 @@ export const EVENTS: EventDefinition[] = [
       'Die Prüfstatik stuft die Hafenbrücke herab. Die Sperrung trennt Gewerbe Ost vom Hafen und trifft den Wirtschaftsverkehr sofort.',
     urgency: 'breaking',
     trigger: { earliestMonth: 18, latestMonth: 126, conditions: [{ metric: 'investmentBacklog', operator: '>', value: 140 }], baseWeight: 30, cooldownMonths: 60, oncePerCampaign: true },
-    immediateEffects: [effect({ target: 'businessStock', mode: 'level', expected: -180, delayMonths: 0, rampMonths: 2, confidence: 'high' })],
+    immediateEffects: [effect({ target: 'businessSites', mode: 'level', expected: -180, delayMonths: 0, rampMonths: 2, confidence: 'high' })],
     defaultOptionId: 'mob-bridge-detour',
     expiresInMonths: 2,
     options: [
@@ -391,7 +391,7 @@ export const EVENTS: EventDefinition[] = [
         salience: { fiscalRestraint: 1, marketVsPublic: 0.3 },
         effects: [
           effect({ target: 'investmentBacklog', mode: 'rate', expected: -1.4, delayMonths: 2, rampMonths: 10, confidence: 'high' }),
-          effect({ target: 'businessStock', expected: 220, delayMonths: 20, rampMonths: 10 }),
+          effect({ target: 'businessSites', expected: 220, delayMonths: 20, rampMonths: 10 }),
         ],
         sourceIds: MODEL,
       },
@@ -403,7 +403,7 @@ export const EVENTS: EventDefinition[] = [
         monthlyCost: 0.42,
         axes: { fiscalRestraint: 0.3, growthVsPreservation: 0 },
         salience: { fiscalRestraint: 1 },
-        effects: [effect({ target: 'businessStock', expected: 150, delayMonths: 6, rampMonths: 8 })],
+        effects: [effect({ target: 'businessSites', expected: 150, delayMonths: 6, rampMonths: 8 })],
         sourceIds: MODEL,
       },
       {
@@ -588,7 +588,7 @@ export const EVENTS: EventDefinition[] = [
       'Der größte industrielle Arbeitgeber der Stadt verlagert die Produktion. Fünfhundert Stellen und ein erheblicher Teil der Gewerbesteuer entfallen.',
     urgency: 'breaking',
     trigger: { earliestMonth: 20, latestMonth: 104, conditions: [], baseWeight: 4, cooldownMonths: 80, oncePerCampaign: true },
-    immediateEffects: [effect({ target: 'businessStock', expected: -340, delayMonths: 0, rampMonths: 4, confidence: 'high' })],
+    immediateEffects: [effect({ target: 'businessSites', expected: -340, delayMonths: 0, rampMonths: 4, confidence: 'high' })],
     defaultOptionId: 'eco-closure-none',
     expiresInMonths: 3,
     options: [
@@ -611,7 +611,7 @@ export const EVENTS: EventDefinition[] = [
         monthlyCost: 0.3,
         axes: { marketVsPublic: -0.6, fiscalRestraint: -0.6, growthVsPreservation: -0.4 },
         salience: { marketVsPublic: 0.9, fiscalRestraint: 0.9 },
-        effects: [effect({ target: 'businessStock', expected: 300, delayMonths: 14, rampMonths: 22, confidence: 'low' })],
+        effects: [effect({ target: 'businessSites', expected: 300, delayMonths: 14, rampMonths: 22, confidence: 'low' })],
         sourceIds: MODEL,
       },
       {
@@ -648,11 +648,13 @@ export const EVENTS: EventDefinition[] = [
         label: 'Ansiedlung zusagen',
         rationale: 'Deutlich mehr Gewerbesteuer, spürbar mehr Emissionen und weniger Freifläche.',
         oneOffCost: 4.2,
-        monthlyCost: -0.85,
+        // Grundsteuer, Erbbauzins, Konzessionsabgabe. Die Gewerbesteuer steht bewusst nicht hier:
+        // die kommt jetzt aus den Flächen unten, über den Betriebsbestand, wie bei jeder Ansiedlung.
+        monthlyCost: -0.25,
         axes: { marketVsPublic: 0.8, climateAmbition: -0.7, growthVsPreservation: -0.6, fiscalRestraint: 0.5 },
         salience: { marketVsPublic: 0.8, climateAmbition: 1, growthVsPreservation: 0.7 },
         effects: [
-          effect({ target: 'businessStock', expected: 260, delayMonths: 10, rampMonths: 14, confidence: 'high' }),
+          effect({ target: 'businessSites', expected: 260, delayMonths: 10, rampMonths: 14, confidence: 'high' }),
           effect({ target: 'greenSpaceHectares', expected: -14, delayMonths: 8, rampMonths: 6, confidence: 'high' }),
         ],
         sourceIds: MODEL,
@@ -662,11 +664,11 @@ export const EVENTS: EventDefinition[] = [
         label: 'Mit Auflagen zusagen',
         rationale: 'Abwärmenutzung und Ausgleichsflächen als Bedingung. Der Betreiber verkleinert das Vorhaben.',
         oneOffCost: 5.8,
-        monthlyCost: -0.42,
+        monthlyCost: -0.12,
         axes: { marketVsPublic: 0.3, climateAmbition: 0.2, growthVsPreservation: -0.2 },
         salience: { marketVsPublic: 0.6, climateAmbition: 0.9, growthVsPreservation: 0.6 },
         effects: [
-          effect({ target: 'businessStock', expected: 150, delayMonths: 12, rampMonths: 14 }),
+          effect({ target: 'businessSites', expected: 150, delayMonths: 12, rampMonths: 14 }),
           effect({ target: 'greenSpaceHectares', expected: -5, delayMonths: 8, rampMonths: 6 }),
         ],
         sourceIds: MODEL,
@@ -771,7 +773,7 @@ export const EVENTS: EventDefinition[] = [
         monthlyCost: -2.1,
         axes: { fiscalRestraint: 0.5, redistribution: -0.2, marketVsPublic: -0.2 },
         salience: { fiscalRestraint: 0.9, redistribution: 0.7, marketVsPublic: 0.5 },
-        effects: [effect({ target: 'businessStock', expected: -180, delayMonths: 4, rampMonths: 12, confidence: 'medium' })],
+        effects: [effect({ target: 'businessSites', expected: -180, delayMonths: 4, rampMonths: 12, confidence: 'medium' })],
         sourceIds: MODEL,
       },
     ],
@@ -952,7 +954,7 @@ export const EVENTS: EventDefinition[] = [
         salience: { fiscalRestraint: 1, climateAmbition: 0.7 },
         effects: [
           effect({ target: 'investmentBacklog', expected: -28, rampMonths: 16 }),
-          effect({ target: 'emissions', expected: -1.6, rampMonths: 18, confidence: 'low' }),
+          effect({ target: 'cleanHeat', expected: 5, rampMonths: 18, confidence: 'low' }),
         ],
         sourceIds: MODEL,
       },
@@ -992,7 +994,7 @@ export const EVENTS: EventDefinition[] = [
         monthlyCost: -0.28,
         axes: { climateAmbition: 0.9, marketVsPublic: -0.4, fiscalRestraint: -0.6 },
         salience: { climateAmbition: 1, fiscalRestraint: 0.7 },
-        effects: [effect({ target: 'emissions', expected: -3.4, rampMonths: 20 })],
+        effects: [effect({ target: 'cleanHeat', expected: 18, rampMonths: 20 })],
         sourceIds: MODEL,
       },
       {
@@ -1178,10 +1180,7 @@ export const EVENTS: EventDefinition[] = [
         monthlyCost: 0.3,
         axes: { securityAuthority: 0.4, marketVsPublic: -0.9, growthVsPreservation: -0.4, fiscalRestraint: -0.9 },
         salience: { marketVsPublic: 1, fiscalRestraint: 1 },
-        effects: [
-          effect({ target: 'emissions', expected: -4.5, rampMonths: 24 }),
-          effect({ target: 'businessStock', expected: -260, rampMonths: 18, confidence: 'low' }),
-        ],
+        effects: [effect({ target: 'businessSites', expected: -260, rampMonths: 18, confidence: 'low' })],
         sourceIds: MODEL,
       },
       {
@@ -1274,6 +1273,7 @@ export const EVENTS: EventDefinition[] = [
         rationale: 'Springerpools für Kitas und Pflege, zusätzliche Fahrer im Nahverkehr, befristet.',
         oneOffCost: 7.5,
         monthlyCost: 0.9,
+        costMonths: 18,
         axes: { redistribution: 0.6, marketVsPublic: -0.6, fiscalRestraint: -0.6 },
         salience: { redistribution: 0.9, fiscalRestraint: 0.8 },
         effects: [

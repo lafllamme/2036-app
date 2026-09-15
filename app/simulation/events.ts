@@ -14,17 +14,28 @@ import type { RandomStream } from '../core/rng'
 import type { CityStocks } from './baseline'
 import { EVENTS } from '../content/events'
 
-const STOCK_IDS: StockId[] = [
-  'greenSpaceHectares',
-  'childcarePlaces',
-  'schoolPlaces',
-  'integrationPlaces',
-  'orderServiceFte',
-  'transitCapacity',
-  'maintenanceSpend',
-]
+/**
+ * Which targets accumulate, as a record rather than a list.
+ *
+ * `Record<StockId, true>` is the point: adding a stock to the type and forgetting it here stops
+ * compiling, where a `StockId[]` happily stayed short. It stayed short once — `businessSites` and
+ * `cleanHeat` were added to the type and not to the list, so every effect on them was written into
+ * `metrics` instead, where no such field exists, and two hundred campaign-months of arithmetic ran
+ * on `undefined + 300`. The invariant test caught it as a `NaN`, which is a lucky way to find out.
+ */
+const STOCKS: Record<StockId, true> = {
+  businessSites: true,
+  cleanHeat: true,
+  greenSpaceHectares: true,
+  childcarePlaces: true,
+  schoolPlaces: true,
+  integrationPlaces: true,
+  orderServiceFte: true,
+  transitCapacity: true,
+  maintenanceSpend: true,
+}
 
-const isStock = (target: EffectTargetId): target is StockId => (STOCK_IDS as string[]).includes(target)
+const isStock = (target: EffectTargetId): target is StockId => target in STOCKS
 
 export interface ActiveMeasure {
   key: string
@@ -34,9 +45,24 @@ export interface ActiveMeasure {
   category: EventCategory
   startedMonth: number
   monthlyCost: number
+  /** How many months the running cost is charged. `null` means for good. */
+  costMonths: number | null
   effects: PolicyEffect[]
   /** How much of each `level` effect has already been written, so it lands exactly once. */
   applied: Record<string, number>
+}
+
+/**
+ * What a measure costs this month.
+ *
+ * A measure that has run past its `costMonths` is free: the capacity it bought is written into a
+ * stock and stays there, the subsidy behind it has ended. That is the whole point of a temporary
+ * instrument, and without it every one in the content was a permanent one wearing the wrong label.
+ */
+export function costThisMonth(measure: ActiveMeasure, month: number): number {
+  if (measure.costMonths !== null && month - measure.startedMonth >= measure.costMonths)
+    return 0
+  return measure.monthlyCost
 }
 
 export function rampFactor(age: number, delayMonths: number, rampMonths: number): number {
@@ -233,6 +259,7 @@ export function measureFromOption(
     category,
     startedMonth: month,
     monthlyCost: option.monthlyCost,
+    costMonths: option.costMonths ?? null,
     effects: option.effects,
     applied: {},
   }

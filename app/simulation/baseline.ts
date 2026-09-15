@@ -62,6 +62,7 @@ export const BASELINE_METRICS: CityMetrics = {
   debt: 92,
   investmentBacklog: 96,
   annualBalance: 7.2,
+  monthlyBalance: 0.5,
 
   satisfaction: 67,
   politicalCapital: 60,
@@ -69,6 +70,14 @@ export const BASELINE_METRICS: CityMetrics = {
 }
 
 export const BASELINE_STOCKS: CityStocks = {
+  /*
+   * Lindenhafen has about six thousand firms on roughly as many usable sites. The number is the
+   * capacity rather than the occupancy: a council that buys a works site or zones a quarter raises
+   * it, one that moves industry out of a residential area lowers it, and the firms follow.
+   */
+  businessSites: 6_100,
+  /** Megawatts of district heat. A quarter of the stock is on the network at the start. */
+  cleanHeat: 96,
   greenSpaceHectares: 258,
   childcarePlaces: 4_969,
   schoolPlaces: 10_144,

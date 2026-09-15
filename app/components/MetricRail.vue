@@ -88,6 +88,9 @@ const headline = computed(() => {
     { label: 'Freie Wohnungen', value: `${formatNumber(m.vacantUnits)} · ${formatNumber(vacancy, 1)} %`, trend: trend('vacantUnits', 1), since: sinceStart('vacantUnits', 1) },
     { label: 'Kriminalität', value: `${formatNumber(m.crimeRate)} / 1.000`, trend: trend('crimeRate', -1), since: sinceStart('crimeRate', -1, ' / 1.000') },
     { label: 'Haushaltsspielraum', value: `${formatNumber(m.cityBudget)} Mio. €`, trend: trend('cityBudget', 1), since: sinceStart('cityBudget', 1, ' Mio. €') },
+    // Der Bestand darüber sagt, wie viel noch da ist; diese Zeile, wie schnell es sich ändert. Ohne
+    // sie sieht eine fallende Rücklage aus, als käme nichts herein, während 26 Mio. € im Monat kommen.
+    { label: 'Monatssaldo', value: `${m.monthlyBalance >= 0 ? '+' : '−'}${formatNumber(Math.abs(m.monthlyBalance), 1)} Mio. €`, trend: trend('monthlyBalance', 1), since: sinceStart('monthlyBalance', 1, ' Mio. €') },
   ]
 })
 

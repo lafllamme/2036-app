@@ -29,6 +29,7 @@ const TARGET_LABELS: Record<string, string> = {
   debt: 'Kassenkredite',
   investmentBacklog: 'Sanierungsstau',
   annualBalance: 'Jahresergebnis',
+  monthlyBalance: 'Monatssaldo',
   satisfaction: 'Zufriedenheit',
   politicalCapital: 'Politisches Kapital',
   polarisation: 'Polarisierung',
@@ -101,6 +102,7 @@ const TARGET_DIRECTION: Record<string, 1 | 0 | -1> = {
   debt: -1,
   investmentBacklog: -1,
   annualBalance: 1,
+  monthlyBalance: 1,
 
   satisfaction: 1,
   politicalCapital: 1,

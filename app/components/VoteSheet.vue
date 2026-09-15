@@ -96,7 +96,9 @@ function risks(option: EventOption, optionId: string): string[] {
     entries.push(`Wirkung auf ${targetLabel(effect.target)} ist unsicher – das Modell hält ${formatNumber(effect.min)} bis ${formatNumber(effect.max)} für möglich.`)
   }
   if (option.monthlyCost > 0) {
-    entries.push(`Bindet dauerhaft ${formatNumber(option.monthlyCost, 2)} Mio. € im Monat, auch in schlechten Haushaltsjahren.`)
+    entries.push(option.costMonths
+      ? `Bindet ${formatNumber(option.monthlyCost, 2)} Mio. € im Monat, ${option.costMonths} Monate lang. Was bis dahin entstanden ist, bleibt.`
+      : `Bindet dauerhaft ${formatNumber(option.monthlyCost, 2)} Mio. € im Monat, auch in schlechten Haushaltsjahren.`)
   }
   if (option.oneOffCost > budget.value * 0.2 && option.oneOffCost > 0) {
     entries.push(`Verbraucht ${Math.round((option.oneOffCost / Math.max(1, budget.value)) * 100)} % des aktuellen Haushaltsspielraums.`)
@@ -255,7 +257,7 @@ function negotiationHint(partyId: PartyId): string {
                 <b>{{ formatNumber(option.oneOffCost, 1) }} Mio. €</b>&nbsp;einmalig<small>sofort aus dem Haushalt</small>
               </li>
               <li v-if="option.monthlyCost > 0">
-                <b>{{ formatNumber(option.monthlyCost, 2) }} Mio. €</b>&nbsp;monatlich<small>dauerhaft, bis die Maßnahme endet</small>
+                <b>{{ formatNumber(option.monthlyCost, 2) }} Mio. €</b>&nbsp;monatlich<small>{{ option.costMonths ? `befristet auf ${option.costMonths} Monate` : 'dauerhaft, bis die Maßnahme endet' }}</small>
               </li>
               <li v-if="option.monthlyCost < 0">
                 <b>+{{ formatNumber(-option.monthlyCost, 2) }} Mio. €</b>&nbsp;monatlich<small>Mehreinnahme statt Ausgabe</small>

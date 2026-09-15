@@ -74,7 +74,10 @@ interface EventTrigger {
   cooldownMonths: number
   oncePerCampaign: boolean
   requiresEventIds?: string[] // chain parents
+  requiresChoiceIds?: string[] // only after one of these `eventId:optionId` was carried
+  blockedByChoiceIds?: string[] // never again once one of them was — the door that decision shut
   blockedByMeasureIds?: string[] // a measure that prevents the situation
+  minCoalitionSeats?: number
 }
 
 interface Condition {
@@ -89,17 +92,36 @@ interface EventOption {
   label: string
   rationale: string // what the administration argues
   oneOffCost: number // € m
-  monthlyCost: number // € m
+  monthlyCost: number // € m; negative is income
+  costMonths?: number // how long the charge runs. omitted means for good
   administrativeLoad: number
   axes: Partial<Record<AxisId, number>> // −1..1 political content
   salience: Partial<Record<AxisId, number>> // 0..1 which axes actually matter here
-  effects: IndicatorEffect[] // delay, ramp, min/expected/max, confidence
-  unlocksEventIds?: string[]
+  effects: IndicatorEffect[] // capacity only — see the stock rule below
+  immediateEffects?: IndicatorEffect[] // the shock itself, which may hit an outcome directly
   sourceIds: string[]
 }
 ```
 
 `IndicatorEffect` reuses the existing `PolicyEffect` shape (`metric`, `delayMonths`, `rampMonths`, `min`, `expected`, `max`, `confidence`) widened to the full indicator set.
+
+### An option's `effects` may only name capacity
+
+An option buys a **stock**; the dynamics turn it into an outcome. Writing an outcome directly does not
+survive: it is recomputed from its target every month, so the value is gone within a year. `businessStock`,
+`emissions`, `polarisation` and `transitReliability` are therefore rejected in `effects` by
+`tests/unit/events.test.ts`. Reach them through `businessSites`, `cleanHeat`, `maintenanceSpend` and
+`transitCapacity` instead. See [`METRICS.md`](METRICS.md#stocks--the-fourth-kind-of-number).
+
+`immediateEffects` is exempt on purpose. A fire that levels a plant, a storm that floods a depot — those
+are shocks to the figure, and a shock is allowed to be temporary because that is what a shock is.
+
+### Do not hand-write income a stock already produces
+
+`monthlyCost` may be negative, and for a while the Rechenzentrum used `−0,85 Mio.` to stand in for the
+trade tax its firms would pay, because no loop existed to produce it. Now one does, and the hand-written
+figure was collected twice. What stays in `monthlyCost` is only what the sites do *not* generate:
+Grundsteuer, Erbbauzins, Konzessionsabgabe.
 
 ## Council vote model
 

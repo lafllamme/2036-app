@@ -44,6 +44,7 @@ import { driftFromCity, initialSupport, shiftFromDecision } from './electorate'
 import {
 
   applyMeasures,
+  costThisMonth,
   drawEvent,
 
   measureFromOption,
@@ -229,7 +230,9 @@ export function createInitialState(seed = 2036, partyId: PartyId | null = null, 
 
 function voteContext(state: SimulationState, option: EventOption | PolicyDefinition, campaigned: boolean): VoteContext {
   const cost = 'oneOffCost' in option ? option.oneOffCost : option.implementationCost
-  const monthly = option.monthlyCost
+  // What it actually commits the city to, over two years. A cut that ends after five is a smaller
+  // ask than one that never does, and a chamber counting money knows the difference.
+  const monthly = option.monthlyCost * Math.min(24, option.costMonths ?? 24) / 24
   const own = state.partyId ? getParty(state.partyId) : null
   const salient = mapParties(party => party.focusPriorityIds.some(priority => state.priorityIds.includes(priority)))
   return {
@@ -469,9 +472,36 @@ function decide(state: SimulationState, eventId: string, optionId: string, playe
  * Defaults rather than a version number, because what matters is that a field has a sane value and
  * not which build wrote it. A restored campaign keeps everything it had.
  */
+/**
+ * Put a number back where a `NaN` got saved.
+ *
+ * A save is written every month turn, so an arithmetic bug does not just show a wrong screen — it is
+ * persisted, and it spreads: one `NaN` in `population` reaches `cityBudget`, `satisfaction` and every
+ * health score within a month. A campaign was lost that way to an effect routed at a metric that did
+ * not exist, and the save kept showing `NaN` long after the cause was fixed.
+ *
+ * Falling back to the baseline is not a repair of the city — that history is gone either way. It is the
+ * difference between a save that can be played on and one that can only be deleted.
+ */
+function healed<T extends object>(values: T, baseline: T): T {
+  let broken = false
+  const next = { ...values }
+  for (const key of Object.keys(baseline) as (keyof T)[]) {
+    if (!Number.isFinite(next[key] as number)) {
+      next[key] = baseline[key]
+      broken = true
+    }
+  }
+  if (broken)
+    console.warn('[2036] Ein Spielstand enthielt ungültige Zahlen und wurde auf Ausgangswerte zurückgesetzt.')
+  return next
+}
+
 export function migrateState(state: SimulationState): SimulationState {
   return {
     ...state,
+    metrics: healed(state.metrics, BASELINE_METRICS),
+    stocks: healed(state.stocks, BASELINE_STOCKS),
     support: state.support ?? initialSupport(),
     // A campaign saved before the baseline existed takes today as its first day. Not accurate, but
     // the alternative is a comparison against `undefined`, which is a crash.
@@ -691,7 +721,8 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     label: measure.label,
     category: measure.category,
     startedMonth: measure.startedMonth,
-    monthlyCost: measure.monthlyCost,
+    monthlyCost: costThisMonth(measure, state.month),
+    costUntilMonth: measure.costMonths === null ? null : measure.startedMonth + measure.costMonths,
   }))
 
   return {
@@ -749,7 +780,7 @@ function advanceOneMonth(state: SimulationState): SimulationState {
 
   // Measures buy capacity first, so the same month's dynamics already read the new capacity.
   applyMeasures(measures, workingMetrics, workingStocks, month, edges)
-  const measureCost = measures.reduce((sum, measure) => sum + measure.monthlyCost, 0)
+  const measureCost = measures.reduce((sum, measure) => sum + costThisMonth(measure, month), 0)
 
   if (monthOfYear === 1) {
     workingStocks.fiscalYearRevenue = 0
@@ -759,6 +790,18 @@ function advanceOneMonth(state: SimulationState): SimulationState {
   const previousHealth = healthFromState(state.metrics, state.perception)
   const stepped = stepDynamics(workingMetrics, workingStocks, state.perception, previousHealth, measureCost)
   edges.push(...stepped.edges)
+
+  /*
+   * What the month actually did to the city's money — the whole of it.
+   *
+   * `stepDynamics` only knows the running side, revenue against spending, and that number was a lie
+   * on its own: the reserve fell nine million in a month the running balance called zero, because
+   * one-off payments and crisis costs are written straight into `cityBudget` before the month is
+   * stepped. Measured against the net position rather than the reserve, so a month paid for out of
+   * cash credit counts as the loss it is instead of stopping at zero.
+   */
+  stepped.metrics.monthlyBalance
+    = (stepped.metrics.cityBudget - stepped.metrics.debt) - (state.metrics.cityBudget - state.metrics.debt)
 
   /*
    * What the player's own decisions did this month, added to what they have done so far.

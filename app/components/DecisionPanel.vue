@@ -107,7 +107,7 @@ watch(() => openMotions.value.length, (now, before) => {
       </h3>
       <ul class="measure-list">
         <li v-for="measure in measures" :key="measure.id">
-          <span>{{ measure.label }}</span>
+          <span>{{ measure.label }}<small v-if="measure.costUntilMonth !== null"> · noch {{ measure.costUntilMonth - (snapshot?.month ?? 0) }} Monate</small></span>
           <b :class="{ negative: measure.monthlyCost > 0 }">{{ measure.monthlyCost > 0 ? '−' : '+' }}{{ formatNumber(Math.abs(measure.monthlyCost), 2) }}</b>
         </li>
       </ul>

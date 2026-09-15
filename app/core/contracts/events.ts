@@ -79,6 +79,14 @@ export interface EventOption {
   rationale: string
   oneOffCost: number
   monthlyCost: number
+  /**
+   * How many months the running cost is charged. Omitted means for good.
+   *
+   * A temporary tax cut is a real instrument and the content already described one — the
+   * Gewerbesteuer-Pakt promises „eine zeitlich begrenzte Senkung" — while the model charged it for
+   * all hundred and twenty months. What it buys stays; what it costs does not.
+   */
+  costMonths?: number
   axes: AxisVector
   salience: AxisVector
   effects: PolicyEffect[]

@@ -56,6 +56,14 @@ export interface CityMetrics {
   debt: number
   investmentBacklog: number
   annualBalance: number
+  /**
+   * Einnahmen minus Ausgaben in diesem Monat.
+   *
+   * `cityBudget` is a balance, not a flow, and a falling balance reads as „nothing is coming in"
+   * even while 26 Mio. € arrives every month. Without the rate on screen a player cannot tell an
+   * expensive decision from a broken economy — and cannot govern a budget at all.
+   */
+  monthlyBalance: number
   // Politics
   satisfaction: number
   politicalCapital: number

@@ -16,14 +16,28 @@ export interface ActiveMeasureView {
   category: EventCategory
   startedMonth: number
   monthlyCost: number
+  /** The month the running cost stops, or `null` when it does not. */
+  costUntilMonth: number | null
 }
 
 /**
  * Slow structural capacities. Measures buy these; the dynamics turn them into outcomes. Buying
  * order-service staff is possible, buying a crime rate is not.
  */
+/*
+ * `businessSites` — sites a firm can actually occupy, the capacity behind `businessStock`.
+ *
+ * The economy had no stock at all: the number of firms chased a target computed from employment,
+ * punctuality and crime, so a measure that added four hundred and twenty of them got them back within
+ * months. Ten effects across the content were quietly temporary, and with them the only loop that
+ * turns a decision into municipal revenue.
+ *
+ * `cleanHeat` — district heating and recovered waste heat, the capacity behind a lower emissions figure.
+ */
 export type StockId
-  = | 'greenSpaceHectares'
+  = | 'businessSites'
+    | 'cleanHeat'
+    | 'greenSpaceHectares'
     | 'childcarePlaces'
     | 'schoolPlaces'
     | 'integrationPlaces'
@@ -69,6 +83,8 @@ export interface PolicyDefinition {
   jurisdiction: 'municipal'
   implementationCost: number
   monthlyCost: number
+  /** How many months the running cost is charged. Omitted means for good. */
+  costMonths?: number
   administrativeLoad: number
   /** Political content, so a player-initiated motion goes through the same council vote. */
   axes: AxisVector

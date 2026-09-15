@@ -51,16 +51,19 @@ export const POLICIES: PolicyDefinition[] = [
   {
     id: 'business-tax-balance',
     name: 'Gewerbesteuer-Pakt',
-    summary: 'Eine zeitlich begrenzte Senkung soll Investitionen auslösen, verringert aber zunächst die Einnahmen.',
+    summary: 'Fünf Jahre niedrigerer Hebesatz sollen Ansiedlungen auslösen. Die Betriebe bleiben, die Senkung läuft aus.',
     category: 'tax',
     jurisdiction: 'municipal',
     implementationCost: 4,
-    monthlyCost: 2.4,
+    // Ein Hebesatz von 450 auf 400 Punkte kostet gut ein Zehntel eines Aufkommens von rund
+    // 133 Mio. € im Jahr. Fünf Jahre lang; was in dieser Zeit angesiedelt wurde, zahlt danach voll.
+    monthlyCost: 1.2,
+    costMonths: 60,
     administrativeLoad: 8,
     axes: { marketVsPublic: 0.7, fiscalRestraint: 0.2, redistribution: -0.5 },
     salience: { marketVsPublic: 0.9, redistribution: 0.7, fiscalRestraint: 0.7 },
     effects: [
-      { target: 'businessStock', mode: 'level', delayMonths: 4, rampMonths: 18, min: 180, expected: 420, max: 700, confidence: 'low' },
+      { target: 'businessSites', mode: 'level', delayMonths: 4, rampMonths: 18, min: 180, expected: 420, max: 700, confidence: 'low' },
     ],
     sourceIds: ['vertical-slice-model-v1'],
   },

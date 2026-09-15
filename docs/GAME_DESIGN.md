@@ -98,7 +98,42 @@ anfängst — heute fühlen sich alle sechs beim Start fast gleich an.
 
 Sechs klar verschiedene Startlagen, kein zusätzlicher Bildschirm.
 
-## 6. Die Lage: die Welt über der Stadt
+## 6. Jede Partei bringt ihr eigenes Programm mit
+
+> **Ereignisse sind, was der Stadt passiert — für alle gleich. Eigene Vorlagen sind, was deine Partei
+> will — je Partei verschieden.**
+
+Eine Sturmflut fragt nicht, wer regiert. Ein Programm ist genau die Liste dessen, was man einbringen
+würde.
+
+Heute stehen rechts drei stehende Vorlagen — Wohnungsbau-Turbo, LindenTakt 2030, Gewerbesteuer-Pakt —
+und **jede Partei bekommt alle drei**. Das sind erkennbar drei verschiedener Parteien Ideen, und man
+kann als LINKE die Steuersenkung einbringen und als FDP den Wohnungsbau-Turbo. Nicht neutral,
+sondern inkohärent.
+
+Künftig: **vier eigene Vorlagen je Partei, dazu zwei gemeinsame**, die jeder Rat irgendwann braucht
+(Haushaltskonsolidierung, Instandhaltungsprogramm). Sechsundzwanzig insgesamt. Alle **ab Monat 0**
+verfügbar — was dich bremst, sind Geld, Kapital und Mehrheiten, nicht eine Freischaltung.
+
+### Warum das der größte Hebel ist
+
+Heute unterscheiden sich sechs Parteien nur in Arithmetik: Sitze, Rückhalt, Achsen. Danach
+unterscheiden sie sich in dem, was du überhaupt tun **kannst**. Und es erzeugt echte
+Schwierigkeitsunterschiede: wessen Programm weit von der Ratsmitte liegt, verliert mehr
+Abstimmungen — die „unterschiedliche Startlage" wirkt dann zehn Jahre lang statt einmal am Anfang.
+
+### Zwei Regeln, die dabei gelten
+
+**Die Architekturregel bleibt unberührt.** Keine Simulationsrechnung verzweigt auf eine
+Parteikennung. Hier wird *Inhalt ausgewählt*, nicht gerechnet: dieselbe Vorlage wirkt bei jedem
+identisch, sie wird nur nicht jedem angeboten.
+
+**Keine Karikatur.** Eine parteieigene Vorlage kommt aus dem, was die Partei **selbst** als
+Schwerpunkt nennt — `focusPriorityIds` steht bereits an jeder Partei — und aus belegten
+Programmpositionen, nie aus einem Klischee über sie. Sonst wird aus einem politischen Modell ein
+Cartoon, und das wäre das erste Mal in diesem Projekt, dass Haltung gegen Pointe getauscht wird.
+
+## 7. Die Lage: die Welt über der Stadt
 
 Eine eigene Ebene, die du **nie direkt beantwortest**: Gaspreis, Konjunktur, Bundesmittel,
 Zuwanderungsdruck. Sie driftet über das Jahrzehnt, hat seltene Schocks, und tut zwei Dinge:
@@ -125,19 +160,35 @@ Maßstab einer Kommune und zugleich der spielbare.
 | **Abgelehnt → kehrt anders zurück** | **neu** |
 | **Drei harte Ziele statt Prioritäten** | **neu** |
 | **Name, Startlage je Partei, `organization`** | **neu** |
+| **Parteieigene Programme (4 + 2)** | **neu** |
 | **Die Lage** | **neu** |
 
 ## Baureihenfolge
 
 Jede Stufe ist für sich spielbar.
 
-1. **Dein Ja auf eigenen Vorlagen.** Der Widerspruch verschwindet, das Sheet bekommt überall dieselbe
-   Fußzeile. Kleinster Schritt, größte Klarheit.
+0. **Investitionen bringen Geld ein.** *Erledigt.* Stand vorher: die Stadt hatte eine Einnahmenseite,
+   aber keine Schleife dorthin. `businessStock` jagte jeden Monat ein Ziel, in dem keine einzige
+   Entscheidung vorkam — zehn Inhalts­effekte darauf waren binnen Monaten wieder eingeebnet, und der
+   Gewerbesteuer-Pakt lieferte von versprochenen 420 Betrieben nach zehn Jahren noch 44. Jetzt gibt es
+   den Bestand `businessSites`, den Maßnahmen kaufen und den die Dynamik liest; dazu `cleanHeat` für
+   dieselbe Rolle bei den Emissionen. Eine Ansiedlung wirkt damit über das ganze Jahrzehnt, und der
+   Weg von einem Beschluss zu mehr Geld im Haushalt ist erstmals durchgehend:
+   `Maßnahme → Flächen → Betriebe → Gewerbesteuer → Haushalt`. Er ist absichtlich langsam — volle
+   Wirkung nach vier bis sechs Jahren —, weil sonst die Legislaturperiode keine Einheit wäre.
+   Dazu zwei Ehrlichkeiten: laufende Kosten können jetzt **befristet** sein (`costMonths`), weil der
+   Pakt „eine zeitlich begrenzte Senkung" versprach und zehn Jahre lang abgebucht wurde; und wo eine
+   Einnahme von Hand eingetragen war, die jetzt aus den Flächen entsteht, ist sie entfernt. Ergebnis:
+   die Steuersenkung bringt die meisten Betriebe und rechnet sich im Jahrzehnt **nicht** (−41,7 Mio.),
+   die Ansiedlung rechnet sich (+116,5 Mio.) und kostet Grünfläche statt Geld. Zwei Wege, zwei Preise.
+   Details in [`METRICS.md`](METRICS.md#stocks--the-fourth-kind-of-number).
+1. **Dein Ja auf eigenen Vorlagen.** Der Widerspruch verschwindet. Kleinster Schritt, größte Klarheit.
 2. **Die Form-Regel.** Ereignisse mit einer Option rendern Dafür/Enthalten/Dagegen; die 29
    vorhandenen werden inhaltlich neu geschnitten, zwei Drittel zu Vorlagen.
-3. **Drei Ziele.** Katalog, Auswahlbildschirm, HUD-Zeile, Wertung im Bericht.
-4. **Abgelehnt kehrt zurück.** Ein Trigger-Feld, dazu Folge-Ereignisse für die wichtigsten Ablehnungen.
-5. **Startlage je Partei.** Haushalt, Beziehungen, `organization`, Namensfeld.
-6. **Die Lage.** Vier Weltgrößen, ihre Drift, ihre Schocks, und die Ereignisse, die sie auslösen.
+3. **Parteiprogramme.** Vier eigene je Partei, zwei gemeinsame. Der größte Hebel für Wiederspielbarkeit.
+4. **Drei Ziele.** Katalog, Auswahlbildschirm, HUD-Zeile, Wertung im Bericht.
+5. **Abgelehnt kehrt zurück.** Ein Trigger-Feld, dazu Folge-Ereignisse für die wichtigsten Ablehnungen.
+6. **Startlage je Partei.** Haushalt, Beziehungen, `organization`, Namensfeld.
+7. **Die Lage.** Vier Weltgrößen, ihre Drift, ihre Schocks, und die Ereignisse, die sie auslösen.
 
 Erst danach das UI verfeinern. Was sich noch in der Form ändert, lohnt kein Feinschliff.

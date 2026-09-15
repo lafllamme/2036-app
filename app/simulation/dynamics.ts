@@ -1,21 +1,7 @@
 import type { CausalEdge, CityMetrics, HealthScores, PerceptionState } from '../core/contracts'
 import type { CityStocks } from './baseline'
 import { formatNumber } from '../core/format'
-import {
-  BASELINE_METRICS as BASE,
-  BASELINE_PERCEPTION as BASE_PERCEPTION,
-  BASELINE_BUSINESS_DENSITY,
-  BASELINE_VACANCY_RATE,
-  businessDensity,
-  CHILDCARE_DEMAND_RATE,
-
-  HOUSEHOLD_SIZE,
-  REQUIRED_MAINTENANCE,
-  SCHOOL_DEMAND_RATE,
-  socialShare,
-  TARGET_VACANCY_RATE,
-  vacancyRate,
-} from './baseline'
+import { BASELINE_METRICS as BASE, BASELINE_PERCEPTION as BASE_PERCEPTION, BASELINE_BUSINESS_DENSITY, BASELINE_STOCKS, BASELINE_VACANCY_RATE, businessDensity, CHILDCARE_DEMAND_RATE, HOUSEHOLD_SIZE, REQUIRED_MAINTENANCE, SCHOOL_DEMAND_RATE, socialShare, TARGET_VACANCY_RATE, vacancyRate } from './baseline'
 
 export const clamp = (value: number, min = 0, max = 100): number => Math.min(max, Math.max(min, value))
 
@@ -161,7 +147,19 @@ export function stepDynamics(
   metrics.employment = clamp(approach(previous.employment, employmentTarget, 0.055))
   note('employment', metrics.employment - previous.employment, 'Beschäftigung folgt Betriebsbestand, Erreichbarkeit, Betreuung und Mietniveau')
 
-  const businessTarget = BASE.businessStock * clamp(
+  /*
+   * How many firms the city can hold, and how attractive it is to them.
+   *
+   * The sites are the half that a council can actually decide. Everything else here is the climate a
+   * firm reads — how many people are in work, whether goods and staff can get about, whether the
+   * quarter is safe — and none of it is something a motion sets directly.
+   *
+   * Without the stock this target was climate alone, so no decision could ever change the number of
+   * firms for good. Ten effects in the content added businesses that the convergence took back over
+   * the following months, and with them the only loop that turns an investment into trade tax.
+   */
+  const siteCapacity = stocks.businessSites / Math.max(1, BASELINE_STOCKS.businessSites)
+  const businessTarget = BASE.businessStock * siteCapacity * clamp(
     1
     + 0.012 * (previous.employment - BASE.employment)
     + 0.003 * (previous.transitReliability - BASE.transitReliability)
@@ -170,6 +168,7 @@ export function stepDynamics(
     1.8,
   )
   metrics.businessStock = Math.max(100, approach(previous.businessStock, businessTarget, 0.03))
+  note('businessStock', metrics.businessStock - previous.businessStock, `Betriebe folgen ${formatNumber(stocks.businessSites, 0)} Gewerbeflächen, Beschäftigung, Erreichbarkeit und Sicherheit`)
 
   const youthTarget
     = BASE.youthUnemployment
@@ -210,6 +209,13 @@ export function stepDynamics(
     = BASE.emissions
       - 0.16 * (metrics.transitCoverage - BASE.transitCoverage)
       + 22 * (metrics.population / BASE.population - 1)
+      // Every megawatt on the heat network is a boiler that has stopped burning.
+      - 0.042 * (stocks.cleanHeat - BASELINE_STOCKS.cleanHeat)
+      /*
+       * And industry emits. This is why moving hazardous plants out of a residential quarter lowers
+       * the figure without any option having to write it: the sites go, and the emissions follow.
+       */
+      + 0.0021 * (stocks.businessSites - BASELINE_STOCKS.businessSites)
   metrics.emissions = Math.max(0, approach(previous.emissions, emissionsTarget, 0.05))
   metrics.greenSpacePerCapita = (stocks.greenSpaceHectares * 10_000) / metrics.population
 
@@ -233,6 +239,7 @@ export function stepDynamics(
   const interest = previous.debt * 0.0029
   const spending = operating + serviceCost + stocks.maintenanceSpend + interest + measureMonthlyCost
 
+  metrics.monthlyBalance = revenue - spending
   metrics.cityBudget = previous.cityBudget + revenue - spending
   stocks.fiscalYearRevenue += revenue
   stocks.fiscalYearSpending += spending

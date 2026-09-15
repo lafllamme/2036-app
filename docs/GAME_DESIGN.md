@@ -181,7 +181,17 @@ Jede Stufe ist für sich spielbar.
    Einnahme von Hand eingetragen war, die jetzt aus den Flächen entsteht, ist sie entfernt. Ergebnis:
    die Steuersenkung bringt die meisten Betriebe und rechnet sich im Jahrzehnt **nicht** (−41,7 Mio.),
    die Ansiedlung rechnet sich (+116,5 Mio.) und kostet Grünfläche statt Geld. Zwei Wege, zwei Preise.
-   Details in [`METRICS.md`](METRICS.md#stocks--the-fourth-kind-of-number).
+   Dazu zwei Befunde aus dem Nachmessen einer echten Partie. Erstens zeigte die Leiste nur
+   `Haushaltsspielraum` — einen **Bestand**. Ein fallender Bestand sieht aus wie „es kommt nichts
+   rein", während jeden Monat 26,1 Mio. € eingehen; die neue Zeile **Monatssaldo** zeigt die Rate,
+   inklusive der Einmalzahlungen, die den Spielraum in einem Monat um neun Millionen fallen ließen,
+   während der laufende Saldo +0,0 sagte. Zweitens banden **38 von 68 Optionen** Geld auf ewig,
+   zusammen 18,74 Mio. im Monat, gegen 0,5 Mio. Überschuss — und nichts verschwand je wieder aus der
+   Liste. Jetzt ist `costMonths` die Regel: ein Verfahren endet, ein Bauprogramm endet, eine
+   Förderzusage endet. Dauerhaft bleiben zehn Optionen, die wirklich Personal und Betrieb sind.
+   Die Preise sind unverändert — eine Entscheidung kostet, was sie kostet, sie kostet nur nicht ewig.
+   Details in [`METRICS.md`](METRICS.md#stocks--the-fourth-kind-of-number) und
+   [`EVENT_MATRIX.md`](EVENT_MATRIX.md).
 1. **Dein Ja auf eigenen Vorlagen.** Der Widerspruch verschwindet. Kleinster Schritt, größte Klarheit.
 2. **Die Form-Regel.** Ereignisse mit einer Option rendern Dafür/Enthalten/Dagegen; die 29
    vorhandenen werden inhaltlich neu geschnitten, zwei Drittel zu Vorlagen.

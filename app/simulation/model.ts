@@ -255,6 +255,7 @@ function asOption(policy: PolicyDefinition): EventOption {
     rationale: policy.summary,
     oneOffCost: policy.implementationCost,
     monthlyCost: policy.monthlyCost,
+    costMonths: policy.costMonths,
     axes: policy.axes,
     salience: policy.salience,
     effects: policy.effects,

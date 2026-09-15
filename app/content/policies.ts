@@ -22,6 +22,8 @@ export const POLICIES: PolicyDefinition[] = [
     jurisdiction: 'municipal',
     implementationCost: 28,
     monthlyCost: 1.4,
+    // Ein Bauprogramm über sechs Jahre. Die Wohnungen bleiben, das Programm läuft aus.
+    costMonths: 72,
     administrativeLoad: 22,
     axes: { growthVsPreservation: -0.6, marketVsPublic: -0.6, redistribution: 0.5, fiscalRestraint: -0.6 },
     salience: { growthVsPreservation: 0.9, marketVsPublic: 0.8, redistribution: 0.6, fiscalRestraint: 0.9 },

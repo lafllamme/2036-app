@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { EVENTS } from '../../app/content/events'
 import { BASELINE_METRICS, BASELINE_STOCKS } from '../../app/simulation/baseline'
 import { applyMeasures, costThisMonth, eligibleEvents, rampFactor } from '../../app/simulation/events'
-import { advanceMonths, campaignFor, createInitialState, forecastsForEvent, migrateState, negotiate, resolveDecision, snapshotOf } from '../../app/simulation/model'
+import { advanceMonths, applyPolicy, campaignFor, createInitialState, forecastsForEvent, migrateState, negotiate, resolveDecision, snapshotOf } from '../../app/simulation/model'
 
 describe('event library', () => {
   it('uses unique ids and gives every decision a default', () => {
@@ -80,6 +80,38 @@ describe('event library', () => {
     }
     for (let month = 1; month <= 40; month += 1) applyMeasures([measure], metrics, stocks, month, [])
     expect(stocks.orderServiceFte).toBeCloseTo(BASELINE_STOCKS.orderServiceFte + 14, 6)
+  })
+
+  /*
+   * Ten years of play used to end with twenty-one entries under „Laufende Maßnahmen" and no way to
+   * end any of them, against a city that has 0,5 Mio. € a month to spare. A permanent charge is a
+   * subscription the player can never cancel, so it has to be a deliberate act of authoring: real
+   * staff, real operations. Everything else — a lawsuit, an inspection, a build, a funding
+   * programme — ends, and `costMonths` says when.
+   */
+  it('only lets genuine staff and operations bind the budget for good', () => {
+    const forever = new Set([
+      'saf-burglary-order', // Stellen im Ordnungsdienst
+      'saf-burglary-cctv', // Betrieb und Wartung der Anlagen
+      'saf-youth-transfer', // der neue Träger betreibt weiter
+      'soc-childcare-build', // Kitaplätze brauchen dauerhaft Erzieherinnen
+      'soc-childcare-daycare', // laufende Leistung an die Tagespflege
+      'soc-allocation-decentral', // Unterbringung und Kurse laufen weiter
+      'mob-bridge-detour', // die Umleitung ist die Dauerlösung
+      'mob-funding-apply', // ein dichterer Takt ist Betrieb, kein Projekt
+      'soc-judgment-build', // wie soc-childcare-build
+      'gov-cyber-rebuild', // „dauerhaft absichern" heißt dauerhaft
+    ])
+    const unexpected = EVENTS.flatMap(event => event.options)
+      .filter(option => option.monthlyCost > 0 && option.costMonths === undefined && !forever.has(option.id))
+      .map(option => `${option.id} (${option.label})`)
+    expect(unexpected, 'binden den Haushalt dauerhaft, ohne Betrieb zu sein — costMonths setzen oder hier eintragen').toEqual([])
+  })
+
+  it('keeps a policy time limit when it is carried as a motion', () => {
+    const started = applyPolicy(createInitialState(2036, 'spd', []), 'business-tax-balance')
+    const pact = started.measures.find(measure => measure.sourceId === 'business-tax-balance')
+    expect(pact?.costMonths).toBe(60)
   })
 
   it('heals a save that has NaN in it instead of rendering one', () => {

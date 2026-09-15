@@ -116,6 +116,28 @@ survive: it is recomputed from its target every month, so the value is gone with
 `immediateEffects` is exempt on purpose. A fire that levels a plant, a storm that floods a depot — those
 are shocks to the figure, and a shock is allowed to be temporary because that is what a shock is.
 
+### A permanent monthly cost has to be earned
+
+The city has **0,5 Mio. € a month** to spare. Thirty-eight of sixty-eight options used to bind money
+for good, together 18,74 Mio. a month, and nothing ever left `state.measures` — ten years of play ended
+with twenty-one entries under „Laufende Maßnahmen", three of them adopted by the player and the rest
+inherited from events that expired unanswered. The budget could only fall, however well the city was
+governed. That is not difficulty, it is a dead end.
+
+So `costMonths` is now the rule and permanence the exception:
+
+| Art der Ausgabe | Laufzeit |
+| --- | --- |
+| Verfahren, Klagen, Prüfaufträge, Pläne | 12 |
+| Bauen und sanieren — der Kapitaldienst des Vorhabens | 24–48 |
+| Programme und Förderzusagen | 24–60 |
+| Ankäufe, Zwischenfinanzierung, Bindungen | 48–96 |
+| **Personal und Betrieb** — Stellen, Kitaplätze, ÖPNV-Takt, IT | **dauerhaft** |
+
+Ten options stay permanent, and `tests/unit/events.test.ts` names all ten: a new one fails the suite
+until it is either given a `costMonths` or entered in that list on purpose. Prices were not touched —
+a decision costs what it costs, it just stops costing eventually, and what it bought stays.
+
 ### Do not hand-write income a stock already produces
 
 `monthlyCost` may be negative, and for a while the Rechenzentrum used `−0,85 Mio.` to stand in for the

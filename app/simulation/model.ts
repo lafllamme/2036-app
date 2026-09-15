@@ -10,6 +10,7 @@ import type {
   NewsItem,
   PartyDefinition,
   PartyId,
+  PartyVote,
   PendingDecision,
   PerceptionState,
   PolicyDefinition,
@@ -17,6 +18,7 @@ import type {
   VoteForecast,
   VoteResult,
 } from '../core/contracts'
+import type { RandomStream } from '../core/rng'
 import type { CityStocks } from './baseline'
 import type { VoteContext } from './council'
 import type { Defeat, EdgeState } from './election'
@@ -37,7 +39,7 @@ import {
 } from './baseline'
 import { castVote, forecastVote, supportFor } from './council'
 import { clamp, healthFromState, stepDynamics } from './dynamics'
-import { defeatFromEdges, holdElection, isElectionMonth, trackEdges, votedOut } from './election'
+import { defeatFromEdges, holdElection, isElectionMonth, MAJORITY, trackEdges, votedOut } from './election'
 import { driftFromCity, initialSupport, shiftFromDecision } from './electorate'
 import {
 
@@ -299,7 +301,84 @@ function adoptMeasure(state: SimulationState, sourceId: string, option: EventOpt
 }
 
 /** Resolve an open decision by putting one option to the council. */
+/**
+ * When another party brings something forward, and who.
+ *
+ * The floor is what happens even to a council the player fully controls: other groups do table
+ * things, and a decade without a single opposition motion is not a chamber. The spread is what a
+ * lost majority adds on top — at zero coalition seats it is more likely than not.
+ */
+const FOREIGN_MOTION_FLOOR = 0.24
+const FOREIGN_MOTION_SPREAD = 0.5
+/** Too small a group to command the agenda, however much it might want to. */
+const OPPOSITION_SEATS = 4
+/** And nobody tables a motion they are merely lukewarm about. `supportFor` runs 0 … 1. */
+const TABLING_CONVICTION = 0.55
+
+/**
+ * Who, if anybody, tables this instead of the player.
+ *
+ * A council in which only one group ever brings anything forward is not a council. The chance rises
+ * as the player's own majority falls — which is the story this game tells anyway, and it means a
+ * player who has held the council together mostly sets the agenda, while one who has lost it spends
+ * the decade answering other people's motions.
+ *
+ * Whoever tables it is the party outside the coalition that wants one of the options most, and the
+ * option is the one they want. Nobody tables something they would then vote against.
+ */
+function tabler(state: SimulationState, event: EventDefinition, stream: RandomStream): { partyId: PartyId, optionId: string } | null {
+  if (event.options.length < 2 || event.kind === 'incident' || event.kind === 'external')
+    return null
+
+  const outside = PARTIES.filter(party =>
+    party.id !== state.partyId
+    && !state.coalitionPartyIds.includes(party.id)
+    && (state.seatsByParty[party.id] ?? 0) >= OPPOSITION_SEATS)
+  if (outside.length === 0)
+    return null
+
+  const held = state.coalitionPartyIds.reduce((sum, id) => sum + (state.seatsByParty[id] ?? 0), 0)
+  const exposure = 1 - clamp(held / MAJORITY, 0, 1)
+  if (stream.next() > FOREIGN_MOTION_FLOOR + exposure * FOREIGN_MOTION_SPREAD)
+    return null
+
+  let best: { partyId: PartyId, optionId: string, wants: number } | null = null
+  for (const option of event.options) {
+    const context = voteContext(state, option, false)
+    for (const party of outside) {
+      const wants = supportFor(party, option, context)
+      if (!best || wants > best.wants)
+        best = { partyId: party.id, optionId: option.id, wants }
+    }
+  }
+  // Nobody tables a motion they are lukewarm about; below this it stays off the agenda.
+  return best && best.wants >= TABLING_CONVICTION ? { partyId: best.partyId, optionId: best.optionId } : null
+}
+
+/**
+ * Vote on somebody else's motion.
+ *
+ * The player does not choose the option here — the proposer did — and the only thing they bring is
+ * what every other party has always brought: their seats, and which way they go. Their group is the
+ * one party in the chamber whose vote is decided rather than rolled.
+ */
+export function voteOnMotion(state: SimulationState, eventId: string, vote: PartyVote): { state: SimulationState, result: VoteResult | null } {
+  const pending = state.pending.find(entry => entry.eventId === eventId)
+  if (!pending?.tabledBy || !pending.tabledOptionId)
+    return { state, result: null }
+  return decide(state, eventId, pending.tabledOptionId, vote)
+}
+
+/** Resolve one of the player's own motions by putting one option to the council. */
 export function resolveDecision(state: SimulationState, eventId: string, optionId: string): { state: SimulationState, result: VoteResult | null } {
+  const pending = state.pending.find(entry => entry.eventId === eventId)
+  // A motion somebody else tabled is not the player's to word. `voteOnMotion` is the way in.
+  if (pending?.tabledBy)
+    return { state, result: null }
+  return decide(state, eventId, optionId, undefined)
+}
+
+function decide(state: SimulationState, eventId: string, optionId: string, playerVote: PartyVote | undefined): { state: SimulationState, result: VoteResult | null } {
   const event = getEvent(eventId)
   const option = event?.options.find(candidate => candidate.id === optionId)
   const pending = state.pending.find(entry => entry.eventId === eventId)
@@ -307,7 +386,7 @@ export function resolveDecision(state: SimulationState, eventId: string, optionI
     return { state, result: null }
 
   const stream = createRandomStream(state.seed, `vote:${state.month}:${eventId}:${optionId}`)
-  const context = voteContext(state, option, preparationFor(state, eventId).campaignedOptionIds.includes(optionId))
+  const context = { ...voteContext(state, option, preparationFor(state, eventId).campaignedOptionIds.includes(optionId)), playerVote }
   const result = castVote(option, context, stream)
 
   /*
@@ -315,9 +394,15 @@ export function resolveDecision(state: SimulationState, eventId: string, optionI
    * says what they stand for, and an electorate answers that — which is why this is outside the
    * branch below.
    */
+  /*
+   * The street judges what the player stood for. On their own motion that is the option; on somebody
+   * else's it is only a stance if they voted for it — opposing a motion is not endorsing its
+   * opposite, and reading it as one would let a player drift the electorate by voting no all decade.
+   */
+  const stance = playerVote === undefined || playerVote === 'yes'
   let next: SimulationState = {
     ...state,
-    support: shiftFromDecision(state.support, option),
+    support: stance ? shiftFromDecision(state.support, option) : state.support,
     pending: state.pending.filter(entry => entry.eventId !== eventId),
     motionPrep: withoutPreparation(state.motionPrep, eventId),
     firedOnce: state.firedOnce.includes(eventId) ? state.firedOnce : [...state.firedOnce, eventId],
@@ -782,9 +867,27 @@ function advanceOneMonth(state: SimulationState): SimulationState {
       next = adoptMeasure(next, `${drawn.id}:sofort`, { id: 'sofort', label: drawn.title, rationale: drawn.briefing, oneOffCost: 0, monthlyCost: 0, axes: {}, salience: {}, effects: drawn.immediateEffects, sourceIds: drawn.sourceIds }, drawn.category)
     }
     if (drawn.options.length > 0) {
+      const tabled = tabler(next, drawn, createRandomStream(next.seed, `tabled:${month}:${drawn.id}`))
       next = {
         ...next,
-        pending: [...next.pending, { eventId: drawn.id, raisedMonth: month, expiresMonth: month + drawn.expiresInMonths, negotiatedPartyIds: [], campaignedOptionIds: [] }],
+        pending: [...next.pending, {
+          eventId: drawn.id,
+          raisedMonth: month,
+          expiresMonth: month + drawn.expiresInMonths,
+          negotiatedPartyIds: [],
+          campaignedOptionIds: [],
+          tabledBy: tabled?.partyId ?? null,
+          tabledOptionId: tabled?.optionId ?? null,
+        }],
+      }
+      if (tabled) {
+        next = pushNews(next, {
+          id: `tabled-${drawn.id}-${month}`,
+          month,
+          scope: 'city',
+          urgency: 'normal',
+          headline: `STADTRAT: ${getParty(tabled.partyId)?.abbreviation ?? tabled.partyId} bringt „${drawn.options.find(option => option.id === tabled.optionId)?.label ?? drawn.title}“ ein`,
+        })
       }
     }
   }

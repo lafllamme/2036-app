@@ -146,4 +146,17 @@ export interface PendingDecision {
   expiresMonth: number
   negotiatedPartyIds: PartyId[]
   campaignedOptionIds: string[]
+  /**
+   * Who tabled it, when it was not the player.
+   *
+   * A council in which only one group ever brings anything forward is not a council; it is a vending
+   * machine with six observers. On a foreign motion the player does not pick the option — the
+   * proposer already did — and the only thing left to them is the thing every other party has always
+   * had: their seats, and which way they go.
+   *
+   * Null on everything the player tables themselves, which is most of it.
+   */
+  tabledBy: PartyId | null
+  /** The option the proposer put on the agenda. Null unless `tabledBy` is set. */
+  tabledOptionId: string | null
 }

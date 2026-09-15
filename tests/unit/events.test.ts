@@ -70,7 +70,7 @@ describe('event library', () => {
   it('records a rejected motion as a defeat that costs trust', () => {
     let state = createInitialState(2036, 'linke', ['housing', 'cohesion', 'climate'])
     state = advanceMonths(state, 131)
-    const withDecision = { ...state, pending: [{ eventId: 'saf-burglary-series', raisedMonth: state.month, expiresMonth: state.month + 3, negotiatedPartyIds: [], campaignedOptionIds: [] }] }
+    const withDecision = { ...state, pending: [{ eventId: 'saf-burglary-series', raisedMonth: state.month, expiresMonth: state.month + 3, negotiatedPartyIds: [], campaignedOptionIds: [], tabledBy: null, tabledOptionId: null }] }
     const trustBefore = withDecision.perception.trust
     const outcome = resolveDecision(withDecision, 'saf-burglary-series', 'saf-burglary-cctv')
 

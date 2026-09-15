@@ -56,6 +56,14 @@ export interface VoteContext {
   fiscalStress: number
   /** Categories a party campaigns on gain a visibility bonus for acting at all. */
   salientCategories: Record<PartyId, boolean>
+  /**
+   * How the player's own group votes, when they were not the one who tabled it.
+   *
+   * Their seats are counted like everybody else's; what is different is that they are not rolled for.
+   * On their own motions this is absent and their party is modelled like the other five — which is
+   * deliberate and occasionally painful, because a party is its positions and not its leader's wish.
+   */
+  playerVote?: PartyVote
 }
 
 function crossesRedLine(party: PartyDefinition, option: EventOption): boolean {
@@ -167,11 +175,19 @@ export function castVote(option: EventOption, context: VoteContext, stream: Rand
 
   for (const party of forecast.parties) {
     const roll = stream.next()
-    const vote: PartyVote = roll < party.probabilities.yes
-      ? 'yes'
-      : roll < party.probabilities.yes + party.probabilities.abstain
-        ? 'abstain'
-        : 'no'
+    const decided = context.playerVote !== undefined && party.partyId === context.playerPartyId
+    /*
+     * The roll is taken either way, so that a foreign motion consumes the stream exactly as an own
+     * one does. Skipping it for the player's party would give every later party a different number
+     * and make the same council vote differently depending on who happened to table the motion.
+     */
+    const vote: PartyVote = decided
+      ? context.playerVote!
+      : roll < party.probabilities.yes
+        ? 'yes'
+        : roll < party.probabilities.yes + party.probabilities.abstain
+          ? 'abstain'
+          : 'no'
     votes.push({ partyId: party.partyId, seats: party.seats, vote })
     if (vote === 'yes')
       yesSeats += party.seats

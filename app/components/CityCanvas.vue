@@ -7,7 +7,7 @@ import { loadCityBlueprint } from '~/world/cityData'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const game = useGameStore()
-const { snapshot, daylight, experienceStage, overviewRequest, focusRequest } = storeToRefs(game)
+const { snapshot, daylight, weather, experienceStage, overviewRequest, focusRequest } = storeToRefs(game)
 let cityRenderer: CityRenderer | null = null
 
 const MENU_FRAME_CAP = 30
@@ -82,8 +82,14 @@ watch(daylight, (reading) => {
     arc: reading.arc,
     sweep: reading.sweep,
     phase: reading.phase,
-    temperature: reading.temperature,
+    // The thermometer is the weather's, not the season's: a cold snap is what makes it snow.
+    temperature: weather.value.temperature,
   })
+}, { immediate: true })
+
+// And what is falling out of it. Same clock, same pause, and nothing at all to draw on a dry day.
+watch(weather, (reading) => {
+  cityRenderer?.setWeather(reading)
 }, { immediate: true })
 
 onBeforeUnmount(() => cityRenderer?.dispose())

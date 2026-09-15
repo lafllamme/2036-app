@@ -38,7 +38,7 @@ export interface CitySound {
   purpose: string
 }
 
-export type CitySoundId = 'traffic' | 'crowd' | 'park' | 'pass' | 'horn'
+export type CitySoundId = 'traffic' | 'crowd' | 'park' | 'pass' | 'horn' | 'rain' | 'drizzle' | 'wind' | 'thunder'
 
 const BASE = '/audio/city'
 
@@ -78,10 +78,47 @@ export const CITY_SOUNDS: Record<CitySoundId, CitySound> = {
     gain: 0.3,
     purpose: 'A horn. Rare, and only where there is enough traffic for somebody to be annoyed.',
   },
+  /*
+   * The weather, and why it is recorded rather than built.
+   *
+   * Rain is the one sound where filtered noise is nearly right and still wrong, for the same reason
+   * the street bed is: what you actually hear is thousands of separate impacts on tarmac, gutters
+   * and roofs, and the difference between that and a band of noise is the difference between rain
+   * and a tap left running. Two of them, because light rain is not quiet heavy rain — it is a
+   * different sound, and crossfading between the two is what makes a shower arrive.
+   */
+  drizzle: {
+    id: 'drizzle',
+    file: `${BASE}/drizzle.ogg`,
+    role: 'bed',
+    gain: 0.46,
+    purpose: 'Light rain. Carries the first and last of every shower, and all of most of them.',
+  },
+  rain: {
+    id: 'rain',
+    file: `${BASE}/rain.ogg`,
+    role: 'bed',
+    gain: 0.6,
+    purpose: 'Heavy rain on streets and roofs. Fades up over the drizzle as a shower gets going.',
+  },
+  wind: {
+    id: 'wind',
+    file: `${BASE}/wind.ogg`,
+    role: 'bed',
+    gain: 0.44,
+    purpose: 'Wind. Rises with the gale and is the only thing a snowfall makes a sound of.',
+  },
+  thunder: {
+    id: 'thunder',
+    file: `${BASE}/thunder.ogg`,
+    role: 'event',
+    gain: 0.58,
+    purpose: 'Distant thunder. Only under heavy rain, and never twice in the same half-minute.',
+  },
 }
 
 /** Every bed, in the order they are layered. */
-export const BEDS: CitySoundId[] = ['park', 'traffic', 'crowd']
+export const BEDS: CitySoundId[] = ['park', 'traffic', 'crowd', 'drizzle', 'rain', 'wind']
 
 /**
  * Fetch and decode one sound.

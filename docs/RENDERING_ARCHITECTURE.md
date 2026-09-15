@@ -321,3 +321,24 @@ Reisendem alle zwölf Frames, und ein Drittel einer Sekunde Verzug ist nicht zu 
 | offenes Land | 87 | **87** |
 
 Vorher war die zweite Spalte eine Zufallszahl.
+
+
+## Wetter im Renderer
+
+| Modul | Was es baut | Draws |
+| --- | --- | --- |
+| `sky/precipitation.ts` | Regenvorhang (ein Mesh, 26.000 gekreuzte Quads) und Schneefeld (ein `Points`) | 2, nur bei Niederschlag |
+| `world/weatherSurfaces.ts` | nasse und verschneite Oberflächen: Farbe und Rauheit vorhandener Materialien | 0 |
+| `sky/atmosphere.ts` → `setOvercast` | geschlossener Himmel: Sonne, Dom, Nebel, Laternen | 0 |
+
+Der Vorhang fällt als Ganzes und rückt in ganzen Vier-Meter-Schritten nach. Kein einziger Tropfen
+wird pro Bild einzeln bewegt; die gesamte Animation ist eine Position pro Bild. Warum das so
+gebaut ist und welche zwei Sackgassen davor lagen, steht in `VISIBLE_CITY.md` unter „Das Wetter".
+
+`addRoads` und `addGround` geben seither ihre Materialien zurück, statt sie für sich zu behalten —
+`trackSurfaces` merkt sich zu jedem die Farbe und die Rauheit, mit der die Stadt gebaut wurde, denn
+auf nass und weiß wird zugesteuert und nicht von der letzten Messung aus weitergedunkelt.
+
+Die Pipelines von Regen und Schnee werden im `warmUp` mitkompiliert. Ohne das fiel der erste Tropfen
+einer Kampagne mitten im Spiel und kostete eine ganze Sekunde für ein Bild — im denkbar schlechtesten
+Moment, nämlich genau dann, wenn dem Spieler auffällt, dass sich der Himmel geändert hat.

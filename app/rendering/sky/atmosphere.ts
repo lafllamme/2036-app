@@ -45,6 +45,11 @@ const DAY_GROUND = /* @__PURE__ */ new THREE.Color('#4a4439')
 /** The fog the scene is built with, and the colour a dirty one tends toward. */
 const CLEAR_DENSITY = 0.00021
 const SMOG = /* @__PURE__ */ new THREE.Color('#a89a78')
+/** What the sky goes to when it shuts: the flat slate of a North Sea low. */
+const OVERCAST_SKY = /* @__PURE__ */ new THREE.Color('#6a737c')
+/** How much of the sun is left under full cloud, and how much of the warmth of a low one. */
+const OVERCAST_SUN = 0.22
+const OVERCAST_WARMTH = 0.25
 
 const NIGHT_FILL = 2.9
 const DAY_FILL = 1.5
@@ -82,6 +87,15 @@ export class Atmosphere {
    * the difference between a city you can see across and one you cannot.
    */
   private haze = 0
+  /**
+   * How shut the sky is, 0 … 1.
+   *
+   * The same machinery the day and the night ride, pointed at the weather. Cloud is not a thin grey
+   * film over a blue sky: it cuts the sun down to a fifth, kills the shadows, pulls the whole
+   * palette toward slate and brings the horizon in. All four of those already exist here for the
+   * hour of the day, and none of them costs a draw call.
+   */
+  private overcast = 0
 
   private readonly skyColour = new THREE.Color()
   private readonly sunColour = new THREE.Color()
@@ -117,6 +131,11 @@ export class Atmosphere {
     this.haze = THREE.MathUtils.clamp(value, 0, 1)
   }
 
+  /** How much cloud there is between the city and the sun. Costs four uniforms and no draws. */
+  setOvercast(value: number): void {
+    this.overcast = THREE.MathUtils.clamp(value, 0, 1)
+  }
+
   update(delta: number, focus: THREE.Vector3, cameraDistance: number): void {
     const { scene, sky, buildingMaterials, streetLights } = this.subjects
 
@@ -141,7 +160,15 @@ export class Atmosphere {
     const angle = Math.PI * (1 - this.eased.sweep)
     const moonAngle = angle + Math.PI
 
-    const painted = this.skyColour.setHex(NIGHT_SKY).lerp(DAY_SKY, daylight).lerp(EMBER, horizonWarmth * 0.62)
+    /*
+     * Cloud eats the colour before it eats the light. A sunset behind a closed sky is grey, not
+     * orange — which is why the warmth is cut here rather than only the brightness below.
+     */
+    const covered = this.overcast
+    const painted = this.skyColour.setHex(NIGHT_SKY)
+      .lerp(DAY_SKY, daylight)
+      .lerp(EMBER, horizonWarmth * 0.62 * (1 - covered * (1 - OVERCAST_WARMTH)))
+      .lerp(OVERCAST_SKY, covered * daylight * 0.72)
     scene.background = painted
     if (scene.fog instanceof THREE.FogExp2) {
       /*
@@ -149,7 +176,8 @@ export class Atmosphere {
        * weather. The base density is the clear-day one the scene was built with.
        */
       scene.fog.color.copy(painted).lerp(SMOG, this.haze * 0.4)
-      scene.fog.density = CLEAR_DENSITY * (1 + this.haze * 2.1)
+      // A closed sky brings the horizon in as surely as smog does, and by the same one number.
+      scene.fog.density = CLEAR_DENSITY * (1 + this.haze * 2.1 + covered * covered * 1.5)
     }
 
     /*
@@ -160,8 +188,9 @@ export class Atmosphere {
     this.aim(angle, elevation)
     this.sunDirection.copy(this.direction)
     sky.dome.sunPosition.value.copy(this.sunDirection)
-    sky.dome.turbidity.value = 3.4 + horizonWarmth * 6.5
-    sky.dome.rayleigh.value = 1.5 + horizonWarmth * 1.7
+    // Turbid and unscattered: a cloudy sky is a bright even grey rather than a blue gradient.
+    sky.dome.turbidity.value = 3.4 + horizonWarmth * 6.5 + covered * 9
+    sky.dome.rayleigh.value = (1.5 + horizonWarmth * 1.7) * (1 - covered * 0.75)
     sky.dome.nightFade.value = THREE.MathUtils.smoothstep(arc, -0.3, -0.02)
 
     /*
@@ -171,8 +200,12 @@ export class Atmosphere {
      * at the turn of the cycle came from.
      */
     fitShadow(sky.sun, focus, cameraDistance, this.sunDirection, LIGHT_RADIUS)
-    sky.sun.light.intensity = 0.05 + daylight * 4.1
-    sky.sun.light.color.copy(this.sunColour.setHex(SUN_WHITE).lerp(EMBER, horizonWarmth))
+    /*
+     * And the sun itself. Under a closed sky there is no disc and no shadow — the light comes from
+     * the whole dome instead, which is why the fill below is raised by as much as this takes away.
+     */
+    sky.sun.light.intensity = (0.05 + daylight * 4.1) * (1 - covered * (1 - OVERCAST_SUN))
+    sky.sun.light.color.copy(this.sunColour.setHex(SUN_WHITE).lerp(EMBER, horizonWarmth * (1 - covered * 0.8)))
 
     /*
      * The moon rides opposite the sun and only lights the city once the sun has gone. Its target
@@ -186,7 +219,7 @@ export class Atmosphere {
     )
     sky.moon.light.target.position.set(focus.x, 0, focus.z)
     sky.moon.light.target.updateMatrixWorld()
-    sky.moon.light.intensity = (1 - daylight) * 2.4
+    sky.moon.light.intensity = (1 - daylight) * 2.4 * (1 - covered * 0.85)
 
     /*
      * The bodies themselves ride the same angle as their lights, on a true hemisphere: at elevation
@@ -194,23 +227,33 @@ export class Atmosphere {
      * disc touches down where the warm band is. They fade out over the last few degrees instead of
      * sinking on past it, because the ground plane ends before they do and nothing would hide them.
      */
-    this.place(sky.sun.body, angle, elevation, THREE.MathUtils.smoothstep(arc, -0.09, 0.015))
+    // Neither body is visible through cloud, which is the plainest signal the sky has shut.
+    this.place(sky.sun.body, angle, elevation, THREE.MathUtils.smoothstep(arc, -0.09, 0.015) * (1 - covered))
     sky.sun.body.sprite.material.color.copy(this.bodyColour.setHex(SUN_DISC).lerp(SUN_LOW, horizonWarmth * 0.85))
     // The sun swells as it nears the horizon, the way haze makes it look.
     sky.sun.body.sprite.scale.setScalar(520 + horizonWarmth * 210)
 
     // A daylight moon is real but faint; at night it carries the sky on its own.
-    this.place(sky.moon.body, moonAngle, -elevation, THREE.MathUtils.smoothstep(-arc, -0.05, 0.05) * (0.2 + (1 - daylight) * 0.8))
+    this.place(sky.moon.body, moonAngle, -elevation, THREE.MathUtils.smoothstep(-arc, -0.05, 0.05) * (0.2 + (1 - daylight) * 0.8) * (1 - covered))
 
     /*
      * Night keeps its real length, so it has to stay readable: an ambient floor plus lit windows
      * carry the city through a December night instead of shortening it. See ADR-0005.
      */
-    sky.hemisphere.intensity = NIGHT_FILL + daylight * DAY_FILL
-    sky.hemisphere.color.copy(this.hemisphereColour.setHex(NIGHT_AMBIENT).lerp(DAY_AMBIENT, daylight))
+    /*
+     * The fill picks up what the cloud took off the sun: an overcast noon is dimmer and much flatter
+     * than a clear one, but it is not dark, and a city lit only by a quarter of a sun would be.
+     */
+    sky.hemisphere.intensity = NIGHT_FILL + daylight * DAY_FILL * (1 + covered * 0.3)
+    /*
+     * And the colour of it goes grey. Filling in what the cloud took off the sun with *daylight*
+     * leaves a city that is brighter and whiter under a storm than under a blue sky, which is the
+     * one thing an overcast sky never is.
+     */
+    sky.hemisphere.color.copy(this.hemisphereColour.setHex(NIGHT_AMBIENT).lerp(DAY_AMBIENT, daylight)).lerp(OVERCAST_SKY, covered * daylight * 0.5)
     sky.hemisphere.groundColor.copy(this.groundColour.setHex(NIGHT_GROUND).lerp(DAY_GROUND, daylight))
 
-    const starlight = Math.max(0, 1 - daylight * 2.4)
+    const starlight = Math.max(0, 1 - daylight * 2.4) * (1 - covered)
     sky.stars.visible = starlight > 0.01
     sky.stars.material.opacity = starlight
 
@@ -237,7 +280,9 @@ export class Atmosphere {
      * transparent quads with an opacity of zero are still two hundred and sixty quads blended over
      * the road, every frame of every daylight hour, for no pixels at all.
      */
-    const lamps = (1 - daylight) * (0.55 + this.nightLife * 0.45)
+    // And the lamps come on early on a black afternoon, which is the other half of how a city
+    // tells you the sky has shut.
+    const lamps = Math.min(1, (1 - daylight) + covered * 0.35) * (0.55 + this.nightLife * 0.45)
     const lit = lamps > 0.012
     streetLights.heads.visible = lit
     streetLights.pools.visible = lit

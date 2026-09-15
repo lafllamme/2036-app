@@ -40,7 +40,7 @@ Sortiert nach Verhältnis von Wirkung zu Aufwand. Jede Zeile ist für sich liefe
 | 9 | `unitsUnderConstruction` | **Gerüste, Kräne, Lieferverkehr.** Teils da, nicht an die Zahl gehängt. | `construction.ts` vorhanden |
 | 10 | `satisfaction` | **Demonstrationen** vor dem Rathaus, wenn sie tief genug fällt. | neu |
 | 11 | `transitCoverage` | **Busse auf den Hauptachsen.** | kein Busmodell im Kit |
-| 12 | Wetter (neu) | **Regen, Schnee, Wind, Nebel** — nach einer Approximation echter norddeutscher Klimastatistik, also Regen im November und Schnee im Januar statt Würfelwetter. Nasse Fahrbahn, weniger Menschen draußen, Schnee auf Dächern. | Atmosphäre und Himmel vorhanden |
+| 12 | Wetter (neu) | **Regen, Schnee, Wind, Nebel** — nach einer Approximation echter norddeutscher Klimastatistik, also Regen im November und Schnee im Januar statt Würfelwetter. Nasse Fahrbahn, weniger Menschen draußen, Schnee auf Dächern. | **fertig**, siehe unten |
 
 ## Das zweite Problem: man merkt nichts
 
@@ -183,3 +183,77 @@ instanziertes Mesh je Gangphase; die Mischung monatlich zu verschieben hieße, R
 diesen Meshes umzubuchen — und eine Menge, die zwischen zwei Monaten ihr Aussehen tauscht, liest sich
 als Flackern. Die Herkunft steht bereits in jeder Person und im Personen-Panel; sichtbar zu machen,
 was sie *anders* aussehen lässt, ist ein eigener Umbau und keine zwanzig Zeilen.
+
+
+## Das Wetter
+
+`app/core/weather.ts` · `app/rendering/sky/precipitation.ts` · `app/rendering/world/weatherSurfaces.ts`
+
+Lindenhafen steht auf Bremens Grundriss und bekommt Bremens Wetter. Im Modell stehen vier
+Monatsreihen der Referenzperiode 1991–2020 — Regentage, Windgeschwindigkeit, Bewölkungsgrad, dazu
+die Temperaturkurve, die `daylight.ts` schon vorher hatte. Kein Würfel entscheidet, ob es regnet,
+sondern die Jahreszeit: dreizehn Regentage im Dezember gegen neun im April, Wind im Winter stärker
+als im Hochsommer, Schnee ausschließlich zwischen November und März.
+
+Ein Monat ist ein Tag, und dieser Tag zerfällt in sieben Wetterlagen, zwischen denen interpoliert
+wird. Nichts springt: der Test `is continuous` prüft über zweitausend Schritte, dass sich Regen und
+Schnee nie um mehr als zwei Hundertstel zwischen zwei Messungen ändern. Deterministisch aus dem
+Kampagnen-Seed, also ist ein geladener Spielstand derselbe November.
+
+Die Temperatur kommt aus dem Wetter, nicht mehr aus der Jahreszeit allein. Eine Wetterlage zieht sie
+um bis zu sieben Grad von der Kurve weg, quadratisch um die Mitte gewichtet — die meisten Lagen
+liegen dicht an der Jahreszeit, die harten Fröste sind selten. Ohne das wäre der kälteste Moment des
+Spiels Bremens Januarmittel von +2,6 °C gewesen, und es hätte nie schneien können.
+
+### Was es kostet
+
+| Sichtbar | Wie | Draws |
+| --- | --- | --- |
+| Regen | ein Mesh aus 26.000 gekreuzten Quads, 104k Dreiecke | **1**, und nur wenn es regnet |
+| Schnee | ein `Points`-Feld, 6.000 Flocken | **1**, und nur wenn es schneit |
+| Bedeckter Himmel | Sonne gedimmt, Dom trüb, Farbe grau, Nebel dichter, Laternen früher an | 0 |
+| Nasse Fahrbahn | Farbe und Rauheit der vorhandenen Straßenmaterialien | 0 |
+| Schnee auf Grün und Wegen | dieselben Materialien, Richtung Weiß | 0 |
+| Weniger Menschen draußen | `exposure` dünnt Fußgänger und vor allem Radfahrer aus | **negativ** |
+| Regen, Nieselregen, Wind, Donner | vier CC0-Aufnahmen, zwei davon übergeblendet | 0 |
+
+Gemessen im laufenden Build bei vollem Niederschlag auf Straßenniveau: 86 FPS, 138 Draws,
+3,24 Mio. Dreiecke — gegen 105 Draws und 2,65 Mio. bei trockenem Himmel. Der Rest der Differenz ist
+die beleuchtete Nachtstadt, nicht das Wetter.
+
+### Drei Versuche, bis der Regen stimmte
+
+Der Weg ist dokumentiert, weil jeder Schritt eine allgemeine Lehre trägt.
+
+1. **Linien.** Jeder Tropfen war ein `LineSegments`-Segment. WebGPU zeichnet Linien immer genau einen
+   Pixel breit, egal wie nah und egal was `linewidth` sagt — gegen einen hellen Himmel ist das nichts.
+2. **Gekreuzte Quads, aber zur Kamera gedreht.** Das löste die Geometrie und zerstörte die Welt: ein
+   Vorhang, der mit dem Blick schwenkt, hängt spürbar an der Linse. Man sieht es sofort beim Drehen.
+3. **Weltfest, mit gekreuzten Quads.** Der Vorhang steht in der Stadt und rückt nur in ganzen
+   Vier-Meter-Schritten nach, damit er einer fahrenden Kamera nie hinterherläuft. Dass ein Quad von
+   der Seite keine Fläche hat, löst die Geometrie — zwei über Kreuz, davon zeigt immer eins zum
+   Betrachter.
+
+Dazu zwei Dosierungsfehler, die ebenso lehrreich waren: Tropfen in Metern statt in Dezimetern (aus
+drei Metern Entfernung ein weißer Mast über ein Viertel des Bildes) und zu wenige davon (einzeln
+lesbare Striche mit Schwarz dazwischen lesen sich als Kratzer auf der Linse, nicht als Wetter).
+Regen ist ein Schleier, und ein Schleier braucht genug Fäden.
+
+Und eine Regel, die aus der Überblicksperspektive folgt: **Tropfen sind Nahfeld.** Jeder ist
+höchstens sechsundzwanzig Meter von der Linse entfernt, also sind sie aus vierhundert Metern Höhe
+kein Regen über der Stadt, sondern Striche auf dem Glas. Deshalb blenden sie zwischen 110 und 460
+Metern aus. Von oben tragen der geschlossene Himmel, der Nebel, die schwarzen nassen Straßen und die
+dünnere Menge — alles davon sichtbar aus jeder Höhe und keines davon einen Draw wert.
+
+### Ton
+
+`rain.ogg`, `drizzle.ogg`, `wind.ogg`, `thunder.ogg`, alle CC0, alle einzeln auf ihrer Seite geprüft
+(`public/audio/city/LICENSE.md`). Zwei Regenaufnahmen statt einer, weil leichter Regen nicht leiser
+starker Regen ist, sondern ein anderes Geräusch: der Nieselregen trägt Anfang und Ende jedes
+Schauers, der starke blendet in der Mitte darüber. Schnee hat keine Aufnahme, weil Schnee nichts
+macht — was man hört, ist der Wind und eine Stadt, die ihre Höhen verliert (ein Tiefpass auf dem
+Stadtbett). Donner nur bei starkem Regen, nie zweimal in einer halben Minute, und dann nur manchmal.
+
+Der Regen wird kaum nach Entfernung ausgeblendet: er fällt auf die ganze Stadt und ist auch aus
+tausend Metern das Lauteste, was es gibt. Der Verkehr behält aus der Höhe ein Viertel, die Stimmen
+gar nichts, der Regen mehr als die Hälfte.

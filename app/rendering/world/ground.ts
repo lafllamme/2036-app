@@ -55,7 +55,14 @@ const AREA_COLOURS: Record<AreaKind, string> = {
   railway: '#63605b',
 }
 
-export function addGround(scene: THREE.Scene, blueprint: CityBlueprint): void {
+/**
+ * The land, and the parks, yards and pitches painted on it.
+ *
+ * Returns the materials rather than keeping them to itself, because they are what snow settles on:
+ * whitening a material that is already in the scene costs nothing at all, and it is the difference
+ * between a January you can see from the overview and one you can only read in the thermometer.
+ */
+export function addGround(scene: THREE.Scene, blueprint: CityBlueprint): THREE.MeshStandardMaterial[] {
   const material = new THREE.MeshStandardMaterial({
     map: groundTexture(),
     normalMap: groundNormalTexture(),
@@ -68,7 +75,7 @@ export function addGround(scene: THREE.Scene, blueprint: CityBlueprint): void {
   material.normalMap!.repeat.set(GROUND_SPAN / 9, GROUND_SPAN / 9)
 
   scene.add(land(blueprint.relief, material))
-  addAreas(scene, blueprint)
+  return [material, addAreas(scene, blueprint)]
 }
 
 /**
@@ -146,7 +153,7 @@ function pushShade(colour: number[], x: number, z: number, seed: number): void {
  * They are drawn in the order the converter sorted them — largest first — so a park inside a works
  * still reads as a park. Four hundred and seventy polygons, one draw call.
  */
-function addAreas(scene: THREE.Scene, blueprint: CityBlueprint): void {
+function addAreas(scene: THREE.Scene, blueprint: CityBlueprint): THREE.MeshStandardMaterial {
   const relief = blueprint.relief
   const position: number[] = []
   const normal: number[] = []
@@ -207,7 +214,7 @@ function addAreas(scene: THREE.Scene, blueprint: CityBlueprint): void {
 
   const texture = groundTexture()
   texture.repeat.set(1, 1)
-  const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+  const material = new THREE.MeshStandardMaterial({
     map: texture,
     vertexColors: true,
     roughness: 0.96,
@@ -215,9 +222,11 @@ function addAreas(scene: THREE.Scene, blueprint: CityBlueprint): void {
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,
-  }))
+  })
+  const mesh = new THREE.Mesh(geometry, material)
   mesh.receiveShadow = true
   scene.add(mesh)
+  return material
 }
 
 /**

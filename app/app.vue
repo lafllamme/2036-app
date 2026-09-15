@@ -14,6 +14,7 @@ const {
   snapshot,
   clock,
   daylight,
+  weather,
   currentDate,
   campaignProgress,
   canAdvance,
@@ -200,12 +201,35 @@ const PHASE_LABELS: Record<string, string> = {
   dusk: 'Abenddämmerung',
 }
 
+/**
+ * What the sky reads as, in one glyph.
+ *
+ * The weather outranks the hour here on purpose: at two on a November afternoon the interesting fact
+ * is that it is raining, not that the sun is technically up. Only when nothing is falling and the
+ * sky is not shut does the phase of the day get the icon back.
+ */
+function skyGlyph(phase: string): { glyph: string, label: string } {
+  const { rain, snow, cloud, wind } = weather.value
+  if (snow > 0.08)
+    return { glyph: 'lucide:cloud-snow', label: snow > 0.5 ? 'Schneefall' : 'Leichter Schnee' }
+  if (rain > 0.08)
+    return { glyph: rain > 0.5 ? 'lucide:cloud-rain' : 'lucide:cloud-drizzle', label: rain > 0.5 ? 'Regen' : 'Nieselregen' }
+  if (wind > 0.62)
+    return { glyph: 'lucide:wind', label: 'Windig' }
+  if (cloud > 0.78)
+    return { glyph: 'lucide:cloudy', label: 'Bedeckt' }
+  if (cloud > 0.52)
+    return { glyph: 'lucide:cloud-sun', label: 'Wechselnd bewölkt' }
+  return { glyph: SUN_GLYPHS[phase] ?? 'lucide:sun', label: PHASE_LABELS[phase] ?? '' }
+}
+
 const sky = computed(() => {
   const reading = daylight.value
+  const look = skyGlyph(reading.phase)
   return {
-    glyph: SUN_GLYPHS[reading.phase] ?? 'lucide:sun',
-    label: PHASE_LABELS[reading.phase] ?? '',
-    temperature: `${formatNumber(reading.temperature, 0)}°`,
+    glyph: look.glyph,
+    label: `${look.label} · ${PHASE_LABELS[reading.phase] ?? ''}`,
+    temperature: `${formatNumber(weather.value.temperature, 0)}°`,
     isNight: reading.phase === 'night',
   }
 })

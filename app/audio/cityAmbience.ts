@@ -94,6 +94,29 @@ const HORN_WAIT = 9
 /** At most this many one-off sounds at once, so a busy street cannot turn into a wall. */
 const VOICE_LIMIT = 5
 
+/**
+ * The weather, and how it is heard.
+ *
+ * Rain is not a street-level sound the way a crowd is: it falls on the whole city, and from a
+ * thousand metres up it is still the loudest thing there is. So it keeps most of its level at any
+ * height — `WEATHER_FLOOR` — where the traffic keeps a quarter and the voices none.
+ */
+const WEATHER_FLOOR = 0.55
+/** Where light rain becomes heavy rain, and how wide the crossfade between the two recordings is. */
+const HEAVY_FROM = 0.3
+const HEAVY_TO = 0.78
+/** A breeze is not a sound. This is where one starts being one, on the 0 … 1 wind scale. */
+const WIND_FROM = 0.28
+/**
+ * Thunder. Only under heavy rain, never twice inside this many seconds, and then only sometimes —
+ * a storm that rumbles on a schedule is a machine, and a rare sound heard twice is not rare.
+ */
+const THUNDER_RAIN = 0.55
+const THUNDER_WAIT = 26
+const THUNDER_CHANCE = 0.4
+/** How much of the top a snowfall takes off the city. Snow is mostly the sound of things missing. */
+const SNOW_MUFFLE = 0.45
+
 export interface CityAmbienceState {
   /** How many vehicles are moving within earshot of the camera. */
   trafficNearby: number
@@ -105,6 +128,12 @@ export interface CityAmbienceState {
   nearestTrain: number
   /** How far the camera is from what it is looking at, in metres. */
   cameraDistance: number
+  /** How hard it is raining, 0 … 1. */
+  rain: number
+  /** How hard it is snowing, 0 … 1. */
+  snow: number
+  /** How hard it is blowing, 0 … 1. */
+  wind: number
 }
 
 /**
@@ -147,6 +176,7 @@ export class CityAmbience {
   private voices = 0
   private nextPass = 0
   private nextHorn = 0
+  private nextThunder = 0
 
   /**
    * Build the graph. Must be called from inside a trusted gesture, exactly like the interface bus:
@@ -289,7 +319,13 @@ export class CityAmbience {
     const traffic = clamp01(state.trafficNearby / TRAFFIC_FULL)
     const crowd = clamp01(state.peopleNearby / PEOPLE_FULL)
 
-    this.distant?.frequency.setTargetAtTime(FAR_CUTOFF + (NEAR_CUTOFF - FAR_CUTOFF) * near ** 1.6, now, SMOOTHING)
+    /*
+     * Snow takes the top off everything, which is most of what snow sounds like: a city under it is
+     * not quieter so much as duller, and the same filter that stands in for distance stands in for
+     * that. It rides on top of the distance rather than replacing it.
+     */
+    const open = (FAR_CUTOFF + (NEAR_CUTOFF - FAR_CUTOFF) * near ** 1.6) * (1 - state.snow * SNOW_MUFFLE)
+    this.distant?.frequency.setTargetAtTime(open, now, SMOOTHING)
 
     /*
      * The three beds against each other.
@@ -301,7 +337,25 @@ export class CityAmbience {
     this.level('traffic', carry * traffic, now)
     // Voices do not carry. A crowd is a street-level sound and it goes with the street.
     this.level('crowd', near * crowd * crowd, now)
-    this.level('park', carry * (1 - Math.max(traffic, crowd)) ** 1.5, now)
+    this.level('park', carry * (1 - Math.max(traffic, crowd)) ** 1.5 * (1 - state.rain * 0.8), now)
+
+    /*
+     * The weather, over the top of all of it.
+     *
+     * Two rain recordings crossfaded rather than one turned up: light rain and heavy rain are
+     * different sounds, not the same sound at different levels, and a shower that arrives by opening
+     * a fader is a shower nobody believes. The light one stays under the heavy one instead of
+     * cutting out, which is what a downpour actually is — the patter is still there underneath.
+     */
+    const weatherCarry = WEATHER_FLOOR + (1 - WEATHER_FLOOR) * near
+    const heavy = clamp01((state.rain - HEAVY_FROM) / (HEAVY_TO - HEAVY_FROM))
+    this.level('drizzle', weatherCarry * clamp01(state.rain * 2.6) * (1 - heavy * 0.55), now)
+    this.level('rain', weatherCarry * heavy, now)
+    /*
+     * Wind, which is also the whole sound of a snowfall: snow itself makes none, and a winter street
+     * with nothing on the soundtrack at all reads as a bug rather than as weather.
+     */
+    this.level('wind', weatherCarry * (clamp01((state.wind - WIND_FROM) / (1 - WIND_FROM)) ** 1.3 + state.snow * 0.35), now)
 
     /*
      * One siren, and only the nearest one. However many are out across the city, what a listener
@@ -331,6 +385,7 @@ export class CityAmbience {
      */
     this.maybe('pass', now, near * traffic, PASS_CALM, PASS_BUSY)
     this.maybeHorn(now, near * traffic)
+    this.maybeThunder(now, state.rain)
   }
 
   setEnabled(enabled: boolean): void {
@@ -379,6 +434,15 @@ export class CityAmbience {
       return
     this.nextPass = now + (busy + (calm - busy) * (1 - intensity)) * (0.6 + Math.random() * 0.9)
     this.play(id, 0.6 + Math.random() * 0.5, intensity)
+  }
+
+  /** Thunder, which belongs to the sky rather than to the street: it is not scaled by `near`. */
+  private maybeThunder(now: number, rain: number): void {
+    if (rain < THUNDER_RAIN || now < this.nextThunder)
+      return
+    this.nextThunder = now + THUNDER_WAIT * (0.6 + Math.random() * 1.4)
+    if (Math.random() < THUNDER_CHANCE)
+      this.play('thunder', 0.82 + Math.random() * 0.3, 0.6 + rain * 0.4)
   }
 
   private maybeHorn(now: number, intensity: number): void {

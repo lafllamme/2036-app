@@ -390,6 +390,15 @@ export function updateAgents(
   pressure: CityPressure,
   /** How much of the city has nowhere to be, 0 … 1. See `idleness` in `CityVisualState`. */
   idleness: number,
+  /**
+   * How pleasant it is to be outside, 0 … 1.
+   *
+   * A pavement in a November downpour is not the pavement of a June evening, and a city whose crowd
+   * is identical in both is a city where the weather is only a picture. It is also the one visible
+   * effect that *saves* frames rather than costing them: fewer people out is fewer instances drawn,
+   * exactly when the two precipitation draws have arrived.
+   */
+  exposure: number,
 ): void {
   /*
    * How busy the city is at this hour, and how busy the council has made it. The two multiply: a
@@ -407,14 +416,15 @@ export function updateAgents(
   const streets: Streets = { network: agents.network, signals: agents.signals, pressure: agents.pressure }
   drive(agents.cars, streets, delta, elapsed, cameraDistance > CAR_RANGE ? 0 : busy, camera, focus)
   // Cycling follows the same hour as driving, and a little more of it in the middle of the day.
-  drive(agents.cyclists, streets, delta, elapsed, cameraDistance > CYCLIST_RANGE ? 0 : busy, camera, focus)
+  // Cyclists take the weather worse than anyone: squared, a wet day empties the lanes rather than thins them.
+  drive(agents.cyclists, streets, delta, elapsed, cameraDistance > CYCLIST_RANGE ? 0 : busy * exposure * exposure, camera, focus)
   // People are out when the city is awake, but a pavement is never as empty as a road at night.
   /*
    * How many of the crowd have nowhere to be. Idleness times the working day: at three in the
    * morning nobody is standing about, because nobody is out at all.
    */
   agents.pedestrians.idle = idleness * workingHours(hourOfDay)
-  drive(agents.pedestrians, streets, delta, elapsed, cameraDistance > WALKER_RANGE ? 0 : 0.35 + busy * 0.65, camera, focus)
+  drive(agents.pedestrians, streets, delta, elapsed, cameraDistance > WALKER_RANGE ? 0 : (0.35 + busy * 0.65) * exposure, camera, focus)
   /*
    * And the patrol, whose entire number is a policy outcome. `response` runs 0.2 … 1; squared, that
    * is three officers in the visible city at the bottom and seventy at the top.

@@ -13,7 +13,7 @@ import { BEDS, CITY_SOUNDS } from '../../app/audio/citySounds'
 describe('the city ambience', () => {
   it('does nothing at all before a gesture has opened it', () => {
     const ambience = new CityAmbience()
-    expect(() => ambience.update({ trafficNearby: 20, peopleNearby: 12, nearestSiren: 60, nearestTrain: 400, cameraDistance: 80 })).not.toThrow()
+    expect(() => ambience.update({ trafficNearby: 20, peopleNearby: 12, nearestSiren: 60, nearestTrain: 400, cameraDistance: 80, rain: 0.4, snow: 0, wind: 0.5 })).not.toThrow()
     expect(() => ambience.setEnabled(false)).not.toThrow()
     expect(() => ambience.setVolume(0.4)).not.toThrow()
     expect(() => ambience.stop()).not.toThrow()
@@ -23,7 +23,7 @@ describe('the city ambience', () => {
     // Node, a locked-down browser, a server render: all three reach this and none may fail.
     const ambience = new CityAmbience()
     expect(() => ambience.start()).not.toThrow()
-    expect(() => ambience.update({ trafficNearby: 4, peopleNearby: 0, nearestSiren: Number.POSITIVE_INFINITY, nearestTrain: Number.POSITIVE_INFINITY, cameraDistance: 500 })).not.toThrow()
+    expect(() => ambience.update({ trafficNearby: 4, peopleNearby: 0, nearestSiren: Number.POSITIVE_INFINITY, nearestTrain: Number.POSITIVE_INFINITY, cameraDistance: 500, rain: 0, snow: 0.8, wind: 0.2 })).not.toThrow()
   })
 
   it('clamps the volume to something a player can actually have asked for', () => {

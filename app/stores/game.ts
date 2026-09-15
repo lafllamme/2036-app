@@ -22,6 +22,7 @@ import { getEvent } from '~/content/events'
 import { getPolicy } from '~/content/policies'
 import { CAMPAIGN_LAST_MONTH, isCampaignComplete } from '~/core/campaign'
 import { formatClock, readDaylight } from '~/core/daylight'
+import { weatherAt } from '~/core/weather'
 import { initialSupport } from '~/simulation/electorate'
 import { citizenAt } from '~/world/citizens'
 import { leaningOf } from '~/world/leaning'
@@ -32,6 +33,9 @@ const MONTH_DURATION_MS = 300_000
 export type ExperienceStage = 'title' | 'partyHall' | 'partyProfile' | 'manifesto' | 'intro' | 'gameplay'
 
 export const useGameStore = defineStore('game', () => {
+  /** The one seed the city, its weather and every save are built from. */
+  const CITY_SEED = 2036
+
   const snapshot = shallowRef<SimulationSnapshot | null>(null)
   const selectedBuilding = shallowRef<BuildingRecord | null>(null)
   const selectedNews = shallowRef<NewsItem | null>(null)
@@ -48,6 +52,8 @@ export const useGameStore = defineStore('game', () => {
    * on its own, which is the only moment the game should stop by itself.
    */
   const speed = ref<0 | 1 | 2 | 4>(1)
+  /** The speed to go back to once whatever interrupted the player is out of the way. */
+  let heldSpeed: 0 | 1 | 2 | 4 = 0
 
   /** The news bar's own list, which follows calls from raised to over. See `cityReports.ts`. */
   const { cityReports, selectedReport, reportIncident, prune: pruneReports, clear: clearReports } = createCityReports()
@@ -73,13 +79,13 @@ export const useGameStore = defineStore('game', () => {
       return
     }
     const share = snapshot.value?.cityVisuals.originMix ?? 0
-    const citizen = citizenAt(person.citizen, 2036, share)
+    const citizen = citizenAt(person.citizen, CITY_SEED, share)
     /*
      * Who this person would vote for, today. Their own position is fixed for life and derived from
      * who they are; which party it lands on also depends on how the city is currently leaning, so
      * the same person can answer differently in 2031 than in 2026 without having changed their mind.
      */
-    const leaning = leaningOf(citizen, person.citizen, 2036, snapshot.value?.support ?? initialSupport())
+    const leaning = leaningOf(citizen, person.citizen, CITY_SEED, snapshot.value?.support ?? initialSupport())
     selectedCitizen.value = { ...citizen, leaning, x: person.x, z: person.z }
   }
   /**
@@ -180,7 +186,7 @@ export const useGameStore = defineStore('game', () => {
       deliver?.({
         schemaVersion: 2,
         contentVersion: 'vertical-slice-1',
-        citySeed: 2036,
+        citySeed: CITY_SEED,
         partyId: selectedPartyId.value ?? undefined,
         priorityIds: [...selectedPriorityIds.value],
         state: data.state,
@@ -223,8 +229,12 @@ export const useGameStore = defineStore('game', () => {
     const known = new Set((previous?.pendingDecisions ?? []).map(entry => entry.eventId))
     const arrived = data.snapshot.pendingDecisions.find(entry => !known.has(entry.eventId))
     if (arrived) {
-      speed.value = 0
+      holdClock()
       openDecisionId.value = arrived.eventId
+    }
+    else {
+      // Nothing new to answer: if the player was only held up by their own vote, they get the clock back.
+      resumeIfClear()
     }
   }
 
@@ -236,7 +246,7 @@ export const useGameStore = defineStore('game', () => {
       speed.value = 0
       pendingCommand.value = false
     }
-    send({ type: 'INIT', seed: 2036 })
+    send({ type: 'INIT', seed: CITY_SEED })
 
     previousTime = performance.now()
     useIntervalFn(() => {
@@ -267,6 +277,19 @@ export const useGameStore = defineStore('game', () => {
 
   const clock = computed(() => formatClock(daylight.value.hourOfDay))
 
+  /**
+   * What the sky is doing. Read from the same month and the same progress the light is read from, so
+   * a save reloaded in November is the same November — and so it stops when the player pauses.
+   */
+  const weather = computed(() => weatherAt(
+    snapshot.value?.monthOfYear ?? 1,
+    monthProgress.value,
+    snapshot.value?.month ?? 0,
+    CITY_SEED,
+    // The season and the hour; the spell of weather adds its own swing on top of that curve.
+    daylight.value.temperature,
+  ))
+
   const currentDate = computed(() => {
     if (!snapshot.value)
       return 'JAN 2026'
@@ -283,6 +306,35 @@ export const useGameStore = defineStore('game', () => {
 
   function setSpeed(nextSpeed: 0 | 1 | 2 | 4): void {
     speed.value = canAdvance.value ? nextSpeed : 0
+    heldSpeed = speed.value
+  }
+
+  /**
+   * Stopping the clock for as long as something is in the player's way, and no longer.
+   *
+   * A motion has to stop the month — nobody should have to vote against a running clock, and a
+   * decision that scrolls past unread is a decision the game took for the player. But stopping it
+   * was all this did: every vote left the campaign paused for good, so after each one the player had
+   * to notice the city had gone still and press play again. The speed they had chosen is held here
+   * and handed back the moment the sheet and the result are both out of the way.
+   *
+   * A player who was already paused stays paused: `heldSpeed` is only ever set from a running clock.
+   */
+  function holdClock(): void {
+    if (speed.value !== 0)
+      heldSpeed = speed.value
+    speed.value = 0
+  }
+
+  /** Nothing left on screen to answer, so give the month back its speed. */
+  function resumeIfClear(): void {
+    if (heldSpeed === 0 || speed.value !== 0)
+      return
+    if (openDecisionId.value !== null || lastVoteResult.value !== null || pendingCommand.value)
+      return
+    if (!canAdvance.value || snapshot.value?.defeat)
+      return
+    speed.value = heldSpeed
   }
 
   function advanceMonth(): void {
@@ -354,7 +406,7 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function applyPolicy(policyId: string): void {
-    speed.value = 0
+    holdClock()
     send({ type: 'APPLY_POLICY', policyId })
   }
 
@@ -417,9 +469,10 @@ export const useGameStore = defineStore('game', () => {
     openDecisionId.value = eventId
     forecasts.value = {}
     if (eventId) {
-      speed.value = 0
+      holdClock()
       send({ type: 'REQUEST_FORECAST', eventId })
     }
+    else { resumeIfClear() }
   }
 
   function requestForecasts(eventId: string): void {
@@ -427,7 +480,7 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function resolveDecision(eventId: string, optionId: string): void {
-    speed.value = 0
+    holdClock()
     // A standing motion has no pending entry in the worker, so it goes through the policy path.
     if (getEvent(eventId))
       send({ type: 'RESOLVE_DECISION', eventId, optionId })
@@ -445,6 +498,7 @@ export const useGameStore = defineStore('game', () => {
 
   function dismissVoteResult(): void {
     lastVoteResult.value = null
+    resumeIfClear()
   }
 
   function reset(): void {
@@ -454,7 +508,7 @@ export const useGameStore = defineStore('game', () => {
     selectedBuilding.value = null
     selectedNews.value = null
     // Spread the priority list: a ref's value is a reactive Proxy, and structured clone rejects it.
-    send({ type: 'RESET', seed: 2036, partyId: selectedPartyId.value ?? undefined, priorityIds: [...selectedPriorityIds.value] })
+    send({ type: 'RESET', seed: CITY_SEED, partyId: selectedPartyId.value ?? undefined, priorityIds: [...selectedPriorityIds.value] })
   }
 
   /**
@@ -579,6 +633,7 @@ export const useGameStore = defineStore('game', () => {
     currentDate,
     monthProgress,
     daylight,
+    weather,
     clock,
     campaignProgress,
     canAdvance,

@@ -1,6 +1,7 @@
 import type * as THREE from 'three/webgpu'
 import type { CityBlueprint } from '../../core/contracts'
 import type { CityModels } from '../cityModels'
+import type { Precipitation } from '../sky/precipitation'
 import type { Agents } from './agents'
 import type { CityBuildings } from './buildings'
 import type { IncidentScenes } from './incidentScene'
@@ -14,6 +15,8 @@ import type { StreetLights } from './streetLights'
 import type { TrafficSignals } from './trafficLights'
 import type { CityTrees } from './trees'
 import type { Water } from './water'
+import type { CitySurfaces } from './weatherSurfaces'
+import { addPrecipitation } from '../sky/precipitation'
 import { createAgents } from './agents'
 import { createBuildings } from './buildings'
 import { createConstructionSites } from './construction'
@@ -32,6 +35,7 @@ import { addStreetLights } from './streetLights'
 import { addTrafficLights } from './trafficLights'
 import { addTrees } from './trees'
 import { addWater } from './water'
+import { trackSurfaces } from './weatherSurfaces'
 
 /**
  * Lindenhafen as geometry. Each part is built by its own module and this is the only place that
@@ -63,15 +67,19 @@ export interface WorldVisuals extends CityBuildings, CityTrees {
   roughSleeping: RoughSleeping
   /** Somebody at a house at two in the morning. Counted from the burglary pressure and the hour. */
   prowlers: Prowlers
+  /** Rain and snow: two draws, no triangles, and only while it is actually coming down. */
+  precipitation: Precipitation
+  /** Every material the weather is allowed to wet or whiten. Costs uniforms, never draws. */
+  surfaces: CitySurfaces
 }
 
 export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): WorldVisuals {
-  addGround(scene, blueprint)
+  const soft = addGround(scene, blueprint)
 
   // The street plan cut into junctions and the stretches between them. The roads, the traffic and
   // the signals all read it — the roads because a junction is a surface, not a pile of ribbons.
   const network = buildRoadNetwork(blueprint, blueprint.relief)
-  addRoads(scene, blueprint, network)
+  const paved = addRoads(scene, blueprint, network)
   const signals = addTrafficLights(scene, network, blueprint.relief, models)
 
   return {
@@ -91,5 +99,7 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
     railway: addRailway(scene, blueprint),
     roughSleeping: addRoughSleeping(scene, blueprint, models),
     prowlers: addProwlers(scene, blueprint, models),
+    precipitation: addPrecipitation(scene),
+    surfaces: trackSurfaces(paved, soft),
   }
 }

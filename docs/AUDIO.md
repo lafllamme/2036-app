@@ -274,3 +274,28 @@ map it is deliberately the loudest thing there is, because there is nothing else
   against the expected one, muting is proven to stop playback while the interface keeps emitting,
   and the mute is proven to survive a reload. The suite reads the emitted sequence rather than the
   audio device: whether a headless browser has a sound card is not our contract.
+
+
+## Wetter
+
+Vier Aufnahmen, alle CC0 (`public/audio/city/LICENSE.md`), registriert in `citySounds.ts` wie alles
+andere auch.
+
+| Datei | Rolle | Pegel | Wofür |
+| --- | --- | --- | --- |
+| `drizzle.ogg` | Bett | 0,46 | Leichter Regen. Trägt Anfang und Ende jedes Schauers und die meisten ganz. |
+| `rain.ogg` | Bett | 0,60 | Starker Regen auf Straßen und Dächern. Blendet über dem Nieselregen auf. |
+| `wind.ogg` | Bett | 0,44 | Wind — und das Einzige, was ein Schneefall überhaupt hörbar macht. |
+| `thunder.ogg` | Einzelton | 0,58 | Ferner Donner. Nur bei starkem Regen, nie zweimal in einer halben Minute. |
+
+Zwei Regenaufnahmen statt einer, weil leichter Regen nicht leiser starker Regen ist, sondern ein
+anderes Geräusch. Wer einen Schauer über einen einzigen Fader hereinbringt, bekommt einen Schauer,
+den niemand glaubt.
+
+Schnee bekommt keine eigene Aufnahme. Schnee macht kein Geräusch; was man in ihm hört, ist der Wind
+und eine Stadt, die ihre Höhen verliert. Genau das passiert: derselbe Tiefpass, der sonst für
+Entfernung steht, schließt bei Schneefall um bis zu 45 %.
+
+Der Regen wird deutlich weniger nach Kameradistanz ausgeblendet als der Verkehr — er fällt auf die
+ganze Stadt. Der Verkehr behält aus der Höhe ein Viertel, die Stimmen gar nichts, der Regen 55 %.
+Donner gar nicht: der gehört dem Himmel, nicht der Straße.

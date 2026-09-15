@@ -7,7 +7,7 @@ import { useGameStore } from '~/stores/game'
 import { formatNumber } from '~/utils/labels'
 
 const game = useGameStore()
-const { snapshot, daylight, railOpen } = storeToRefs(game)
+const { snapshot, daylight, weather, railOpen } = storeToRefs(game)
 const expanded = ref(false)
 const sound = useSound()
 
@@ -91,6 +91,22 @@ const headline = computed(() => {
   ]
 })
 
+/** What is coming down, in words, because "0,42" is not a thing anybody can picture. */
+const precipitation = computed(() => {
+  const { rain, snow } = weather.value
+  if (snow > 0.08 && rain > 0.08)
+    return 'Schneeregen'
+  if (snow > 0.5)
+    return 'Schneefall'
+  if (snow > 0.08)
+    return 'Leichter Schnee'
+  if (rain > 0.5)
+    return 'Regen'
+  if (rain > 0.08)
+    return 'Nieselregen'
+  return 'Trocken'
+})
+
 const detail = computed(() => {
   if (!metrics.value)
     return []
@@ -116,7 +132,11 @@ const detail = computed(() => {
     { label: 'Sonnenaufgang', value: formatClock(daylight.value.sunriseHour) },
     { label: 'Sonnenuntergang', value: formatClock(daylight.value.sunsetHour) },
     { label: 'Tageslänge', value: `${formatNumber(daylight.value.sunsetHour - daylight.value.sunriseHour, 1)} Stunden` },
-    { label: 'Temperatur', value: `${formatNumber(daylight.value.temperature, 1)} °C` },
+    { label: 'Temperatur', value: `${formatNumber(weather.value.temperature, 1)} °C` },
+    { label: 'Niederschlag', value: precipitation.value },
+    { label: 'Bewölkung', value: `${formatNumber(weather.value.cloud * 100, 0)} %` },
+    // Twelve metres a second is the top of the scale, which is a gale rather than a breeze.
+    { label: 'Wind', value: `${formatNumber(weather.value.wind * 12, 1)} m/s` },
   ]
 })
 

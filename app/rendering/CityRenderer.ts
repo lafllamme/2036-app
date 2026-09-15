@@ -1,4 +1,5 @@
 import type { BuildingRecord, CityBlueprint, SimulationSnapshot, SkyState } from '../core/contracts'
+import type { Weather } from '../core/weather'
 import type { CityModels } from './cityModels'
 import type { SkyVisuals } from './sky/index'
 import type { PersonAt } from './world/agents'
@@ -8,10 +9,12 @@ import * as THREE from 'three/webgpu'
 import { useCityAmbience } from '../audio/cityAmbience'
 import { useCityScore } from '../audio/cityScore'
 import { useCityMixer } from '../audio/mixer'
+import { CALM } from '../core/weather'
 import { CameraRig } from './cameraRig'
 import { BuildingPicker } from './picking'
 import { Atmosphere } from './sky/atmosphere'
 import { createSky } from './sky/index'
+import { updatePrecipitation } from './sky/precipitation'
 import { shadowExtent } from './sky/sun'
 import { updateAgents } from './world/agents'
 import { CityState } from './world/cityState'
@@ -23,6 +26,7 @@ import { updateRailway } from './world/railway'
 import { updateShips } from './world/ships'
 import { updateSignals } from './world/trafficLights'
 import { updateWater } from './world/water'
+import { dressSurfaces } from './world/weatherSurfaces'
 
 /**
  * The one place that owns a frame.
@@ -170,6 +174,10 @@ export class CityRenderer {
   private lastFrame = 0
   /** Campaign time of day, so the streets fill and empty with it. */
   private hourOfDay = 9
+  /** What the sky is doing. Comes from the campaign clock, like the light does. */
+  private weather: Weather = CALM
+  /** How much light there is, 0 … 1, which is what decides how bright the rain reads. */
+  private daylight = 1
   /** What the city is currently being drawn at, and how long it has wanted to change. */
   private resolution = 1
   private resolutionPressure = 0
@@ -237,13 +245,21 @@ export class CityRenderer {
    * set of pipelines that compilation alone does not reach.
    */
   private async warmUp(): Promise<void> {
-    const { growth, constructionSites } = this.world
+    const { growth, constructionSites, precipitation } = this.world
     const hidden = constructionSites.children.filter(site => !site.visible)
 
     growth.count = growth.instanceMatrix.count
     for (const mesh of [...this.world.agents.cars.meshes, ...this.world.agents.pedestrians.meshes])
       mesh.count = mesh.instanceMatrix.count
     for (const site of hidden) site.visible = true
+    /*
+     * The weather too, and for exactly the same reason. Rain and snow are hidden until it rains or
+     * snows, so their pipelines were compiled at the first drop — which fell in the middle of a
+     * campaign rather than on a loading screen, and cost a second of one frame. It is the worst
+     * possible moment for it: the player has just noticed the sky change.
+     */
+    precipitation.rain.visible = true
+    precipitation.snow.visible = true
 
     try {
       await this.renderer.compileAsync(this.scene, this.rig.camera)
@@ -262,6 +278,8 @@ export class CityRenderer {
       for (const mesh of [...this.world.agents.cars.meshes, ...this.world.agents.pedestrians.meshes])
         mesh.count = 0
       for (const site of hidden) site.visible = false
+      precipitation.rain.visible = false
+      precipitation.snow.visible = false
       this.sky.sun.light.shadow.needsUpdate = true
     }
   }
@@ -271,6 +289,17 @@ export class CityRenderer {
     this.atmosphere.setTarget(state)
     // The traffic reads the same clock: rush hour is the hour, not a number of its own.
     this.hourOfDay = state.hourOfDay
+    this.daylight = THREE.MathUtils.smoothstep(state.arc, -0.12, 0.28)
+  }
+
+  /**
+   * What is falling out of the sky. Comes from the campaign clock like everything else here, so it
+   * stops when the player pauses and it is the same November in a reloaded save.
+   */
+  setWeather(weather: Weather): void {
+    this.weather = weather
+    // A shut sky is as big a change as nightfall, and it rides the machinery nightfall already uses.
+    this.atmosphere.setOvercast(weather.cloud)
   }
 
   /**
@@ -382,6 +411,12 @@ export class CityRenderer {
      */
     updateRailway(this.world.railway, delta, this.rig.camera.position)
 
+    /*
+     * And the weather, for the same reason: a curtain of rain is somewhere plus speed times time.
+     * It draws nothing at all on a dry day, which in this climate is most of them.
+     */
+    updatePrecipitation(this.world.precipitation, delta, this.rig.camera, this.weather, this.daylight)
+
     this.slowClock += delta
     if (this.slowClock >= 1 / SLOW_UPDATE_HZ) {
       const distance = this.rig.distance
@@ -397,6 +432,11 @@ export class CityRenderer {
         this.hourOfDay,
         this.city.pressure,
         this.city.idleness,
+        /*
+         * How pleasant it is to be outside. Snow keeps people in harder than rain, and a gale on top
+         * of either is what empties a pavement altogether.
+         */
+        1 - Math.min(0.68, this.weather.rain * 0.5 + this.weather.snow * 0.62 + this.weather.wind * 0.12),
       )
       this.reportIncidents()
       updateIncidentScenes(
@@ -444,6 +484,10 @@ export class CityRenderer {
         nearestSiren: this.world.agents.nearestSiren,
         nearestTrain: this.world.railway?.nearestTrain ?? Number.POSITIVE_INFINITY,
         cameraDistance: distance,
+        // The weather is heard from anywhere, which is why it goes in whole rather than by distance.
+        rain: this.weather.rain,
+        snow: this.weather.snow,
+        wind: this.weather.wind,
       })
       this.atmosphere.update(this.slowClock, this.rig.controls.target, distance)
       this.world.streetFurniture.visible = distance < FURNITURE_RANGE
@@ -451,6 +495,12 @@ export class CityRenderer {
       fitParkedDetail(this.world.parkedCars, this.rig.camera.position, distance < PARKING_RANGE)
       updateShips(this.world.ships, this.animationElapsed)
       updateWater(this.world.water, this.animationElapsed)
+      /*
+       * Wet tarmac and snow on the parks. Neither is a mesh: both are the colour and the roughness of
+       * materials the city was already drawn with, and the call returns immediately when the sky has
+       * not moved, which is most ticks of most months.
+       */
+      dressSurfaces(this.world.surfaces, this.world.precipitation.wetness, this.world.precipitation.cover)
       this.slowClock = 0
     }
 

@@ -126,7 +126,13 @@ const CYCLE_LANES: Strip = {
   breakAt: 'junctions',
 }
 
-export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint, network: RoadNetwork): void {
+/**
+ * Everything paved, returned along with the materials it is paved in.
+ *
+ * The materials leave this module because rain is visible on tarmac and nowhere else: a wet road is
+ * a darker, glossier version of the same material, which is a uniform rather than a draw call.
+ */
+export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint, network: RoadNetwork): THREE.MeshStandardMaterial[] {
   const relief = blueprint.relief
   /*
    * The pavement goes down first, as strips beside the streets that have one.
@@ -143,38 +149,42 @@ export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint, network: 
    * broken wherever a sample is inside another carriageway. It reads the same `footpath` the
    * pedestrians walk on, so where a pavement is drawn and where somebody walks are one decision.
    */
-  scene.add(surfaceStrips(relief, network, new THREE.MeshStandardMaterial({
+  const pavement = new THREE.MeshStandardMaterial({
     color: '#6e6c66',
     roughness: 0.93,
     metalness: 0,
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
-  }), PAVEMENTS))
-  scene.add(ribbon(relief, blueprint.roads, ROAD_Y, new THREE.MeshStandardMaterial({
+  })
+  const carriageway = new THREE.MeshStandardMaterial({
     color: '#33383b',
     roughness: 0.95,
     metalness: 0,
     polygonOffset: true,
     polygonOffsetFactor: -3,
     polygonOffsetUnits: -3,
-  }), 1))
-  scene.add(junctions(network, ROAD_Y, 1.2, new THREE.MeshStandardMaterial({
+  })
+  const junction = new THREE.MeshStandardMaterial({
     color: '#33383b',
     roughness: 0.95,
     metalness: 0,
     polygonOffset: true,
     polygonOffsetFactor: -3,
     polygonOffsetUnits: -3,
-  })))
-  scene.add(surfaceStrips(relief, network, new THREE.MeshStandardMaterial({
+  })
+  const cycleLane = new THREE.MeshStandardMaterial({
     color: '#7c4137',
     roughness: 0.94,
     metalness: 0,
     polygonOffset: true,
     polygonOffsetFactor: -4,
     polygonOffsetUnits: -4,
-  }), CYCLE_LANES))
+  })
+  scene.add(surfaceStrips(relief, network, pavement, PAVEMENTS))
+  scene.add(ribbon(relief, blueprint.roads, ROAD_Y, carriageway, 1))
+  scene.add(junctions(network, ROAD_Y, 1.2, junction))
+  scene.add(surfaceStrips(relief, network, cycleLane, CYCLE_LANES))
   scene.add(markings(relief, blueprint.roads))
   /*
    * The rails are no longer drawn here. They used to be one flat brown ribbon, which from the air
@@ -182,6 +192,7 @@ export function addRoads(scene: THREE.Scene, blueprint: CityBlueprint, network: 
    * catenary and the trains on them instead.
    */
   scene.add(bridgeStructure(relief, [...blueprint.roads, ...blueprint.rails]))
+  return [pavement, carriageway, junction, cycleLane]
 }
 
 /**

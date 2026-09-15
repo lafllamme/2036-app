@@ -1,9 +1,11 @@
-import type { EventOption } from '../../app/core/contracts'
+import type { EventOption, PartyId } from '../../app/core/contracts'
 import type { VoteContext } from '../../app/simulation/council'
 import { describe, expect, it } from 'vitest'
+import { EVENTS } from '../../app/content/events'
 import { getParty, mapParties, PARTIES } from '../../app/content/parties'
 import { createRandomStream } from '../../app/core/rng'
 import { castVote, forecastVote, supportFor } from '../../app/simulation/council'
+import { advanceMonths, createInitialState } from '../../app/simulation/model'
 
 const seats = mapParties(party => party.stats.councilSeats)
 const noSalience = mapParties(() => false)
@@ -83,5 +85,74 @@ describe('council voting', () => {
     const before = supportFor(party, motion, context({ playerNegotiation: 80 }))
     const after = supportFor(party, motion, context({ playerNegotiation: 80, relationships: { fdp: 1 } }))
     expect(after).toBeGreaterThan(before)
+  })
+})
+
+describe('a motion somebody else tabled', () => {
+  /*
+   * Stage six of the political model. A council in which only one group ever brings anything forward
+   * is not a council; it is a vending machine with six observers. What the player brings to a foreign
+   * motion is what every other party has always brought — their seats, and which way they go.
+   */
+  function played(party: PartyId, months: number) {
+    return advanceMonths(createInitialState(2_036, party, ['housing', 'employment', 'mobility']), months)
+  }
+
+  it('happens, and names both the party and the option they chose', () => {
+    let state = createInitialState(2_036, 'cdu', ['housing', 'employment', 'mobility'])
+    const tabled: { by: PartyId, option: string }[] = []
+    for (let month = 0; month < 131; month += 1) {
+      const before = state.pending.map(entry => entry.eventId)
+      state = advanceMonths(state, 1)
+      for (const entry of state.pending) {
+        if (before.includes(entry.eventId) || !entry.tabledBy)
+          continue
+        tabled.push({ by: entry.tabledBy, option: entry.tabledOptionId! })
+      }
+    }
+    expect(tabled.length, 'a whole decade without one opposition motion').toBeGreaterThan(0)
+    for (const motion of tabled)
+      expect(motion.option, 'a proposer tabled nothing in particular').toBeTruthy()
+  })
+
+  it('is never tabled by the player or by anybody in their coalition', () => {
+    let state = createInitialState(2_036, 'spd', ['housing', 'employment', 'mobility'])
+    for (let month = 0; month < 131; month += 1) {
+      const coalition = state.coalitionPartyIds
+      state = advanceMonths(state, 1)
+      for (const entry of state.pending) {
+        if (!entry.tabledBy)
+          continue
+        expect(entry.tabledBy, 'the player tabled their own opposition motion').not.toBe('spd')
+        expect(coalition, 'a coalition partner tabled against the coalition').not.toContain(entry.tabledBy)
+      }
+    }
+  })
+
+  /*
+   * The player's group is the one party in the chamber whose vote is decided rather than rolled. The
+   * roll is still taken, so that a foreign motion consumes the stream exactly as an own motion does —
+   * otherwise the same council would vote differently depending on who happened to table it.
+   */
+  it('counts the player’s seats the way the player casts them', () => {
+    const state = played('spd', 40)
+    const event = EVENTS.find(candidate => candidate.options.length > 1)!
+    const option = event.options[0]!
+    const base = context({ seatsByParty: state.seatsByParty, coalitionPartyIds: state.coalitionPartyIds, playerPartyId: 'spd' })
+    for (const choice of ['yes', 'no', 'abstain'] as const) {
+      const result = castVote(option, { ...base, playerVote: choice }, createRandomStream(1, 'vote'))
+      expect(result.votes.find(record => record.partyId === 'spd')?.vote).toBe(choice)
+    }
+  })
+
+  it('leaves every other party rolled exactly as it would have been', () => {
+    const state = played('spd', 40)
+    const event = EVENTS.find(candidate => candidate.options.length > 1)!
+    const option = event.options[0]!
+    const base = context({ seatsByParty: state.seatsByParty, coalitionPartyIds: state.coalitionPartyIds, playerPartyId: 'spd' })
+    const rolled = castVote(option, base, createRandomStream(7, 'vote'))
+    const decided = castVote(option, { ...base, playerVote: 'no' }, createRandomStream(7, 'vote'))
+    const others = (result: typeof rolled) => result.votes.filter(record => record.partyId !== 'spd')
+    expect(others(decided)).toEqual(others(rolled))
   })
 })

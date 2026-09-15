@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { EventOption, PartyId, PolicyEffect } from '~/core/contracts'
+import type { EventOption, PartyId, PartyVote, PolicyEffect } from '~/core/contracts'
 import { storeToRefs } from 'pinia'
 import { computed, watch } from 'vue'
 import { useSound } from '~/composables/useSound'
-import { PARTIES } from '~/content/parties'
+import { getParty, PARTIES } from '~/content/parties'
 import { useGameStore } from '~/stores/game'
 import { CATEGORY_LABELS, CONFIDENCE_LABELS, effectTone, formatNumber, targetLabel } from '~/utils/labels'
 
@@ -133,6 +133,34 @@ function callVote(option: EventOption): void {
   game.resolveDecision(definitionId, option.id)
 }
 
+/**
+ * Who tabled this, when it was not the player.
+ *
+ * The one thing that changes everything else on the sheet. A motion of the player's own is a choice
+ * between options, with a campaign and a negotiation to shift the odds; somebody else's motion is
+ * already worded, already on the agenda, and the only thing left is which way the seats go.
+ */
+const tabledBy = computed(() => {
+  const partyId = openDecision.value?.entry.tabledBy
+  return partyId ? getParty(partyId) : null
+})
+
+/** The one option the proposer put on the agenda. */
+const tabledOption = computed(() => {
+  const id = openDecision.value?.entry.tabledOptionId
+  return openDecision.value?.definition.options.find(option => option.id === id) ?? null
+})
+
+const VOTE_LABELS: Record<PartyVote, string> = { yes: 'Dafür stimmen', abstain: 'Enthalten', no: 'Dagegen stimmen' }
+
+function vote(choice: PartyVote): void {
+  const definitionId = openDecision.value?.definition.id
+  if (!definitionId)
+    return
+  sound.play(choice === 'yes' ? 'vote.called' : 'hud.railCollapsed')
+  game.voteOnMotion(definitionId, choice)
+}
+
 function startCampaign(optionId: string): void {
   const definitionId = openDecision.value?.definition.id
   if (!definitionId)
@@ -166,7 +194,8 @@ function negotiationHint(partyId: PartyId): string {
       </button>
 
       <header>
-        <small>{{ CATEGORY_LABELS[openDecision.definition.category] }} · Ratsvorlage</small>
+        <small v-if="tabledBy">{{ CATEGORY_LABELS[openDecision.definition.category] }} · Antrag der {{ tabledBy.abbreviation }}</small>
+        <small v-else>{{ CATEGORY_LABELS[openDecision.definition.category] }} · Ratsvorlage</small>
         <h2 id="vote-title">
           {{ openDecision.definition.title }}
         </h2>
@@ -187,7 +216,11 @@ function negotiationHint(partyId: PartyId): string {
         </div>
       </section>
 
-      <section v-for="option in openDecision.definition.options" :key="option.id" class="vote-option">
+      <section
+        v-for="option in (tabledOption ? [tabledOption] : openDecision.definition.options)"
+        :key="option.id"
+        class="vote-option"
+      >
         <div class="vote-option__head">
           <h3 v-if="!singleOption">
             {{ option.label }}
@@ -269,7 +302,19 @@ function negotiationHint(partyId: PartyId): string {
           </div>
         </div>
 
-        <div class="vote-actions">
+        <!-- Somebody else's motion: no campaign, no wording, just the seats. -->
+        <div v-if="tabledBy" class="vote-actions vote-actions--own">
+          <button type="button" class="quiet-button" @click="vote('no')">
+            {{ VOTE_LABELS.no }}
+          </button>
+          <button type="button" class="quiet-button" @click="vote('abstain')">
+            {{ VOTE_LABELS.abstain }}
+          </button>
+          <button type="button" class="primary" @click="vote('yes')">
+            {{ VOTE_LABELS.yes }}
+          </button>
+        </div>
+        <div v-else class="vote-actions">
           <button
             type="button"
             class="quiet-button"
@@ -284,7 +329,7 @@ function negotiationHint(partyId: PartyId): string {
         </div>
       </section>
 
-      <section class="negotiation">
+      <section v-if="!tabledBy" class="negotiation">
         <h3>Verhandeln</h3>
         <p class="negotiation__intro">
           12 Kapital je Fraktion. Wirkt auf alle Optionen dieser Vorlage und hält über die nächsten Monate an.

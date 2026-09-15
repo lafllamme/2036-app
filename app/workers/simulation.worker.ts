@@ -12,6 +12,7 @@ import {
 
   resolveDecision,
   snapshotOf,
+  voteOnMotion,
 } from '../simulation/model'
 
 let state: SimulationState = createInitialState()
@@ -41,6 +42,14 @@ globalThis.onmessage = ({ data }: MessageEvent<SimulationCommand>) => {
       }
       case 'RESOLVE_DECISION': {
         const outcome = resolveDecision(state, data.eventId, data.optionId)
+        state = outcome.state
+        if (outcome.result)
+          post({ type: 'VOTE_RESULT', result: outcome.result, snapshot: snapshotOf(state) })
+        else publish('SNAPSHOT')
+        return
+      }
+      case 'VOTE_ON_MOTION': {
+        const outcome = voteOnMotion(state, data.eventId, data.vote)
         state = outcome.state
         if (outcome.result)
           post({ type: 'VOTE_RESULT', result: outcome.result, snapshot: snapshotOf(state) })

@@ -4,6 +4,7 @@ import type {
   EventDefinition,
   NewsItem,
   PartyId,
+  PartyVote,
   SaveGame,
   SaveSummary,
   SimulationCommand,
@@ -491,7 +492,7 @@ export const useGameStore = defineStore('game', () => {
     // the same preparation, and the sheet must show it.
     const prepared = snapshot.value?.motionPreparation[openDecisionId.value] ?? { negotiatedPartyIds: [], campaignedOptionIds: [] }
     const entry = pendingDecisions.value.find(decision => decision.eventId === openDecisionId.value)
-      ?? { eventId: openDecisionId.value, raisedMonth: snapshot.value?.month ?? 0, expiresMonth: Number.POSITIVE_INFINITY, ...prepared }
+      ?? { eventId: openDecisionId.value, raisedMonth: snapshot.value?.month ?? 0, expiresMonth: Number.POSITIVE_INFINITY, tabledBy: null, tabledOptionId: null, ...prepared }
     return { entry, definition, prepared }
   })
 
@@ -515,6 +516,19 @@ export const useGameStore = defineStore('game', () => {
     if (getEvent(eventId))
       send({ type: 'RESOLVE_DECISION', eventId, optionId })
     else send({ type: 'APPLY_POLICY', policyId: eventId })
+    openDecisionId.value = null
+  }
+
+  /**
+   * Vote on a motion somebody else tabled.
+   *
+   * The player picks no option here — the proposer already did — so this is the one place in the game
+   * where what they hand over is a Ja, a Nein or an Enthaltung and nothing else. The clock is held
+   * the same way a resolution holds it, because the council still has to answer.
+   */
+  function voteOnMotion(eventId: string, vote: PartyVote): void {
+    holdClock()
+    send({ type: 'VOTE_ON_MOTION', eventId, vote })
     openDecisionId.value = null
   }
 
@@ -655,6 +669,7 @@ export const useGameStore = defineStore('game', () => {
     lastVoteResult,
     decisionDefinition,
     openDecisionSheet,
+    voteOnMotion,
     requestForecasts,
     resolveDecision,
     negotiate,

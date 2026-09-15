@@ -7,7 +7,7 @@
 
 import type { SimulationState } from '../../simulation/model'
 import type { DistrictId } from './city'
-import type { MotionPreparationView, PendingDecision, VoteForecast, VoteResult } from './events'
+import type { MotionPreparationView, PartyVote, PendingDecision, VoteForecast, VoteResult } from './events'
 import type { CausalEdge, CityMetrics, HealthScores, MetricId, PerceptionState } from './metrics'
 import type { ActiveMeasureView } from './policies'
 import type { CampaignPriorityId, PartyId } from './politics'
@@ -101,6 +101,8 @@ export type SimulationCommandExtra
     | { type: 'RESTORE', state: SimulationState }
     | { type: 'REQUEST_FORECAST', eventId: string }
     | { type: 'RESOLVE_DECISION', eventId: string, optionId: string }
+    /** Somebody else tabled it; all the player brings is their seats. See `voteOnMotion`. */
+    | { type: 'VOTE_ON_MOTION', eventId: string, vote: PartyVote }
     | { type: 'NEGOTIATE', eventId: string, partyId: PartyId }
     | { type: 'CAMPAIGN', eventId: string, optionId: string }
     | { type: 'SET_CAMPAIGN', partyId: PartyId, priorityIds: CampaignPriorityId[] }

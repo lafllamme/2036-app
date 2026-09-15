@@ -192,7 +192,7 @@ Jede Stufe ist für sich spielbar und für sich sichtbar.
    entfernt und durch `requiresChoiceIds` / `blockedByChoiceIds` ersetzt — beide am *verschlossenen*
    Ereignis, weil sich eine Tür von der Tür aus leichter liest. Siehe `EVENT_MATRIX.md`.
 5. ✅ **Widerfahrnisse.** Dreizehn von neunundzwanzig Ereignissen sind jetzt Dinge, die passieren.
-6. **Ja/Nein auf fremde Vorlagen.** Andere Fraktionen bringen ein, deine Sitze zählen mit.
+6. ✅ **Ja/Nein auf fremde Vorlagen.** Andere Fraktionen bringen ein, deine Sitze zählen mit.
 
 
 ## Der Abschlussbericht
@@ -239,3 +239,35 @@ hat drei Fehler gezeigt, die in der Gestaltung untergegangen wären:
   Spielers. Die Sofortkosten einer Krise laufen als Maßnahme durch dieselbe Stelle wie ein Beschluss;
   seit die `drivers` nach Maßnahmenschlüssel statt nach Beschriftung ablegen, sind die beiden wieder
   unterscheidbar. **Was dir zustößt, ist nicht, was du getan hast.**
+
+
+## Fremde Vorlagen
+
+Ein Rat, in dem nur eine Gruppe je etwas einbringt, ist kein Rat, sondern ein Automat mit sechs
+Zuschauern. Eine Partei außerhalb der Koalition bringt jetzt selbst ein — und was der Spieler dann
+mitbringt, ist das, was jede andere Fraktion immer mitgebracht hat: ihre Sitze und die Richtung.
+
+| | |
+| --- | --- |
+| Wer | die Partei außerhalb der Koalition, die eine der Optionen am stärksten will (`supportFor` ≥ 0,55) |
+| Wie oft | 24 % Grundchance, plus bis zu 50 % je nachdem, wie weit die Koalition von der Mehrheit entfernt ist |
+| Gemessen über ein Jahrzehnt | drei bis fünf fremde Vorlagen gegen fünf bis zwölf eigene |
+| Was der Spieler tut | Dafür, Enthalten oder Dagegen. Keine Option wählen, keine Kampagne, keine Verhandlung |
+
+Wer den Rat zusammengehalten hat, setzt also überwiegend die Tagesordnung; wer ihn verloren hat,
+verbringt das Jahrzehnt damit, die Anträge anderer zu beantworten.
+
+### Drei Entscheidungen im Detail
+
+**Die Stimme wird entschieden, nicht gewürfelt — aber der Wurf passiert trotzdem.** `castVote` zieht
+für die Fraktion des Spielers weiterhin aus dem Strom und verwirft das Ergebnis. Den Wurf zu
+überspringen würde jeder späteren Fraktion eine andere Zahl geben, und derselbe Rat würde
+unterschiedlich abstimmen, je nachdem, wer die Vorlage eingebracht hat. Ein Test hält das fest.
+
+**Auf eigenen Vorlagen bleibt die eigene Partei modelliert.** Sie wird aus ihren Positionen
+gerechnet wie die anderen fünf — gelegentlich schmerzhaft, und richtig: eine Partei ist ihre
+Positionen und nicht der Wunsch ihrer Spitze.
+
+**Ein Nein verschiebt den Rückhalt nicht.** `shiftFromDecision` läuft nur, wenn der Spieler
+zugestimmt hat. Eine Vorlage abzulehnen ist kein Bekenntnis zu ihrem Gegenteil, und es so zu lesen
+hieße, dass man die Wählerschaft ein Jahrzehnt lang durch Neinsagen verschieben könnte.

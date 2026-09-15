@@ -513,6 +513,18 @@ export interface EventTrigger {
   baseWeight: number
   cooldownMonths: number
   oncePerCampaign: boolean
+  /**
+   * How many council seats the player's coalition needs before this can reach the agenda.
+   *
+   * What a coalition is *for*. It used to do one thing and do it invisibly: a partner's chance of
+   * voting yes went up by twelve hundredths. Nothing about holding thirty-one seats rather than
+   * eighteen changed what the player was ever offered, so the work of building a coalition had no
+   * visible reward and the player could not tell it had done anything.
+   *
+   * A motion nobody will carry does not get tabled in a real council either. Omitted means anybody
+   * may table it, however small their group.
+   */
+  minCoalitionSeats?: number
   requiresEventIds?: string[]
   blockedByMeasureIds?: string[]
   scheduledMonthOfYear?: number

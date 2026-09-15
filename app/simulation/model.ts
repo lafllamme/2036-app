@@ -295,6 +295,11 @@ export function resolveDecision(state: SimulationState, eventId: string, optionI
   return { state: next, result }
 }
 
+/** How many seats the player's coalition holds. One place, because two places drift apart. */
+export function seatsOfCoalition(state: SimulationState): number {
+  return state.coalitionPartyIds.reduce((sum, id) => sum + (state.seatsByParty[id] ?? 0), 0)
+}
+
 export const NEGOTIATION_COST = 12
 export const CAMPAIGN_COST = 18
 
@@ -475,7 +480,7 @@ function visualsFrom(metrics: CityMetrics, stocks: CityStocks): CityVisualState 
 function buildSnapshot(state: SimulationState): SimulationSnapshot {
   const health = healthFromState(state.metrics, state.perception)
   const date = dateForMonth(state.month)
-  const coalitionSeats = state.coalitionPartyIds.reduce((sum, id) => sum + (state.seatsByParty[id] ?? 0), 0)
+  const coalitionSeats = seatsOfCoalition(state)
   const measures: ActiveMeasureView[] = state.measures.map(measure => ({
     id: measure.key,
     label: measure.label,
@@ -557,7 +562,7 @@ export function advanceOneMonth(state: SimulationState): SimulationState {
   }
 
   // Draw at most one new event.
-  next = { ...next, streaks: updateStreaks({ month, metrics: next.metrics, cooldowns: next.cooldowns, streaks: next.streaks, firedOnce: next.firedOnce, openDecisions: next.pending.length, activeMeasureSources: next.measures.map(measure => measure.sourceId) }) }
+  next = { ...next, streaks: updateStreaks({ month, metrics: next.metrics, cooldowns: next.cooldowns, streaks: next.streaks, firedOnce: next.firedOnce, openDecisions: next.pending.length, activeMeasureSources: next.measures.map(measure => measure.sourceId), coalitionSeats: seatsOfCoalition(next) }) }
   const drawState: EventDrawState = {
     month,
     metrics: next.metrics,
@@ -566,6 +571,7 @@ export function advanceOneMonth(state: SimulationState): SimulationState {
     firedOnce: next.firedOnce,
     openDecisions: next.pending.length,
     activeMeasureSources: next.measures.map(measure => measure.sourceId),
+    coalitionSeats: seatsOfCoalition(next),
   }
   const drawn = drawEvent(drawState, monthOfYear, createRandomStream(state.seed, `events:${month}`))
 

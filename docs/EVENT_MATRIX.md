@@ -313,3 +313,28 @@ sagte.
 Optionen ist damit verbraucht, sobald über sie abgestimmt wurde, egal wie. Dass das Problem
 wiederkommt, ist Sache der Kennzahlen — die werden von allein schlechter — und der siebzehn anderen
 Ereignisse, die sie lesen. Die Niederlage selbst kostet weiterhin 4,5 Punkte Vertrauen.
+
+
+## Wozu eine Koalition da ist
+
+Sie tat eine Sache und tat sie unsichtbar: die Ja-Wahrscheinlichkeit eines Koalitionspartners stieg
+um 0,12. Ob der Spieler 31 oder 18 Sitze hinter sich hatte, änderte **nichts** daran, was ihm je
+angeboten wurde — Koalitionsarbeit hatte keine sichtbare Belohnung.
+
+Acht der achtzehn Vorlagen brauchen jetzt einen Rat hinter sich, bevor sie überhaupt auf die
+Tagesordnung kommen:
+
+| Sitze | Vorlage |
+| --- | --- |
+| 28 | Investor kauft 400 Wohnungen |
+| 26 | Radachse gegen Parkplätze |
+| 25 | Stadtgrün-Offensive |
+| 22 | Klagen auf einen Kitaplatz · Sozialbindungen laufen aus |
+| 20 | Bund schreibt Takterhöhung aus |
+| 18 | Rechenzentrum will sich ansiedeln |
+| 16 | Sanierungsstau wird zum Risiko |
+
+Die anderen zehn sind Dinge, die der Stadt *zustoßen* — eine gesperrte Brücke, eine Werkschließung,
+vom Land abgezogene Polizeistellen. Eine Krise wartet nicht auf deine Koalition, und das ist die
+Regel, die verhindert, dass die Schwelle zur Mauer wird: eine Stadt ganz ohne Koalition hat weiter
+Ereignisse, es sind nur die, die sie sich nicht ausgesucht hat. Keine Schwelle liegt über 30 von 60.

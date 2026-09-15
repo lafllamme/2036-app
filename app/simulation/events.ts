@@ -92,6 +92,8 @@ export interface EventDrawState {
   firedOnce: string[]
   openDecisions: number
   activeMeasureSources: string[]
+  /** How many seats the player's coalition holds. See `minCoalitionSeats` on the trigger. */
+  coalitionSeats: number
 }
 
 function conditionHolds(metrics: CityMetrics, metric: MetricId, operator: string, value: number): boolean {
@@ -153,6 +155,9 @@ export function eligibleEvents(state: EventDrawState, monthOfYear: number): Even
     if ((state.cooldowns[event.id] ?? 0) > state.month)
       return false
     if (trigger.scheduledMonthOfYear !== undefined && trigger.scheduledMonthOfYear !== monthOfYear)
+      return false
+    // Not enough of a council behind the player for this to be worth tabling. See the trigger.
+    if (trigger.minCoalitionSeats !== undefined && state.coalitionSeats < trigger.minCoalitionSeats)
       return false
     if (trigger.requiresEventIds?.some(id => !state.firedOnce.includes(id)))
       return false

@@ -160,6 +160,7 @@ function drawState(): EventDrawState {
     streaks: {},
     activeMeasureSources: [],
     openDecisions: 0,
+    coalitionSeats: 60,
   }
 }
 
@@ -194,5 +195,42 @@ describe('a motion the council has decided', () => {
     const undecided: EventDrawState = { ...drawState(), firedOnce: [] }
     // At least something can happen, or the test above would pass for the wrong reason.
     expect(eligibleEvents(undecided, 1).length).toBeGreaterThan(0)
+  })
+})
+
+describe('what a coalition is for', () => {
+  /*
+   * It used to do one thing and do it invisibly: a coalition partner's chance of voting yes went up
+   * by twelve hundredths. Nothing about holding thirty-one seats rather than eighteen changed what
+   * the player was ever offered, so building a coalition had no visible reward.
+   *
+   * Eight of the eighteen motions now need a council behind them before anybody will table them.
+   * The other ten are things that happen *to* the city — a bridge closed, a works shut, the state
+   * pulling police posts — and a crisis does not wait for your coalition.
+   */
+  it('offers a big coalition everything a small one is offered, and more', () => {
+    const small = eligibleEvents({ ...drawState(), coalitionSeats: 12 }, 1).map(event => event.id)
+    const large = eligibleEvents({ ...drawState(), coalitionSeats: 60 }, 1).map(event => event.id)
+    for (const id of small)
+      expect(large, id).toContain(id)
+    expect(large.length).toBeGreaterThan(small.length)
+  })
+
+  it('never gates a crisis behind a majority', () => {
+    /*
+     * The rule that keeps the threshold from becoming a wall: a city with no coalition at all still
+     * has events, and they are the ones it did not choose.
+     */
+    const alone = eligibleEvents({ ...drawState(), coalitionSeats: 0 }, 1)
+    expect(alone.length).toBeGreaterThan(0)
+    for (const event of alone)
+      expect(event.trigger.minCoalitionSeats, event.id).toBeUndefined()
+  })
+
+  it('asks for less than a majority even at its most demanding', () => {
+    // A threshold above half the council would mean a motion nobody without a majority ever sees,
+    // and the point is to reward building one rather than to lock the game behind it.
+    for (const event of EVENTS)
+      expect(event.trigger.minCoalitionSeats ?? 0, event.id).toBeLessThanOrEqual(30)
   })
 })

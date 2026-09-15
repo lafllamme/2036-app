@@ -155,7 +155,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Ein überregionaler Bestandshalter übernimmt 412 Wohnungen in Gründerzeit-Nord. Die Stadt hat ein Vorkaufsrecht, aber nur acht Wochen Zeit.',
     urgency: 'breaking',
-    trigger: { earliestMonth: 6, latestMonth: 96, conditions: [{ metric: 'vacantUnits', operator: '<', value: 3_000 }], baseWeight: 12, cooldownMonths: 40, oncePerCampaign: true },
+    trigger: { earliestMonth: 6, latestMonth: 96, conditions: [{ metric: 'vacantUnits', operator: '<', value: 3_000 }], baseWeight: 12, cooldownMonths: 40, oncePerCampaign: true, minCoalitionSeats: 28 },
     immediateEffects: [],
     defaultOptionId: 'hou-investor-none',
     expiresInMonths: 2,
@@ -205,7 +205,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Zum Jahreswechsel fallen erneut rund 900 Wohnungen aus der Preisbindung. Ohne Beschluss wird der Verlust dauerhaft.',
     urgency: 'important',
-    trigger: { earliestMonth: 24, latestMonth: 120, conditions: [], baseWeight: 100, cooldownMonths: 46, oncePerCampaign: false, scheduledMonthOfYear: 1 },
+    trigger: { earliestMonth: 24, latestMonth: 120, conditions: [], baseWeight: 100, cooldownMonths: 46, oncePerCampaign: false, scheduledMonthOfYear: 1, minCoalitionSeats: 22 },
     immediateEffects: [],
     defaultOptionId: 'hou-bindings-none',
     expiresInMonths: 3,
@@ -274,7 +274,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Eltern klagen auf den Rechtsanspruch. Die Betreuungsquote liegt unter der gesetzlichen Vorgabe, und die Verwaltung rechnet mit weiteren Verfahren.',
     urgency: 'important',
-    trigger: { earliestMonth: 6, latestMonth: 120, conditions: [{ metric: 'childcareCoverage', operator: '<', value: 93, sustainedMonths: 3 }], baseWeight: 11, cooldownMonths: 22, oncePerCampaign: false },
+    trigger: { earliestMonth: 6, latestMonth: 120, conditions: [{ metric: 'childcareCoverage', operator: '<', value: 93, sustainedMonths: 3 }], baseWeight: 11, cooldownMonths: 22, oncePerCampaign: false, minCoalitionSeats: 22 },
     immediateEffects: [],
     defaultOptionId: 'soc-childcare-litigate',
     expiresInMonths: 3,
@@ -429,7 +429,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die geplante Radachse durch die Innenstadt kostet 310 Stellplätze. Einzelhandel und Verkehrswende-Initiative stehen sich gegenüber.',
     urgency: 'normal',
-    trigger: { earliestMonth: 12, latestMonth: 120, conditions: [{ metric: 'transitCoverage', operator: '>', value: 60 }], baseWeight: 6, cooldownMonths: 34, oncePerCampaign: true },
+    trigger: { earliestMonth: 12, latestMonth: 120, conditions: [{ metric: 'transitCoverage', operator: '>', value: 60 }], baseWeight: 6, cooldownMonths: 34, oncePerCampaign: true, minCoalitionSeats: 26 },
     immediateEffects: [],
     defaultOptionId: 'mob-bike-postpone',
     expiresInMonths: 3,
@@ -479,7 +479,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Ein Bundesprogramm fördert Taktverdichtung mit 70 Prozent. Die Antragsfrist läuft in zwei Monaten ab, der Eigenanteil belastet den Haushalt.',
     urgency: 'important',
-    trigger: { earliestMonth: 26, latestMonth: 72, conditions: [], baseWeight: 8, cooldownMonths: 60, oncePerCampaign: true },
+    trigger: { earliestMonth: 26, latestMonth: 72, conditions: [], baseWeight: 8, cooldownMonths: 60, oncePerCampaign: true, minCoalitionSeats: 20 },
     immediateEffects: [],
     defaultOptionId: 'mob-funding-skip',
     expiresInMonths: 2,
@@ -535,7 +535,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die Grünfläche pro Kopf ist unter den Zielwert gefallen. Ein Entsiegelungs- und Pflanzprogramm wirkt erst in Jahren, aber nur, wenn es jetzt beginnt.',
     urgency: 'normal',
-    trigger: { earliestMonth: 10, latestMonth: 110, conditions: [{ metric: 'greenSpacePerCapita', operator: '<', value: 21.4 }], baseWeight: 7, cooldownMonths: 24, oncePerCampaign: false },
+    trigger: { earliestMonth: 10, latestMonth: 110, conditions: [{ metric: 'greenSpacePerCapita', operator: '<', value: 21.4 }], baseWeight: 7, cooldownMonths: 24, oncePerCampaign: false, minCoalitionSeats: 25 },
     immediateEffects: [],
     defaultOptionId: 'env-green-none',
     expiresInMonths: 4,
@@ -626,7 +626,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Ein Betreiber sucht 14 Hektar in Gewerbe Ost. Gewerbesteuer und wenige Arbeitsplätze stehen gegen Stromverbrauch, Flächenfraß und Abwärme.',
     urgency: 'normal',
-    trigger: { earliestMonth: 24, latestMonth: 96, conditions: [], baseWeight: 5, cooldownMonths: 60, oncePerCampaign: true },
+    trigger: { earliestMonth: 24, latestMonth: 96, conditions: [], baseWeight: 5, cooldownMonths: 60, oncePerCampaign: true, minCoalitionSeats: 18 },
     immediateEffects: [],
     defaultOptionId: 'eco-datacenter-reject',
     expiresInMonths: 3,
@@ -682,7 +682,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Das Bauamt meldet Brücken, Schulen und Kanäle mit überschrittener Nutzungsdauer. Ohne dauerhaft höheren Unterhalt wächst der Stau weiter.',
     urgency: 'important',
-    trigger: { earliestMonth: 9, latestMonth: 120, conditions: [{ metric: 'investmentBacklog', operator: '>', value: 112 }], baseWeight: 10, cooldownMonths: 24, oncePerCampaign: false },
+    trigger: { earliestMonth: 9, latestMonth: 120, conditions: [{ metric: 'investmentBacklog', operator: '>', value: 112 }], baseWeight: 10, cooldownMonths: 24, oncePerCampaign: false, minCoalitionSeats: 16 },
     immediateEffects: [],
     defaultOptionId: 'fin-maintenance-none',
     expiresInMonths: 4,

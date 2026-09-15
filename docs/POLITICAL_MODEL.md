@@ -35,7 +35,7 @@ Party axis values are authored from the official 2025 programmes already recorde
 
 ---
 
-# Zehn Jahre regieren: Rückhalt, Wahlen, Niederlage
+## Zehn Jahre regieren: Rückhalt, Wahlen, Niederlage
 
 Der politische Teil des Spiels war bis hierhin ein **Standbild**. `seatsFromContent()` liest die
 Sitze einmal aus `parties.ts` und danach nie wieder; der Rat vom Januar 2026 ist derselbe im Dezember
@@ -45,7 +45,7 @@ niemand liest sie.
 
 Das Folgende ist das Konzept, das daraus ein Spiel macht, das man **verlieren** kann.
 
-## 1. Jeder Wahlberechtigte ist eine Stimme
+### 1. Jeder Wahlberechtigte ist eine Stimme
 
 Der Rückhalt ist kein neuer Regler, sondern eine Verteilung: `support[party]`, sechs Zahlen, die sich
 zu eins addieren. Sie beginnt bei den geschriebenen `stats.publicSupport` und wandert danach.
@@ -69,7 +69,7 @@ Straße.
 Zwischen zwei Wahlen ändern sich die **Sitze nicht**. Der Rückhalt wandert darunter, sichtbar, und
 das ist die Spannung: du regierst mit einer Mehrheit, die nicht mehr die Stadt ist.
 
-## 2. Die Mehrheit ist verderblich
+### 2. Die Mehrheit ist verderblich
 
 Du startest mit einer regierungsfähigen Koalition — das ist die Prämisse: du hast etwas zu sagen.
 Aber sie ist nicht garantiert:
@@ -82,7 +82,7 @@ Aber sie ist nicht garantiert:
 Damit bekommen Verhandeln und Kampagne ihren Sinn zurück. Sie sind nicht mehr die Notwehr einer
 Minderheitsregierung, sondern das Werkzeug, mit dem man eine Mehrheit **behält**.
 
-## 3. Zwei Kommunalwahlen
+### 3. Zwei Kommunalwahlen
 
 Die Kampagne läuft Januar 2026 bis Dezember 2036. Gewählt wird zu **Monat 60 (Januar 2031)** und
 **Monat 120 (Januar 2036)** — fünf Jahre Wahlperiode, wie in den meisten Ländern. Die erste Wahl ist
@@ -91,7 +91,7 @@ die Halbzeitprüfung, die zweite entscheidet das letzte Jahr.
 Ein Wahlabend ist ein Ereignis wie jedes andere: eine Schlagzeile, ein Blatt mit dem Ergebnis, der
 neue Rat, die neue Koalition. Kein Bildschirmwechsel.
 
-## 4. Verlieren
+### 4. Verlieren
 
 Es gibt zwei Arten, und sie fühlen sich verschieden an.
 
@@ -110,7 +110,7 @@ Monat nicht das Spiel beendet:
 Beide enden im selben Abschlussbericht. Ein schwarzer Bildschirm wäre die falsche Antwort auf zehn
 Jahre Arbeit.
 
-## 5. Zwei Sorten Ereignisse
+### 5. Zwei Sorten Ereignisse
 
 `EventKind` unterscheidet das bereits: `decision | chain | milestone` gegen `incident | external`.
 Heute stehen 10 Entscheidungen 5 Widerfahrnissen gegenüber.
@@ -125,7 +125,7 @@ Das Zweite ist der dünnste Teil des Spiels und braucht neuen Inhalt: Hochwasser
 Chemieunfall im Hafen, Anschlag, Cyberangriff auf die Verwaltung, Pandemiewelle. Jedes davon liest
 dieselben Kennzahlen wie alles andere — kein Ereignis bekommt eine eigene Konstante.
 
-## 6. Türen, die zufallen
+### 6. Türen, die zufallen
 
 Das Wichtigste zuerst: **die Mechanik dafür ist gebaut und wird nirgends benutzt.**
 
@@ -148,7 +148,7 @@ Das Ziel ist „Die Insel der 1000 Gefahren": Was du entscheidest, schließt Tü
 - **Kampagnenschwerpunkte** — die drei Prioritäten vom Spielstart gewichten, was überhaupt gezogen
   wird. Heute ändern sie nur die Auswertung am Ende.
 
-## Baureihenfolge
+### Baureihenfolge
 
 Jede Stufe ist für sich spielbar und für sich sichtbar.
 

@@ -47,11 +47,16 @@ Sortiert nach Verhältnis von Wirkung zu Aufwand. Jede Zeile ist für sich liefe
 „Wenn ich einfach nur nächster Monat durchskippe, finde ich die Changes nicht." Das ist kein
 Ungeduldsproblem, das sind drei Fehler:
 
-**Es gibt keinen Bezugspunkt.** Eine Zahl ohne Vorher ist keine Information. Jede Kennzahl im
-Lagebild bekommt einen **Hover-Text mit dem Stand bei Amtsantritt**: *„Kriminalität 52 / 1 000 —
-seit Amtsantritt +7 %. Zuletzt bewegt durch: Polizeistellen gestrichen (Monat 14)."* Der
-Ausgangswert steht in `createInitialState`, die Ursache in `causalEdges`. Beides existiert, beides
-wird nicht gezeigt.
+✅ **Es gibt keinen Bezugspunkt.** Eine Zahl ohne Vorher ist keine Information. Jede Kennzahl im
+Lagebild hat jetzt einen **Hover-Text mit dem Stand bei Amtsantritt**: *„Bei Amtsantritt 13,20 €/m².
+In 4 Monaten +0,8 % — die Gegenrichtung."* Der Ausgangswert liegt als `baselineMetrics` **im
+Zustand**, nicht im Renderer: ein Bezugspunkt, der beim Laden zurückspringt, ist schlimmer als
+keiner, weil er dem Spieler leise erzählt, er habe nichts verändert. Ein Spielstand von vor diesem
+Feld nimmt den Ladezeitpunkt als ersten Tag — ungenau, aber die Alternative wäre ein Vergleich gegen
+`undefined`.
+
+Noch offen: **die Ursache dazu.** `causalEdges` weiß, welche Maßnahme eine Kennzahl zuletzt bewegt
+hat, und wird nirgends gezeigt.
 
 **Veränderung wird nicht markiert.** Was sich in diesem Monat bewegt hat, muss sich melden, statt
 still eine Stelle hinter dem Komma zu wandern.

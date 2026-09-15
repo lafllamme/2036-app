@@ -283,6 +283,8 @@ export interface SimulationSnapshot {
   monthOfYear: number
   metrics: CityMetrics
   previousMetrics: CityMetrics
+  /** The city as it was on the first day, so every number can say what the player has changed. */
+  baselineMetrics: CityMetrics
   health: HealthScores
   perception: PerceptionState
   activePolicyIds: string[]

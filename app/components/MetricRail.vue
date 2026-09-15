@@ -18,6 +18,34 @@ function toggleRail(): void {
 
 const metrics = computed(() => snapshot.value?.metrics)
 const previous = computed(() => snapshot.value?.previousMetrics)
+const baseline = computed(() => snapshot.value?.baselineMetrics)
+const months = computed(() => snapshot.value?.month ?? 0)
+
+/**
+ * What a number has done since the player took office.
+ *
+ * The complaint this answers: pressing "nächster Monat" a dozen times and being unable to tell that
+ * anything happened. A value on its own cannot say that — "Kriminalität 52 / 1.000" is a fact about
+ * the city and not about the player. The same number against the day they started is the whole
+ * story, and the baseline for it has been sitting unused in the simulation since the first month.
+ */
+function sinceStart(key: keyof NonNullable<typeof metrics.value>, goodDirection: 1 | -1, unit = ''): string {
+  const now = metrics.value?.[key]
+  const then = baseline.value?.[key]
+  if (now === undefined || then === undefined)
+    return ''
+  const term = months.value < 1 ? 'Seit Amtsantritt' : `In ${months.value} ${months.value === 1 ? 'Monat' : 'Monaten'}`
+  const delta = now - then
+  // Below a twentieth of a per cent there is nothing to report, and saying so is also an answer.
+  if (Math.abs(delta) < Math.abs(then || 1) * 0.0005)
+    return `${term} unverändert.`
+  const share = then === 0 ? null : (delta / Math.abs(then)) * 100
+  const direction = Math.sign(delta) === goodDirection ? 'die Richtung, die du wolltest' : 'die Gegenrichtung'
+  const amount = share === null
+    ? `${delta > 0 ? '+' : '−'}${formatNumber(Math.abs(delta), 1)}${unit}`
+    : `${delta > 0 ? '+' : '−'}${formatNumber(Math.abs(share), 1)} %`
+  return `Bei Amtsantritt ${formatNumber(then, 2)}${unit}. ${term} ${amount} — ${direction}.`
+}
 
 function compact(value: number): string {
   return new Intl.NumberFormat('de-DE', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
@@ -42,12 +70,12 @@ const headline = computed(() => {
   const m = metrics.value
   const vacancy = (m.vacantUnits / Math.max(1, m.housingUnits)) * 100
   return [
-    { label: 'Einwohner', value: compact(m.population), trend: trend('population', 1) },
-    { label: 'Beschäftigung', value: `${formatNumber(m.employment, 1)} %`, trend: trend('employment', 1) },
-    { label: 'Ø Angebotsmiete', value: `${formatNumber(m.averageRent, 2)} €/m²`, trend: trend('averageRent', -1) },
-    { label: 'Freie Wohnungen', value: `${formatNumber(m.vacantUnits)} · ${formatNumber(vacancy, 1)} %`, trend: trend('vacantUnits', 1) },
-    { label: 'Kriminalität', value: `${formatNumber(m.crimeRate)} / 1.000`, trend: trend('crimeRate', -1) },
-    { label: 'Haushaltsspielraum', value: `${formatNumber(m.cityBudget)} Mio. €`, trend: trend('cityBudget', 1) },
+    { label: 'Einwohner', value: compact(m.population), trend: trend('population', 1), since: sinceStart('population', 1) },
+    { label: 'Beschäftigung', value: `${formatNumber(m.employment, 1)} %`, trend: trend('employment', 1), since: sinceStart('employment', 1, ' %') },
+    { label: 'Ø Angebotsmiete', value: `${formatNumber(m.averageRent, 2)} €/m²`, trend: trend('averageRent', -1), since: sinceStart('averageRent', -1, ' €/m²') },
+    { label: 'Freie Wohnungen', value: `${formatNumber(m.vacantUnits)} · ${formatNumber(vacancy, 1)} %`, trend: trend('vacantUnits', 1), since: sinceStart('vacantUnits', 1) },
+    { label: 'Kriminalität', value: `${formatNumber(m.crimeRate)} / 1.000`, trend: trend('crimeRate', -1), since: sinceStart('crimeRate', -1, ' / 1.000') },
+    { label: 'Haushaltsspielraum', value: `${formatNumber(m.cityBudget)} Mio. €`, trend: trend('cityBudget', 1), since: sinceStart('cityBudget', 1, ' Mio. €') },
   ]
 })
 
@@ -119,11 +147,11 @@ const perception = computed(() => snapshot.value?.perception)
     </header>
 
     <dl v-if="metrics" class="metric-list">
-      <div v-for="item in headline" :key="item.label">
+      <div v-for="item in headline" :key="item.label" :title="item.since">
         <dt>{{ item.label }}</dt>
         <dd>
           {{ item.value }}
-          <i class="trend" :class="item.trend.tone" :title="item.trend.word">{{ item.trend.mark }}</i>
+          <i class="trend" :class="item.trend.tone" :title="`${item.trend.word} gegenüber dem Vormonat`">{{ item.trend.mark }}</i>
         </dd>
       </div>
     </dl>

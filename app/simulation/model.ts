@@ -75,6 +75,15 @@ export interface SimulationState {
   priorityIds: CampaignPriorityId[]
   metrics: CityMetrics
   previousMetrics: CityMetrics
+  /**
+   * The city as it was on the first day, kept for the whole campaign.
+   *
+   * A number on its own is not information. "Kriminalität 52 / 1.000" says nothing about whether the
+   * player is doing well; "52, seit Amtsantritt +7 %" says everything. Held in the state rather than
+   * recomputed, because it has to survive a save — a baseline that resets on reload is worse than
+   * none, since it quietly tells the player they have changed nothing.
+   */
+  baselineMetrics: CityMetrics
   stocks: CityStocks
   perception: PerceptionState
   measures: ActiveMeasure[]
@@ -181,6 +190,7 @@ export function createInitialState(seed = 2036, partyId: PartyId | null = null, 
     seatsByParty: seatsFromContent(),
     coalitionPartyIds: formCoalition(partyId),
     support: initialSupport(),
+    baselineMetrics: { ...metrics },
     edges: { months: {} },
     defeat: null,
     news: [{ id: 'news-opening', month: 0, scope: 'city', urgency: 'important', headline: 'LINDENHAFEN: Neuer Stadtrat nimmt Arbeit für das Jahrzehnt 2026–2036 auf' }],
@@ -343,6 +353,9 @@ export function migrateState(state: SimulationState): SimulationState {
   return {
     ...state,
     support: state.support ?? initialSupport(),
+    // A campaign saved before the baseline existed takes today as its first day. Not accurate, but
+    // the alternative is a comparison against `undefined`, which is a crash.
+    baselineMetrics: state.baselineMetrics ?? { ...state.metrics },
     edges: state.edges ?? { months: {} },
     defeat: state.defeat ?? null,
     relationships: state.relationships ?? {},
@@ -564,6 +577,7 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     coalitionSupport: coalitionSeats,
     support: state.support ?? initialSupport(),
     defeat: state.defeat ?? null,
+    baselineMetrics: state.baselineMetrics ?? state.metrics,
     causalEdges: state.causalEdges,
     news: state.news,
     cityVisuals: visualsFrom(state.metrics, state.stocks),

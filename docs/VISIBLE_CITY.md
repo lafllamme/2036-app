@@ -31,7 +31,7 @@ Sortiert nach Verhältnis von Wirkung zu Aufwand. Jede Zeile ist für sich liefe
 | --- | --- | --- | --- |
 | 1 ✅ | `support` | **Jeder NPC hat eine politische Neigung.** Rechtsklick sagt, wen diese Person wählen würde — und in fünf Jahren steht dort etwas anderes. | gebaut: `leaning.ts` |
 | 2 ✅ | `responseCapacity` | **Polizei zu Fuß auf Streife**, in der Zahl, die die Kennzahl hergibt. Personal gestrichen heißt: leere Straßen. | gebaut: `agents.patrol` |
-| 3 | `burglaryRate` | **Einbrecher als eigene Rolle**, nachts unterwegs, an Häusern. Heute erzeugt die Zahl nur Einsätze. | Rolle + Verhalten |
+| 3 ✅ | `burglaryPressure` | **Jemand an einem Haus um zwei Uhr nachts** — abseits des Gehwegs, zur Wand gedreht. | gebaut: `prowlers.ts` |
 | 4 ✅ | `homelessPeople` (neu) | **Menschen in Eingängen.** Steigt mit Miete, fehlendem Leerstand und Arbeitslosigkeit, fällt mit gebundenem Bestand. | gebaut: `roughSleeping.ts` |
 | 5 | `vacancyRate` | **Nachts dunkle Fenster**, vernagelte Erdgeschosse. Heute: null Leser. | Fenstermaterial vorhanden |
 | 6 | `youthUnemployment` / `idleness` | **Leute stehen tagsüber herum**, statt zu gehen. Eine Stadt ohne Arbeit sieht anders aus als eine im Berufsverkehr. | Verhalten im `Fleet` |
@@ -84,7 +84,7 @@ nichts passiert ist, ist auch das eine Auskunft.
    Partei nahm alle. Nähe fällt jetzt exponentiell.
 2. **Hover-Erklärungen mit Amtsantritts-Vergleich** — ohne Bezugspunkt bleibt jede weitere
    Sichtbarmachung unlesbar.
-3. 🟡 **Polizei ✅, Obdachlose ✅, Einbrecher.** Die Streife steht: ein Vorrat von 70 Beamten, und wie
+3. ✅ **Polizei, Obdachlose, Einbrecher.** Die Streife steht: ein Vorrat von 70 Beamten, und wie
    viele davon tatsächlich laufen, ist `responseCapacity` **im Quadrat** — 3 in der sichtbaren Stadt
    bei heruntergefahrenem Dienst, 70 bei vollem. Quadriert und nicht linear, weil ein linearer
    Zusammenhang den Unterschied zwischen einer guten und einer schlechten Entscheidung wie nichts
@@ -134,3 +134,21 @@ innen. Jeden Monat neu zu würfeln, welcher Eingang besetzt ist, läse sich als 
 
 Das Modell dafür ist die **Sitz-Pose**, die für die Radfahrer ohnehin geladen wird — dieselben zwölf
 Figuren, sitzend eingefroren. Kostet nichts.
+
+
+## Einbrüche, die man sieht
+
+Die Einbruchsrate erzeugte Polizeieinsätze und sonst nichts — im Panel lesbar, in der Stadt
+unsichtbar. Die Schwierigkeit ist, dass ein Einbrecher **genau wie alle anderen aussieht**: mehr
+Fußgänger zu zeichnen hätte gar nichts gezeigt.
+
+Lesbar ist nicht die Person, sondern **der falsche Ort zur falschen Zeit**. Alle anderen in dieser
+Stadt sind auf einem Gehweg; wer abseits davon an einer Hausfront steht, zur Wand gedreht, mitten in
+der Nacht, ist es nicht. Das liest sich sofort und braucht kein neues Modell — dunkle Kleidung als
+Instanzfarbe reicht.
+
+Die beiden Signale **multiplizieren** sich, und das ist der Entwurf: Eine Stadt mit einem
+Einbruchsproblem sieht mittags aus wie jede andere, und das ist richtig. Was der Spieler sieht, ist
+dieselbe Straße um zwei Uhr nachts als eine andere Straße. Nichts vor 23 Uhr, nichts nach 5 Uhr, mit
+einer Stunde Überblendung an beiden Enden — ein Zähler, der zwischen zwei Frames umspringt, liest
+sich als Fehler, eine Stunde Überblendung als Einbruch der Nacht.

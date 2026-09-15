@@ -5,6 +5,7 @@ import type { Agents } from './agents'
 import type { CityBuildings } from './buildings'
 import type { IncidentScenes } from './incidentScene'
 import type { ParkedCars } from './parkedCars'
+import type { Prowlers } from './prowlers'
 import type { Railway } from './railway'
 import type { RoadNetwork } from './roadNetwork'
 import type { RoughSleeping } from './roughSleeping'
@@ -20,6 +21,7 @@ import { addGround } from './ground'
 import { createGrowth } from './growth'
 import { createIncidentScenes } from './incidentScene'
 import { addParkedCars } from './parkedCars'
+import { addProwlers } from './prowlers'
 import { addRailway } from './railway'
 import { buildRoadNetwork } from './roadNetwork'
 import { addRoads } from './roads'
@@ -59,6 +61,8 @@ export interface WorldVisuals extends CityBuildings, CityTrees {
   railway: Railway | null
   /** People the housing market has left outside. Placed once, counted every month. */
   roughSleeping: RoughSleeping
+  /** Somebody at a house at two in the morning. Counted from the burglary pressure and the hour. */
+  prowlers: Prowlers
 }
 
 export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): WorldVisuals {
@@ -86,5 +90,6 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
     ships: addShips(scene, blueprint),
     railway: addRailway(scene, blueprint),
     roughSleeping: addRoughSleeping(scene, blueprint, models),
+    prowlers: addProwlers(scene, blueprint, models),
   }
 }

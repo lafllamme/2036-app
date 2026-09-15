@@ -18,6 +18,7 @@ import { CityState } from './world/cityState'
 import { updateIncidentScenes } from './world/incidentScene'
 import { createWorld } from './world/index'
 import { fitParkedDetail } from './world/parkedCars'
+import { updateProwlers } from './world/prowlers'
 import { updateRailway } from './world/railway'
 import { updateShips } from './world/ships'
 import { updateSignals } from './world/trafficLights'
@@ -398,6 +399,11 @@ export class CityRenderer {
         distance,
       )
       updateSignals(this.world.signals, this.animationElapsed)
+      /*
+       * Somebody at a house at two in the morning. Driven from here rather than from the monthly
+       * apply, because half of what it answers to is the clock rather than the city.
+       */
+      updateProwlers(this.world.prowlers, this.city.pressure.burglary, this.hourOfDay)
       /*
        * The city's sound follows the same two numbers the traffic does. It is driven from here
        * rather than from a watcher because those numbers are the renderer's own — how much is

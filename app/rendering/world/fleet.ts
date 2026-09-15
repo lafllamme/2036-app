@@ -106,6 +106,9 @@ const WALKING_FLOOR = 0.8
 /** How far ahead somebody is noticed at all, and how quickly the step aside is taken, per second. */
 const WALKING_NOTICE = 6
 const SIDESTEP = 0.9
+/** How much a fleet prefers going straight on. A car runs down an avenue; a person turns a corner. */
+const DRIVER_STRAIGHTNESS = 0.12
+const WALKER_STRAIGHTNESS = 0.8
 /** How far before a junction a car starts braking for a red, and where it comes to rest. */
 const STOP_ZONE = 34
 const STOP_LINE = 5
@@ -177,6 +180,15 @@ export interface Fleet {
    * walks around.
    */
   queues: boolean
+  /**
+   * How strongly this fleet prefers to carry straight on at a junction.
+   *
+   * The floor added to the straightness weight: low means a car, which runs along an avenue; high
+   * means a person, who turns a corner without thinking about it.
+   */
+  straightness: number
+  /** How many of this fleet are on each stretch, counted on the recycling pass. */
+  occupancy: Map<number, number>
   /** How full the surroundings can be, 0 … 1. Multiplies the quality governor's own share. */
   density: number
   /** Frames since the last recycling pass. */
@@ -334,6 +346,8 @@ export function buildFleet(
     gathers: plan.gatherRange ?? (plan.people === true ? [RECYCLE_RANGE, GATHER_RANGE] : null),
     spacing: plan.spacing,
     queues: plan.people !== true,
+    straightness: plan.people === true ? WALKER_STRAIGHTNESS : DRIVER_STRAIGHTNESS,
+    occupancy: new Map(),
     density: 1,
     sinceGather: 0,
     index: plan.gatherRange || plan.people === true ? indexEdges(network, allowed) : null,
@@ -622,6 +636,15 @@ function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, [stray, r
     return
   fleet.sinceGather = 0
 
+  /*
+   * How many of this fleet are on each stretch. Counted here rather than per frame because `turn`
+   * needs it only when somebody reaches a junction, and twelve frames out of date is a street that
+   * was full a third of a second ago.
+   */
+  fleet.occupancy.clear()
+  for (const traveller of fleet.all)
+    fleet.occupancy.set(traveller.edge, (fleet.occupancy.get(traveller.edge) ?? 0) + 1)
+
   const candidates = index.near(camera.x, camera.z, reach)
   if (candidates.length === 0) {
     fleet.density = 0
@@ -791,7 +814,7 @@ function advance(fleet: Fleet, streets: Streets, delta: number, elapsed: number)
     traveller.along += traveller.forward ? step : -step
 
     if (traveller.forward ? traveller.along >= edge.length : traveller.along <= 0)
-      turn(network, traveller, edge)
+      turn(network, fleet, traveller, edge)
   }
 
   /*
@@ -846,7 +869,7 @@ function order(a: Traveller, b: Traveller): number {
  * allowed at a dead end — a car that turns round in the middle of a crossroads reads as a glitch
  * even when a real one would be allowed to.
  */
-function turn(network: RoadNetwork, traveller: Traveller, edge: RoadEdge): void {
+function turn(network: RoadNetwork, fleet: Fleet, traveller: Traveller, edge: RoadEdge): void {
   const node = traveller.forward ? edge.to : edge.from
   const arriving = traveller.forward ? edge.inBearing : edge.outBearing + Math.PI
   const junction = network.nodes[node]
@@ -888,9 +911,31 @@ function turn(network: RoadNetwork, traveller: Traveller, edge: RoadEdge): void 
       if (candidate === traveller.edge)
         continue
       const leaving = bearingFrom(network.edges[candidate]!, node)
-      // One for straight on, nothing for a right angle, and a floor so a turn is never impossible.
+      /*
+       * One for straight on, and a floor so a turn is never impossible.
+       *
+       * The floor is the whole difference between a road and a pavement. At 0.12 going straight is
+       * **nine times** as likely as turning a corner — which is what a car does and is why traffic
+       * runs along an avenue rather than wandering. Every fleet shared it, so the crowd did the same
+       * thing: everybody who entered a long straight street stayed on it, and since recycling only
+       * ever touches people who have strayed far from the camera, nothing ever broke the column up
+       * again. That is the line of forty people down one street, and it is not a following problem
+       * or a speed problem — it is nine to one at every junction, compounded.
+       *
+       * A person turning a corner is an ordinary thing. At 0.8 straight on is still preferred, by
+       * about two to one rather than nine.
+       */
       const straightness = Math.cos(leaving - arriving)
-      weight = 0.12 + Math.max(0, straightness) ** 2.2
+      weight = fleet.straightness + Math.max(0, straightness) ** 2.2
+      /*
+       * And nobody walks into a street that is already full. Crowding is counted per stretch on the
+       * recycling pass, so this costs a lookup — a pavement with twice as many people on it as it
+       * should carry is half as attractive, which is what makes a crowd spread over a quarter rather
+       * than pile into one road.
+       */
+      const crowd = fleet.occupancy.get(candidate) ?? 0
+      const room = Math.max(1, (network.edges[candidate]!.length) / fleet.spacing)
+      weight /= 1 + Math.max(0, crowd / room - 1)
       bestTotal += weight
       if (traveller.rng() * bestTotal < weight)
         chosen = candidate

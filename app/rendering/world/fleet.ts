@@ -585,11 +585,11 @@ const position = /* @__PURE__ */ new THREE.Vector3()
 const scale = /* @__PURE__ */ new THREE.Vector3(1, 1, 1)
 const sample = { x: 0, y: 0, z: 0, ux: 0, uz: 1 }
 
-export function drive(fleet: Fleet, streets: Streets, delta: number, elapsed: number, share: number, camera?: THREE.Vector3): void {
+export function drive(fleet: Fleet, streets: Streets, delta: number, elapsed: number, share: number, camera?: THREE.Vector3, focus?: THREE.Vector3): void {
   if (share > 0)
     advance(fleet, streets, Math.min(0.2, delta), elapsed)
   if (camera && fleet.gathers)
-    gather(fleet, streets, camera, fleet.gathers)
+    gather(fleet, streets, camera, focus ?? camera, fleet.gathers)
 
   // What this fleet has within earshot, counted fresh: the sound asks the fleets, not the reverse.
   fleet.nearby = 0
@@ -650,7 +650,15 @@ export function drive(fleet: Fleet, streets: Streets, delta: number, elapsed: nu
  * so a fleet is as reproducible as it was before — a city that looks different on the second run
  * from the same seed is a city nobody can debug.
  */
-function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, [stray, reach]: [number, number]): void {
+/**
+ * Put whoever has strayed back where the player is looking, and work out how many belong there.
+ *
+ * `camera` and `focus` are deliberately two arguments. Who gets *drawn* is decided by distance to
+ * the lens — that is what makes somebody big enough to see. Where somebody *belongs* is decided by
+ * what the player is looking at, and from an oblique overview those are hundreds of metres apart:
+ * gathering around the camera collected the whole crowd behind and below the view.
+ */
+function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, focus: THREE.Vector3, [stray, reach]: [number, number]): void {
   const index = fleet.index
   if (!index)
     return
@@ -695,7 +703,7 @@ function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, [stray, r
   for (const crew of fleet.crews)
     crew.sort((a, b) => a.fromCamera - b.fromCamera)
 
-  const candidates = index.near(camera.x, camera.z, reach)
+  const candidates = index.near(focus.x, focus.z, reach)
   if (candidates.length === 0) {
     fleet.density = 0
     return
@@ -769,7 +777,8 @@ function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, [stray, r
      * and it was the whole fleet doing it, every frame.
      */
     sampleEdge(edge, THREE.MathUtils.clamp(traveller.along, 0, edge.length), sample)
-    if (Math.hypot(sample.x - camera.x, sample.z - camera.z) < stray)
+    // Measured against what the player is looking at, not against the lens. See the note above.
+    if (Math.hypot(sample.x - focus.x, sample.z - focus.z) < stray)
       continue
 
     // Wherever there is the most room left. Ties go to the first, which is stable and does not matter.

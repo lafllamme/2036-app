@@ -303,6 +303,16 @@ export function updateAgents(
   delta: number,
   elapsed: number,
   camera: THREE.Vector3,
+  /**
+   * The point on the ground the player is actually looking at.
+   *
+   * Kept apart from the camera, because the two answer different questions. Where somebody *belongs*
+   * is decided by where the player is looking; who gets *drawn* is decided by who is near the lens.
+   * They are the same place at street level and nowhere near each other from an oblique overview —
+   * so a crowd gathered around the camera collected behind and below the view, in the part of the
+   * city nobody was looking at.
+   */
+  focus: THREE.Vector3,
   cameraDistance: number,
   trafficFactor: number,
   hourOfDay: number,
@@ -322,11 +332,11 @@ export function updateAgents(
   dispatch(agents, elapsed)
 
   const streets: Streets = { network: agents.network, signals: agents.signals, pressure: agents.pressure }
-  drive(agents.cars, streets, delta, elapsed, cameraDistance > CAR_RANGE ? 0 : busy, camera)
+  drive(agents.cars, streets, delta, elapsed, cameraDistance > CAR_RANGE ? 0 : busy, camera, focus)
   // Cycling follows the same hour as driving, and a little more of it in the middle of the day.
-  drive(agents.cyclists, streets, delta, elapsed, cameraDistance > CYCLIST_RANGE ? 0 : busy, camera)
+  drive(agents.cyclists, streets, delta, elapsed, cameraDistance > CYCLIST_RANGE ? 0 : busy, camera, focus)
   // People are out when the city is awake, but a pavement is never as empty as a road at night.
-  drive(agents.pedestrians, streets, delta, elapsed, cameraDistance > WALKER_RANGE ? 0 : 0.35 + busy * 0.65, camera)
+  drive(agents.pedestrians, streets, delta, elapsed, cameraDistance > WALKER_RANGE ? 0 : 0.35 + busy * 0.65, camera, focus)
 
   /*
    * What the sound reads, summed from the fleets rather than written by them.

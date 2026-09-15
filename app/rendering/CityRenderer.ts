@@ -383,6 +383,7 @@ export class CityRenderer {
         this.slowClock,
         this.animationElapsed,
         this.rig.camera.position,
+        this.rig.controls.target,
         distance,
         this.city.trafficFactor,
         this.hourOfDay,

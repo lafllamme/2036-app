@@ -22,7 +22,9 @@ import { getEvent } from '~/content/events'
 import { getPolicy } from '~/content/policies'
 import { CAMPAIGN_LAST_MONTH, isCampaignComplete } from '~/core/campaign'
 import { formatClock, readDaylight } from '~/core/daylight'
+import { initialSupport } from '~/simulation/electorate'
 import { citizenAt } from '~/world/citizens'
+import { leaningOf } from '~/world/leaning'
 import { createCityReports } from './cityReports'
 import { clearSummary, readSave, readSummary, writeSave } from './saveStore'
 
@@ -63,7 +65,7 @@ export const useGameStore = defineStore('game', () => {
    * nobody is stored and everybody is the same person every time they are asked about. It is a
    * reading and never an input: nothing the simulation does is changed by having looked.
    */
-  const selectedCitizen = shallowRef<(Citizen & { x: number, z: number }) | null>(null)
+  const selectedCitizen = shallowRef<(Citizen & { x: number, z: number, leaning: PartyId }) | null>(null)
 
   function selectPerson(person: PersonAt | null): void {
     if (!person) {
@@ -71,7 +73,14 @@ export const useGameStore = defineStore('game', () => {
       return
     }
     const share = snapshot.value?.cityVisuals.originMix ?? 0
-    selectedCitizen.value = { ...citizenAt(person.citizen, 2036, share), x: person.x, z: person.z }
+    const citizen = citizenAt(person.citizen, 2036, share)
+    /*
+     * Who this person would vote for, today. Their own position is fixed for life and derived from
+     * who they are; which party it lands on also depends on how the city is currently leaning, so
+     * the same person can answer differently in 2031 than in 2026 without having changed their mind.
+     */
+    const leaning = leaningOf(citizen, person.citizen, 2036, snapshot.value?.support ?? initialSupport())
+    selectedCitizen.value = { ...citizen, leaning, x: person.x, z: person.z }
   }
   /**
    * Where the player has asked to be taken.

@@ -29,7 +29,7 @@ Sortiert nach Verhältnis von Wirkung zu Aufwand. Jede Zeile ist für sich liefe
 
 | # | Kennzahl | Was man sieht | Woran es hängt |
 | --- | --- | --- | --- |
-| 1 | `support` (neu) | **Jeder NPC hat eine politische Neigung.** Rechtsklick sagt, wen diese Person wählen würde — und in fünf Jahren steht dort etwas anderes. | `citizens.ts` + `electorate.ts`, beide fertig |
+| 1 ✅ | `support` | **Jeder NPC hat eine politische Neigung.** Rechtsklick sagt, wen diese Person wählen würde — und in fünf Jahren steht dort etwas anderes. | gebaut: `leaning.ts` |
 | 2 | `orderServiceCapacity` | **Polizei zu Fuß auf Streife**, in der Zahl, die die Kennzahl hergibt. Personal gestrichen heißt: leere Straßen. | Crew-Modelle vorhanden |
 | 3 | `burglaryRate` | **Einbrecher als eigene Rolle**, nachts unterwegs, an Häusern. Heute erzeugt die Zahl nur Einsätze. | Rolle + Verhalten |
 | 4 | Obdachlosigkeit (neu) | **Menschen in Eingängen.** Steigt mit Miete und auslaufenden Sozialbindungen, fällt mit Wohnungsbau. | neue Kennzahl + Platzierung |
@@ -40,6 +40,7 @@ Sortiert nach Verhältnis von Wirkung zu Aufwand. Jede Zeile ist für sich liefe
 | 9 | `unitsUnderConstruction` | **Gerüste, Kräne, Lieferverkehr.** Teils da, nicht an die Zahl gehängt. | `construction.ts` vorhanden |
 | 10 | `satisfaction` | **Demonstrationen** vor dem Rathaus, wenn sie tief genug fällt. | neu |
 | 11 | `transitCoverage` | **Busse auf den Hauptachsen.** | kein Busmodell im Kit |
+| 12 | Wetter (neu) | **Regen, Schnee, Wind, Nebel** — nach einer Approximation echter norddeutscher Klimastatistik, also Regen im November und Schnee im Januar statt Würfelwetter. Nasse Fahrbahn, weniger Menschen draußen, Schnee auf Dächern. | Atmosphäre und Himmel vorhanden |
 
 ## Das zweite Problem: man merkt nichts
 
@@ -61,8 +62,17 @@ nichts passiert ist, ist auch das eine Auskunft.
 
 ## Reihenfolge
 
-1. **NPCs mit politischer Neigung** — klein, hängt an allem, was schon steht, und zeigt sofort, ob
-   die Idee trägt.
+1. ✅ **NPCs mit politischer Neigung.** `leaning.ts`. Eine Person hat eine eigene Haltung auf
+   denselben sieben Achsen wie jede Partei und jede Vorlage — **eine beherrschende Dimension, eine
+   schwächere zweite, Eigensinn obendrauf**, wie eine Wählerschaft tatsächlich beschrieben wird. Sie
+   ändert sich nie: Menschen werden keine anderen Menschen, weil der Rat etwas beschlossen hat. Was
+   sich ändert, ist welche Partei ihnen am nächsten *und* gerade im Aufwind ist.
+
+   Zwei Fehlversuche, beide gemessen und beide lehrreich: sieben unabhängige Zufallszahlen um die
+   Mitte ergaben eine Stadt aus Zentristen, in der **eine Partei null Wähler** hatte — unabhängiges
+   Rauschen auf sieben Achsen setzt alle in die Mitte der Wolke und niemanden in eine Ecke. Und
+   `1 - Abstand / 2` als Nähe spannt nur 0,7 … 0,95, also weniger als der Stimmungsbonus: die größte
+   Partei nahm alle. Nähe fällt jetzt exponentiell.
 2. **Hover-Erklärungen mit Amtsantritts-Vergleich** — ohne Bezugspunkt bleibt jede weitere
    Sichtbarmachung unlesbar.
 3. **Polizei, Einbrecher, Obdachlose** — die drei, die der Spieler ausdrücklich sehen will, in

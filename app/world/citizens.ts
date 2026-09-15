@@ -275,7 +275,13 @@ function occupationFor(age: number, roll: number): string {
  * renderer — but the same discipline: the same index and the same salt always give the same answer,
  * on any machine, in any session.
  */
-function hash(index: number, salt: number): number {
+/**
+ * The one hash every part of a person comes out of.
+ *
+ * Exported because `leaning.ts` derives a political position for the same index and has to draw from
+ * the same person. A second hash would give a household one biography and a different politics.
+ */
+export function citizenHash(index: number, salt: number): number {
   let value = (index * 2_654_435_761 + salt * 40_503) >>> 0
   value ^= value >>> 15
   value = Math.imul(value, 2_246_822_519) >>> 0
@@ -314,7 +320,7 @@ function weighted<T extends { weight: number }>(list: T[], roll: number): T {
  */
 export function citizenAt(index: number, seed: number, share: number): Citizen {
   const salt = seed & 0xFFFF
-  const roll = (stream: number): number => hash(index + 1, salt + stream)
+  const roll = (stream: number): number => citizenHash(index + 1, salt + stream)
 
   const age = ageAt(index, seed)
   const abroad = roll(2) < Math.min(0.6, Math.max(0, share))
@@ -355,10 +361,10 @@ export function citizenAt(index: number, seed: number, share: number): Citizen {
  * work it out and always agree.
  */
 export function ageAt(index: number, seed: number): number {
-  const roll = hash(index + 1, (seed & 0xFFFF) + 1)
+  const roll = citizenHash(index + 1, (seed & 0xFFFF) + 1)
   const band = weighted(AGE_BANDS, roll)
   // A second stream for the position inside the band, or everyone in a band would be the same age.
-  const within = hash(index + 1, (seed & 0xFFFF) + 9)
+  const within = citizenHash(index + 1, (seed & 0xFFFF) + 9)
   return band.from + Math.floor(within * (band.to - band.from))
 }
 
@@ -370,7 +376,7 @@ export function ageAt(index: number, seed: number): number {
  * player is pointing at. One answer, read by both.
  */
 export function genderAt(index: number, seed: number): Gender {
-  return hash(index + 1, (seed & 0xFFFF) + 11) < 0.5 ? 'male' : 'female'
+  return citizenHash(index + 1, (seed & 0xFFFF) + 11) < 0.5 ? 'male' : 'female'
 }
 
 /**

@@ -307,9 +307,16 @@ function restart(): void {
               <dt>{{ selectedCitizen.origin.born === 'here' ? 'Geboren in' : 'In Lindenhafen seit' }}</dt>
               <dd>{{ selectedCitizen.origin.born === 'here' ? 'Lindenhafen' : selectedCitizen.since }}</dd>
             </div>
+            <div>
+              <dt>Würde wählen</dt>
+              <dd>
+                <i class="leaning-dot" :style="{ background: getParty(selectedCitizen.leaning).color }" />
+                {{ getParty(selectedCitizen.leaning).abbreviation }}
+              </dd>
+            </div>
           </dl>
           <p class="dialog-note">
-            Herkunft und Tätigkeit sind Merkmale und keine Werte: sie gehen in keine Bewertung, keinen Auslöser und keine Kennzahl ein.
+            Herkunft und Tätigkeit sind Merkmale und keine Werte: sie gehen in keine Bewertung, keinen Auslöser und keine Kennzahl ein. Die Wahlabsicht ergibt sich aus der Haltung dieser Person und daraus, wohin die Stadt gerade tendiert — sie kann sich im Lauf der Kampagne ändern.
           </p>
         </section>
 

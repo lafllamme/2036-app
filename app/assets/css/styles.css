@@ -739,3 +739,6 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
   .city-canvas { transition: none; }
   *, *::before, *::after { transition-duration: 0.01ms !important; }
 }
+
+/* The one coloured thing on the citizen card: which way this person leans. */
+.citizen-card .leaning-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }

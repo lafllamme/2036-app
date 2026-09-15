@@ -85,6 +85,15 @@ export function bindStoreSounds(bus: AudioBus): () => void {
     else bus.play(snapshot.value?.monthOfYear === 1 ? 'hud.budgetYear' : 'hud.monthAdvanced')
   }))
 
+  /*
+   * The end of a campaign the player did not choose. It is the one moment in the game that is not a
+   * consequence of a click, so it needs a sound of its own more than most things do.
+   */
+  on(watch(() => snapshot.value?.defeat?.reason, (reason, before) => {
+    if (reason && !before)
+      bus.play('hud.campaignComplete')
+  }))
+
   on(watch(() => snapshot.value?.metrics.cityBudget, (budget, previous) => {
     if (budget !== undefined && previous !== undefined && budget < 0 && previous >= 0)
       bus.play('budget.overdrawn')

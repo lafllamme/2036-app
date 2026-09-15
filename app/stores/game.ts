@@ -201,6 +201,15 @@ export const useGameStore = defineStore('game', () => {
     if (isCampaignComplete(data.snapshot.month))
       speed.value = 0
 
+    /*
+     * A campaign that has ended stops. Both ways of losing — voted out at an election, or a year
+     * past one of the hard edges — arrive here as `defeat` on the snapshot, and the clock has to
+     * stop or the player keeps governing a city that has dismissed them.
+     */
+    // The store never plays a sound itself: `storeSounds.ts` watches the state and answers it.
+    if (data.snapshot.defeat && !previous?.defeat)
+      speed.value = 0
+
     // A new council motion stops the clock: the player should never miss a decision while watching.
     const known = new Set((previous?.pendingDecisions ?? []).map(entry => entry.eventId))
     const arrived = data.snapshot.pendingDecisions.find(entry => !known.has(entry.eventId))

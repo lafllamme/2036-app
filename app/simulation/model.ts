@@ -18,6 +18,7 @@ import type {
 } from '../core/contracts'
 import type { CityStocks } from './baseline'
 import type { VoteContext } from './council'
+import type { Defeat, EdgeState } from './election'
 import type { Support } from './electorate'
 import type { ActiveMeasure, EventDrawState } from './events'
 import { getEvent } from '../content/events'
@@ -35,6 +36,7 @@ import {
 } from './baseline'
 import { castVote, forecastVote, supportFor } from './council'
 import { clamp, healthFromState, stepDynamics } from './dynamics'
+import { defeatFromEdges, holdElection, isElectionMonth, trackEdges, votedOut } from './election'
 import { driftFromCity, initialSupport, shiftFromDecision } from './electorate'
 import {
 
@@ -96,6 +98,10 @@ export interface SimulationState {
    * The gap between the two *is* the game — you govern with a majority that is no longer the city.
    */
   support: Support
+  /** How many months running the city has been past each hard edge. See `election.ts`. */
+  edges: EdgeState
+  /** Why the campaign ended early, or null while the player is still in office. */
+  defeat: Defeat | null
   news: NewsItem[]
   causalEdges: CausalEdge[]
   /** Legacy view for the three directly adoptable policies. */
@@ -122,10 +128,19 @@ const COALITION_COMPATIBILITY_LIMIT = 0.55
  * and common municipal outcome, not a failure state.
  */
 function formCoalition(partyId: PartyId | null): PartyId[] {
+  return formCoalitionWith(partyId, seatsFromContent())
+}
+
+/**
+ * The same rule, against whatever the council currently looks like.
+ *
+ * Split out for election night: after the count the seats are not the ones written in `parties.ts`
+ * any more, and a coalition formed against the old numbers is a coalition that does not exist.
+ */
+function formCoalitionWith(partyId: PartyId | null, seats: Record<PartyId, number>): PartyId[] {
   if (!partyId)
     return []
   const own = getParty(partyId)
-  const seats = seatsFromContent()
   const axisKeys = Object.keys(own.axes) as (keyof typeof own.axes)[]
   const distance = (other: PartyDefinition): number =>
     axisKeys.reduce((sum, axis) => sum + Math.abs(own.axes[axis] - other.axes[axis]), 0) / axisKeys.length
@@ -166,6 +181,8 @@ export function createInitialState(seed = 2036, partyId: PartyId | null = null, 
     seatsByParty: seatsFromContent(),
     coalitionPartyIds: formCoalition(partyId),
     support: initialSupport(),
+    edges: { months: {} },
+    defeat: null,
     news: [{ id: 'news-opening', month: 0, scope: 'city', urgency: 'important', headline: 'LINDENHAFEN: Neuer Stadtrat nimmt Arbeit für das Jahrzehnt 2026–2036 auf' }],
     causalEdges: [],
     policies: [],
@@ -326,6 +343,8 @@ export function migrateState(state: SimulationState): SimulationState {
   return {
     ...state,
     support: state.support ?? initialSupport(),
+    edges: state.edges ?? { months: {} },
+    defeat: state.defeat ?? null,
     relationships: state.relationships ?? {},
     motionPrep: state.motionPrep ?? {},
     cooldowns: state.cooldowns ?? {},
@@ -544,6 +563,7 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     coalitionPartyIds: state.coalitionPartyIds,
     coalitionSupport: coalitionSeats,
     support: state.support ?? initialSupport(),
+    defeat: state.defeat ?? null,
     causalEdges: state.causalEdges,
     news: state.news,
     cityVisuals: visualsFrom(state.metrics, state.stocks),
@@ -606,6 +626,43 @@ export function advanceOneMonth(state: SimulationState): SimulationState {
    * the next event is drawn, so the draw already sees the city the player has just made.
    */
   next = { ...next, support: driftFromCity(next.support, next.metrics, next.perception, next.coalitionPartyIds) }
+
+  /*
+   * How long the city has been past each hard edge. Counted every month and acted on only after
+   * fourteen of them: a single terrible month is a crisis and this game is about governing through
+   * those. A city that has been in one for over a year has stopped being governable.
+   */
+  next = { ...next, edges: trackEdges(next.edges, next.metrics) }
+  const broken = defeatFromEdges(next.edges, month)
+  if (broken && !next.defeat) {
+    next = { ...next, defeat: broken }
+    next = pushNews(next, { id: `defeat-${broken.reason}-${month}`, month, scope: 'city', urgency: 'breaking', headline: broken.headline })
+  }
+
+  /*
+   * Election night. The council is counted out of the support the city has been building for five
+   * years, the coalition is formed again from scratch by the same axis distance as on day one, and
+   * if it cannot reach a majority the campaign is over.
+   */
+  if (isElectionMonth(month) && !next.defeat) {
+    const result = holdElection(next.support, next.seatsByParty, next.partyId)
+    const coalition = formCoalitionWith(next.partyId, result.seats)
+    next = { ...next, seatsByParty: result.seats, coalitionPartyIds: coalition }
+    const seats = seatsOfCoalition(next)
+    const own = next.partyId ? result.seats[next.partyId] ?? 0 : 0
+    next = pushNews(next, {
+      id: `election-${month}`,
+      month,
+      scope: 'city',
+      urgency: 'breaking',
+      headline: `KOMMUNALWAHL: ${own} Sitze für die eigene Fraktion, ${seats} von 60 für die Koalition`,
+    })
+    const out = votedOut(seats, month)
+    if (out) {
+      next = { ...next, defeat: out }
+      next = pushNews(next, { id: `defeat-voted-out-${month}`, month, scope: 'city', urgency: 'breaking', headline: out.headline })
+    }
+  }
 
   // Draw at most one new event.
   next = { ...next, streaks: updateStreaks({ month, metrics: next.metrics, cooldowns: next.cooldowns, streaks: next.streaks, firedOnce: next.firedOnce, openDecisions: next.pending.length, activeMeasureSources: next.measures.map(measure => measure.sourceId), coalitionSeats: seatsOfCoalition(next) }) }

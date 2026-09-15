@@ -156,8 +156,20 @@ Jede Stufe ist für sich spielbar und für sich sichtbar.
    der Lage der Stadt und von jeder Entscheidung. Im HUD steht er neben den Sitzen, mit Pfeil.
    Gemessen: eine schlecht regierte Stadt kostet über eine Wahlperiode mehr als drei Punkte, ein
    einzelner Monat nie mehr als einen, eine einzelne Vorlage nie mehr als einen.
-2. **Wahlen 2031 und 2036.** Neu gezählt, neu koaliert, Wahlabend als Ereignis.
-3. **Niederlage.** Abwahl und die drei harten Kanten, beide im selben Abschlussbericht.
+2. ✅ **Wahlen 2031 und 2036.** `election.ts`: 60 Sitze aus sechs Anteilen nach **Sainte-Laguë** —
+   die Methode, die deutsche Kommunalwahlen tatsächlich verwenden, und bewusst nicht durch etwas
+   Einfacheres ersetzt: Anteile auf ganze Sitze zu runden ergibt keine sechzig, und den Rest an die
+   größte Fraktion zu geben ist ein Daumen auf der Waage für genau die Partei, die der Spieler
+   wahrscheinlich ist. **Keine Sperrklausel** — die Fünf-Prozent-Hürde ist Bundesrecht, die meisten
+   Kommunalräte haben keine, und dass eine kleine Fraktion zwei Sitze hält, ist Teil dessen, was eine
+   Koalition überhaupt wertvoll macht. Nach der Zählung wird die Koalition neu gebildet, gegen den
+   **neuen** Rat.
+3. ✅ **Niederlage.** Zwei Arten. *Abgewählt*: die Koalition erreicht nach der Wahl keine 31 Sitze.
+   *Die Stadt bricht*: Haushalt, Kriminalität oder Beschäftigung über einer Schwelle — jede muss
+   **vierzehn Monate am Stück** gehalten werden, bevor sie irgendetwas beendet. Ein einzelner
+   furchtbarer Monat ist eine Krise, und darum geht das Spiel; eine Stadt, die seit über einem Jahr
+   in einer steckt, ist nicht mehr regierbar. Beides stoppt die Uhr und meldet sich im Stadtfunk.
+   *Der Abschlussbericht fehlt noch* — heute endet es mit einer Schlagzeile.
 4. **Verzweigung.** Die drei vorhandenen Felder füllen, `unlocksEventIds` verdrahten,
    `blockedByEventIds` ergänzen, Prioritäten gewichten lassen.
 5. **Widerfahrnisse.** Der neue Inhalt: Katastrophen, Anschläge, Krisen von außen.

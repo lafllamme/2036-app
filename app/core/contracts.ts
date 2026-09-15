@@ -301,6 +301,14 @@ export interface SimulationSnapshot {
    * position the player is meant to feel.
    */
   support: Record<PartyId, number>
+  /**
+   * Why the campaign ended early, or null while the player is still in office.
+   *
+   * Two ways to lose: the council elected in 2031 or 2036 no longer carries the player's coalition,
+   * or the city has been past one of three hard edges for over a year. Both end in the same closing
+   * report — a black screen would be the wrong answer to ten years of work.
+   */
+  defeat: { reason: 'voted-out' | 'budget' | 'crime' | 'employment', month: number, headline: string } | null
   causalEdges: CausalEdge[]
   news: NewsItem[]
   cityVisuals: CityVisualState

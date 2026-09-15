@@ -66,19 +66,23 @@ describe('the campaign clock', () => {
   })
 
   /*
-   * "Nächster Monat" is the button this was reported on. It has to hold the clock — a player on 4×
-   * who presses it must not get two months at once — and holding is not stopping.
+   * "Nächster Monat" is the button this was reported on, twice. First it stopped the campaign and
+   * never restarted it. Then it held the clock and gave it straight back — correct, and it flashed
+   * the paused screen on every press. It does not touch the clock at all now, which is the third and
+   * quietest answer.
    */
-  it('does not leave the campaign paused after stepping a month on', async () => {
+  it('does not touch the clock when stepping a month on', async () => {
     const game = await freshStore()
-    game.setSpeed(1)
+    game.setSpeed(2)
     game.advanceMonth()
-    expect(game.speed, 'the month has to land before the next one starts').toBe(0)
+    expect(game.speed, 'no stop, and nothing to flash').toBe(2)
+  })
 
-    // What `receive` does once the worker answers: lower the flag, then let the clock go.
-    game.pendingCommand = false
-    game.resumeClockIfClear()
-    expect(game.speed, 'and then the campaign carries on by itself').toBe(1)
+  it('leaves a paused campaign paused when stepping a month on', async () => {
+    const game = await freshStore()
+    game.setSpeed(0)
+    game.advanceMonth()
+    expect(game.speed).toBe(0)
   })
 
   /*

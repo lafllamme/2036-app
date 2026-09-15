@@ -353,17 +353,24 @@ export const useGameStore = defineStore('game', () => {
   }
 
   /**
-   * Step the campaign on by one month.
+   * Step the campaign on by one month. It does not touch the clock at all.
    *
-   * It holds the clock rather than stopping it. The month has to land before the next one starts —
-   * otherwise a player on 4× who presses the button gets two months — but "wait for this one" is not
-   * "stop playing", and it used to be: pressing the button while the campaign was running left it
-   * standing until somebody noticed and pressed play. Same fault as the vote sheet had, same fix.
+   * Two wrong answers came before this one. First it stopped the campaign outright, so pressing the
+   * button while it was running left the city standing until somebody noticed. Then it *held* the
+   * clock and handed it back when the month landed — which was correct and looked broken: the pause
+   * state went up and came down again a few hundred milliseconds later, so the button flashed the
+   * paused screen at the player every single press.
+   *
+   * The button says "nächster Monat" and that is all it should do. What it needs is not a pause but
+   * a reset of the month timer: the next automatic turn measures from this month rather than
+   * finishing the one the player just skipped, which is the only real way two months could arrive
+   * on top of each other.
    */
   function advanceMonth(): void {
     if (!canAdvance.value)
       return
-    holdClock()
+    accumulatedMs = 0
+    monthProgress.value = 0
     send({ type: 'ADVANCE', months: 1 })
   }
 
@@ -670,11 +677,6 @@ export const useGameStore = defineStore('game', () => {
     showPartyHall,
     showPartyProfile,
     setSpeed,
-    /*
-     * Exposed only so `tests/unit/clock.test.ts` can play the half of the cycle the worker plays.
-     * Nothing in the interface calls it: the store calls it itself whenever a message lands.
-     */
-    resumeClockIfClear: resumeIfClear,
     advanceMonth,
     applyPolicy,
     reset,

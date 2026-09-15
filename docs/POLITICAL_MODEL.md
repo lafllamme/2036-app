@@ -187,9 +187,55 @@ Jede Stufe ist für sich spielbar und für sich sichtbar.
    **vierzehn Monate am Stück** gehalten werden, bevor sie irgendetwas beendet. Ein einzelner
    furchtbarer Monat ist eine Krise, und darum geht das Spiel; eine Stadt, die seit über einem Jahr
    in einer steckt, ist nicht mehr regierbar. Beides stoppt die Uhr und meldet sich im Stadtfunk.
-   *Der Abschlussbericht fehlt noch* — heute endet es mit einer Schlagzeile.
+   **Der Abschlussbericht steht** — siehe unten.
 4. ✅ **Verzweigung.** Vierzehn Türen stehen. `unlocksEventIds` wurde nicht verdrahtet, sondern
    entfernt und durch `requiresChoiceIds` / `blockedByChoiceIds` ersetzt — beide am *verschlossenen*
    Ereignis, weil sich eine Tür von der Tür aus leichter liest. Siehe `EVENT_MATRIX.md`.
 5. ✅ **Widerfahrnisse.** Dreizehn von neunundzwanzig Ereignissen sind jetzt Dinge, die passieren.
 6. **Ja/Nein auf fremde Vorlagen.** Andere Fraktionen bringen ein, deine Sitze zählen mit.
+
+
+## Der Abschlussbericht
+
+`app/simulation/report.ts` (rein, getestet) · `app/components/ClosingReport.vue` (rendert, entscheidet nichts)
+
+Zehn Jahre endeten mit einem ausgegrauten Button. Alles, was ein Bericht braucht, lag seit Wochen im
+Snapshot und wurde niemandem gezeigt.
+
+| Abschnitt | Woher |
+| --- | --- |
+| Wie es geendet hat | `defeat` — abgewählt, die Stadt nicht mehr regierbar, oder das Jahrzehnt durchgehalten |
+| Was du vorgefunden hast, was du hinterlässt | `baselineMetrics` gegen `metrics`, sechs Zahlen |
+| Die Entscheidungen, die es getan haben | `drivers`, entdoppelt je Maßnahme, stärkste zuerst |
+| Der Rückhalt | `initialSupport()` gegen `support`, dazu die Sitze |
+| Worauf du angetreten bist | die drei Prioritäten vom Start, gemessen an den Zahlen dahinter |
+| Der Weg, den du genommen hast | `choices` — und **was Lindenhafen deshalb nie erlebt hat** |
+
+### Drei Entscheidungen, die den Bericht ausmachen
+
+**Er rechnet nichts.** Jede Zahl kommt aus dem Snapshot. Ein Abschlussschirm, der sein eigenes Urteil
+ausrechnet, ist ein zweites Modell — und ein zweites Modell kann dem ersten vor dem Spieler
+widersprechen, im denkbar schlechtesten Moment.
+
+**Er kürt keinen Sieger.** Ein Jahrzehnt Kommunalpolitik hat keine Punktzahl. Der Bericht sagt, was
+passiert ist und was die Zahlen getan haben; das Urteil gehört dem Spieler. Ein Test prüft, dass die
+Worte „gewonnen", „verloren", „erfolgreich", „gescheitert" und „Punkte" nirgends vorkommen.
+
+**Er erzählt auch das Jahrzehnt, das nicht stattgefunden hat.** Der Abschnitt „Was du nie gesehen
+hast" ist die Auszahlung für das ganze Verzweigungssystem — und der einzige Ort, an dem eine
+Entscheidung, die etwas verschlossen hat, überhaupt sichtbar wird.
+
+### Was das Ausdrucken gefunden hat
+
+Der Bericht wurde erst als Text aus einer durchgespielten Kampagne gedruckt und dann gestaltet. Das
+hat drei Fehler gezeigt, die in der Gestaltung untergegangen wären:
+
+- **Vorzeichen.** „Ohne Wohnung: −277,4 %" — die Obdachlosigkeit war um 277 % **gestiegen**. Die
+  Änderung war mit der Wunschrichtung verrechnet. Jetzt bewegt sich die Zahl so, wie sie sich bewegt
+  hat, und ein zweites Feld sagt, ob das die gewollte Richtung war.
+- **Namen.** Die stärkste Entscheidung des Spielers bewegte laut Bericht `businessStock`. Das ist ein
+  Variablenname und kein Deutsch.
+- **Wer entschieden hat.** „Werkschließung im Hafen: 500 Stellen" stand unter den Entscheidungen des
+  Spielers. Die Sofortkosten einer Krise laufen als Maßnahme durch dieselbe Stelle wie ein Beschluss;
+  seit die `drivers` nach Maßnahmenschlüssel statt nach Beschriftung ablegen, sind die beiden wieder
+  unterscheidbar. **Was dir zustößt, ist nicht, was du getan hast.**

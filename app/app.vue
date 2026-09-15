@@ -403,6 +403,7 @@ function restart(): void {
         <NewsTicker />
         <VoteSheet />
         <VoteResult />
+        <ClosingReport />
       </template>
     </ClientOnly>
 

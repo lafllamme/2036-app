@@ -4,6 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../../core/rng'
 import { AXIS_Y, WHITE } from '../../shared'
+import { findTownHall } from '../structures/townHall'
 
 /**
  * People outside the town hall when the city has had enough.
@@ -47,8 +48,6 @@ const PLACARD_EVERY = 3
 const PERSON_HEIGHT = 1.75
 const PLACARD_LIFT = 1.9
 
-/** How close the town hall has to be to the middle of the city to be the town hall. */
-const CENTRAL = 600
 /** Nothing stands inside a building; these are the ones near enough to have to check against. */
 const NEIGHBOURHOOD = 90
 /**
@@ -73,7 +72,7 @@ export interface Protest {
 }
 
 export function addProtest(scene: THREE.Scene, blueprint: CityBlueprint, models: CityModels): Protest {
-  const hall = townHall(blueprint.buildings)
+  const hall = findTownHall(blueprint.buildings)
   const characters = models.people.slice(0, 2)
   if (!hall || characters.length === 0)
     return { meshes: [], placards: null, spots: [], at: null }
@@ -137,25 +136,6 @@ export function updateProtest(protest: Protest, unrest: number): number {
     protest.placards.visible = protest.placards.count > 0
   }
   return standing
-}
-
-/**
- * Which building is the town hall.
- *
- * The ground plan comes from OpenStreetMap and does not say. What it does say is which buildings are
- * civic, and a hundred and forty-six of them are — so the answer is the biggest one in the middle of
- * town, which in any German city of this size is the Rathaus or near enough to stand outside of.
- * Deterministic, because a campaign that protests at a different building each time it loads is not
- * a campaign.
- */
-function townHall(buildings: BuildingRecord[]): BuildingRecord | null {
-  const civic = buildings.filter(building => building.type === 'civic')
-  if (civic.length === 0)
-    return null
-  const central = civic.filter(building => Math.hypot(building.x, building.z) <= CENTRAL)
-  const field = central.length > 0 ? central : civic
-  return field.reduce((best, building) =>
-    building.width * building.depth > best.width * best.depth ? building : best)
 }
 
 /**

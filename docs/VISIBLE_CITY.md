@@ -38,7 +38,7 @@ Sortiert nach Verhältnis von Wirkung zu Aufwand. Jede Zeile ist für sich liefe
 | 7 ✅ | `emissions` | **Dunst über der Stadt**, dichter und brauner. | gebaut, 0 zusätzliche Draws |
 | 8 | `integrationCapacity` / `originMix` | **Zusammensetzung der Menge.** Die Herkünfte stehen, die Verteilung hängt an nichts. | `citizens.ts` fertig |
 | 9 | `unitsUnderConstruction` | **Gerüste, Kräne, Lieferverkehr.** Teils da, nicht an die Zahl gehängt. | `construction.ts` vorhanden |
-| 10 | `satisfaction` | **Demonstrationen** vor dem Rathaus, wenn sie tief genug fällt. | neu |
+| 10 ✅ | `unrest` | **Demonstrationen** vor dem Rathaus, wenn die Stadt genug hat. | gebaut: `life/protest.ts`, 3 Draws |
 | 11 | `transitCoverage` | **Busse auf den Hauptachsen.** | kein Busmodell im Kit |
 | 12 | Wetter (neu) | **Regen, Schnee, Wind, Nebel** — nach einer Approximation echter norddeutscher Klimastatistik, also Regen im November und Schnee im Januar statt Würfelwetter. Nasse Fahrbahn, weniger Menschen draußen, Schnee auf Dächern. | **fertig**, siehe unten |
 
@@ -300,3 +300,68 @@ Aus einem Block Entfernung unübersehbar, aus der Übersicht noch als Säule les
 Ein Brand meldet sich als „Feuerwehr: Gebäudebrand" in Orange — derselbe Wert wie der Ring auf dem
 Asphalt, gehalten von `tests/unit/callColours.test.ts`. Der Spieler sieht die Säule, liest die
 Meldung und erkennt beides als dieselbe Sache.
+
+
+## Demonstrationen
+
+`app/rendering/world/life/protest.ts` · `app/rendering/world/structures/townHall.ts`
+
+`unrest` war die älteste Zahl im Sichtvertrag und wurde von **nichts** gelesen: die Simulation
+rechnete aus, wie polarisiert und wie unzufrieden Lindenhafen ist, kopierte es in den Renderer, und
+der Renderer tat nichts damit. Ein Rat konnte die Stadt an die Wand fahren, und sichtbar war das nur
+als Balken in einem Panel.
+
+Es wird eine Demonstration, weil Unzufriedenheit **plus Spaltung** genau das ist. Eine unglückliche
+Stadt, die sich noch einig ist, murrt; eine unglückliche Stadt, die in Lager zerfallen ist, steht vor
+dem Gebäude, in dem entschieden wird. `unrest` ist genau dieses Produkt — deshalb liest das Modul es
+und nicht `satisfaction`.
+
+| | |
+| --- | --- |
+| Draws | **3** solange sie stehen (zwei Figuren-Meshes, ein Schilder-Mesh), **0** sonst |
+| Plätze | 240 gewürfelt, davon 138 übrig nach Abzug von Gebäuden und Fahrbahnen |
+| Schwelle | ab `unrest` 0,14, voll bei 0,72 |
+| Ton | die Menge zählt in `peopleNearby`, also hört man sie — sonst stünde man in einem Platz mit 200 Leuten und hörte eine leere Straße |
+
+Gebaut wie `roughSleeping.ts`: das sind **Orte, keine Reisenden**. Die Plätze werden einmal für die
+ganze Kampagne gewürfelt und die gezeichnete Zahl ist ein Präfix davon, sortiert nach Nähe zur
+Treppe — eine Demo wächst also nach hinten und geht nach vorn wieder weg. Jeden Monat neu zu würfeln,
+wer wo steht, läse sich als Flackern statt als Menge.
+
+### Zwei Dinge, die der Test gefunden hat
+
+**Die Fassade.** Die erste Fassung nahm die Seite, die zur Stadtmitte zeigt — ein Rathaus setzt seine
+Treppe schließlich zur Stadt. Das stimmt über das Gebäude und sagt nichts darüber, was später davor
+gebaut wurde: gemessen am echten Grundriss ist genau diese Seite des Lindenhafener Rathauses zu
+**78 % zugebaut**, zwei der anderen drei sind völlig frei. Jetzt werden alle vier Seiten abgetastet
+und die offenste gewinnt; bei Gleichstand gewinnt die zur Stadt. Ein Platz ist da, wo Platz ist.
+
+**Die Fahrbahn.** Eine Demo, die eine Straße blockiert, wäre eine gute Sache. Dieses Spiel kann sie
+nicht haben: der Verkehr weiß nichts von der Menge, gezeigt würde also, wie Autos durch zweihundert
+Menschen fahren. Bis die Flotte davon erfahren kann, bleibt die Menge vom Asphalt.
+
+## Das Rathaus
+
+Es sah aus wie ein Wohnblock, weil es einer war — ein Grundriss aus OpenStreetMap, extrudiert wie
+die zwölftausend anderen. Zwei Änderungen, **beide ohne einen einzigen zusätzlichen Draw**:
+
+**Ziviler Stein.** Öffentliche Bauten waren eine Nuance vom Wohnbeige entfernt, also waren 146
+Schulen, Ämter und Hallen von den Wohnungen daneben nicht zu unterscheiden. Jetzt ein hellerer,
+wärmerer Sandstein — das billigste denkbare Mittel, um „dieses hier gehört uns" zu sagen.
+
+**Ein Uhrturm**, geschrieben direkt in die Kachel-Geometrie, aus der die Stadt ohnehin besteht: gleiches
+Material, gleicher Draw. Drei Stufen, und die mittlere ist die entscheidende:
+
+| Stufe | Warum |
+| --- | --- |
+| Schaft, 8,5 × 26 m | in der Dach-Gruppe statt der Wand-Gruppe, also **ohne** Fassadentextur — das Fensterraster dreißig Meter hochzuziehen machte daraus einen Aufzugsaufbau |
+| Glockenstube, 1,32× breiter | ohne sie ist die Silhouette Schaft plus Spitze, also ein Obelisk. Genau so sah die Fassung davor aus |
+| Spitze, 10 m | flacher als der Nadelversuch davor |
+
+Dazu vier Uhrblätter mit dunklem Rand — hell auf hellem Sandstein ohne Rand war schlicht nicht zu
+sehen — und je ein hohes Fenster im Schaft.
+
+`townHall.ts` hat ein eigenes Modul, weil zwei sehr verschiedene Teile dieselbe Antwort brauchen und
+nicht auseinanderlaufen dürfen: `buildings.ts` gibt dem Gebäude den Turm, `life/protest.ts` stellt die
+Menge davor. Eine Stadt mit dem Turm auf dem einen und der Demo vor dem anderen Haus wäre schlimmer
+als eine ohne beides.

@@ -3,6 +3,7 @@ import type { Relief } from '../../../world/relief'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../../core/rng'
 import { BAY_WIDTH, facadeTexture, STOREY_HEIGHT, windowLightTexture } from './facade'
+import { findTownHall } from './townHall'
 
 /**
  * The city, extruded from its real footprints.
@@ -28,6 +29,36 @@ const TILES = 6
 const CITY_EXTENT = 3_400
 /** How far a roof draws in from the wall below it, where it has to be a truncated pyramid. */
 const ROOF_INSET = 2.4
+
+/**
+ * The town hall's tower. The only thing in Lindenhafen taller than the building under it.
+ *
+ * Sunk a little into the roof it rises from, so it reads as part of the building rather than as
+ * something balanced on it.
+ */
+const TOWER_WIDTH = 8.5
+const TOWER_HEIGHT = 26
+const TOWER_SINK = 3
+/**
+ * The belfry: the wider stage between the shaft and the spire.
+ *
+ * The one element that decides whether a tower reads as a town hall or as a chimney. Without it the
+ * silhouette is a shaft and a point, which is an obelisk — and that is exactly what the version
+ * before this looked like.
+ */
+const BELFRY_FLARE = 1.32
+const BELFRY_HEIGHT = 3.6
+const SPIRE_HEIGHT = 10
+/** The clock: how big, how far below the top, and how far proud of the wall it stands. */
+const CLOCK_SIZE = 2.9
+const CLOCK_DROP = 3.6
+const CLOCK_PROUD = 0.22
+const CLOCK_FACE = /* @__PURE__ */ new THREE.Color('#efe9d8')
+/** The tall opening in each face of the shaft, so it is masonry with windows rather than a slab. */
+const SLIT_WIDTH = 1.5
+const SLIT_HEIGHT = 5.5
+const SLIT_FOOT = 7
+const SLIT_DARK = /* @__PURE__ */ new THREE.Color('#3d3a33')
 /**
  * How far a gable's eaves reach past the wall.
  *
@@ -72,7 +103,15 @@ const WALL_COLOURS: Record<BuildingType, string[]> = {
   modern: ['#a7b1b4', '#b8bfbd', '#98a3a7', '#c3c6c3', '#adb5b4'],
   commercial: ['#9aa5a8', '#a9b0ae', '#8b979a', '#b2b6b1', '#9ea7a5'],
   industrial: ['#8d928f', '#9a978c', '#808684', '#a4a094', '#878d8b'],
-  civic: ['#b9ae97', '#a8ada3', '#c3b99f', '#aea78f', '#bcb49d'],
+  /*
+   * Public buildings are a different stone, and noticeably so.
+   *
+   * They used to be a shade of the residential beige apart, which meant a hundred and forty-six
+   * schools, offices and halls were indistinguishable from the flats around them — and the Rathaus
+   * read as a block of maisonettes. A warmer, lighter sandstone is what public building stock in a
+   * north German city actually is, and it is the cheapest possible way to say "this one is ours".
+   */
+  civic: ['#d8cdaa', '#cfc4a1', '#e0d6b5', '#cabf9c', '#d3c9a8'],
 }
 
 const ROOF_COLOURS: Record<BuildingType, string[]> = {
@@ -124,10 +163,17 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
     colours: [],
   }))
 
+  /*
+   * The one building that gets more than a footprint. See `townHall.ts` for how it is chosen and
+   * `landmark()` below for what it gets — which costs no draw call at all, because it is written
+   * into the same tile the rest of the city is.
+   */
+  const hall = findTownHall(blueprint.buildings)
+
   for (const building of blueprint.buildings) {
     const tile = tiles[tileOf(building.x, building.z)]
     if (tile)
-      extrude(tile, building, rng, relief)
+      extrude(tile, building, rng, relief, building === hall)
   }
 
   const wallMaterial = new THREE.MeshStandardMaterial({
@@ -189,7 +235,7 @@ function tileOf(x: number, z: number): number {
  * and lifted. It is not what a roof is, but at every distance the camera can reach it is what one
  * looks like, and it costs two triangles an edge instead of a hip-and-valley solver.
  */
-function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number }, relief: Relief): void {
+function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number }, relief: Relief, landmarked = false): void {
   const ring = building.footprint
   const corners = ring.length / 2
   if (corners < 3)
@@ -281,6 +327,8 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
    */
   if (corners === 4 && building.roofHeight > 0.4) {
     gable(tile, ring, wallTop, capHeight, roof)
+    if (landmarked)
+      landmark(tile, building, capHeight, wall, roof)
     tile.ranges.push({ start, count: tile.position.length / 3 - start })
     return
   }
@@ -338,10 +386,145 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
   for (const triangle of triangulate(cap))
     tile.roofIndex.push(capBase + triangle[2], capBase + triangle[1], capBase + triangle[0])
 
+  if (landmarked)
+    landmark(tile, building, capHeight, wall, roof)
   tile.ranges.push({ start, count: tile.position.length / 3 - start })
 }
 
 /** Vertex with a horizontal normal, or an upward one for a roof cap. */
+/**
+ * What makes the town hall look like one: a clock tower.
+ *
+ * Written straight into the tile the rest of the city is written into, so it shares the walls' own
+ * material and the roofs' own material and costs **no draw call at all**. Twenty-odd quads for the
+ * one building in Lindenhafen a player is ever asked to look for.
+ *
+ * Everything about it is deliberate rather than decorative. A tower is the only thing on this
+ * skyline taller than its own building, so it reads as a landmark from any distance the camera can
+ * reach. The clock faces are in the roof group, which carries no façade texture, so they stay flat
+ * pale discs rather than growing windows. And the cap is a spire rather than a hip, because a hip is
+ * what every other roof in the city already is.
+ */
+function landmark(tile: Tile, building: BuildingRecord, roofTop: number, wall: THREE.Color, roof: THREE.Color): void {
+  // Square, and never wider than the building it stands on.
+  const half = Math.min(TOWER_WIDTH, Math.min(building.width, building.depth) * 0.36) / 2
+  const base = roofTop - TOWER_SINK
+  const top = base + TOWER_HEIGHT
+  const cos = Math.cos(building.rotation)
+  const sin = Math.sin(building.rotation)
+  // Counter-clockwise in the building's own frame, so each edge's outward normal points out.
+  const corner = (x: number, z: number): [number, number] =>
+    [building.x + x * cos - z * sin, building.z + x * sin + z * cos]
+  const ring = [[-half, -half], [-half, half], [half, half], [half, -half]].map(([x, z]) => corner(x!, z!))
+  const flare = half * BELFRY_FLARE
+  const flared = [[-flare, -flare], [-flare, flare], [flare, flare], [flare, -flare]].map(([x, z]) => corner(x!, z!))
+
+  for (let i = 0; i < 4; i += 1) {
+    const [ax, az] = ring[i]!
+    const [bx, bz] = ring[(i + 1) % 4]!
+    const span = Math.hypot(bx - ax, bz - az)
+    const nx = -(bz - az) / span
+    const nz = (bx - ax) / span
+
+    /*
+     * The shaft, and in the roof group rather than the wall group — which is to say without the
+     * façade texture on it. A clock tower is masonry with a few openings in it; drawing the city's
+     * window grid up thirty metres of it made the one landmark in Lindenhafen read as a lift
+     * overrun, which is precisely what the first version looked like.
+     */
+    const shaft = tile.position.length / 3
+    push(tile, ax, base, az, nx, nz, 0, 0, wall)
+    push(tile, bx, base, bz, nx, nz, 0, 0, wall)
+    push(tile, bx, top, bz, nx, nz, 0, 0, wall)
+    push(tile, ax, top, az, nx, nz, 0, 0, wall)
+    tile.roofIndex.push(shaft, shaft + 2, shaft + 1, shaft, shaft + 3, shaft + 2)
+
+    /*
+     * One tall opening per face, low down, so the shaft is not a blank slab. Dark rather than
+     * textured: at any distance the camera can reach, a window is a dark rectangle.
+     */
+    const slit = tile.position.length / 3
+    const openX = (ax + bx) / 2 + nx * CLOCK_PROUD
+    const openZ = (az + bz) / 2 + nz * CLOCK_PROUD
+    const runX = (bx - ax) / span * SLIT_WIDTH / 2
+    const runZ = (bz - az) / span * SLIT_WIDTH / 2
+    push(tile, openX - runX, base + SLIT_FOOT, openZ - runZ, nx, nz, 0, 0, SLIT_DARK)
+    push(tile, openX + runX, base + SLIT_FOOT, openZ + runZ, nx, nz, 0, 0, SLIT_DARK)
+    push(tile, openX + runX, base + SLIT_FOOT + SLIT_HEIGHT, openZ + runZ, nx, nz, 0, 0, SLIT_DARK)
+    push(tile, openX - runX, base + SLIT_FOOT + SLIT_HEIGHT, openZ - runZ, nx, nz, 0, 0, SLIT_DARK)
+    tile.roofIndex.push(slit, slit + 2, slit + 1, slit, slit + 3, slit + 2)
+
+    /*
+     * The clock: a pale square standing a hand's breadth proud of the shaft, near the top. Proud of
+     * it rather than flush, because flush means z-fighting with the wall behind it at every distance
+     * and a flickering clock is worse than none.
+     */
+    const midX = (ax + bx) / 2 + nx * CLOCK_PROUD
+    const midZ = (az + bz) / 2 + nz * CLOCK_PROUD
+    const alongX = (bx - ax) / span * CLOCK_SIZE / 2
+    const alongZ = (bz - az) / span * CLOCK_SIZE / 2
+    const clockY = top - CLOCK_DROP
+    const rim = tile.position.length / 3
+    const rimX = (bx - ax) / span * CLOCK_SIZE * 0.66
+    const rimZ = (bz - az) / span * CLOCK_SIZE * 0.66
+    push(tile, midX - rimX, clockY - CLOCK_SIZE * 0.66, midZ - rimZ, nx, nz, 0, 0, SLIT_DARK)
+    push(tile, midX + rimX, clockY - CLOCK_SIZE * 0.66, midZ + rimZ, nx, nz, 0, 0, SLIT_DARK)
+    push(tile, midX + rimX, clockY + CLOCK_SIZE * 0.66, midZ + rimZ, nx, nz, 0, 0, SLIT_DARK)
+    push(tile, midX - rimX, clockY + CLOCK_SIZE * 0.66, midZ - rimZ, nx, nz, 0, 0, SLIT_DARK)
+    tile.roofIndex.push(rim, rim + 2, rim + 1, rim, rim + 3, rim + 2)
+    const face = tile.position.length / 3
+    const faceX = midX + nx * CLOCK_PROUD
+    const faceZ = midZ + nz * CLOCK_PROUD
+    push(tile, faceX - alongX, clockY - CLOCK_SIZE / 2, faceZ - alongZ, nx, nz, 0, 0, CLOCK_FACE)
+    push(tile, faceX + alongX, clockY - CLOCK_SIZE / 2, faceZ + alongZ, nx, nz, 0, 0, CLOCK_FACE)
+    push(tile, faceX + alongX, clockY + CLOCK_SIZE / 2, faceZ + alongZ, nx, nz, 0, 0, CLOCK_FACE)
+    push(tile, faceX - alongX, clockY + CLOCK_SIZE / 2, faceZ - alongZ, nx, nz, 0, 0, CLOCK_FACE)
+    tile.roofIndex.push(face, face + 2, face + 1, face, face + 3, face + 2)
+
+    /*
+     * The belfry, flared out over the shaft: an underside, a face with its own opening, and then the
+     * spire off the top of it. Three stages rather than two is the whole difference.
+     */
+    const [fax, faz] = flared[i]!
+    const [fbx, fbz] = flared[(i + 1) % 4]!
+    const belfryTop = top + BELFRY_HEIGHT
+
+    const under = tile.position.length / 3
+    push(tile, ax, top, az, 0, 0, 0, 0, roof)
+    push(tile, bx, top, bz, 0, 0, 0, 0, roof)
+    push(tile, fbx, top, fbz, 0, 0, 0, 0, roof)
+    push(tile, fax, top, faz, 0, 0, 0, 0, roof)
+    tile.roofIndex.push(under, under + 1, under + 2, under, under + 2, under + 3)
+
+    const stage = tile.position.length / 3
+    push(tile, fax, top, faz, nx, nz, 0, 0, wall)
+    push(tile, fbx, top, fbz, nx, nz, 0, 0, wall)
+    push(tile, fbx, belfryTop, fbz, nx, nz, 0, 0, wall)
+    push(tile, fax, belfryTop, faz, nx, nz, 0, 0, wall)
+    tile.roofIndex.push(stage, stage + 2, stage + 1, stage, stage + 3, stage + 2)
+
+    // The bell opening, dark and nearly the width of the stage: what a belfry is.
+    const bell = tile.position.length / 3
+    const bellX = (fax + fbx) / 2 + nx * CLOCK_PROUD
+    const bellZ = (faz + fbz) / 2 + nz * CLOCK_PROUD
+    const bellSpan = Math.hypot(fbx - fax, fbz - faz)
+    const bellRunX = (fbx - fax) / bellSpan * bellSpan * 0.34
+    const bellRunZ = (fbz - faz) / bellSpan * bellSpan * 0.34
+    push(tile, bellX - bellRunX, top + 0.7, bellZ - bellRunZ, nx, nz, 0, 0, SLIT_DARK)
+    push(tile, bellX + bellRunX, top + 0.7, bellZ + bellRunZ, nx, nz, 0, 0, SLIT_DARK)
+    push(tile, bellX + bellRunX, belfryTop - 0.7, bellZ + bellRunZ, nx, nz, 0, 0, SLIT_DARK)
+    push(tile, bellX - bellRunX, belfryTop - 0.7, bellZ - bellRunZ, nx, nz, 0, 0, SLIT_DARK)
+    tile.roofIndex.push(bell, bell + 2, bell + 1, bell, bell + 3, bell + 2)
+
+    // And the spire off the belfry, one triangle per side, up to a point over the middle.
+    const spire = tile.position.length / 3
+    push(tile, fax, belfryTop, faz, nx, nz, 0, 0, roof)
+    push(tile, fbx, belfryTop, fbz, nx, nz, 0, 0, roof)
+    push(tile, building.x, belfryTop + SPIRE_HEIGHT, building.z, nx, nz, 0, 0, roof)
+    tile.roofIndex.push(spire, spire + 2, spire + 1)
+  }
+}
+
 function push(tile: Tile, x: number, y: number, z: number, nx: number, nz: number, u: number, v: number, colour: THREE.Color, up = false): void {
   tile.position.push(x, y, z)
   tile.normal.push(up ? 0 : nx, up ? 1 : 0, up ? 0 : nz)

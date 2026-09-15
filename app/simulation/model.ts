@@ -794,10 +794,31 @@ function advanceOneMonth(state: SimulationState): SimulationState {
     drivers,
   }
 
-  // Expire undecided motions: the default option applies and is recorded as a choice.
   const expired = next.pending.filter(entry => month >= entry.expiresMonth)
   for (const entry of expired) {
     const event = getEvent(entry.eventId)
+    /*
+     * A motion somebody else tabled is still a motion. Not answering it does not make it go away and
+     * does not hand the administration its own fallback instead — the chamber votes on what is
+     * actually on the agenda, and the player's group is recorded as having abstained. Which is what
+     * not turning up is.
+     *
+     * The first version applied the event's `defaultOptionId` here, so ignoring the CDU's motion
+     * quietly adopted an option the CDU had not tabled and nobody had voted on.
+     */
+    if (entry.tabledBy && entry.tabledOptionId) {
+      next = pushNews(next, {
+        id: `abstained-${entry.eventId}-${month}`,
+        month,
+        scope: 'city',
+        urgency: 'normal',
+        headline: `STADTRAT: Ohne Fraktionsvotum zur Abstimmung über „${event?.title ?? entry.eventId}“`,
+      })
+      next = voteOnMotion(next, entry.eventId, 'abstain').state
+      continue
+    }
+
+    // The player's own motion: no decision means the administration's own fallback applies.
     const fallback = event?.options.find(option => option.id === event.defaultOptionId)
     next = { ...next, pending: next.pending.filter(open => open.eventId !== entry.eventId) }
     if (event && fallback) {

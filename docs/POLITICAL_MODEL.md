@@ -281,6 +281,11 @@ unterschiedlich abstimmen, je nachdem, wer die Vorlage eingebracht hat. Ein Test
 gerechnet wie die anderen fünf — gelegentlich schmerzhaft, und richtig: eine Partei ist ihre
 Positionen und nicht der Wunsch ihrer Spitze.
 
+**Nicht antworten heißt sich enthalten.** Läuft eine fremde Vorlage ab, wird trotzdem darüber
+abgestimmt — über das, was auf der Tagesordnung steht, mit der Fraktion des Spielers als Enthaltung.
+Die erste Fassung wandte hier die Standardoption des Ereignisses an, sodass Ignorieren still eine
+Option beschloss, die niemand eingebracht und über die niemand abgestimmt hatte.
+
 **Ein Nein verschiebt den Rückhalt nicht.** `shiftFromDecision` läuft nur, wenn der Spieler
 zugestimmt hat. Eine Vorlage abzulehnen ist kein Bekenntnis zu ihrem Gegenteil, und es so zu lesen
 hieße, dass man die Wählerschaft ein Jahrzehnt lang durch Neinsagen verschieben könnte.

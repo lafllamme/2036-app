@@ -1,7 +1,7 @@
 import type { EventOption, PartyId } from '../../app/core/contracts'
 import type { VoteContext } from '../../app/simulation/council'
 import { describe, expect, it } from 'vitest'
-import { EVENTS } from '../../app/content/events'
+import { EVENTS, getEvent } from '../../app/content/events'
 import { getParty, mapParties, PARTIES } from '../../app/content/parties'
 import { createRandomStream } from '../../app/core/rng'
 import { castVote, forecastVote, supportFor } from '../../app/simulation/council'
@@ -163,6 +163,37 @@ describe('a motion somebody else tabled', () => {
     const share = foreign / (foreign + own)
     expect(share, 'the opposition has gone quiet again').toBeGreaterThan(0.2)
     expect(share, 'the player is no longer running the council').toBeLessThan(0.45)
+  })
+
+  /*
+   * Not answering is abstaining, not vetoing and not choosing something else.
+   *
+   * The first version applied the event's own `defaultOptionId` when any motion expired, which for a
+   * foreign motion meant ignoring the CDU quietly adopted an option the CDU had not tabled and
+   * nobody had voted on. A chamber votes on what is on the agenda.
+   */
+  it('votes on an ignored foreign motion anyway, with the player abstaining', () => {
+    let state = createInitialState(2_036, 'gruene', ['housing', 'employment', 'mobility'])
+    let tabled: { eventId: string, optionId: string, expires: number } | null = null
+    for (let month = 0; month < 40 && !tabled; month += 1) {
+      state = advanceMonths(state, 1)
+      const entry = state.pending.find(candidate => candidate.tabledBy)
+      if (entry)
+        tabled = { eventId: entry.eventId, optionId: entry.tabledOptionId!, expires: entry.expiresMonth }
+    }
+    expect(tabled, 'no foreign motion inside three years').not.toBeNull()
+
+    // Sit on it until it lapses.
+    while (state.month <= tabled!.expires)
+      state = advanceMonths(state, 1)
+
+    expect(state.pending.some(entry => entry.eventId === tabled!.eventId), 'it is still waiting').toBe(false)
+    expect(state.firedOnce, 'the chamber never voted on it').toContain(tabled!.eventId)
+    const other = getEvent(tabled!.eventId)!.options.find(option => option.id !== tabled!.optionId)
+    expect(
+      state.choices.includes(`${tabled!.eventId}:${other?.id}`),
+      'an option nobody tabled was adopted instead',
+    ).toBe(false)
   })
 
   it('is never tabled by the player or by anybody in their coalition', () => {

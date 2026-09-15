@@ -62,6 +62,21 @@ const supportDrift = computed(() => {
 
 const hasMajority = computed(() => (snapshot.value?.coalitionSupport ?? 0) > 30)
 
+/**
+ * Why the clock has stopped, in the game's own words.
+ *
+ * The campaign pauses itself when a motion arrives and when it ends, and until now it did so in
+ * complete silence: three speed buttons with none of them lit and a clock that had stopped, which
+ * is indistinguishable from a crash. It was read as one.
+ */
+const pauseReason = computed(() => {
+  if (snapshot.value?.defeat)
+    return 'Kampagne beendet'
+  if ((snapshot.value?.pendingDecisions.length ?? 0) > 0)
+    return 'Vorlage wartet'
+  return 'Pausiert'
+})
+
 const supportHint = computed(() => {
   if (ownSupport.value === null)
     return ''
@@ -324,12 +339,23 @@ function restart(): void {
           <span><b>LINKS</b> verschieben</span><span><b>RECHTS</b> drehen</span><span><b>RAD</b> zoomen</span><span><b>RECHTSKLICK</b> anfliegen</span>
         </section>
 
-        <section class="time-controls panel" aria-label="Zeitsteuerung">
+        <section class="time-controls panel" :class="{ paused: speed === 0 }" aria-label="Zeitsteuerung">
           <!--
-            Where the pause button used to be. Pausing is one click away on any of the speeds and the
-            campaign pauses itself for a vote anyway; finding the middle of a three-kilometre city
-            again after following a street to the edge of it was the thing there was no way back from.
+            The pause button was taken out because pausing is one click away on any of the speeds and
+            the campaign pauses itself for a vote anyway. What was missing is the other half of that:
+            the campaign pausing itself was completely silent. Three speed buttons with none of them
+            lit, and a clock that has stopped, is indistinguishable from a game that has crashed —
+            and was read as exactly that. The resume below says both that it is paused and why.
           -->
+          <button
+            v-if="speed === 0 && canAdvance"
+            type="button"
+            class="resume"
+            :title="`${pauseReason} — klicken, um fortzusetzen`"
+            @click="game.setSpeed(1)"
+          >
+            <span aria-hidden="true">▶</span> {{ pauseReason }}
+          </button>
           <button type="button" class="overview" title="Zurück zur Gesamtansicht" aria-label="Zurück zur Gesamtansicht" @click="game.showOverview">
             <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
               <path d="M1.5 5.5v-4h4M14.5 5.5v-4h-4M1.5 10.5v4h4M14.5 10.5v4h-4" />

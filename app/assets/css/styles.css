@@ -742,3 +742,10 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
 
 /* The one coloured thing on the citizen card: which way this person leans. */
 .citizen-card .leaning-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+
+/* A campaign that has paused itself has to look paused, or it looks broken. */
+.time-controls.paused { box-shadow: inset 0 0 0 1px var(--warn, #d9834f); }
+.time-controls .resume { font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; color: var(--warn, #d9834f); white-space: nowrap; }
+/* The row must not grow when the resume appears, or the month button wraps onto two lines. */
+.time-controls .advance { white-space: nowrap; }
+.time-controls .resume span { margin-right: 6px; }

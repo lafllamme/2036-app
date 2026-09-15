@@ -98,6 +98,15 @@ const REACTION = 2.2
 const SHOULDER = 0.3
 /** How many of the crowd are out with somebody, and how far behind their companion walks. */
 const COMPANY_SHARE = 0.34
+/**
+ * What share of the crowd is left where it is rather than carried to the camera.
+ *
+ * A fifth, and the number is a trade rather than a taste: every roamer is one fewer person on the
+ * street the player is actually looking at, and they are spread over the whole map, so a fifth of
+ * five hundred is a person every kilometre or so out in the suburbs. Thin — which is right — but not
+ * nobody, which is what it was.
+ */
+const ROAMER_SHARE = 0.2
 const COMPANY_GAP: [number, number] = [1.1, 2.4]
 /** How close somebody will walk behind the person in front before easing off. A pavement, not a road. */
 const WALKING_GAP = 1.4
@@ -232,6 +241,16 @@ export interface Traveller {
   partner: Traveller | null
   /** How far behind that partner, in metres. Its own, so pairs do not all match. */
   partnerGap: number
+  /**
+   * Somebody who is never fetched back to the camera.
+   *
+   * The recycling that keeps a crowd where the player is looking also empties everywhere else: go to
+   * an outer street and there is nobody on it, because every walker in the city has been carried to
+   * wherever the camera was. A share of them are left alone instead. They are thin on the ground —
+   * they are spread over two hundred kilometres of street — but an outer street has somebody on it,
+   * which is what an outer street has.
+   */
+  roams: boolean
   /**
    * How tall this one is against a grown adult.
    *
@@ -425,6 +444,7 @@ export function buildFleet(
       gait: draw() * Math.PI * 2,
       partner: null,
       partnerGap: 0,
+      roams: plan.people === true && draw() < ROAMER_SHARE,
       stature: plan.people ? statureAt(citizen, plan.seed) : 1,
       /*
        * Unique across the whole city, not within a fleet: the pedestrians and the cyclists are two
@@ -677,7 +697,16 @@ function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, [stray, r
     const usable = Math.min(edge?.length ?? 0, reach * 2)
     const room = Math.max(0, Math.floor(usable / spacingOn(fleet, edge)))
     capacity.push(room)
-    filled.push(0)
+    /*
+     * Seeded with whoever is *already* on that stretch, and this is the whole fault.
+     *
+     * It used to start at nought every pass, so the capacity only ever counted the arrivals of that
+     * one pass and never the crowd standing there from the last two hundred. Every twelfth frame a
+     * street with room for fourteen people accepted fourteen more. Measured in a running campaign:
+     * **157 of 420 pedestrians on a single 226-metre stretch**, one every 1.4 m, while the
+     * next-busiest street had 29 — which is exactly the column that kept appearing.
+     */
+    filled.push(fleet.occupancy.get(candidate) ?? 0)
     total += room
   }
   fleet.density = crowdDensity(total, fleet.all.length)
@@ -694,6 +723,9 @@ function gather(fleet: Fleet, streets: Streets, camera: THREE.Vector3, [stray, r
       continue
     // And somebody out with a companion goes where their companion goes, not where the dice say.
     if (traveller.partner)
+      continue
+    // And a roamer is never fetched back at all: they are what keeps the rest of the city inhabited.
+    if (traveller.roams)
       continue
 
     /*

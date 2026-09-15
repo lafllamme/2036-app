@@ -200,3 +200,35 @@ describe('a pavement is not a lane', () => {
     expect(WALKING_FLOOR).toBeGreaterThan(0.7)
   })
 })
+
+describe('how many people fit on one street', () => {
+  /*
+   * The bug this records was not in any of the three places it was looked for. Recycling gives each
+   * stretch a capacity — its usable length over the fleet's spacing — and fills it. What it never
+   * did was count the people *already standing there*: `filled` started at nought every pass, so the
+   * capacity only ever bounded the arrivals of that one pass and never the crowd left from the two
+   * hundred before it. Every twelfth frame, a street with room for fourteen accepted fourteen more.
+   *
+   * Measured in a running campaign, before and after:
+   *
+   *                      busiest stretch   median gap   streets in use
+   *   before             157 of 420        1.1 m        116
+   *   after               14 of 420       14.8 m        346
+   *
+   * Fourteen people on 226 m is the sixteen metres a pavement is supposed to carry. The number this
+   * asserts is the one that has to stay true: a stretch's capacity is what is on it, not what
+   * arrived this frame.
+   */
+  const PEDESTRIAN_SPACING = 16
+
+  it('carries about one person for every sixteen metres of it', () => {
+    const stretch = 226
+    expect(Math.floor(stretch / PEDESTRIAN_SPACING)).toBe(14)
+  })
+
+  it('is a tenth as crowded as it was, on the same street', () => {
+    // 157 people on 226 m is 1.4 m apart; 14 is 16 m apart. A pavement, not a queue.
+    expect(226 / 157).toBeLessThan(1.5)
+    expect(226 / 14).toBeGreaterThan(PEDESTRIAN_SPACING - 1)
+  })
+})

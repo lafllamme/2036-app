@@ -44,7 +44,11 @@ const CAR_COUNT = 620
  * gather radius is one person every seven metres of street, and a pavement at midday has one every
  * fifteen to twenty-five. Four hundred and twenty is a busy city; nine hundred was a demonstration.
  */
-const WALKER_COUNT = 420
+/*
+ * A fifth of these never come to the camera — see `ROAMER_SHARE` — so the count carries both the
+ * crowd the player stands in and the scattering that keeps the rest of the city from being empty.
+ */
+const WALKER_COUNT = 520
 /**
  * How many are on a bike.
  *

@@ -275,3 +275,31 @@ sie aus den Fahrbahnbreiten der Karte kommen und `roadClearance` dagegenhält. W
 überstehen kann, ist die *Karosserie*: ein Fahrzeug dreht am Knoten auf der Stelle, und ein vier
 Meter langes Auto überstreicht dabei mehr als seine Spur. Das ist ein Kurvenradius-Problem und kein
 Kollisionsproblem — notiert für die Kreuzungsarbeit.
+
+
+## Wie viele Menschen auf eine Straße passen
+
+Der Fehler lag an keiner der drei Stellen, an denen ich ihn gesucht habe — nicht am Folgemodell,
+nicht an der Gehgeschwindigkeit, nicht an der Geradeaus-Regel an Kreuzungen. Gefunden hat ihn erst
+eine Messung an der **laufenden** Kampagne statt einer weiteren Überlegung.
+
+Die Rückholung gibt jedem Abschnitt eine Kapazität — nutzbare Länge durch den Abstand der Flotte —
+und füllt sie auf. Was sie nie getan hat: die Leute mitzählen, die **schon dort stehen**. `filled`
+begann in jedem Durchgang wieder bei null, also begrenzte die Kapazität nur die Ankömmlinge *dieses
+einen* Durchgangs und nie die Menge aus den zweihundert davor. Alle zwölf Frames nahm eine Straße mit
+Platz für vierzehn Leute vierzehn weitere auf.
+
+| Gemessen, laufende Kampagne | vorher | jetzt |
+| --- | --- | --- |
+| stärkste Kante | **157 von 420** | **14** |
+| Median-Abstand dort | **1,1 m** | **14,8 m** |
+| kleinster Abstand | 0 m | 4,2 m |
+| belegte Straßen | 116 | **440** |
+
+Vierzehn Personen auf 226 m sind die sechzehn Meter, die ein Gehweg tragen soll.
+
+**Und ein Fünftel der Menge wird gar nicht mehr geholt.** Die Rückholung, die eine Menge dort hält,
+wo der Spieler hinsieht, leert alles andere: eine Außenstraße hatte niemanden, weil jeder Fußgänger
+der Stadt dorthin getragen worden war, wo die Kamera zuletzt stand. Diese Fünftel bleiben, wo sie
+sind — dünn, denn sie verteilen sich über zweihundert Kilometer Straße, aber nicht niemand. Die Zahl
+der Fußgänger ist dafür von 420 auf 520 gestiegen: von 346 auf **440 belegte Straßen**.

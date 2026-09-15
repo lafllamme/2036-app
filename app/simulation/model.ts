@@ -406,14 +406,15 @@ function decide(state: SimulationState, eventId: string, optionId: string, playe
    * branch below.
    */
   /*
-   * The street judges what the player stood for. On their own motion that is the option; on somebody
-   * else's it is only a stance if they voted for it — opposing a motion is not endorsing its
-   * opposite, and reading it as one would let a player drift the electorate by voting no all decade.
+   * The street judges what the player stood for, and a vote by name is a position whichever way it
+   * goes. Tabling it or voting for it moves the electorate toward whoever wanted it; voting against
+   * moves it the other way by the same amount. Only an abstention says nothing — which is also what
+   * an abstention is for.
    */
-  const stance = playerVote === undefined || playerVote === 'yes'
+  const stance = playerVote === 'no' ? -1 : 1
   let next: SimulationState = {
     ...state,
-    support: stance ? shiftFromDecision(state.support, option) : state.support,
+    support: playerVote === 'abstain' ? state.support : shiftFromDecision(state.support, option, stance),
     pending: state.pending.filter(entry => entry.eventId !== eventId),
     motionPrep: withoutPreparation(state.motionPrep, eventId),
     firedOnce: state.firedOnce.includes(eventId) ? state.firedOnce : [...state.firedOnce, eventId],

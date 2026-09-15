@@ -161,3 +161,46 @@ describe('a campaign saved before the electorate existed', () => {
     expect(after.partyId).toBe('gruene')
   })
 })
+
+describe('a vote by name', () => {
+  /*
+   * The correction a player asked for, and they were right. Voting against a motion was treated as
+   * saying nothing at all, on the reasoning that opposing a thing is not endorsing its opposite.
+   *
+   * That confuses two questions. What the *council* did is unchanged by a no — the motion passes or
+   * it does not. What the *player stood for* is exactly what this function has always measured, and
+   * in a chamber that votes by name there is no vote that says nothing.
+   */
+  const motion = EVENTS.find(event => event.id === 'saf-burglary-series')!
+  const option = motion.options.find(candidate => candidate.id === 'saf-burglary-cctv')!
+
+  it('moves the street the other way when the player votes against', () => {
+    const start = initialSupport()
+    const forIt = shiftFromDecision(start, option, 1)
+    const againstIt = shiftFromDecision(start, option, -1)
+
+    for (const party of PARTIES) {
+      const up = forIt[party.id] - start[party.id]
+      const down = againstIt[party.id] - start[party.id]
+      // Opposite signs, and the same distance either side of where it started.
+      expect(Math.sign(up), `${party.abbreviation} moved the same way both times`).toBe(-Math.sign(down))
+      expect(Math.abs(up)).toBeCloseTo(Math.abs(down), 6)
+    }
+  })
+
+  it('moves it at all, either way', () => {
+    const start = initialSupport()
+    for (const stance of [1, -1] as const) {
+      const after = shiftFromDecision(start, option, stance)
+      const moved = PARTIES.reduce((sum, party) => sum + Math.abs(after[party.id] - start[party.id]), 0)
+      expect(moved, `a recorded vote that moved nobody (stance ${stance})`).toBeGreaterThan(0)
+    }
+  })
+
+  it('still adds up to one whichever way it went', () => {
+    for (const stance of [1, -1] as const) {
+      const after = shiftFromDecision(initialSupport(), option, stance)
+      expect(PARTIES.reduce((sum, party) => sum + after[party.id], 0)).toBeCloseTo(1, 9)
+    }
+  })
+})

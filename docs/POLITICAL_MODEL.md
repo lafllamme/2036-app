@@ -286,6 +286,13 @@ abgestimmt — über das, was auf der Tagesordnung steht, mit der Fraktion des S
 Die erste Fassung wandte hier die Standardoption des Ereignisses an, sodass Ignorieren still eine
 Option beschloss, die niemand eingebracht und über die niemand abgestimmt hatte.
 
-**Ein Nein verschiebt den Rückhalt nicht.** `shiftFromDecision` läuft nur, wenn der Spieler
-zugestimmt hat. Eine Vorlage abzulehnen ist kein Bekenntnis zu ihrem Gegenteil, und es so zu lesen
-hieße, dass man die Wählerschaft ein Jahrzehnt lang durch Neinsagen verschieben könnte.
+**Ein Nein ist eine Haltung und verschiebt den Rückhalt — in die andere Richtung.** `shiftFromDecision`
+bekommt eine Stellungnahme: `1` beim Einbringen oder Zustimmen, `−1` beim Ablehnen, gar keine
+Verschiebung bei Enthaltung.
+
+Kurzzeitig stand hier `0` für ein Nein, mit der Begründung, eine Vorlage abzulehnen sei kein
+Bekenntnis zu ihrem Gegenteil. Ein Spieler hat widersprochen, und zu Recht: das verwechselt zwei
+Fragen. Was der **Rat getan hat**, ändert ein Nein nicht — die Vorlage geht durch oder nicht. Was der
+**Spieler vertreten hat**, ist genau das, was diese Funktion seit jeher misst. In einer namentlichen
+Abstimmung gibt es keine Stimme, die nichts sagt. Gegen eine Sozialcharta zu stimmen ist eine Aussage
+über Sozialchartas, und die Wählerschaft, die eine wollte, hört sie.

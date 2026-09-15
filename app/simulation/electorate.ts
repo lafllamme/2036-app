@@ -109,8 +109,18 @@ export function driftFromCity(
  * `weightedDistance` the chamber uses. The movement is made zero-sum by subtracting the average
  * before it is applied — a share has to come from somewhere, and a decision that everybody likes
  * equally moves nothing, which is correct.
+ *
+ * `stance` is which way the player stood on it: `1` when they tabled it or voted for it, `-1` when
+ * they voted against. A recorded no is a public position and moves the street exactly as far as a
+ * yes does, in the other direction — voting against a housing charter is a statement about housing
+ * charters, and the voters who wanted one hear it.
+ *
+ * It was `0` for a while, on the reasoning that opposing a motion is not endorsing its opposite.
+ * That confuses two different things: what the *council* did, which a no does not change, and what
+ * the *player* stood for, which is what this function has always been about. In a chamber that votes
+ * by name there is no such thing as a vote that says nothing.
  */
-export function shiftFromDecision(support: Support, option: EventOption): Support {
+export function shiftFromDecision(support: Support, option: EventOption, stance: 1 | -1 = 1): Support {
   const closeness = PARTIES.map(party => 1 - weightedDistance(party.axes, option))
   const mean = closeness.reduce((sum, value) => sum + value, 0) / Math.max(1, closeness.length)
   // How loudly the decision speaks at all. A motion with no salience anywhere moves no votes.
@@ -118,7 +128,7 @@ export function shiftFromDecision(support: Support, option: EventOption): Suppor
 
   const next: Support = { ...support }
   PARTIES.forEach((party, index) => {
-    next[party.id] = Math.max(0, (support[party.id] ?? 0) + DECISION_RATE * loudness * ((closeness[index] ?? 0) - mean))
+    next[party.id] = Math.max(0, (support[party.id] ?? 0) + stance * DECISION_RATE * loudness * ((closeness[index] ?? 0) - mean))
   })
   return normalise(next)
 }

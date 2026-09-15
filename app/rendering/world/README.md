@@ -6,11 +6,17 @@ Stelle, die weiß, dass all das eine Stadt ist.
 | Ordner | Was darin steht |
 | --- | --- |
 | `streets/` | Fahrbahn, Gehweg, Radweg, Kreuzungen, Ampeln, Laternen, Schilder, parkende Autos |
-| `traffic/` | was sich bewegt: `fleet/`, Agenten, Räder, Einsätze, Unfallstellen |
+| `traffic/` | was sich bewegt: `fleet/`, Agenten, Räder, Einsätze, Unfallstellen, Brände |
 | `terrain/` | Boden, Bodentextur, Wasser, Bäume |
 | `structures/` | Gebäude, Fassaden, Farbgebung, Neubau, Baustellen |
-| `life/` | was die Politik sichtbar macht: Obdachlosigkeit, Einbrecher, Feuer |
+| `life/` | was die Politik sichtbar macht: Obdachlosigkeit, Einbrecher |
 | `transit/` | Bahn und Schiffe |
+
+Der Unterschied zwischen `life/` und `traffic/` ist nicht das Thema, sondern die Ursache: was in
+`life/` steht, wird **einmal platziert und nach Druck gezählt** (so viele Obdachlose, wie der
+Wohnungsmarkt übrig lässt). Was in `traffic/` steht, gehört zu **einem bestimmten Einsatz an einem
+bestimmten Ort** — ein Brand ist ein Feuerwehreinsatz und steht deshalb dort, nicht bei den
+Einbrechern.
 
 Oben bleiben die vier, die zu keinem Thema gehören: `index.ts` (Komposition), `cityState.ts` (der
 Sichtzustand als Renderer-Seite), `tiledInstances.ts` (Kachelung für Cullung), `weatherSurfaces.ts`

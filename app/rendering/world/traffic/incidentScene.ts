@@ -1,11 +1,13 @@
 import type { Relief } from '../../../world/relief'
 import type { CityModel, CityModels } from '../../cityModels'
 import type { Incident } from './dispatch'
+import type { Fires } from './fire'
 import type { Service } from './incidents'
 import * as THREE from 'three/webgpu'
 import { CREW_IDS } from '../../cityModels'
 import { AXIS_Y, FLAT, WHITE } from '../../shared'
 import { carProxyGeometry, carProxyMaterial } from '../streets/carProxy'
+import { addFires, updateFires } from './fire'
 import { CALL_LIMIT_MAX, SHAPE } from './incidents'
 
 /**
@@ -108,6 +110,14 @@ export interface IncidentScenes {
   crews: Partial<Record<Exclude<Service, 'none'>, THREE.InstancedMesh>>
   /** The two cars left in the road after a collision. Nothing else in the city uses them. */
   wrecks: THREE.InstancedMesh
+  /**
+   * Flame and smoke, for the one kind of call that is visible from anywhere in the city.
+   *
+   * A column of smoke is the only thing in Lindenhafen a player can see from the overview and go
+   * and look at. Everything else about a call — the cordon, the crowd, the marker — has to be
+   * found first.
+   */
+  fires: Fires
 }
 
 /** Scratch, reused across every write: a scene loop that allocates is a scene loop that stutters. */
@@ -127,6 +137,7 @@ export function createIncidentScenes(scene: THREE.Scene, models: CityModels): In
     crowd: crowdModels(models).map(model => addModel(scene, model, models.peopleMaterial, SCENE_LIMIT * MAX_CROWD)),
     crews: crewMeshes(scene, models),
     wrecks: addWrecks(scene),
+    fires: addFires(scene, SCENE_LIMIT),
   }
 }
 
@@ -223,6 +234,8 @@ export function updateIncidentScenes(
   relief: Relief,
   elapsed: number,
   cameraDistance: number,
+  /** Which way the camera is looking, because flame and smoke are billboards. */
+  facing: THREE.Quaternion,
 ): void {
   const showCordon = cameraDistance <= CORDON_RANGE
   const showCrowd = cameraDistance <= CROWD_RANGE
@@ -233,12 +246,16 @@ export function updateIncidentScenes(
   let wrecks = 0
   const crew: Partial<Record<Exclude<Service, 'none'>, number>> = {}
   const onlookers = scenes.crowd.map(() => 0)
+  /** Collected rather than drawn in the loop: the fire is one pass over one pair of meshes. */
+  const burning: { x: number, y: number, z: number, age: number }[] = []
 
   for (let index = 0; index < open; index += 1) {
     const incident = incidents[index]!
     const shape = SHAPE[incident.kind]
     const ground = relief.height(incident.x, incident.z)
     const age = elapsed - incident.raised
+    if (incident.kind === 'fire')
+      burning.push({ x: incident.x, y: ground, z: incident.z, age })
 
     if (scenes.marker) {
       // Breathing rather than flashing: a flashing ground plane at this size is a strobe.
@@ -352,6 +369,14 @@ export function updateIncidentScenes(
     if (mesh.instanceColor)
       mesh.instanceColor.needsUpdate = true
   }
+  /*
+   * And the fire, in one pass over one pair of meshes rather than inside the loop above.
+   *
+   * It is the only part of a scene that is not distance-gated the way the rest is. A cordon at two
+   * kilometres is four pixels and worth dropping; a column of smoke at two kilometres is the reason
+   * the player goes and looks.
+   */
+  updateFires(scenes.fires, burning, elapsed, facing, cameraDistance)
 }
 
 /**

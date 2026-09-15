@@ -214,19 +214,19 @@ seine zehn Zeilen in der Engine.
 
 ---
 
-# Zweiter Durchgang — tiefer gegraben
+## Zweiter Durchgang — tiefer gegraben
 
 Das erste Audit hat auf Dateiebene gesucht. Dieses hier auf Symbolebene, plus Abhängigkeiten,
 Assets und Stylesheet. Was dabei herauskam, in der Reihenfolge, in der es gefunden wurde.
 
-## 1. Der Schaden aus dem eigenen Refactoring
+### 1. Der Schaden aus dem eigenen Refactoring
 
 Dreißig Dateien verschoben heißt: jeder Pfad in jedem Dokument und jedem Kommentar zeigt ins Leere.
 Sieben Dateien betroffen, darunter ein Architekturtest, der einen Pfad prüft, den es nicht mehr gab —
 er wäre stillschweigend an einer leeren Menge vorbeigelaufen. Alle Doc-Links zeigen jetzt wieder auf
 existierende Dateien, und das ist eine Prüfung wert, wenn wieder etwas verschoben wird.
 
-## 2. Ungenutzte Exporte: 77 gefunden, 11 davon wirklich tot
+### 2. Ungenutzte Exporte: 77 gefunden, 11 davon wirklich tot
 
 Der grobe Zähler fand 77. Nach der Trennung „wird nirgends benutzt, auch nicht in der eigenen Datei"
 gegen „wird nur intern benutzt, `export` überflüssig" blieben **11 echte Leichen** und **66
@@ -243,12 +243,12 @@ verloren. Ein Export ist ein Versprechen; diese 26 haben keins gehalten.
 `DefeatReason`, `PartyRedLine` …). Der Zähler hält sie für ungenutzt, weil niemand sie *benennt* —
 sie werden strukturell benutzt, und sie zu verstecken macht die API schlechter, nicht sauberer.
 
-## 3. Abhängigkeiten: null tote
+### 3. Abhängigkeiten: null tote
 
 Alle 24 Pakete werden benutzt, sechs davon indirekt (Typpakete, das ESLint-Plugin über das Preset,
 der Coverage-Provider, `vue-tsc` über `nuxt typecheck`). Hier gibt es nichts wegzuwerfen.
 
-## 4. Assets: 11 KB
+### 4. Assets: 11 KB
 
 Der erste Lauf meldete 56 ungenutzte Modelle — ein Fehlalarm, weil `cityModels.ts` seine Kennungen
 programmatisch bildet (`building-type-${letter}`). Nach richtigem Abgleich: **zwei Dateien**, die
@@ -256,7 +256,7 @@ Kit-eigenen Bäume aus `city/suburban`, ersetzt durch die aus `nature/`. Elf Kil
 
 Umgekehrt fehlt keine einzige Kennung eine Datei — das Kit ist vollständig.
 
-## 5. Das Stylesheet: eine Lüge im Kommentar
+### 5. Das Stylesheet: eine Lüge im Kommentar
 
 Der interessanteste Fund des ganzen Durchgangs. Vier Design-Tokens — `--call-police`,
 `--call-medical`, `--call-theft`, `--call-fire` — waren definiert, ausführlich dokumentiert und von
@@ -277,7 +277,7 @@ hält sie zusammen und schlägt an, wenn sie auseinanderlaufen.
 Dazu fünf CSS-Klassen, die kein Template nennt: `.btn-solid`, `.config`, `.is-primary`, `.live-dot`,
 `.loading-state`. Entfernt. Jetzt null.
 
-## 6. Was übrig bleibt — und warum ich es nicht angefasst habe
+### 6. Was übrig bleibt — und warum ich es nicht angefasst habe
 
 | Fund | Warum es steht | Vorschlag |
 | --- | --- | --- |
@@ -287,7 +287,7 @@ Dazu fünf CSS-Klassen, die kein Template nennt: `.btn-solid`, `.config`, `.is-p
 | `simulation/model.ts`, 788 Zeilen | der Monatsschritt und alles daran | aufteilen |
 | **Profiling, dann `BatchedMesh`** | 34 Draws für Figuren, keiner davon gecullt | eine Messung, kein Umbau — und weiterhin nicht vorher |
 
-## Antwort auf „gibt es da nichts mehr, null, null?"
+### Antwort auf „gibt es da nichts mehr, null, null?"
 
 Doch, aber deutlich weniger als beim ersten Mal, und das Verhältnis hat sich verschoben. Der erste
 Durchgang fand **Struktur**: zu große Dateien, fehlende Ordnung, fehlende READMEs. Dieser fand

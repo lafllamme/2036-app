@@ -445,6 +445,8 @@ export class CityRenderer {
         this.world.agents.relief,
         this.animationElapsed,
         distance,
+        // Flame and smoke are billboards, so they need to know which way the camera is looking.
+        this.rig.camera.quaternion,
       )
       updateSignals(this.world.signals, this.animationElapsed)
       /*

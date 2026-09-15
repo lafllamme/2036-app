@@ -181,6 +181,15 @@ export const useGameStore = defineStore('game', () => {
        * the mixer deliberately never ducks started and had nothing left that could stop it.
        */
       pendingCommand.value = false
+      /*
+       * And lets the clock go, which is the other half of the same lesson.
+       *
+       * Every path that lowers this flag has to offer the clock back, or the campaign strands on
+       * whichever one forgot. This one forgot, and the symptom was precise: pressing "nächster
+       * Monat" stopped the game every single time, while voting — which does not always turn the
+       * month — mostly did not.
+       */
+      resumeIfClear()
       const deliver = pendingSave
       pendingSave = null
       deliver?.({
@@ -203,16 +212,6 @@ export const useGameStore = defineStore('game', () => {
     ready.value = true
     pendingCommand.value = false
 
-    /*
-     * Save at the turn of every month.
-     *
-     * A campaign is ten years long and a month is five minutes; asking the player to remember a
-     * button is asking them to lose an afternoon. The month is the natural unit — it is what the
-     * simulation actually commits — and saving on anything finer would write on every vote and
-     * every negotiation for no gain.
-     */
-    if (experienceStage.value === 'gameplay' && previous && data.snapshot.month !== previous.month)
-      void save()
     if (isCampaignComplete(data.snapshot.month))
       speed.value = 0
 
@@ -236,6 +235,22 @@ export const useGameStore = defineStore('game', () => {
       // Nothing new to answer: if the player was only held up by their own vote, they get the clock back.
       resumeIfClear()
     }
+
+    /*
+     * Save at the turn of every month — and last, after the clock has been dealt with.
+     *
+     * A campaign is ten years long and a month is five minutes; asking the player to remember a
+     * button is asking them to lose an afternoon. The month is the natural unit — it is what the
+     * simulation actually commits — and saving on anything finer would write on every vote and
+     * every negotiation for no gain.
+     *
+     * The ordering is the bug this line used to be. A save is a command like any other, so asking
+     * for one raises `pendingCommand`; standing above the resume, it raised that flag a line before
+     * the resume read it, and the resume dutifully decided the player was still waiting for
+     * something. They were — for a background save they never asked for and could not see.
+     */
+    if (experienceStage.value === 'gameplay' && previous && data.snapshot.month !== previous.month)
+      void save()
   }
 
   if (import.meta.client) {
@@ -337,10 +352,18 @@ export const useGameStore = defineStore('game', () => {
     speed.value = heldSpeed
   }
 
+  /**
+   * Step the campaign on by one month.
+   *
+   * It holds the clock rather than stopping it. The month has to land before the next one starts —
+   * otherwise a player on 4× who presses the button gets two months — but "wait for this one" is not
+   * "stop playing", and it used to be: pressing the button while the campaign was running left it
+   * standing until somebody noticed and pressed play. Same fault as the vote sheet had, same fix.
+   */
   function advanceMonth(): void {
     if (!canAdvance.value)
       return
-    speed.value = 0
+    holdClock()
     send({ type: 'ADVANCE', months: 1 })
   }
 
@@ -647,6 +670,11 @@ export const useGameStore = defineStore('game', () => {
     showPartyHall,
     showPartyProfile,
     setSpeed,
+    /*
+     * Exposed only so `tests/unit/clock.test.ts` can play the half of the cycle the worker plays.
+     * Nothing in the interface calls it: the store calls it itself whenever a message lands.
+     */
+    resumeClockIfClear: resumeIfClear,
     advanceMonth,
     applyPolicy,
     reset,

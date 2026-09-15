@@ -257,3 +257,46 @@ Stadtbett). Donner nur bei starkem Regen, nie zweimal in einer halben Minute, un
 Der Regen wird kaum nach Entfernung ausgeblendet: er fällt auf die ganze Stadt und ist auch aus
 tausend Metern das Lauteste, was es gibt. Der Verkehr behält aus der Höhe ein Viertel, die Stimmen
 gar nichts, der Regen mehr als die Hälfte.
+
+
+## Feuer
+
+`app/rendering/world/traffic/fire.ts`
+
+Das Modul lag 155 Zeilen lang fertig gebaut und an nichts angeschlossen im Baum — das Audit hat es
+zweimal gemeldet. Es hängt jetzt an der Einsatzszene, wo es hingehört: ein Brand ist ein
+Feuerwehreinsatz an einem bestimmten Haus, kein Hintergrundrauschen wie Obdachlosigkeit oder
+Einbrecher. Deshalb ist es aus `life/` nach `traffic/` gewandert.
+
+**Zwei Draws, und nur solange etwas brennt.** Jedes Teilchen ist ein Quad aus einem instanzierten
+Mesh, und wo es gerade ist, ist eine Funktion seines eigenen Index und der Uhr — keine
+Geschwindigkeiten, kein Zustand, nichts, was zwischen zwei Bildern integriert wird. Gemessen im
+laufenden Build: 106 Draws ohne Brand, **107 mit**.
+
+Rauch und Flamme sind getrennt abgestuft, weil sie sich unterschiedlich weit tragen:
+
+| | Reichweite | Warum |
+| --- | --- | --- |
+| Flamme | bis 1.400 m | darunter ein Pixel, und sie ist die teurere der beiden |
+| Rauch | **keine** | eine Säule über der Stadt ist das Einzige, was ein Spieler aus der Übersicht sieht und dann ansteuert |
+
+### Was beim ersten Anlauf zu klein war
+
+Die ersten Werte des Moduls waren nie auf dem Schirm überprüft worden, und man sah es: eine
+34 Meter hohe Säule aus 22 Teilchen à 5 Meter in der Farbe `#2a2622` bei 34 % Deckkraft. Technisch
+vorhanden, praktisch unsichtbar — die Messung sagte „22 Rauchteilchen geschrieben, Mesh sichtbar, im
+Graphen", und auf dem Bild war nichts.
+
+Der Denkfehler steckte in der Farbe. Fast schwarz, mit der Begründung, Rauch blockiere Licht. Was das
+übersieht: eine Säule wird **gegen den Himmel** gesehen, und gegen einen norddeutschen Februarhimmel
+ist alles so Dunkle ein Fleck, den niemand als Rauch liest. Eine echte Rauchfahne wird von der ganzen
+Himmelskuppel seitlich angeleuchtet.
+
+Jetzt: 95 Meter hoch, 46 Teilchen à 16 Meter, `#3f3a34` nach `#c0b9ae` aufhellend, 62 % Deckkraft.
+Aus einem Block Entfernung unübersehbar, aus der Übersicht noch als Säule lesbar.
+
+### Und die Nachrichtenleiste
+
+Ein Brand meldet sich als „Feuerwehr: Gebäudebrand" in Orange — derselbe Wert wie der Ring auf dem
+Asphalt, gehalten von `tests/unit/callColours.test.ts`. Der Spieler sieht die Säule, liest die
+Meldung und erkennt beides als dieselbe Sache.

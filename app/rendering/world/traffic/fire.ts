@@ -18,29 +18,44 @@ import { glowTexture } from '../../sky/textures'
  * and a fire that vanishes when you walk round it is worse than no fire.
  */
 
+/**
+ * How close the camera has to be for the flame to be worth drawing.
+ *
+ * Only the flame. Smoke has no range gate at all, which is the whole point of it: a column over the
+ * city is the one thing a player can see from the overview and go and look at.
+ */
+const FLAME_RANGE = 1_400
+
 /** How many of each, per fire. The budget is fixed: six fires at once is the most there can be. */
-const FLAMES = 14
-const SMOKE = 22
+const FLAMES = 16
+const SMOKE = 46
 
 /** How long one particle takes to run its life, in seconds, and how far it gets. */
 const FLAME_LIFE = 1.1
 const FLAME_RISE = 5.5
-const SMOKE_LIFE = 5.5
-const SMOKE_RISE = 34
+const SMOKE_LIFE = 7
+const SMOKE_RISE = 95
 /** How wide the column is at the bottom, and how much the smoke spreads as it climbs. */
 const BASE_SPREAD = 3.4
-const SMOKE_DRIFT = 9
+const SMOKE_DRIFT = 16
 
 /** Sizes in metres at birth, and how much each grows over its life. */
-const FLAME_SIZE = 3.2
-const SMOKE_SIZE = 5
+const FLAME_SIZE = 4
+const SMOKE_SIZE = 16
 const SMOKE_GROWTH = 3.4
 
 const FLAME_COLOUR = /* @__PURE__ */ new THREE.Color('#ff7a1c')
 const EMBER_COLOUR = /* @__PURE__ */ new THREE.Color('#ffd25e')
-const SMOKE_COLOUR = /* @__PURE__ */ new THREE.Color('#2a2622')
+/*
+ * Dark at the base and pale at the top, and both lighter than they were.
+ *
+ * The first values were nearly black, on the reasoning that smoke blocks light. What that ignores is
+ * that a column is seen against the sky, and against anorth German sky in February anything that dark
+ * is a smudge nobody reads as smoke. A real plume is lit from the side by the whole dome.
+ */
+const SMOKE_COLOUR = /* @__PURE__ */ new THREE.Color('#3f3a34')
 /** Pale at the top, where smoke has thinned enough to be lit rather than to block. */
-const WHITE_SMOKE = /* @__PURE__ */ new THREE.Color('#8e8880')
+const WHITE_SMOKE = /* @__PURE__ */ new THREE.Color('#c0b9ae')
 
 export interface Fires {
   flame: THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
@@ -50,7 +65,7 @@ export interface Fires {
 export function addFires(scene: THREE.Scene, sites: number): Fires {
   return {
     flame: addCloud(scene, sites * FLAMES, THREE.AdditiveBlending, 0.9, 2),
-    smoke: addCloud(scene, sites * SMOKE, THREE.NormalBlending, 0.34, 1),
+    smoke: addCloud(scene, sites * SMOKE, THREE.NormalBlending, 0.62, 1),
   }
 }
 
@@ -98,15 +113,22 @@ export function updateFires(
   sites: { x: number, y: number, z: number, age: number }[],
   elapsed: number,
   facing: THREE.Quaternion,
+  cameraDistance: number,
 ): void {
   let flames = 0
   let smoke = 0
+  /*
+   * Smoke carries and flame does not, so they are gated separately. From the overview a fire is a
+   * column of smoke and nothing else, which is exactly what a fire looks like from a hill — and it
+   * saves the more expensive of the two meshes at the distance where the city is busiest.
+   */
+  const showFlame = cameraDistance <= FLAME_RANGE
 
   sites.forEach((site, index) => {
     // A column takes half a minute to build. Before that it is a fire somebody might still put out.
     const grown = Math.min(1, site.age / 30)
 
-    for (let particle = 0; particle < FLAMES; particle += 1) {
+    for (let particle = 0; particle < (showFlame ? FLAMES : 0); particle += 1) {
       /*
        * Where this one is in its own life, from its index and the clock. Offsetting by the index
        * spreads the whole set evenly through the cycle, so the column is continuous rather than

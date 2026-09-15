@@ -6,6 +6,7 @@ import type {
   CityVisualState,
   EventDefinition,
   EventOption,
+  MetricId,
   NewsItem,
   PartyDefinition,
   PartyId,
@@ -84,6 +85,14 @@ export interface SimulationState {
    * none, since it quietly tells the player they have changed nothing.
    */
   baselineMetrics: CityMetrics
+  /**
+   * What the player's own decisions have done to each metric, summed over the campaign.
+   *
+   * Keyed metric, then the measure's name. Only decisions are kept: the city's dynamics move every
+   * number every month and would drown out the one thing the player can act on. The question is not
+   * "why is crime 52" — the model answers that — but "what did I do to it".
+   */
+  drivers: Partial<Record<MetricId, Record<string, number>>>
   stocks: CityStocks
   perception: PerceptionState
   measures: ActiveMeasure[]
@@ -191,6 +200,7 @@ export function createInitialState(seed = 2036, partyId: PartyId | null = null, 
     coalitionPartyIds: formCoalition(partyId),
     support: initialSupport(),
     baselineMetrics: { ...metrics },
+    drivers: {},
     edges: { months: {} },
     defeat: null,
     news: [{ id: 'news-opening', month: 0, scope: 'city', urgency: 'important', headline: 'LINDENHAFEN: Neuer Stadtrat nimmt Arbeit für das Jahrzehnt 2026–2036 auf' }],
@@ -356,6 +366,7 @@ export function migrateState(state: SimulationState): SimulationState {
     // A campaign saved before the baseline existed takes today as its first day. Not accurate, but
     // the alternative is a comparison against `undefined`, which is a crash.
     baselineMetrics: state.baselineMetrics ?? { ...state.metrics },
+    drivers: state.drivers ?? {},
     edges: state.edges ?? { months: {} },
     defeat: state.defeat ?? null,
     relationships: state.relationships ?? {},
@@ -578,6 +589,18 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     support: state.support ?? initialSupport(),
     defeat: state.defeat ?? null,
     baselineMetrics: state.baselineMetrics ?? state.metrics,
+    /*
+     * Handed over strongest first, so the interface can name the one that matters without sorting
+     * the same list on every render.
+     */
+    drivers: Object.fromEntries(
+      Object.entries(state.drivers ?? {}).map(([metric, sources]) => [
+        metric,
+        Object.entries(sources ?? {})
+          .map(([label, delta]) => ({ label, delta }))
+          .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)),
+      ]),
+    ),
     causalEdges: state.causalEdges,
     news: state.news,
     cityVisuals: visualsFrom(state.metrics, state.stocks),
@@ -612,6 +635,23 @@ export function advanceOneMonth(state: SimulationState): SimulationState {
   const stepped = stepDynamics(workingMetrics, workingStocks, state.perception, previousHealth, measureCost)
   edges.push(...stepped.edges)
 
+  /*
+   * What the player's own decisions did this month, added to what they have done so far.
+   *
+   * Only the edges that carry a measure's name — the dynamics move everything every month and are
+   * not a thing anybody chose. A measure that has since expired keeps its total, because it did
+   * happen and the player did it.
+   */
+  const drivers: Partial<Record<MetricId, Record<string, number>>> = { ...state.drivers }
+  for (const edge of edges) {
+    if (!edge.label)
+      continue
+    const metric = edge.to as MetricId
+    const sources = { ...(drivers[metric] ?? {}) }
+    sources[edge.label] = (sources[edge.label] ?? 0) + edge.delta
+    drivers[metric] = sources
+  }
+
   let next: SimulationState = {
     ...state,
     month,
@@ -621,6 +661,7 @@ export function advanceOneMonth(state: SimulationState): SimulationState {
     perception: stepped.perception,
     measures,
     causalEdges: edges,
+    drivers,
   }
 
   // Expire undecided motions: the default option applies and is recorded as a choice.

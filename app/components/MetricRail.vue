@@ -19,6 +19,7 @@ function toggleRail(): void {
 const metrics = computed(() => snapshot.value?.metrics)
 const previous = computed(() => snapshot.value?.previousMetrics)
 const baseline = computed(() => snapshot.value?.baselineMetrics)
+const drivers = computed(() => snapshot.value?.drivers ?? {})
 const months = computed(() => snapshot.value?.month ?? 0)
 
 /**
@@ -44,7 +45,18 @@ function sinceStart(key: keyof NonNullable<typeof metrics.value>, goodDirection:
   const amount = share === null
     ? `${delta > 0 ? '+' : '−'}${formatNumber(Math.abs(delta), 1)}${unit}`
     : `${delta > 0 ? '+' : '−'}${formatNumber(Math.abs(share), 1)} %`
-  return `Bei Amtsantritt ${formatNumber(then, 2)}${unit}. ${term} ${amount} — ${direction}.`
+  /*
+   * And who did it, when it was the player rather than the city.
+   *
+   * Only their own decisions are named. The city's dynamics move every number every month, and
+   * saying "Modellursache: Jugendarbeitslosigkeit, Leerstand und Präventionskapazität" answers a
+   * question nobody asked — the one being asked is what *I* did.
+   */
+  const strongest = drivers.value[key]?.[0]
+  const because = strongest
+    ? ` Stärkste eigene Entscheidung darauf: ${strongest.label} (${strongest.delta > 0 ? '+' : '−'}${formatNumber(Math.abs(strongest.delta), 1)}${unit}).`
+    : ' Bisher hat keine eigene Entscheidung darauf gewirkt.'
+  return `Bei Amtsantritt ${formatNumber(then, 2)}${unit}. ${term} ${amount} — ${direction}.${because}`
 }
 
 function compact(value: number): string {

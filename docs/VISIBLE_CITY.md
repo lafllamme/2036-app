@@ -55,8 +55,12 @@ keiner, weil er dem Spieler leise erzählt, er habe nichts verändert. Ein Spiel
 Feld nimmt den Ladezeitpunkt als ersten Tag — ungenau, aber die Alternative wäre ein Vergleich gegen
 `undefined`.
 
-Noch offen: **die Ursache dazu.** `causalEdges` weiß, welche Maßnahme eine Kennzahl zuletzt bewegt
-hat, und wird nirgends gezeigt.
+✅ **Und wer es war.** `causalEdges` trug die Antwort jeden Monat und warf sie jeden Monat weg. Was
+die *eigenen Entscheidungen* an einer Kennzahl bewegt haben, wird jetzt über die ganze Kampagne
+aufsummiert und im selben Hover genannt: *„Stärkste eigene Entscheidung darauf: Wohnungsbau-Turbo
+(+412,0)."* Nur Entscheidungen — die Stadtdynamik bewegt jede Zahl jeden Monat, und „Modellursache:
+Jugendarbeitslosigkeit, Leerstand und Präventionskapazität" beantwortet eine Frage, die niemand
+gestellt hat. Gefragt ist, was *ich* getan habe. Hat noch nichts gewirkt, steht das ausdrücklich da.
 
 **Veränderung wird nicht markiert.** Was sich in diesem Monat bewegt hat, muss sich melden, statt
 still eine Stelle hinter dem Komma zu wandern.

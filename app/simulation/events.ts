@@ -79,7 +79,7 @@ export function applyMeasures(
         stocks[effect.target] += delta
       else metrics[effect.target] += delta
 
-      edges.push({ from: measure.key, to: effect.target, delta, explanation: `${measure.label}: erwarteter, verzögerter Modelleffekt` })
+      edges.push({ from: measure.key, to: effect.target, delta, explanation: `${measure.label}: erwarteter, verzögerter Modelleffekt`, label: measure.label })
     }
   }
 }

@@ -264,6 +264,13 @@ export interface CausalEdge {
   to: EffectTargetId
   delta: number
   explanation: string
+  /**
+   * The measure's own name, when this edge is one the player brought about.
+   *
+   * Carried rather than looked up later, because a measure that has run its course leaves
+   * `activeMeasures` and the player still deserves to be told it was theirs.
+   */
+  label?: string
 }
 
 export interface NewsItem {
@@ -285,6 +292,14 @@ export interface SimulationSnapshot {
   previousMetrics: CityMetrics
   /** The city as it was on the first day, so every number can say what the player has changed. */
   baselineMetrics: CityMetrics
+  /**
+   * What the player's own decisions have done to each metric, summed over the whole campaign.
+   *
+   * Only the decisions. The city's own dynamics move everything every month and would drown out the
+   * one thing the player can actually act on — the question being answered is not "why is crime 52"
+   * but "what did *I* do to it".
+   */
+  drivers: Partial<Record<MetricId, { label: string, delta: number }[]>>
   health: HealthScores
   perception: PerceptionState
   activePolicyIds: string[]

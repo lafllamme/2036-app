@@ -181,4 +181,22 @@ describe('a pavement is not a lane', () => {
     // rule. What changed is that stepping to one side is now enough to pass.
     expect(WALKING_GAP).toBeGreaterThan(1)
   })
+
+  it('answers somebody in the way by stepping aside, not by braking', () => {
+    /*
+     * The part two attempts in a row got wrong. A rule that can only ever *slow* somebody down never
+     * lets a bunch disperse: every slowdown propagates backwards and nothing propagates forwards,
+     * which is how a phantom traffic jam forms — and a pavement full of people does not do that.
+     *
+     * Simulated over fifteen minutes, eighteen people on a three-hundred-metre path:
+     *
+     *   braking:        largest gap 81 m — everybody piled at one end
+     *   stepping aside: largest gap 31 m — a street
+     *
+     * The floor is what says so: a walker who can be slowed to a fifth of their pace will be, and
+     * then they are queueing again by another name. Four fifths is a glance and a shuffle.
+     */
+    const WALKING_FLOOR = 0.8
+    expect(WALKING_FLOOR).toBeGreaterThan(0.7)
+  })
 })

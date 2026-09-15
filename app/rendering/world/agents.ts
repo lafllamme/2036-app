@@ -242,7 +242,20 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
       spacing: 16,
       lift: 0.02,
       obeysSignals: false,
-      speed: [1.1, 1.9],
+      /*
+       * How fast people walk, and why the spread is narrow.
+       *
+       * It was 1.1 … 1.9 m/s — the quickest walked **1.7×** the speed of the slowest, so a fast
+       * walker gained fifty metres a minute on a slow one, caught them, and then could not do
+       * anything but follow. Given a few minutes every pedestrian in reach had collected behind
+       * whoever was slowest, which is the column of thirty people the crowd kept forming: not a
+       * density problem at all, a *speed* problem wearing one.
+       *
+       * Real walking speeds average about 1.34 m/s and vary by around fifteen per cent. This is that
+       * — still visibly different from person to person, but a fast walker now takes four minutes to
+       * gain what they used to gain in one.
+       */
+      speed: [1.15, 1.55],
       scale: model => PERSON_HEIGHT / Math.max(0.001, model.size.y),
       weight: () => 1,
       service: () => 'none' as Service,

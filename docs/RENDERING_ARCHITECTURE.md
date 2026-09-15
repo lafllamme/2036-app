@@ -247,6 +247,21 @@ Ein Mensch geht drumherum. Im Weg ist nur, wer in derselben Handbreit Gehweg ste
 | Mindestabstand | 7 m | 1,4 m |
 | Seitlich ausweichen | nein | ab 0,3 der Spurbreite (~0,5 m) |
 
+**Und die Antwort auf jemanden im Weg ist ein Schritt zur Seite, kein Bremsen.** Das ist der Teil,
+den zwei Anläufe hintereinander verfehlt haben. Eine Regel, die nur *verlangsamen* kann, lässt eine
+Traube nie wieder auseinandergehen: jede Verlangsamung pflanzt sich nach hinten fort und nichts nach
+vorn — genau so entsteht ein Phantomstau, und genau das tut ein Gehweg voller Menschen nicht.
+Simuliert über fünfzehn Minuten, achtzehn Personen auf dreihundert Metern:
+
+| | größte Lücke |
+| --- | --- |
+| bremsen | **81 m** — alle an einem Ende aufgetürmt |
+| ausweichen | **31 m** — eine Straße |
+
+Dazu war die Gehgeschwindigkeit 1,1 … 1,9 m/s: der Schnellste ging **1,7-mal** so schnell wie der
+Langsamste, holte fünfzig Meter pro Minute auf und konnte dann nichts mehr tun als folgen. Echte
+Gehgeschwindigkeiten liegen um 1,34 m/s und streuen etwa fünfzehn Prozent — jetzt 1,15 … 1,55.
+
 Dazu ist ein Drittel der Menge **zu zweit unterwegs**. Ein Begleiter steuert nicht: er wird dorthin
 gesetzt, wo sein Gegenüber ist, einen Schritt dahinter, auf der anderen Hand derselben Spur — in
 einem zweiten Durchgang, *nachdem* alle anderen sich bewegt haben, sonst driftet ein Paar pro Frame

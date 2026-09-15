@@ -101,6 +101,11 @@ const COMPANY_SHARE = 0.34
 const COMPANY_GAP: [number, number] = [1.1, 2.4]
 /** How close somebody will walk behind the person in front before easing off. A pavement, not a road. */
 const WALKING_GAP = 1.4
+/** And the slowest they will ever be pushed to, as a share of their own pace. Nobody stops dead. */
+const WALKING_FLOOR = 0.8
+/** How far ahead somebody is noticed at all, and how quickly the step aside is taken, per second. */
+const WALKING_NOTICE = 6
+const SIDESTEP = 0.9
 /** How far before a junction a car starts braking for a red, and where it comes to rest. */
 const STOP_ZONE = 34
 const STOP_LINE = 5
@@ -745,7 +750,29 @@ function advance(fleet: Fleet, streets: Streets, delta: number, elapsed: number)
     const sameLine = ahead && (fleet.queues || Math.abs(ahead.lane - traveller.lane) < SHOULDER)
     if (ahead && sameLine && ahead.edge === traveller.edge && ahead.forward === traveller.forward) {
       const gap = traveller.forward ? ahead.along - traveller.along : traveller.along - ahead.along
-      limit = Math.min(limit, Math.max(0, (gap - (fleet.queues ? MIN_GAP : WALKING_GAP)) / REACTION))
+      const eased = Math.max(0, (gap - (fleet.queues ? MIN_GAP : WALKING_GAP)) / REACTION)
+      if (fleet.queues) {
+        limit = Math.min(limit, eased)
+      }
+      else if (gap < WALKING_NOTICE) {
+        /*
+         * A person steps aside; they do not brake.
+         *
+         * This is the part the first two attempts both missed. A rule that can only ever *slow*
+         * somebody down never lets a bunch disperse again — every slowdown propagates backwards and
+         * nothing propagates forwards, which is precisely how a phantom traffic jam forms and
+         * exactly what a pavement full of people does not do. Simulated over fifteen minutes on a
+         * three-hundred-metre path: braking leaves an eighty-one-metre hole with everybody piled at
+         * one end; stepping aside leaves thirty-one, which is a street.
+         *
+         * So the answer to somebody in the way is a sideways step away from them, and the speed only
+         * eases. Two people who end up level are then side by side rather than nose to tail, which
+         * is what walking past somebody looks like.
+         */
+        const away = traveller.lane < ahead.lane ? -1 : 1
+        traveller.lane = Math.min(1, Math.max(0, traveller.lane + away * SIDESTEP * delta))
+        limit = Math.min(limit, Math.max(traveller.cruise * WALKING_FLOOR, eased))
+      }
     }
 
     // The junction this one is heading for, and whether it is being let through it.

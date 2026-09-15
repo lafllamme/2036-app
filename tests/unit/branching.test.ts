@@ -32,6 +32,12 @@ function canAppear(id: string, state: EventDrawState): boolean {
   return eligibleEvents(state, 6).some(event => event.id === id)
 }
 
+/** Every measure id a `blockedByMeasureIds` names — which is an *event* id, not a choice. */
+function everyMeasureDoor(): { event: string, measure: string }[] {
+  return EVENTS.flatMap(event =>
+    (event.trigger.blockedByMeasureIds ?? []).map(measure => ({ event: event.id, measure })))
+}
+
 /** Every `eventId:optionId` a door names, across the whole library. */
 function everyDoor(): { event: string, field: string, choice: string }[] {
   return EVENTS.flatMap(event => [
@@ -55,6 +61,16 @@ describe('the doors in the event library', () => {
       expect(event, `${door.event}.${door.field}: no event "${eventId}"`).toBeDefined()
       const option = event?.options.find(candidate => candidate.id === optionId)
       expect(option, `${door.event}.${door.field}: "${eventId}" has no option "${optionId}"`).toBeDefined()
+    }
+  })
+
+  it('blocks only on measures that a real event can actually start', () => {
+    const doors = everyMeasureDoor()
+    expect(doors.length, 'blockedByMeasureIds is in the contract and used by nothing').toBeGreaterThan(0)
+    for (const door of doors) {
+      const source = getEvent(door.measure)
+      expect(source, `${door.event} blocks on measure "${door.measure}", which is no event`).toBeDefined()
+      expect(source?.options.length, `"${door.measure}" has no options, so it can start no measure`).toBeGreaterThan(0)
     }
   })
 

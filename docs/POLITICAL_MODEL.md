@@ -121,9 +121,27 @@ Heute stehen 10 Entscheidungen 5 Widerfahrnissen gegenüber.
   **ohne** Koalitionsschwelle, denn eine Krise wartet nicht. Du reagierst: Ja oder Nein, oder eine von
   wenigen Optionen unter Zeitdruck.
 
-Das Zweite ist der dünnste Teil des Spiels und braucht neuen Inhalt: Hochwasser, Sturm, Großbrand,
-Chemieunfall im Hafen, Anschlag, Cyberangriff auf die Verwaltung, Pandemiewelle. Jedes davon liest
-dieselben Kennzahlen wie alles andere — kein Ereignis bekommt eine eigene Konstante.
+Das war der dünnste Teil des Spiels und ist es nicht mehr: **dreizehn von neunundzwanzig** Ereignissen
+sind Widerfahrnisse. Sturmflut, Chemieunfall im Hafen, verschlüsselte Verwaltung, Infektionswelle,
+Anschlag auf den Wochenmarkt, Hitzetote — dazu die fünf, die es vorher schon gab, und zwei, die nur
+am Ende eines bestimmten Weges auftauchen.
+
+Drei Regeln gelten für alle, und sie sind es, was eine Krise von einer Vorlage unterscheidet. Alle
+drei stehen in `tests/unit/crises.test.ts`, weil die beiden Sorten in *einer* Liste leben und ein
+Feld auseinander:
+
+1. **Keine Koalitionsschwelle.** Eine Sturmflut wartet nicht auf eine Mehrheit. Der teuerste denkbare
+   Fehler wäre, einer Krise `minCoalitionSeats` zu geben — dann hätte ein Minderheitsrat nie eine,
+   und die schwerste Art zu spielen wäre die sicherste.
+2. **Sie kosten, bevor jemand abstimmt.** `immediateEffects` landen in dem Monat, in dem sie
+   ankommen. Entschieden wird über das Danach, nicht über das Ob.
+3. **Sie sind verdient.** Jede liest eine Zahl, die der Rat seit Jahren bewegt — ein Hochwasserschutz,
+   den niemand gewartet hat; eine Verwaltung, die niemand gepatcht hat; eine Stadt, die sich hat
+   spalten lassen — oder sie hängt direkt an einer getroffenen Entscheidung. Nicht jede: ein Virus
+   ist nicht die Schuld des Rates, und so zu tun wäre schlechtere Modellierung als es zuzugeben. Aber
+   die Mehrheit, sonst wäre das Spiel Wetter statt Politik.
+
+Kein Ereignis bekommt eine eigene Konstante.
 
 ### 6. Türen, die zufallen
 
@@ -170,7 +188,8 @@ Jede Stufe ist für sich spielbar und für sich sichtbar.
    furchtbarer Monat ist eine Krise, und darum geht das Spiel; eine Stadt, die seit über einem Jahr
    in einer steckt, ist nicht mehr regierbar. Beides stoppt die Uhr und meldet sich im Stadtfunk.
    *Der Abschlussbericht fehlt noch* — heute endet es mit einer Schlagzeile.
-4. **Verzweigung.** Die drei vorhandenen Felder füllen, `unlocksEventIds` verdrahten,
-   `blockedByEventIds` ergänzen, Prioritäten gewichten lassen.
-5. **Widerfahrnisse.** Der neue Inhalt: Katastrophen, Anschläge, Krisen von außen.
+4. ✅ **Verzweigung.** Vierzehn Türen stehen. `unlocksEventIds` wurde nicht verdrahtet, sondern
+   entfernt und durch `requiresChoiceIds` / `blockedByChoiceIds` ersetzt — beide am *verschlossenen*
+   Ereignis, weil sich eine Tür von der Tür aus leichter liest. Siehe `EVENT_MATRIX.md`.
+5. ✅ **Widerfahrnisse.** Dreizehn von neunundzwanzig Ereignissen sind jetzt Dinge, die passieren.
 6. **Ja/Nein auf fremde Vorlagen.** Andere Fraktionen bringen ein, deine Sitze zählen mit.

@@ -824,7 +824,8 @@ export const EVENTS: EventDefinition[] = [
       'Die Landesbeauftragte für Datenschutz hält die Videoüberwachung an achtzehn Knotenpunkten für unverhältnismäßig und fordert Rückbau. Eine Klage ist angekündigt. Die Stadt kann den Rechtsweg gehen, die Anlage auf wenige Brennpunkte zurückschneiden oder sie abbauen.',
     urgency: 'important',
     trigger: { earliestMonth: 6, latestMonth: 120, conditions: [], baseWeight: 9, cooldownMonths: 60, oncePerCampaign: true, requiresChoiceIds: ['saf-burglary-series:saf-burglary-cctv'] },
-    immediateEffects: [],
+    // The order arrives with the lawyers already on it, whatever the council decides afterwards.
+    immediateEffects: [effect({ target: 'cityBudget', expected: -0.9, delayMonths: 0, rampMonths: 1 })],
     defaultOptionId: 'saf-cctv-reduce',
     expiresInMonths: 3,
     options: [
@@ -1045,6 +1046,368 @@ export const EVENTS: EventDefinition[] = [
         axes: { marketVsPublic: 0.8, redistribution: 0.2, fiscalRestraint: -0.4 },
         salience: { marketVsPublic: 1, fiscalRestraint: 0.6 },
         effects: [effect({ target: 'childcarePlaces', expected: 90, rampMonths: 4, confidence: 'low' })],
+        sourceIds: MODEL,
+      },
+    ],
+    sourceIds: MODEL,
+  },
+  /*
+   * --- What happens to you ---------------------------------------------------
+   *
+   * The other half of the game, and until now the thin half. Everything above is something the
+   * player puts on the agenda; everything below arrives whether they are ready or not.
+   *
+   * Three rules hold for all of them, and they are what makes a crisis a crisis rather than another
+   * motion:
+   *
+   * 1. **No coalition threshold.** A flood does not wait for a majority. `minCoalitionSeats` is
+   *    deliberately absent from every trigger here — which is also what makes them the events a
+   *    minority council still has to answer.
+   * 2. **They cost before anybody votes.** `immediateEffects` land the month they arrive. The
+   *    decision is about the aftermath, not about whether it happened.
+   * 3. **They are earned.** Every one of them reads a number the council has been moving for years:
+   *    a flood defence nobody maintained, an administration nobody patched, a city that let itself
+   *    split. None of them has a constant of its own, and none fires out of nowhere.
+   *
+   * `expiresInMonths` is short throughout. Sitting on a crisis is an answer, and `defaultOptionId`
+   * is what that answer costs.
+   */
+  {
+    schemaVersion: 1,
+    id: 'env-storm-surge',
+    kind: 'external',
+    category: 'environment',
+    title: 'Sturmflut überspült die Hafenkante',
+    briefing:
+      'Ein Orkantief hat die Weser aufgestaut. Die Kaimauer der Alten Hafenkante ist an drei Stellen überspült, Keller in Hafen & Industrie stehen unter Wasser. Der Sanierungsstau an den Hochwasserschutzanlagen ist seit Jahren aktenkundig.',
+    urgency: 'breaking',
+    /*
+     * Winter, and only a city that let its own defences rot. The Weser floods every year; what
+     * decides whether that is a headline or a catastrophe is whether anybody kept the wall up.
+     */
+    trigger: {
+      earliestMonth: 9,
+      latestMonth: 130,
+      conditions: [{ metric: 'investmentBacklog', operator: '>', value: 210 }],
+      baseWeight: 11,
+      cooldownMonths: 36,
+      oncePerCampaign: false,
+      scheduledMonthOfYear: 12,
+      // A council that built the wall, or gave the ground back to the river, does not get this again.
+      blockedByChoiceIds: ['env-storm-surge:env-surge-wall', 'env-storm-surge:env-surge-retreat'],
+    },
+    immediateEffects: [
+      effect({ target: 'cityBudget', expected: -12, delayMonths: 0, rampMonths: 1 }),
+      effect({ target: 'homelessPeople', expected: 140, delayMonths: 0, rampMonths: 2 }),
+    ],
+    defaultOptionId: 'env-surge-patch',
+    expiresInMonths: 2,
+    options: [
+      {
+        id: 'env-surge-wall',
+        label: 'Kaimauer auf Klimaniveau anheben',
+        rationale: 'Zwei Kilometer Hochwasserschutz auf den Bemessungswert 2100, statt auf den von 1962.',
+        oneOffCost: 58,
+        monthlyCost: 0.6,
+        axes: { climateAmbition: 0.9, fiscalRestraint: -1, marketVsPublic: -0.5 },
+        salience: { climateAmbition: 1, fiscalRestraint: 1 },
+        effects: [effect({ target: 'investmentBacklog', expected: -46, rampMonths: 20 })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'env-surge-patch',
+        label: 'Schäden beheben, Mauer flicken',
+        rationale: 'Die drei Bruchstellen werden geschlossen, der Rest bleibt auf dem Stand von 1962.',
+        oneOffCost: 9,
+        monthlyCost: 0,
+        axes: { fiscalRestraint: 0.6 },
+        salience: { fiscalRestraint: 0.9, climateAmbition: 0.6 },
+        effects: [effect({ target: 'investmentBacklog', expected: -6, rampMonths: 6 })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'env-surge-retreat',
+        label: 'Hafenkante aufgeben und zurückbauen',
+        rationale: 'Die tiefliegenden Parzellen werden entsiegelt und als Überflutungsfläche gewidmet.',
+        oneOffCost: 26,
+        monthlyCost: -0.2,
+        axes: { climateAmbition: 0.8, growthVsPreservation: -0.7, marketVsPublic: -0.4 },
+        salience: { climateAmbition: 1, growthVsPreservation: 0.9 },
+        effects: [
+          effect({ target: 'greenSpaceHectares', expected: 34, rampMonths: 16 }),
+          effect({ target: 'housingUnits', expected: -260, rampMonths: 12 }),
+        ],
+        sourceIds: MODEL,
+      },
+    ],
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'saf-harbour-chemical',
+    kind: 'incident',
+    category: 'safety',
+    title: 'Chemieunfall im Hafen',
+    briefing:
+      'Beim Umschlag ist ein Tank mit Ammoniaklösung leckgeschlagen. Die Feuerwehr hat einen Sperrkreis von achthundert Metern gezogen, zweitausend Menschen sind in Schulen untergebracht. Die Anlage war zuletzt vor sechs Jahren geprüft.',
+    urgency: 'breaking',
+    trigger: { earliestMonth: 14, latestMonth: 130, conditions: [{ metric: 'emissions', operator: '>', value: 44 }], baseWeight: 8, cooldownMonths: 40, oncePerCampaign: false },
+    immediateEffects: [
+      effect({ target: 'cityBudget', expected: -6.5, delayMonths: 0, rampMonths: 1 }),
+      effect({ target: 'emissions', expected: 3.2, delayMonths: 0, rampMonths: 3 }),
+    ],
+    defaultOptionId: 'saf-chemical-report',
+    expiresInMonths: 2,
+    options: [
+      {
+        id: 'saf-chemical-inspect',
+        label: 'Alle Anlagen prüfen lassen',
+        rationale: 'Die Stadt stellt eigene Prüfer ein und geht jeden Störfallbetrieb im Hafen durch.',
+        oneOffCost: 4.2,
+        monthlyCost: 0.55,
+        axes: { securityAuthority: 0.5, marketVsPublic: -0.7, fiscalRestraint: -0.4 },
+        salience: { marketVsPublic: 1, securityAuthority: 0.7 },
+        effects: [effect({ target: 'maintenanceSpend', expected: 5.5, rampMonths: 10 })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'saf-chemical-relocate',
+        label: 'Störfallbetriebe aus dem Wohnumfeld verlagern',
+        rationale: 'Umsiedlung an die Außenmole, gegen Entschädigung und über Jahre.',
+        oneOffCost: 41,
+        monthlyCost: 0.3,
+        axes: { securityAuthority: 0.4, marketVsPublic: -0.9, growthVsPreservation: -0.4, fiscalRestraint: -0.9 },
+        salience: { marketVsPublic: 1, fiscalRestraint: 1 },
+        effects: [
+          effect({ target: 'emissions', expected: -4.5, rampMonths: 24 }),
+          effect({ target: 'businessStock', expected: -260, rampMonths: 18, confidence: 'low' }),
+        ],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'saf-chemical-report',
+        label: 'Bericht anfordern',
+        rationale: 'Die Gewerbeaufsicht ist Landessache. Die Stadt bittet um Aufklärung.',
+        oneOffCost: 0,
+        monthlyCost: 0,
+        axes: { fiscalRestraint: 0.8, marketVsPublic: 0.5 },
+        salience: { fiscalRestraint: 0.8, marketVsPublic: 0.7 },
+        effects: [],
+        sourceIds: MODEL,
+      },
+    ],
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'gov-cyber-attack',
+    kind: 'incident',
+    category: 'governance',
+    title: 'Verwaltung verschlüsselt',
+    briefing:
+      'Seit Freitagnacht ist die Fachverfahrenslandschaft verschlüsselt. Meldewesen, Kfz-Zulassung und Sozialleistungen stehen still, die Angreifer fordern Lösegeld. Die Server laufen auf einer Wartungsvereinbarung, die 2029 ausgelaufen ist.',
+    urgency: 'breaking',
+    trigger: {
+      earliestMonth: 18,
+      latestMonth: 130,
+      conditions: [{ metric: 'investmentBacklog', operator: '>', value: 175 }],
+      baseWeight: 9,
+      cooldownMonths: 48,
+      oncePerCampaign: true,
+      /*
+       * Not while somebody is paying for the upkeep. `blockedByMeasureIds` had been in the contract
+       * since the beginning and set by nothing; this is its first user, and it is the plainest case
+       * there is — an administration with a live maintenance programme is one whose servers are
+       * still under a contract.
+       */
+      blockedByMeasureIds: ['fin-maintenance-program'],
+    },
+    immediateEffects: [
+      effect({ target: 'cityBudget', expected: -4.8, delayMonths: 0, rampMonths: 1 }),
+      effect({ target: 'politicalCapital', expected: -6, delayMonths: 0, rampMonths: 1 }),
+    ],
+    defaultOptionId: 'gov-cyber-restore',
+    expiresInMonths: 1,
+    options: [
+      {
+        id: 'gov-cyber-rebuild',
+        label: 'Neu aufbauen und dauerhaft absichern',
+        rationale: 'Kein Lösegeld. Wiederaufbau aus Sicherungen, eigene Sicherheitsstelle, laufende Wartung.',
+        oneOffCost: 17,
+        monthlyCost: 0.72,
+        axes: { securityAuthority: 0.4, marketVsPublic: -0.5, fiscalRestraint: -0.7 },
+        salience: { securityAuthority: 0.8, fiscalRestraint: 0.9 },
+        effects: [effect({ target: 'maintenanceSpend', expected: 8.5, rampMonths: 12 })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'gov-cyber-restore',
+        label: 'Aus Sicherungen wiederherstellen',
+        rationale: 'Sechs Wochen Handbetrieb, dann läuft es wieder wie vorher.',
+        oneOffCost: 5.5,
+        monthlyCost: 0,
+        axes: { fiscalRestraint: 0.7 },
+        salience: { fiscalRestraint: 1 },
+        effects: [],
+        sourceIds: MODEL,
+      },
+    ],
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'soc-pandemic-wave',
+    kind: 'external',
+    category: 'social',
+    title: 'Infektionswelle trifft die Stadt',
+    briefing:
+      'Eine Atemwegswelle läuft durch die Kitas und Schulen. Das Gesundheitsamt meldet Personalausfälle im zweistelligen Prozentbereich, quer durch Pflege, Nahverkehr und Verwaltung. Die Entscheidungen liegen beim Land — die Kapazitäten vor Ort bei der Stadt.',
+    urgency: 'important',
+    trigger: { earliestMonth: 11, latestMonth: 130, conditions: [], baseWeight: 5, cooldownMonths: 42, oncePerCampaign: false, scheduledMonthOfYear: 2 },
+    immediateEffects: [effect({ target: 'cityBudget', expected: -3.4, delayMonths: 0, rampMonths: 1 })],
+    defaultOptionId: 'soc-pandemic-run',
+    expiresInMonths: 2,
+    options: [
+      {
+        id: 'soc-pandemic-capacity',
+        label: 'Kapazitäten aufstocken',
+        rationale: 'Springerpools für Kitas und Pflege, zusätzliche Fahrer im Nahverkehr, befristet.',
+        oneOffCost: 7.5,
+        monthlyCost: 0.9,
+        axes: { redistribution: 0.6, marketVsPublic: -0.6, fiscalRestraint: -0.6 },
+        salience: { redistribution: 0.9, fiscalRestraint: 0.8 },
+        effects: [
+          effect({ target: 'childcarePlaces', expected: 140, rampMonths: 6 }),
+          effect({ target: 'transitCapacity', expected: 3.2, rampMonths: 6 }),
+        ],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'soc-pandemic-run',
+        label: 'Durchlaufen lassen',
+        rationale: 'Die Welle dauert sechs Wochen. Die Stadt hält den Betrieb mit dem, was sie hat.',
+        oneOffCost: 0,
+        monthlyCost: 0,
+        axes: { fiscalRestraint: 0.8, marketVsPublic: 0.3 },
+        salience: { fiscalRestraint: 1 },
+        effects: [effect({ target: 'childcarePlaces', expected: -90, rampMonths: 4, confidence: 'low' })],
+        sourceIds: MODEL,
+      },
+    ],
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'saf-market-attack',
+    kind: 'incident',
+    category: 'safety',
+    title: 'Anschlag auf den Wochenmarkt',
+    briefing:
+      'Ein Fahrzeug ist am Samstagvormittag in den Wochenmarkt am Rathausplatz gefahren. Vier Tote, vierzig Verletzte. Die Ermittlungen führt der Generalbundesanwalt; die Stadt entscheidet über das, was danach kommt.',
+    urgency: 'breaking',
+    /*
+     * Tied to polarisation, and that is a claim worth being explicit about: the model does not say a
+     * divided city causes an attack. It says a divided city is where one does the most damage, and
+     * the sustained condition is what keeps this from reading as a dice roll — it takes a council
+     * eight months of failing to hold the city together before this is on the table at all.
+     */
+    trigger: { earliestMonth: 20, latestMonth: 130, conditions: [{ metric: 'polarisation', operator: '>', value: 58, sustainedMonths: 8 }], baseWeight: 4, cooldownMonths: 60, oncePerCampaign: true },
+    immediateEffects: [
+      effect({ target: 'cityBudget', expected: -2.6, delayMonths: 0, rampMonths: 1 }),
+      effect({ target: 'polarisation', expected: 6.5, delayMonths: 0, rampMonths: 3 }),
+    ],
+    defaultOptionId: 'saf-attack-mourning',
+    expiresInMonths: 2,
+    options: [
+      {
+        id: 'saf-attack-harden',
+        label: 'Plätze baulich sichern',
+        rationale: 'Poller, Zufahrtssperren und Kameras an den elf größten Veranstaltungsflächen.',
+        oneOffCost: 13,
+        monthlyCost: 0.34,
+        axes: { securityAuthority: 0.9, opennessIntegration: -0.4, fiscalRestraint: -0.4 },
+        salience: { securityAuthority: 1, opennessIntegration: 0.7 },
+        effects: [effect({ target: 'orderServiceFte', expected: 9, rampMonths: 8 })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'saf-attack-cohesion',
+        label: 'In die Stadtgesellschaft investieren',
+        rationale: 'Ein Bündnis aus Gemeinden, Vereinen und Schulen, dauerhaft finanziert statt als Geste.',
+        oneOffCost: 3.8,
+        monthlyCost: 0.62,
+        axes: { opennessIntegration: 0.9, redistribution: 0.5, securityAuthority: -0.3 },
+        salience: { opennessIntegration: 1, redistribution: 0.6 },
+        effects: [effect({ target: 'integrationPlaces', expected: 240, rampMonths: 16 })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'saf-attack-mourning',
+        label: 'Trauerbeschluss und Gedenken',
+        rationale: 'Der Rat kommt zusammen, hält inne und beschließt einen Gedenkort.',
+        oneOffCost: 0.7,
+        monthlyCost: 0,
+        axes: { fiscalRestraint: 0.5, opennessIntegration: 0.2 },
+        salience: { opennessIntegration: 0.5, securityAuthority: 0.5 },
+        effects: [],
+        sourceIds: MODEL,
+      },
+    ],
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'env-heat-deaths',
+    kind: 'external',
+    category: 'environment',
+    title: 'Hitzewelle fordert Tote',
+    briefing:
+      'Neun Tage über 35 Grad. Das Gesundheitsamt meldet eine Übersterblichkeit von einhundertzwanzig Menschen, überwiegend über achtzig und überwiegend in den unbegrünten Blöcken im Wohnring. Die Stadt hat keinen Hitzeaktionsplan.',
+    urgency: 'breaking',
+    /*
+     * Only a city that spent its green space, and only in summer. This is the sharpest consequence
+     * in the game of a decision that looks free at the time: paving a park costs nothing anybody can
+     * see for years, and then it costs this.
+     */
+    trigger: {
+      earliestMonth: 16,
+      latestMonth: 130,
+      conditions: [{ metric: 'greenSpacePerCapita', operator: '<', value: 19.5 }],
+      baseWeight: 9,
+      cooldownMonths: 30,
+      oncePerCampaign: false,
+      scheduledMonthOfYear: 7,
+      /*
+       * The payoff for the green offensive, years later and in the only currency that matters here.
+       * A council that unsealed and planted does not get this summer — which is the point of a door:
+       * what you never see is as much a consequence as what you do.
+       */
+      blockedByChoiceIds: ['env-green-offensive:env-green-program', 'env-heat-deaths:env-heat-trees'],
+    },
+    immediateEffects: [effect({ target: 'politicalCapital', expected: -5, delayMonths: 0, rampMonths: 1 })],
+    defaultOptionId: 'env-heat-plan',
+    expiresInMonths: 2,
+    options: [
+      {
+        id: 'env-heat-trees',
+        label: 'Straßenbäume und Entsiegelung im Wohnring',
+        rationale: 'Zweitausend Bäume und dreißig Hektar entsiegelt, dort wo die Toten waren.',
+        oneOffCost: 22,
+        monthlyCost: 0.4,
+        axes: { climateAmbition: 0.9, redistribution: 0.5, fiscalRestraint: -0.7 },
+        salience: { climateAmbition: 1, redistribution: 0.7 },
+        effects: [effect({ target: 'greenSpaceHectares', expected: 30, rampMonths: 22 })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'env-heat-plan',
+        label: 'Hitzeaktionsplan aufstellen',
+        rationale: 'Kühle Räume, Trinkbrunnen, eine Meldekette für Pflegedienste. Wirkt sofort und wenig.',
+        oneOffCost: 2.4,
+        monthlyCost: 0.22,
+        axes: { redistribution: 0.4, fiscalRestraint: 0.3 },
+        salience: { redistribution: 0.7, climateAmbition: 0.6 },
+        effects: [effect({ target: 'greenSpaceHectares', expected: 3, rampMonths: 8, confidence: 'low' })],
         sourceIds: MODEL,
       },
     ],

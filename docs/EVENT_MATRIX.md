@@ -367,6 +367,27 @@ Ratsvorlage, einer eigenen stehenden Vorlage oder einem Vorfall kam. Eine abgele
 erreicht die Stelle nie. Das ist genau richtig: sie verschiebt den Rückhalt und verändert keine
 einzige Straße, also schließt sie keine Tür.
 
+### Widerfahrnisse
+
+Dreizehn der neunundzwanzig Ereignisse passieren dem Spieler, statt von ihm eingebracht zu werden.
+Die drei Regeln dafür stehen in `POLITICAL_MODEL.md` und werden von `tests/unit/crises.test.ts`
+geprüft: keine Koalitionsschwelle, Kosten vor der Abstimmung, und mehrheitlich an einer Kennzahl oder
+einer früheren Entscheidung verdient.
+
+| Krise | Hängt an |
+| --- | --- |
+| Sturmflut überspült die Hafenkante | Sanierungsstau über 210 Mio., und nur im Dezember |
+| Chemieunfall im Hafen | Emissionen über 44 |
+| Verwaltung verschlüsselt | Sanierungsstau über 175 Mio. — **nicht**, solange das Instandhaltungsprogramm läuft |
+| Infektionswelle | nichts; sie kommt im Februar. Die einzige, die nicht verdient ist |
+| Anschlag auf den Wochenmarkt | Polarisierung über 58, **acht Monate am Stück** |
+| Hitzewelle fordert Tote | Stadtgrün unter 19,5 m²/Kopf, im Juli — **nicht**, wenn entsiegelt wurde |
+
+Zur Polarisierung beim Anschlag, weil die Behauptung explizit gehört: das Modell sagt **nicht**, dass
+eine gespaltene Stadt einen Anschlag verursacht. Es sagt, dass eine gespaltene Stadt die ist, in der
+einer den meisten Schaden anrichtet — und die Bedingung über acht Monate ist es, was das von einem
+Würfelwurf unterscheidet.
+
 ### Was heute hinter Türen liegt
 
 | Ereignis | Steht hinter |
@@ -376,6 +397,7 @@ einzige Straße, also schließt sie keine Tür.
 | `hou-preempt-strain` | Vorkauf statt Charta |
 | `eco-datacenter-heat` | Rechenzentrum zugelassen (mit oder ohne Auflagen) |
 | `soc-childcare-judgment` | Klagen abgewehrt statt Plätze gebaut |
+| `eco-datacenter-heat` | Rechenzentrum zugelassen |
 
 Und drei Sperren:
 

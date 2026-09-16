@@ -633,3 +633,58 @@ sehen — und je ein hohes Fenster im Schaft.
 nicht auseinanderlaufen dürfen: `buildings.ts` gibt dem Gebäude den Turm, `life/protest.ts` stellt die
 Menge davor. Eine Stadt mit dem Turm auf dem einen und der Demo vor dem anderen Haus wäre schlimmer
 als eine ohne beides.
+
+## Das Land um die Stadt
+
+Aus zweitausend Metern Höhe war das Umland **eine einzige olivgrüne Fläche** mit einem weichen
+Verlauf darüber und vereinzelten Baumgruppen wie Sprenkel auf einem Tuch. Drei Befunde, alle
+nachgemessen, alle ohne einen zusätzlichen Draw behoben.
+
+### Die Feldflur fehlte
+
+Offenes Land ist von oben ein Flickenteppich aus Schlägen — jeder Acker hat seine eigene Frucht,
+seinen eigenen Schnitt und damit seine eigene Farbe, und die Kanten dazwischen sind das Einzige,
+woran das Auge aus der Höhe eine Größe erkennt. Genau das fehlte: kein Maßstab, keine Kante.
+
+`fieldAt` in `world/terrain.ts` legt jetzt einen verzogenen Schlag von durchschnittlich 240 Metern
+unter jeden Punkt — norddeutsche Feldgröße — und sagt, was darauf steht: Wintergetreide, reifes Korn,
+Stoppel, gepflügte Erde, Grünland, Brache, Weide, abgeernteter Raps. Der Feldrand wird abgedunkelt,
+weil ein Saum, ein Graben oder ein Knick genau die Kante ist, die man von oben sieht. Der große
+Verlauf über anderthalb Kilometer bleibt darunter liegen, damit eine Kuppe weiterhin trockener ist
+als die Senke daneben.
+
+Bewusst **ohne ein zweites Grün**: die Abwechslung kommt aus Helligkeit und Wärme, nicht aus mehr
+Buntheit, sonst wird aus einer Feldflur ein Teppich. Alles steht in der Vertexfarbe, die der Boden
+ohnehin trägt — **kein Dreieck, kein Draw, keine zweite Textur.**
+
+### Die Wälder waren Streuobstwiesen
+
+190 Bestände zu 34 Bäumen auf 110 Meter Radius sind nachgerechnet **ein Baum je 1.100 m²**. Ein
+geschlossener Bestand steht bei einem Baum je 25 bis 60 m². Jetzt 120 Wälder zu 210 Bäumen auf 95
+Meter — rund 135 m² je Baum, was zwischen Waldrand und Bestand liegt und aus der Höhe als
+geschlossene dunkle Fläche liest.
+
+25.200 Bäume gegen vorher 6.460. Bäume sind instanziert: elf Arten, elf Draws, **ganz gleich wie
+viele stehen.** Es kostet ausschließlich Dreiecke.
+
+### Und das Laub war türkis
+
+Kein Beleuchtungsfehler, sondern das Kit. In den Dateien nachgemessen: `leafsGreen` steht auf
+`[0.16, 0.79, 0.67]`, `grass` auf `[0.17, 0.85, 0.72]` — lineare Werte, in sRGB also ein helles
+Mintgrün um `#6EE8D8`. Das Kenney Nature Kit ist stilisiert und meint es so; in einer Stadt aus
+Klinker, Ocker und Putz sehen zwanzigtausend türkise Bäume aus wie ein Fehler, und sie waren das
+Erste, was an der Landschaft auffiel.
+
+`naturalise()` färbt sie beim Laden um: Farbton aus dem Cyan ins Laubgrün, Sättigung auf etwas, das
+gewachsen aussieht, Helligkeit herunter — ein Blätterdach ist dunkler als die Wiese darunter, im Kit
+war es heller. Je Art ein anderer Versatz, damit ein Bestand gemischt aussieht. Die Stämme bleiben
+unberührt, weil sie in einem ganz anderen Farbton liegen.
+
+### Was es kostet
+
+| | vorher | jetzt |
+| --- | --- | --- |
+| Bäume | 6.460 | **25.200** |
+| Dreiecke | 3,8 Mio. | **4,5 Mio.** |
+| Draws | 150 | **150** |
+| FPS | 110 | **100** |

@@ -2,7 +2,7 @@ import type { AreaKind, CityBlueprint } from '../../../core/contracts'
 import type { Relief } from '../../../world/relief'
 import * as THREE from 'three/webgpu'
 import { GROUND_SPAN } from '../../../world/relief'
-import { groundVariation } from '../../../world/terrain'
+import { fieldAt, groundVariation } from '../../../world/terrain'
 import { groundNormalTexture, groundTexture } from './groundTexture'
 
 /**
@@ -130,21 +130,37 @@ function land(relief: Relief, material: THREE.Material): THREE.Mesh {
 }
 
 /**
- * How light or dark the ground is here.
+ * Welche Farbe der Boden hier hat.
  *
- * A single tone over twenty kilometres reads as a carpet however good the texture on it is, because
- * the texture repeats three hundred times and the eye finds the repeat. This varies the colour on a
- * scale of a kilometre and a half, drawn from the same noise as the hills — so a rise and the drier
- * grass on it agree — and the repeat stops being findable.
+ * Eine einzige Fläche über zwanzig Kilometer liest sich als Teppich, wie gut die Textur darauf auch
+ * ist — der weiche Verlauf über anderthalb Kilometer, der hier stand, hat daran nichts geändert.
+ * Aus zweitausend Metern Höhe fehlte der Landschaft **jeder Maßstab**: keine Kante, nichts, woran
+ * das Auge eine Entfernung abschätzen könnte.
+ *
+ * Also die Feldflur, die es in Wirklichkeit ist. `fieldAt` legt einen verzogenen Schlag von
+ * durchschnittlich 240 Metern unter jeden Punkt und sagt, was darauf steht; der große Verlauf bleibt
+ * darunter liegen, damit eine Kuppe weiterhin trockener ist als die Senke daneben. Der Feldrand wird
+ * abgedunkelt — ein Saum, ein Graben, ein Knick —, denn genau diese Kante ist das, was aus der Höhe
+ * überhaupt zu sehen ist.
+ *
+ * Alles davon steht in der Vertexfarbe, die der Boden ohnehin trägt: **kein Dreieck, kein Draw,
+ * keine zweite Textur.**
  */
 function pushShade(colour: number[], x: number, z: number, seed: number): void {
   const variation = groundVariation(x, z, seed)
-  const dry = 0.78 + variation * 0.44
+  const dry = 0.82 + variation * 0.36
+  const { crop, edge } = fieldAt(x, z, seed)
   /*
-   * Written straight into the buffer, so these are linear and not the sRGB a hex string would be.
-   * The base is the olive the whole country used to be painted in, #59674a, converted once by hand.
+   * Der Saum am Feldrand. Zwölf Prozent der halben Schlagbreite, weich auslaufend — hart wäre ein
+   * Gitter, und ein Feldrand ist keine Linie, sondern ein Streifen, auf dem nichts geerntet wird.
    */
-  colour.push(0.100 * dry, 0.136 * dry * (1.07 - variation * 0.16), 0.068 * dry)
+  const hem = 1 - 0.26 * Math.max(0, 1 - edge / 0.12)
+  // Geschrieben wird linear, nicht sRGB — die Fruchtfarben in `terrain.ts` sind es ebenfalls.
+  colour.push(
+    crop[0] * dry * hem,
+    crop[1] * dry * (1.05 - variation * 0.12) * hem,
+    crop[2] * dry * hem,
+  )
 }
 
 /**

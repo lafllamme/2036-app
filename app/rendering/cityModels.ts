@@ -351,6 +351,55 @@ function pose(scene: THREE.Object3D, clips: THREE.AnimationClip[], name: string,
 }
 
 /**
+ * Das Laub des Naturkits ist türkis, und das ist kein Beleuchtungsfehler.
+ *
+ * Nachgemessen in den Dateien selbst: `leafsGreen` steht auf `[0.16, 0.79, 0.67]`, `leafsDark` auf
+ * `[0.17, 0.65, 0.67]`, `grass` auf `[0.17, 0.85, 0.72]` — das sind lineare Werte, in sRGB also ein
+ * helles Mintgrün um `#6EE8D8`. Das Kit ist stilisiert und meint es so; in einer Stadt, die sonst aus
+ * norddeutschem Klinker, Ocker und Putz besteht, sehen zwanzigtausend türkise Bäume aus wie ein
+ * Fehler. Sie waren das Erste, was an der Landschaft auffiel.
+ *
+ * Umgefärbt wird beim Laden und nicht im Shader: `extract` backt die Materialfarbe ohnehin in die
+ * Vertexfarbe, hier wird sie nur unterwegs umgerechnet. **Kein Draw, kein Dreieck, kein zweites
+ * Material** — und die Stämme bleiben unberührt, weil sie in einem ganz anderen Farbton liegen.
+ *
+ * Der Farbton wandert vom Cyan ins Laubgrün, die Sättigung fällt auf etwas, das gewachsen aussieht,
+ * und die Helligkeit kommt herunter: ein Blätterdach ist dunkler als die Wiese darunter, und im Kit
+ * war es heller.
+ */
+
+/** Der Farbtonbereich, in dem das Kit sein Laub führt — Cyan bis Blaugrün, in Grad. */
+const FOLIAGE_HUE_RANGE: [number, number] = [140, 200]
+/** Wohin es soll: Laubgrün bis Olivgrün. */
+const LEAF_HUE_RANGE: [number, number] = [78, 112]
+
+function naturalise(models: CityModel[]): void {
+  const shade = new THREE.Color()
+  const hsl = { h: 0, s: 0, l: 0 }
+  for (const [index, model] of models.entries()) {
+    const colours = model.geometry.getAttribute('color') as THREE.BufferAttribute | undefined
+    if (!colours)
+      continue
+    /*
+     * Ein Versatz je Art, damit ein Bestand gemischt aussieht. Neun Arten über die Spanne verteilt
+     * heißt: eine Eiche steht neben einer helleren Birke neben einer dunklen Kiefer, und keine zwei
+     * Modelle tragen denselben Grünton.
+     */
+    const offset = models.length > 1 ? index / (models.length - 1) : 0.5
+    for (let vertex = 0; vertex < colours.count; vertex += 1) {
+      shade.setRGB(colours.getX(vertex), colours.getY(vertex), colours.getZ(vertex))
+      shade.getHSL(hsl)
+      const degrees = hsl.h * 360
+      if (degrees < FOLIAGE_HUE_RANGE[0] || degrees > FOLIAGE_HUE_RANGE[1])
+        continue
+      const hue = LEAF_HUE_RANGE[0] + offset * (LEAF_HUE_RANGE[1] - LEAF_HUE_RANGE[0])
+      shade.setHSL(hue / 360, Math.min(0.42, hsl.s * 0.55), hsl.l * 0.52)
+      colours.setXYZ(vertex, shade.r, shade.g, shade.b)
+    }
+    colours.needsUpdate = true
+  }
+}
+/**
  * Load every kit in parallel, during the loading screen and before the renderer is built. A model
  * that arrives late is a building popping into a city the player is already looking at.
  */
@@ -383,6 +432,9 @@ export async function loadCityModels(): Promise<CityModels> {
     loadKit(loader, 'nature', NATURE_IDS, null, failures),
     loadKit(loader, 'roads', ROAD_IDS, roadsAtlas, failures),
   ])
+
+  // Das Laub aus dem Türkis holen, in dem das Kit es liefert. Siehe `naturalise`.
+  naturalise(nature.models)
 
   // A kit with nothing in it cannot build anything, and that is worth stopping for — by name.
   if (suburban.models.length === 0 || commercial.models.length === 0)

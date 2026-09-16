@@ -102,10 +102,25 @@ const TREE_SHARE = 0.55
  */
 const VILLAGE_CLEARING = 42
 
-/** How many woods stand in the open country, and how many trees each holds. */
-const WOOD_COUNT = 190
-const WOOD_TREES = 34
-const WOOD_SPREAD = 110
+/**
+ * Wie viele Wälder im offenen Land stehen, wie viele Bäume jeder hält und wie weit er reicht.
+ *
+ * Es waren 190 Bestände zu 34 Bäumen auf 110 Meter Radius — nachgerechnet **ein Baum je 1.100
+ * Quadratmeter**. Das ist keine Waldfläche, das ist eine Streuobstwiese, und aus der Höhe sah es
+ * genau so aus: Sprenkel auf einer leeren Ebene.
+ *
+ * Ein geschlossener Bestand steht bei einem Baum je 25 bis 60 Quadratmeter. Also weniger Wälder,
+ * dafür richtige: 120 Stück zu 210 Bäumen auf 95 Meter — rund **135 Quadratmeter je Baum**, was
+ * zwischen Waldrand und Bestand liegt und aus zweitausend Metern als geschlossene dunkle Fläche
+ * liest, ohne die Dreieckszahl zu sprengen.
+ *
+ * Die Rechnung dazu, weil sie der Grund für die Zahlen ist: 25.200 Bäume gegen vorher 6.460. Bäume
+ * sind instanziert — elf Arten, elf Draws, **ganz gleich wie viele stehen** —, es kostet also
+ * ausschließlich Dreiecke, und die Arten sind zugunsten der billigen Modelle gewichtet.
+ */
+const WOOD_COUNT = 120
+const WOOD_TREES = 210
+const WOOD_SPREAD = 95
 
 export interface Outskirts {
   buildings: BuildingRecord[]
@@ -545,7 +560,13 @@ function scatterWoods(rng: Stream, relief: Relief, places: Place[], trees: TreeR
 
     const spread = WOOD_SPREAD * rng.between(0.6, 1.6)
     for (let tree = 0; tree < WOOD_TREES; tree += 1) {
-      // Denser in the middle than at the edge, so a wood has an edge rather than a boundary.
+      /*
+       * Gleichverteilt in der Fläche statt zur Mitte hin verdichtet.
+       *
+       * `sqrt` streut gleichmäßig über die Kreisfläche; vorher stand hier dasselbe, nur mit so
+       * wenigen Bäumen, dass davon nichts zu sehen war. Ein Bestand ist innen so dicht wie außen —
+       * was ihn als Wald lesbar macht, ist nicht der Verlauf zur Mitte, sondern die Kante.
+       */
       const away = Math.sqrt(rng.next()) * spread
       const bearing = rng.next() * Math.PI * 2
       const x = centreX + Math.cos(bearing) * away

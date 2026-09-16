@@ -201,7 +201,16 @@ Jede Stufe ist für sich spielbar.
    regieren zwischen 24 und 202. Die Strategie entscheidet die Höhe, das Glück die Streuung.
    Details in [`METRICS.md`](METRICS.md#stocks--the-fourth-kind-of-number) und
    [`EVENT_MATRIX.md`](EVENT_MATRIX.md).
-1. **Dein Ja auf eigenen Vorlagen.** Der Widerspruch verschwindet. Kleinster Schritt, größte Klarheit.
+1. **Dein Ja auf eigenen Vorlagen.** *Erledigt.* Die eigene Fraktion wurde auf eigenen Vorlagen
+   gewürfelt wie jede andere, aus der inhaltlichen Nähe — mit absurdem Ergebnis: die LINKE brachte
+   den Gewerbesteuer-Pakt ein und ihre eigenen Abgeordneten stimmten zu **100 % dagegen**, die FDP
+   den Wohnungsbau-Turbo und ihre zu 81 %, während das Modell das Einbringen zugleich als Zustimmung
+   wertete. Jetzt gilt: wer fragt, ist dafür. Dabei kam eine zweite Unstimmigkeit heraus — die
+   **Prognose** berücksichtigte die festgesetzte Stimme gar nicht, sodass das Blatt die eigenen
+   dreizehn Sitze als Münzwurf auf einen Antrag zeigte, den man selbst geschrieben hatte. Auf einer
+   *fremden* Vorlage bleibt die eigene Stimme gewürfelt, denn dort ist sie genau die Frage.
+   Dass eine Partei überhaupt Vorlagen einbringen kann, die ihr fremd sind, bleibt — das ist
+   Stufe 3.
 2. **Die Form-Regel.** Ereignisse mit einer Option rendern Dafür/Enthalten/Dagegen; die 29
    vorhandenen werden inhaltlich neu geschnitten, zwei Drittel zu Vorlagen.
 3. **Parteiprogramme.** Vier eigene je Partei, zwei gemeinsame. Der größte Hebel für Wiederspielbarkeit.

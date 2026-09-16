@@ -66,6 +66,11 @@ export interface VoteContext {
   playerVote?: PartyVote
 }
 
+/** A vote that is already decided, as a distribution, so the forecast and the ballot agree. */
+function fixed(vote: PartyVote): Record<PartyVote, number> {
+  return { yes: vote === 'yes' ? 1 : 0, abstain: vote === 'abstain' ? 1 : 0, no: vote === 'no' ? 1 : 0 }
+}
+
 function crossesRedLine(party: PartyDefinition, option: EventOption): boolean {
   return party.redLines.some((line) => {
     const position = option.axes[line.axis]
@@ -122,11 +127,20 @@ function probabilities(support: number): Record<PartyVote, number> {
 export function forecastVote(option: EventOption, context: VoteContext): VoteForecast {
   const parties: PartyVoteForecast[] = context.parties.map((party) => {
     const support = supportFor(party, option, context)
+    /*
+     * The player's own group, when their vote is already settled — because they tabled it, or
+     * because they have said which way they go on somebody else's motion.
+     *
+     * `castVote` has always treated that vote as decided rather than rolled. The forecast did not,
+     * so the two disagreed about a fifth of the chamber: the sheet could show the player's own
+     * thirteen seats as a coin flip on a motion they had just written.
+     */
+    const decided = context.playerVote !== undefined && party.id === context.playerPartyId
     return {
       partyId: party.id,
       seats: context.seatsByParty[party.id] ?? 0,
-      support,
-      probabilities: probabilities(support),
+      support: decided ? (context.playerVote === 'yes' ? 1 : context.playerVote === 'no' ? 0 : support) : support,
+      probabilities: decided ? fixed(context.playerVote!) : probabilities(support),
     }
   })
 

@@ -265,13 +265,31 @@ function asOption(policy: PolicyDefinition): EventOption {
 
 function forecastFor(state: SimulationState, motionId: string, optionId: string): VoteForecast | null {
   const campaigned = preparationFor(state, motionId).campaignedOptionIds.includes(optionId)
+  // Auf einer eigenen Vorlage steht die eigene Stimme fest; auf einer fremden ist sie die Frage.
+  const own = ownMotion(state, motionId) ? ({ playerVote: 'yes' } as const) : {}
   const policy = getPolicy(motionId)
   if (policy && policy.id === optionId)
-    return forecastVote(asOption(policy), voteContext(state, policy, campaigned))
+    return forecastVote(asOption(policy), { ...voteContext(state, policy, campaigned), ...own })
   const option = getEvent(motionId)?.options.find(candidate => candidate.id === optionId)
   if (!option)
     return null
-  return forecastVote(option, voteContext(state, option, campaigned))
+  return forecastVote(option, { ...voteContext(state, option, campaigned), ...own })
+}
+
+/**
+ * Whether this motion is the player's own, as opposed to one another group tabled.
+ *
+ * Wer eine Vorlage einbringt, stimmt für sie. Das war bisher nicht so: die eigene Fraktion wurde auf
+ * eigenen Vorlagen gewürfelt wie jede andere, und das Ergebnis war absurd — die LINKE brachte den
+ * Gewerbesteuer-Pakt ein und ihre eigenen Abgeordneten stimmten zu hundert Prozent dagegen, während
+ * das Modell das Einbringen gleichzeitig als Zustimmung wertete.
+ *
+ * Dass eine Partei Dinge einbringen kann, die ihr fremd sind, bleibt ein Problem — aber es ist das
+ * Problem eines fehlenden Parteiprogramms, nicht eines der Abstimmung. Hier gilt nur: wer fragt,
+ * ist dafür.
+ */
+function ownMotion(state: SimulationState, motionId: string): boolean {
+  return !state.pending.find(entry => entry.eventId === motionId)?.tabledBy
 }
 
 export function forecastsForEvent(state: SimulationState, eventId: string): Record<string, VoteForecast> {
@@ -390,7 +408,8 @@ export function resolveDecision(state: SimulationState, eventId: string, optionI
   // A motion somebody else tabled is not the player's to word. `voteOnMotion` is the way in.
   if (pending?.tabledBy)
     return { state, result: null }
-  return decide(state, eventId, optionId, undefined)
+  // Wer einbringt, stimmt zu, und die eigene Fraktion folgt.
+  return decide(state, eventId, optionId, 'yes')
 }
 
 function decide(state: SimulationState, eventId: string, optionId: string, playerVote: PartyVote | undefined): { state: SimulationState, result: VoteResult | null } {
@@ -587,7 +606,7 @@ export function proposePolicy(state: SimulationState, policyId: string): { state
   const option = asOption(definition)
   const stream = createRandomStream(state.seed, `vote:${state.month}:${policyId}:${policyId}`)
   const campaigned = preparationFor(state, policyId).campaignedOptionIds.includes(policyId)
-  const result = castVote(option, voteContext(state, definition, campaigned), stream)
+  const result = castVote(option, { ...voteContext(state, definition, campaigned), playerVote: 'yes' }, stream)
 
   const remainingPrep = withoutPreparation(state.motionPrep, policyId)
   if (!result.passed) {

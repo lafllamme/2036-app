@@ -5,7 +5,7 @@ import { EVENTS, getEvent } from '../../app/content/events'
 import { getParty, mapParties, PARTIES } from '../../app/content/parties'
 import { createRandomStream } from '../../app/core/rng'
 import { castVote, forecastVote, supportFor } from '../../app/simulation/council'
-import { advanceMonths, createInitialState } from '../../app/simulation/model'
+import { advanceMonths, createInitialState, forecastsForEvent, proposePolicy } from '../../app/simulation/model'
 
 const seats = mapParties(party => party.stats.councilSeats)
 const noSalience = mapParties(() => false)
@@ -85,6 +85,45 @@ describe('council voting', () => {
     const before = supportFor(party, motion, context({ playerNegotiation: 80 }))
     const after = supportFor(party, motion, context({ playerNegotiation: 80, relationships: { fdp: 1 } }))
     expect(after).toBeGreaterThan(before)
+  })
+})
+
+describe('a motion of your own', () => {
+  /*
+   * Die eigene Fraktion stimmte auf eigenen Vorlagen wie jede andere — gewürfelt aus der
+   * inhaltlichen Nähe. Das Ergebnis war absurd: die LINKE brachte den Gewerbesteuer-Pakt ein und
+   * ihre eigenen Abgeordneten stimmten zu hundert Prozent dagegen, während das Modell das
+   * Einbringen gleichzeitig als Zustimmung wertete. Wer fragt, ist dafür.
+   */
+  it('is backed by your own group, whoever you are and whatever it says', () => {
+    for (const party of PARTIES) {
+      const state = createInitialState(2036, party.id, [])
+      for (const policyId of ['housing-accelerator', 'transit-network', 'business-tax-balance']) {
+        const forecast = forecastsForEvent(state, policyId)[policyId]
+        const own = forecast?.parties.find(entry => entry.partyId === party.id)
+        expect(own?.probabilities.yes, `${party.id} auf ${policyId}`).toBe(1)
+      }
+    }
+  })
+
+  it('counts those seats when the chamber actually votes', () => {
+    const state = createInitialState(2036, 'linke', [])
+    const { result } = proposePolicy(state, 'business-tax-balance')
+    const own = result?.votes.find(entry => entry.partyId === 'linke')
+    // Ohne den Fix stimmte die LINKE hier zu 100 % gegen ihren eigenen Antrag.
+    expect(own?.vote).toBe('yes')
+    expect(result!.yesSeats).toBeGreaterThanOrEqual(own!.seats)
+  })
+
+  it('leaves a foreign motion rolled, because that vote is the question', () => {
+    let state = createInitialState(2036, 'spd', [])
+    state = advanceMonths(state, 40)
+    const foreign = state.pending.find(entry => entry.tabledBy)
+    if (!foreign)
+      return
+    const forecast = forecastsForEvent(state, foreign.eventId)[foreign.tabledOptionId!]
+    const own = forecast?.parties.find(entry => entry.partyId === 'spd')
+    expect(own?.probabilities.yes).toBeLessThan(1)
   })
 })
 

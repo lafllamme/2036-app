@@ -396,13 +396,42 @@ export const useGameStore = defineStore('game', () => {
     speed.value = 0
   }
 
+  /** Was der Rat gerade offen hat. Gebraucht schon hier, weil der große Knopf daran hängt. */
+  const pendingDecisions = computed(() => snapshot.value?.pendingDecisions ?? [])
+
   /**
-   * Lauf, bis mich etwas braucht.
+   * Was der große Knopf gerade zu tun hat.
    *
-   * Nochmal gedrückt hält an — ein Zeitraffer ohne Bremse ist eine Falle. Ansonsten endet er von
-   * selbst: `holdClock` läuft, sobald eine Vorlage auf den Tisch kommt, und schaltet ihn ab.
+   * Es gibt drei Zustände, und er muss in allen dreien in dieselbe Richtung zeigen — nach vorn:
+   *
+   * - **Eine Vorlage wartet.** Dann steht die Zeit absichtlich still, und das Nächste, was zu tun
+   *   ist, ist diese Vorlage. Hier lag der Fehler: der Knopf sagte trotzdem „Nächstes Ereignis" und
+   *   hätte beim Drücken über das hinweggerast, was gerade auf dem Tisch liegt. Der prominenteste
+   *   Knopf der Leiste zeigte in genau dem Zustand, in dem der Spieler landet, in die falsche
+   *   Richtung — und die stehende Uhr daneben liest sich dann wie ein Absturz.
+   * - **Der Zeitraffer läuft.** Dann ist er die Bremse.
+   * - **Sonst.** Dann läuft er bis zum nächsten Ereignis.
+   */
+  const nextAction = computed<'decide' | 'halt' | 'skip'>(() => {
+    if (pendingDecisions.value.length > 0)
+      return 'decide'
+    return skipping.value ? 'halt' : 'skip'
+  })
+
+  /**
+   * Lauf, bis mich etwas braucht — oder zeig mir, was mich gerade braucht.
+   *
+   * Der Zeitraffer endet von selbst: `holdClock` läuft, sobald eine Vorlage auf den Tisch kommt, und
+   * schaltet ihn ab. Nochmal gedrückt hält er ebenfalls an, denn ein Zeitraffer ohne Bremse ist eine
+   * Falle.
    */
   function skipToEvent(): void {
+    if (nextAction.value === 'decide') {
+      const waiting = pendingDecisions.value[0]
+      if (waiting)
+        openDecisionSheet(waiting.eventId)
+      return
+    }
     if (!canAdvance.value)
       return
     if (skipping.value) {
@@ -527,8 +556,6 @@ export const useGameStore = defineStore('game', () => {
     holdClock()
     send({ type: 'APPLY_POLICY', policyId })
   }
-
-  const pendingDecisions = computed(() => snapshot.value?.pendingDecisions ?? [])
 
   /**
    * One lookup for both sources of a council vote: an event raised by the city, and one of the
@@ -737,6 +764,7 @@ export const useGameStore = defineStore('game', () => {
     speed,
     skipping,
     skipToEvent,
+    nextAction,
     overviewRequest,
     showOverview,
     cityReports,

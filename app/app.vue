@@ -22,6 +22,7 @@ const {
   selectedPartyId,
   speed,
   skipping,
+  nextAction,
   selectedBuilding,
   selectedNews,
   selectedReport,
@@ -71,6 +72,20 @@ const hasMajority = computed(() => (snapshot.value?.coalitionSupport ?? 0) > 30)
  * complete silence: three speed buttons with none of them lit and a clock that had stopped, which
  * is indistinguishable from a crash. It was read as one.
  */
+/**
+ * Was der große Knopf sagt — dasselbe, was er tut.
+ *
+ * Er sagte „Nächstes Ereignis" auch dann, wenn längst eines auf dem Tisch lag und die Uhr deshalb
+ * stand. Genau in dem Zustand landet der Spieler nach jedem Laden und nach jedem Zeitraffer.
+ */
+const advanceLabel = computed(() => {
+  if (nextAction.value === 'decide')
+    return 'Vorlage öffnen'
+  if (!canAdvance.value)
+    return 'Kampagne abgeschlossen'
+  return skipping.value ? 'Anhalten' : 'Nächstes Ereignis'
+})
+
 const pauseReason = computed(() => {
   if (snapshot.value?.defeat)
     return 'Kampagne beendet'
@@ -411,8 +426,8 @@ function restart(): void {
             will nicht warten. Die Antwort darauf ist nicht „überspring einen Monat", sondern „lauf,
             bis mich etwas braucht" — das überspringt nie mehr Zeit als nötig und hält von selbst an.
           -->
-          <button type="button" class="advance" :class="{ skipping }" :disabled="!canAdvance" @click="game.skipToEvent">
-            {{ !canAdvance ? 'Kampagne abgeschlossen' : skipping ? 'Anhalten' : 'Nächstes Ereignis' }}
+          <button type="button" class="advance" :class="{ skipping }" :disabled="!canAdvance && nextAction !== 'decide'" @click="game.skipToEvent">
+            {{ advanceLabel }}
           </button>
         </section>
 

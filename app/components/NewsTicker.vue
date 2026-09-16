@@ -111,6 +111,8 @@ const shown = computed(() => items.value.slice(0, 3).reverse())
   position: absolute; bottom: 152px; left: 34px; right: 34px; z-index: 5;
   display: grid; gap: 8px; justify-items: start;
   pointer-events: none;
+  /* Damit die Meldungen selbst entscheiden können, ob sie noch passen. Siehe unten. */
+  container-type: inline-size;
   transition: left 220ms cubic-bezier(0.16, 1, 0.3, 1), right 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .note { pointer-events: auto; }
@@ -162,8 +164,19 @@ const shown = computed(() => items.value.slice(0, 3).reverse())
   .pulse::after { animation: none; }
 }
 
-/* Auf schmalen Fenstern gewinnt die Meldung gegen die Schubladen: sie ist das Neue im Bild. */
-@media (max-width: 1440px) {
-  .wire.clears-agenda { right: 34px; }
+/*
+ * Und wenn kein Platz mehr bleibt, tritt der Stadtfunk ab, statt sich unterzuschieben.
+ *
+ * Vorher hob eine Regel für Fenster unter 1.440 px das Ausweichen nach rechts wieder auf — „die
+ * Meldung gewinnt gegen die Schubladen". Gewonnen hat sie nichts: die Tagesordnung ist
+ * undurchsichtig und liegt darüber, also stand die Meldung zur Hälfte dahinter und zur anderen
+ * Hälfte als zweite Textschicht auf ihr. Gemessen bei 800 px Fensterbreite lagen beide Meldungen
+ * mitten in der offenen Schublade.
+ *
+ * Eine Meldung, die man nicht lesen kann, ist keine Meldung. Unter 240 px Reststreifen verschwindet
+ * sie deshalb ganz und kommt wieder, sobald eine Schublade zugeht.
+ */
+@container (max-width: 240px) {
+  .note { display: none; }
 }
 </style>

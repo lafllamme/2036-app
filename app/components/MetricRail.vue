@@ -324,7 +324,14 @@ const perception = computed(() => snapshot.value?.perception)
    */
   position: absolute; bottom: 152px; left: 34px; z-index: 5;
   display: flex; flex-direction: column;
-  width: 352px; max-height: min(524px, calc(100% - 320px));
+  /*
+   * `--pick-space` ist der Platz, den eine offene Auswahlkarte über dem Lagebild braucht.
+   *
+   * Beide sitzen in derselben linken Spalte und beide sind absolut gesetzt, also überlappten sie:
+   * gemessen ragte die Karte 70 px in das Lagebild hinein und die Zahlen darunter lasen sich wie
+   * ihre eigenen. Die Schale setzt den Wert, wenn etwas ausgewählt ist; hier wird er nur abgezogen.
+   */
+  width: 352px; max-height: min(524px, calc(100% - 320px - var(--pick-space, 0px)));
   padding: 24px 0 18px;
 }
 .rail.is-wide { width: 392px; }

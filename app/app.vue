@@ -122,7 +122,18 @@ function restart(): void {
 </script>
 
 <template>
-  <main class="game-shell" :class="{ 'entry-active': experienceStage !== 'gameplay' }">
+  <!--
+    `--pick-space` sagt der linken Spalte, wie viel eine offene Auswahlkarte oben wegnimmt.
+
+    Karte und Lagebild sitzen beide links und beide absolut; ohne das überlappen sie, und die Zahlen
+    des Lagebilds lesen sich wie die der Karte. Die Schale weiß als Einzige, dass gerade etwas
+    ausgewählt ist, also setzt sie den Wert und `MetricRail` zieht ihn ab.
+  -->
+  <main
+    class="game-shell"
+    :class="{ 'entry-active': experienceStage !== 'gameplay' }"
+    :style="{ '--pick-space': selectedBuilding || selectedCitizen ? '236px' : '0px' }"
+  >
     <ClientOnly>
       <CityCanvas />
     </ClientOnly>

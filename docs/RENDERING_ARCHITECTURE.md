@@ -508,3 +508,39 @@ Der vierte: die Instanzmatrizen eines `InstancedMesh` stehen beim ersten Bild au
 berechnet daraus eine Hüllkugel im Ursprung und schneidet den ganzen Park danach überall weg, wo die
 Kartenmitte nicht im Bild ist. Was erst nach dem ersten Frame gefüllt wird, braucht entweder
 `frustumCulled = false` oder ein `computeBoundingSphere()` **nach** dem Füllen.
+
+## Woher die Ruckler kamen, gemessen
+
+Frame-Einbrüche sind keine niedrige Bildrate, sondern **einzelne lange Frames**, und die findet man
+nicht mit einem FPS-Zähler. Gemessen wurde deshalb je Frame, wie lange die Aktualisierungen und wie
+lange `renderer.render()` brauchen, über tausend Frames hinweg, bei sichtbarem Tab.
+
+Das Ergebnis war eindeutig, und es war nicht das, wonach es aussah:
+
+| | Median | p95 | p99 | längster Frame |
+|---|---|---|---|---|
+| ruhig stehend | 1,2 ms | 2,8 | 8,8 | **20,9 ms** |
+| beim Heranzoomen | 1,7 ms | 2,8 | 3,4 | **87,1 ms** |
+| danach, gleiche Fahrt | 1,4 ms | 2,9 | 3,7 | **4,7 ms** |
+
+Von den 87,1 ms lagen **86,5 in `renderer.render()`**. Die eigene Rechenarbeit war nie das Problem:
+der langsame Takt blieb unter 3 ms, die Bodendecke kostet beim Neuverteilen 2,4 ms, und der
+Schattendurchgang — zwölfmal die Sekunde — kostet **0,58 ms**. Ein einzelner Frame von 87 ms bei
+einem Median von 1,4 ist keine Last, das ist eine **Pipeline-Übersetzung**.
+
+### Aufzählen ist der Fehler, suchen ist die Lösung
+
+Die Aufwärmrunde vor dem ersten Bild gab es schon: sie machte Neubau, Kräne, Verkehr, Regen und
+Schnee kurz sichtbar und rief `compileAsync`, damit deren Shader auf dem Ladebildschirm übersetzt
+werden statt mitten im Spiel. Sie war eine **Liste von Hand** und damit immer genau so vollständig,
+wie jemand daran gedacht hatte, sie zu ergänzen. Gemessen fehlten zuletzt drei Dinge, die alle erst
+in Kameranähe erscheinen: die Straßenmöblierung, die Nahansicht der geparkten Autos und die
+Bodendecke.
+
+Jetzt wird nicht mehr aufgezählt, sondern die Szene abgeschritten: **was unsichtbar ist oder null
+Instanzen hat**, wird für diese eine Runde sichtbar gemacht, übersetzt und danach zurückgestellt. Das
+deckt auch alles ab, was später dazukommt, ohne dass jemand daran denken muss — und genau das war der
+eigentliche Fehler, nicht die drei vergessenen Schichten.
+
+Ergebnis über 1.480 Frames ununterbrochenen Schwenkens und Zoomens: Median **1,0 ms**, p99 2,8 ms,
+längster Frame **4,1 ms**, kein einziger Frame über 20 ms.

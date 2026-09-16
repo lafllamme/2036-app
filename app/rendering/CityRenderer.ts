@@ -259,41 +259,55 @@ export class CityRenderer {
    * set of pipelines that compilation alone does not reach.
    */
   private async warmUp(): Promise<void> {
-    const { growth, constructionSites, precipitation } = this.world
-    const hidden = constructionSites.children.filter(site => !site.visible)
-
-    growth.count = growth.instanceMatrix.count
-    for (const mesh of [...this.world.agents.cars.meshes, ...this.world.agents.pedestrians.meshes])
-      mesh.count = mesh.instanceMatrix.count
-    for (const site of hidden) site.visible = true
     /*
-     * The weather too, and for exactly the same reason. Rain and snow are hidden until it rains or
-     * snows, so their pipelines were compiled at the first drop — which fell in the middle of a
-     * campaign rather than on a loading screen, and cost a second of one frame. It is the worst
-     * possible moment for it: the player has just noticed the sky change.
+     * Alles, was die Szene versteckt hält, einmal zeigen — gesucht statt aufgezählt.
+     *
+     * Vorher stand hier eine Liste von Hand: Neubau, Kräne, Verkehr, Regen, Schnee. Sie war immer
+     * genau so vollständig, wie jemand daran gedacht hat, sie zu ergänzen — und gemessen fehlten
+     * zuletzt die Straßenmöblierung, die Nahansicht der geparkten Autos und die Bodendecke. Beim
+     * Heranzoomen kostete das **einen Frame von 87 ms**, davon 86,5 in `renderer.render()`: der
+     * Median liegt bei 1,4, das ist also nichts als eine Pipeline-Übersetzung, und sie fiel mitten
+     * in eine Kamerafahrt.
+     *
+     * Also wird nicht mehr aufgezählt, sondern gesucht. Was unsichtbar ist oder null Instanzen hat,
+     * wird für diese eine Runde sichtbar gemacht. Das deckt auch alles ab, was später dazukommt,
+     * ohne dass jemand daran denken muss.
      */
-    precipitation.rain.visible = true
-    precipitation.snow.visible = true
+    const hidden: THREE.Object3D[] = []
+    const empty: THREE.InstancedMesh[] = []
+    this.scene.traverse((object) => {
+      if (!object.visible)
+        hidden.push(object)
+      const mesh = object as THREE.InstancedMesh
+      if (mesh.isInstancedMesh && mesh.count === 0)
+        empty.push(mesh)
+    })
+
+    for (const object of hidden) object.visible = true
+    for (const mesh of empty) mesh.count = mesh.instanceMatrix.count
 
     try {
+      /*
+       * `compileAsync` gibt zwischen den Objekten ab, blockiert also nicht; das erzwungene Bild
+       * danach deckt den Schattendurchgang ab, den die Übersetzung allein nicht erreicht.
+       */
       await this.renderer.compileAsync(this.scene, this.rig.camera)
       this.sky.sun.light.shadow.needsUpdate = true
       this.renderer.render(this.scene, this.rig.camera)
     }
     catch {
-      // A failed warm-up costs a stutter, never the campaign: the real frames follow either way.
+      // Eine misslungene Aufwärmrunde kostet ein Ruckeln, nie die Kampagne: die Bilder kommen so oder so.
     }
     finally {
+      for (const object of hidden) object.visible = false
+      for (const mesh of empty) mesh.count = 0
       /*
-       * The counts come back from the simulation's own figures, not from a snapshot of them taken
-       * before the await — a real snapshot can and does land while the compiler is working.
+       * Der Neubau kommt aus der Simulation zurück und nicht aus einer Momentaufnahme von vorhin:
+       * ein echter Schnappschuss kann landen, während der Übersetzer arbeitet — und tut es auch.
        */
-      growth.count = this.city.delivered
-      for (const mesh of [...this.world.agents.cars.meshes, ...this.world.agents.pedestrians.meshes])
-        mesh.count = 0
-      for (const site of hidden) site.visible = false
-      precipitation.rain.visible = false
-      precipitation.snow.visible = false
+      this.world.growth.count = this.city.delivered
+      // Die Bodendecke sät beim nächsten langsamen Takt neu; ohne das bliebe sie leer stehen.
+      this.world.meadow.seeded = false
       this.sky.sun.light.shadow.needsUpdate = true
     }
   }

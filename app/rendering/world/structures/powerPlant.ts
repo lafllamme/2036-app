@@ -221,7 +221,7 @@ function buildingProximity(blueprint: CityBlueprint): (x: number, z: number, rad
  * wieder etwas auf. Sechzehn Segmente, weil ein Ding mit vierzig Metern Radius auf zwei Kilometern
  * etwa zwanzig Pixel breit ist und kein Auge dort die siebzehnte Kante findet.
  */
-export function coolingTower(): THREE.BufferGeometry {
+function coolingTower(): THREE.BufferGeometry {
   const profile = [
     new THREE.Vector2(COOLING_FOOT, 0),
     new THREE.Vector2(COOLING_FOOT * 0.82, COOLING_HEIGHT * 0.1),
@@ -322,7 +322,7 @@ function plant(): THREE.BufferGeometry {
  * Stück, und auf achthundert Metern ist davon ein graues Kreuz übrig. Also ist er gleich ein graues
  * Kreuz: ein sich verjüngender Schaft und zwei Traversen, 44 Dreiecke.
  */
-export function pylon(): THREE.BufferGeometry {
+function pylon(): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = []
 
   const shaft = new THREE.CylinderGeometry(0.8, 3.4, PYLON_HEIGHT, 4, 1, true)

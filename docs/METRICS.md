@@ -150,9 +150,34 @@ A tax cut brings the most firms and does not pay for itself inside the decade �
 actually do, and the model says so rather than flattering it. A site decision pays, and costs something
 that is not money.
 
+**Zwei Kennzahlen, die sich nicht regieren ließen.** Über achtzehn durchgespielte Jahrzehnte — sechs
+Parteien, drei Spielweisen — blieb `employment` zwischen 70,8 und 74,1, also ±2 % um den Startwert,
+obwohl Betriebsbestand, ÖPNV-Abdeckung und Kitaquote sich um ein Vielfaches bewegten. Eine Stadt
+konnte tausend Betriebe gewinnen, und die Beschäftigung merkte es kaum; das Ziel „über 75 %" war
+unerreichbar. Die Koeffizienten sind jetzt kräftiger dosiert, und **Integrationskapazität** ist als
+Treiber dazugekommen — wer einen Sprachkurs hat, kommt in Arbeit, und dieser Zusammenhang lief bisher
+nur in die Jugendarbeitslosigkeit, nie in die Beschäftigung selbst. Spanne heute: 69,7 … 75,7.
+Dazu ein Boden von 3 % Jugendarbeitslosigkeit: Reibung gibt es immer, und gut regierte Städte fielen
+vorher auf glatte null.
+
+`satisfaction` litt an einer **doppelten Ratsche**. Alle drei Wahrnehmungen fielen mit Rate 0,4 und
+stiegen mit 0,09 — viereinhalbmal so schnell bergab wie bergauf —, und dieselbe Asymmetrie lag noch
+einmal in der Zufriedenheit selbst. Zwischen „zu allem Ja" und „zu allem Nein" lagen damit 0,6 Punkte
+auf einer Spanne von 17,5: die Zahl, die Wahlen entscheidet und über `driftFromCity` den Rückhalt
+bewegt, war Dekoration. Das Gefälle bleibt — eine Stadt verzeiht langsamer, als sie zürnt —, aber es
+ist jetzt 0,3 gegen 0,16. Dazu liest `trust` endlich, was eine Verwaltung glaubwürdig macht:
+Sanierungsstau und Monatssaldo, nicht nur sich selbst. Der Spieler bewegt die Zufriedenheit heute um
+bis zu 14,6 Punkte.
+
+Beides sichert `tests/unit/reachable.test.ts` ab, damit es nicht unbemerkt wieder einfriert.
+
 **Die Nenner wachsen, die Zähler nicht.** Every per-capita indicator — `childcareCoverage`,
 `orderServiceCapacity`, `transitCoverage`, `integrationCapacity` — divides a stock the council must buy
-by a population that grows on its own. That is the intended pressure. What was not intended is that one
+by a population that grows on its own. That is the intended pressure — aber es war eine Falle: gemessen
+hatte die Stadt, in der niemand etwas beschloss, am Ende weniger Kriminalität als die, die Wohnungen
+baute, weil Bauen Zuzug bringt und Zuzug jede Quote verdünnt. Ein Spiel, das Erfolg bestraft. Der
+Apparat läuft der Einwohnerzahl deshalb hinterher — langsam, nie nach unten, und nur zu siebzig
+Prozent; die letzten dreißig bleiben der Preis des Wachsens. What was not intended is that one
 of them was inconsistent with its own baseline: `arrivalsTrailingYear` started at 667 while the dynamics
 converged it on `inMigration × 12` ≈ 2 736, a factor of four, so `integrationCapacity` fell from 0,78 to
 0,18 inside two years with nothing having happened. Through `youthUnemployment` (−7,5 per point of it)

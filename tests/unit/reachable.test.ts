@@ -103,6 +103,26 @@ describe('every trigger the content writes', () => {
     expect(tight, 'diese Schwellen liegen so knapp am Rand, dass sie praktisch nie feuern').toEqual([])
   })
 
+  /*
+   * Eine Kennzahl, die sich nicht regieren lässt, ist Dekoration.
+   *
+   * Gemessen über achtzehn durchgespielte Jahrzehnte lag die Beschäftigung zwischen 70,8 und 74,1 —
+   * ±2 % um den Startwert, während Betriebe, ÖPNV und Kitas sich um ein Vielfaches bewegten; das
+   * Ziel „über 75 %" war damit unerreichbar. Und zwischen „zu allem Ja" und „zu allem Nein" lagen
+   * 0,6 Punkte Zufriedenheit, also der Zahl, die Wahlen entscheidet.
+   */
+  it('lets the player move the numbers that decide the campaign', () => {
+    const employment = span.employment!
+    expect(employment.max, 'Beschäftigung erreicht das Ziel „über 75" nie').toBeGreaterThan(75)
+    expect(employment.max - employment.min, 'Beschäftigung ist wieder eingefroren').toBeGreaterThan(4)
+
+    const satisfaction = span.satisfaction!
+    expect(satisfaction.max - satisfaction.min, 'Zufriedenheit bewegt sich kaum').toBeGreaterThan(12)
+
+    // Und keine Kennzahl darf an einer unrealistischen Null kleben.
+    expect(span.youthUnemployment!.min, 'Jugendarbeitslosigkeit fällt auf null').toBeGreaterThan(0)
+  })
+
   it('moves polarisation far enough to be worth triggering on', () => {
     // Sie lag ein Jahrzehnt lang zwischen 36,5 und 40,2 und war damit als Auslöser wertlos.
     const range = span.polarisation!

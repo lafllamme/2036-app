@@ -26,6 +26,25 @@ const BASELINE_SOCIAL_SHARE_PP = socialShare(BASE) * 100
  */
 const HEAT_DECAY = 0.975
 
+/**
+ * Die Bestände, die eine Verwaltung beim Wachsen von selbst nachzieht — Personal und Betrieb, nichts
+ * mit Fläche oder Kapital. Grünflächen entstehen nicht dadurch, dass jemand zuzieht.
+ */
+const KEEPING_UP = ['orderServiceFte', 'childcarePlaces', 'schoolPlaces', 'transitCapacity', 'integrationPlaces'] as const
+/** Wie viel des Wachstums der Apparat selbst auffängt. Der Rest ist der Preis des Wachsens. */
+const ADMINISTRATION_KEEPS_UP = 0.7
+
+/**
+ * Was ein Sprachkursplatz noch bringt, wenn schon jeder einen hat.
+ *
+ * `integrationCapacity` ist Plätze je Ankunft und kann auf 2,5 steigen — zweieinhalb Plätze pro
+ * Person. Ungedeckelt zahlte jeder weitere Platz voll weiter, und die Jugendarbeitslosigkeit fiel
+ * in gut regierten Städten auf glatt null. Ab voller Deckung ist der Zusatznutzen weg; was darüber
+ * liegt, ist Leerstand im Kursraum.
+ */
+const FULL_COURSE_COVER = 1.4
+const courseCover = (capacity: number): number => Math.min(FULL_COURSE_COVER, capacity)
+
 export interface DynamicsResult {
   metrics: CityMetrics
   stocks: CityStocks
@@ -158,14 +177,28 @@ export function stepDynamics(
   )
 
   // --- Labour and economy ---------------------------------------------------
+  /*
+   * Ob die Leute Arbeit haben.
+   *
+   * Die Kopplung war so schwach dosiert, dass die Zahl über achtzehn durchgespielte Jahrzehnte
+   * zwischen 70,8 und 74,1 blieb — ±2 % um den Startwert, während Betriebe, ÖPNV-Abdeckung und
+   * Kitaquote sich um ein Vielfaches bewegten. Eine Stadt konnte tausend Betriebe gewinnen, und
+   * die Beschäftigung merkte es kaum. Das Ziel „über 75 %" war damit unerreichbar, und der
+   * wichtigste wirtschaftliche Zusammenhang des Spiels stand im Modell nur als Geste.
+   *
+   * Dazu fehlte ein Treiber ganz: **Integrationskapazität**. Wer einen Sprachkurs hat, kommt in
+   * Arbeit; wer keinen hat, nicht. Der Zusammenhang war einseitig verdrahtet — er lief in die
+   * Jugendarbeitslosigkeit und von dort in die Kriminalität, aber nie in die Beschäftigung selbst.
+   */
   const employmentTarget
     = BASE.employment
-      + 0.3 * (businessDensity(previous) - BASELINE_BUSINESS_DENSITY)
-      + 0.04 * (previous.transitCoverage - BASE.transitCoverage)
-      + 0.045 * (previous.childcareCoverage - BASE.childcareCoverage)
-      - 0.22 * (previous.averageRent - BASE.averageRent)
-  metrics.employment = clamp(approach(previous.employment, employmentTarget, 0.055))
-  note('employment', metrics.employment - previous.employment, 'Beschäftigung folgt Betriebsbestand, Erreichbarkeit, Betreuung und Mietniveau')
+      + 0.42 * (businessDensity(previous) - BASELINE_BUSINESS_DENSITY)
+      + 0.07 * (previous.transitCoverage - BASE.transitCoverage)
+      + 0.075 * (previous.childcareCoverage - BASE.childcareCoverage)
+      + 0.8 * (courseCover(previous.integrationCapacity) - BASE.integrationCapacity)
+      - 0.3 * (previous.averageRent - BASE.averageRent)
+  metrics.employment = clamp(approach(previous.employment, employmentTarget, 0.07))
+  note('employment', metrics.employment - previous.employment, 'Beschäftigung folgt Betriebsbestand, Erreichbarkeit, Betreuung, Sprachförderung und Mietniveau')
 
   /*
    * How many firms the city can hold, and how attractive it is to them.
@@ -193,8 +226,10 @@ export function stepDynamics(
   const youthTarget
     = BASE.youthUnemployment
       + 1.75 * (BASE.employment - metrics.employment)
-      - 7.5 * (previous.integrationCapacity - BASE.integrationCapacity)
-  metrics.youthUnemployment = clamp(approach(previous.youthUnemployment, youthTarget, 0.07), 0, 60)
+      - 7.5 * (courseCover(previous.integrationCapacity) - BASE.integrationCapacity)
+  // Reibung gibt es immer: Schulabgang, Wechsel, Krankheit. Eine Stadt mit null Jugendarbeitslosen
+  // ist keine gut regierte Stadt, sondern eine falsch gerechnete — vor dem Boden stand hier null.
+  metrics.youthUnemployment = clamp(approach(previous.youthUnemployment, youthTarget, 0.07), 3, 60)
 
   // --- Public safety --------------------------------------------------------
   // Order-service capacity is measured per 10,000 residents, so growth dilutes it unless staffed.
@@ -238,6 +273,29 @@ export function stepDynamics(
       + 0.0021 * (stocks.businessSites - BASELINE_STOCKS.businessSites)
   metrics.emissions = Math.max(0, approach(previous.emissions, emissionsTarget, 0.05))
   metrics.greenSpacePerCapita = (stocks.greenSpaceHectares * 10_000) / metrics.population
+
+  /*
+   * Eine wachsende Stadt stellt auch ein.
+   *
+   * Jede Pro-Kopf-Größe teilt einen Bestand, den nur der Rat kauft, durch eine Einwohnerzahl, die von
+   * selbst wächst. Das war als Druck gedacht und wurde zur Falle: gemessen hatte die Stadt, in der
+   * niemand etwas beschloss, am Ende **weniger Kriminalität und mehr Zufriedenheit** als die, die
+   * Wohnungen baute — weil Bauen Zuzug bringt und Zuzug jede Quote verdünnt. Ein Spiel, das Erfolg
+   * bestraft.
+   *
+   * Der Apparat läuft der Einwohnerzahl deshalb hinterher: langsam, unvollständig, und niemals nach
+   * unten. Siebzig Prozent des Wachstums deckt die Verwaltung aus eigener Kraft — sie bekommt dafür
+   * auch mehr Zuweisungen, denn `operating` und `transfers` hängen beide an der Einwohnerzahl. Die
+   * letzten dreißig Prozent bleiben der Preis des Wachsens, und die muss der Rat schließen.
+   */
+  const growth = metrics.population / BASE.population
+  if (growth > 1) {
+    for (const key of KEEPING_UP) {
+      const target = BASELINE_STOCKS[key] * (1 + (growth - 1) * ADMINISTRATION_KEEPS_UP)
+      if (target > stocks[key])
+        stocks[key] = approach(stocks[key], target, 0.025)
+    }
+  }
 
   // --- Social services ------------------------------------------------------
   metrics.childcareCoverage = clamp((stocks.childcarePlaces / (metrics.population * CHILDCARE_DEMAND_RATE)) * 100, 0, 130)
@@ -339,11 +397,33 @@ function stepPerception(metrics: CityMetrics, previous: PerceptionState): Percep
 
   const safetyTarget = clamp(100 - (metrics.crimeRate - 20) * 0.85 - metrics.burglaryRate * 1.6 - attention.safety * 22)
   const housingTarget = clamp(28 + (metrics.averageRent - 9.5) * 9.2 - (vacancyRate(metrics) * 100 - 2) * 3.5 + attention.housing * 18)
-  const trustTarget = clamp(42 + 0.28 * metrics.satisfaction - attention.governance * 26 - Math.max(0, metrics.debt - 150) * 0.05)
+  /*
+   * Vertrauen hing fast nur an sich selbst: 42 plus ein Anteil der Zufriedenheit, die ihrerseits zu
+   * achtzehn Prozent aus dem Vertrauen kommt. Was eine Verwaltung wirklich glaubwürdig macht — dass
+   * die Brücken halten und der Haushalt aufgeht —, stand nicht darin.
+   */
+  const trustTarget = clamp(
+    42
+    + 0.28 * metrics.satisfaction
+    - attention.governance * 26
+    - Math.max(0, metrics.debt - 150) * 0.05
+    - Math.max(0, metrics.investmentBacklog - BASE.investmentBacklog) * 0.045
+    + clamp(metrics.monthlyBalance, -6, 6) * 0.9,
+  )
 
-  const lag = (current: number, target: number): number => approach(current, target, target < current ? 0.4 : 0.09)
+  /*
+   * Schlechte Nachrichten reisen schneller — aber nicht viereinhalbmal so schnell.
+   *
+   * Hier stand 0,4 gegen 0,09, und darüber lag dieselbe Asymmetrie noch einmal in der Zufriedenheit
+   * selbst. Zwei Ratschen übereinander: gemessen über achtzehn durchgespielte Jahrzehnte lagen
+   * zwischen „zu allem Ja" und „zu allem Nein" ganze 0,6 Punkte Zufriedenheit, auf einer Spanne von
+   * 17,5. Die Zahl, die Wahlen entscheidet und über `driftFromCity` den Rückhalt bewegt, ließ sich
+   * nicht regieren. Das Gefälle bleibt — eine Stadt verzeiht langsamer, als sie zürnt —, aber eine
+   * Legislaturperiode guter Arbeit muss sichtbar werden.
+   */
+  const lag = (current: number, target: number): number => approach(current, target, target < current ? 0.3 : 0.16)
   // Housing pressure is a burden, so a rising target is the bad direction and gets the fast rate.
-  const burdenLag = (current: number, target: number): number => approach(current, target, target > current ? 0.4 : 0.09)
+  const burdenLag = (current: number, target: number): number => approach(current, target, target > current ? 0.3 : 0.16)
 
   return {
     safety: lag(previous.safety, safetyTarget),
@@ -366,7 +446,7 @@ function stepSatisfaction(previous: number, perception: PerceptionState, health:
       + 0.1 * health.infrastructure
       + 0.08 * health.healthcare
   const target = clamp(composite * SATISFACTION_NORMALIZATION)
-  return clamp(approach(previous, target, target < previous ? 0.22 : 0.1))
+  return clamp(approach(previous, target, target < previous ? 0.2 : 0.14))
 }
 
 /**

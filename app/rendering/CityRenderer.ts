@@ -181,6 +181,8 @@ export class CityRenderer {
 
   /** Nur im Messstand belegt. Ohne `?bench` kostet das Protokoll keinen Zweig im Renderpfad. */
   private readonly bench: FrameLog | null
+  /** Während einer Messfahrt mit fester Auflösung: der Skalierer hält still. */
+  private pinned = false
   private frameCounter = 0
   private fps = 0
   private fpsWindowStart = performance.now()
@@ -337,23 +339,112 @@ export class CityRenderer {
       bench: {
         reset: () => log.reset(),
         stats: () => log.stats(),
-        flight: (seconds = 14) => this.flight(seconds),
+        flight: (seconds = 14, scale?: number) => this.flight(seconds, scale),
+        layers: () => Object.fromEntries(Object.entries(this.benchLayers()).map(([name, parts]) => [name, this.weigh(parts)])),
+        cost: (layer: string, seconds = 12, scale?: number) => this.cost(layer, seconds, scale),
       },
     })
   }
 
-  private flight(seconds: number): Promise<FrameStats> {
+  /**
+   * Die Schichten, die einzeln etwas kosten könnten — benannt, damit man sie einzeln wiegen kann.
+   *
+   * Nur `visible` wird umgeschaltet und nie ein Material: eine Materialänderung löst eine
+   * Shader-Neuübersetzung aus, und dann misst man die Übersetzung statt der Sache. Das hat hier
+   * schon einmal 108 auf 45 FPS gemacht und wie ein Ergebnis ausgesehen.
+   */
+  private benchLayers(): Record<string, THREE.Object3D[]> {
+    const world = this.world
+    return {
+      planting: world.planting,
+      meadow: world.meadow.meshes,
+      buildings: world.buildingMeshes,
+      agents: [...world.agents.cars.meshes, ...world.agents.pedestrians.meshes],
+      parked: [...world.parkedCars.proxy, ...world.parkedCars.detail],
+      furniture: [world.streetFurniture],
+      lights: [world.streetLights.heads, world.streetLights.pools],
+      horizon: [
+        ...(world.windFarm ? [world.windFarm.towers, world.windFarm.rotors] : []),
+        ...(world.powerPlant ? [world.powerPlant.works, world.powerPlant.pylons] : []),
+      ],
+    }
+  }
+
+  /** Wie viel eine Schicht überhaupt auf die Waage bringt: Objekte, Instanzen, Dreiecke. */
+  private weigh(parts: THREE.Object3D[]): { meshes: number, instances: number, triangles: number } {
+    let meshes = 0
+    let instances = 0
+    let triangles = 0
+    for (const part of parts) {
+      part.traverse((object) => {
+        const mesh = object as THREE.Mesh & { isMesh?: boolean, isInstancedMesh?: boolean, count?: number }
+        if (!mesh.isMesh)
+          return
+        const index = mesh.geometry?.getIndex()
+        const perInstance = (index ? index.count : (mesh.geometry?.getAttribute('position')?.count ?? 0)) / 3
+        const copies = mesh.isInstancedMesh ? (mesh.count ?? 0) : 1
+        meshes += 1
+        instances += copies
+        triangles += perInstance * copies
+      })
+    }
+    return { meshes, instances, triangles: Math.round(triangles) }
+  }
+
+  /**
+   * Was eine Schicht kostet: dieselbe Fahrt zweimal, einmal mit ihr und einmal ohne.
+   *
+   * Zweimal fliegen statt einmal rechnen, weil sich die Kosten einer Schicht nicht addieren lassen —
+   * was sie verdeckt, zahlt sie mit, und was sie nicht verdeckt, zahlt der Rest.
+   */
+  private async cost(layer: string, seconds: number, scale?: number): Promise<{ with: FrameStats, without: FrameStats }> {
+    const parts = this.benchLayers()[layer] ?? []
+    const before = parts.map(part => part.visible)
+    const withLayer = await this.flight(seconds, scale)
+    for (const part of parts) part.visible = false
+    const withoutLayer = await this.flight(seconds, scale)
+    parts.forEach((part, index) => {
+      part.visible = before[index] ?? true
+    })
+    return { with: withLayer, without: withoutLayer }
+  }
+
+  /**
+   * `scale` heftet die Renderauflösung für die Dauer der Fahrt fest.
+   *
+   * Ohne das misst man auf dieser Maschine nichts: bei 120 Hz und 1,65-fachem Faktor liegt das Bild
+   * **auf der Bildwiederholrate**, und gemessen ändert selbst das Ausblenden der **ganzen Stadt**
+   * die Bildzahl nicht — 1.081 Frames mit Gebäuden, 1.080 ohne. Solange der Schirm die Grenze ist,
+   * ist jede Optimierung unsichtbar. Erst über den Faktor hinaufgedreht, bis das Bild unter die
+   * Wiederholrate fällt, wird wieder vergleichbar, was etwas kostet.
+   */
+  private flight(seconds: number, scale?: number): Promise<FrameStats> {
     const log = this.bench
     if (!log)
       return Promise.resolve({ frames: 0, median: 0, p95: 0, p99: 0, longest: 0, long: 0, render: 0, update: 0 })
 
+    const restore = this.resolution
+    if (scale !== undefined) {
+      // Den Skalierer stillhalten, sonst regelt er die feste Auflösung sofort wieder weg.
+      this.pinned = true
+      this.resolution = scale
+      this.renderer.setPixelRatio(scale)
+      this.resize()
+    }
     const started = performance.now()
     log.reset()
     return new Promise<FrameStats>((resolve) => {
       const step = (): void => {
         const run = (performance.now() - started) / (seconds * 1_000)
         if (run >= 1) {
-          resolve(log.stats())
+          const stats = log.stats()
+          if (scale !== undefined) {
+            this.pinned = false
+            this.resolution = restore
+            this.renderer.setPixelRatio(restore)
+            this.resize()
+          }
+          resolve(stats)
           return
         }
         // Ein voller Umlauf, und dazwischen einmal ganz herunter und wieder hinauf.
@@ -696,7 +787,7 @@ export class CityRenderer {
    * and that says nothing about what the machine can do.
    */
   private fitResolution(): void {
-    if (this.frameCap !== null || !readingIsAboutTheMachine())
+    if (this.pinned || this.frameCap !== null || !readingIsAboutTheMachine())
       return
 
     const wants = this.fps < TARGET_FPS_FLOOR ? -1 : this.fps > TARGET_FPS_CEILING ? 1 : 0

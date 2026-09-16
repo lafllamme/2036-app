@@ -4,6 +4,7 @@ import type { StandardInstancedMesh } from '../../shared'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../../core/rng'
 import { AXIS_Y, WHITE } from '../../shared'
+import { addTiled } from '../tiledInstances'
 
 /**
  * Everything that grows, from the nature kit rather than the city kit.
@@ -23,6 +24,14 @@ export interface CityTrees {
   /** Every planting mesh, including the two above, for whatever has to be hidden or counted. */
   planting: StandardInstancedMesh[]
 }
+
+/**
+ * Wie breit eine Baumkachel ist.
+ *
+ * Größer als die 1.000 m des Standards, weil die Bepflanzung bis in die Feldflur reicht und sechzehn
+ * Arten die Kachelzahl multiplizieren statt sie zu teilen. Siehe die Messung weiter unten.
+ */
+const TREE_TILE = 1_800
 
 /** Roughly how tall a grown tree is, in metres. The kit's own models are about two units. */
 const TREE_HEIGHT = 11
@@ -95,7 +104,6 @@ export function addTrees(scene: THREE.Scene, blueprint: CityBlueprint, models: C
     crews[chosen]!.push(tree)
   })
 
-  const matrix = new THREE.Matrix4()
   const position = new THREE.Vector3()
   const quaternion = new THREE.Quaternion()
   const scale = new THREE.Vector3()
@@ -108,31 +116,50 @@ export function addTrees(scene: THREE.Scene, blueprint: CityBlueprint, models: C
     const base = wanted / Math.max(0.001, model.size.y)
 
     /*
-     * One mesh per species for the whole city, and deliberately not tiled.
+     * Eine Kachel je Gegend und Art — und das ist eine **Rücknahme**, mit einer Messung dahinter.
      *
-     * Tiling was tried here and reverted, which is worth recording. It does cull — only the tiles in
-     * front of the camera are drawn — but the set is already cut eleven ways by species, so tiling
-     * multiplies it rather than dividing it: eleven species across forty tiles is four hundred and
-     * forty meshes, and the overview went from ninety draw calls to twelve hundred. A tree is two
-     * hundred triangles; the geometry was never the problem here. A parked car is two thousand, and
-     * that is where the tiling belongs.
+     * Hier stand, Kacheln seien für Bäume falsch: die Menge sei schon nach Arten geschnitten, also
+     * vervielfache Kacheln sie, und die Übersicht sei von neunzig auf zwölfhundert Draws gegangen.
+     * Der Schluss daraus war „ein Baum hat zweihundert Dreiecke, die Geometrie war hier nie das
+     * Problem" — und der Schluss war falsch, weil Draws gezählt und nicht gemessen wurde.
+     *
+     * Gemessen auf fester Auflösung, unterhalb der Bildwiederholrate, dieselbe Fahrt mit und ohne
+     * die jeweilige Schicht:
+     *
+     * | Schicht | Bilder mit | ohne | Gewinn |
+     * |---|---|---|---|
+     * | Bepflanzung | 603 | 803 | **+33 %** |
+     * | Gebäude | 598 | 653 | +9 % |
+     * | Möblierung | 568 | 588 | +4 % |
+     * | geparkte Autos | 605 | 605 | **0 %** |
+     *
+     * Die geparkten Autos haben **mehr** Dreiecke als die Bäume — 3,98 gegen 2,37 Millionen — und
+     * kosten nichts. Der Unterschied sind nicht die Dreiecke, sondern die Hüllkugeln: die Autos
+     * liegen in 357 Kacheln, die Bäume lagen in 16 Meshes über die ganze Karte. Eine Hüllkugel über
+     * die ganze Karte schneidet den Sichtkegel immer, also wurde jede der 37.112 Instanzen in jedem
+     * Bild abgeschickt, auch die hinter der Kamera.
+     *
+     * Draws sind auf dieser Maschine also nicht der Preis; nicht gekeulte Instanzen sind es. Die
+     * Kachel ist bewusst groß — 1.800 m gegen die 1.000 des Standards —, weil die Bäume bis in die
+     * Feldflur hinausreichen und sechzehn Arten sie sonst wirklich vervielfachen.
      */
-    const mesh = new THREE.InstancedMesh(model.geometry, material, crew.length) as StandardInstancedMesh
-    crew.forEach((tree, instance) => {
+    const placements = crew.map((tree) => {
       const size = base * tree.scale
-      matrix.compose(
-        position.set(tree.x, blueprint.relief.height(tree.x, tree.z), tree.z),
-        quaternion.setFromAxisAngle(AXIS_Y, rng.next() * Math.PI * 2),
-        scale.set(size, size * rng.between(0.85, 1.2), size),
-      )
-      mesh.setMatrixAt(instance, matrix)
-      mesh.setColorAt(instance, WHITE)
+      return {
+        matrix: new THREE.Matrix4().compose(
+          position.set(tree.x, blueprint.relief.height(tree.x, tree.z), tree.z),
+          quaternion.setFromAxisAngle(AXIS_Y, rng.next() * Math.PI * 2),
+          scale.set(size, size * rng.between(0.85, 1.2), size),
+        ),
+        colour: WHITE,
+      }
     })
-    mesh.castShadow = true
-    mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
-    mesh.computeBoundingSphere()
-    scene.add(mesh)
-    planting.push(mesh)
+
+    const tiled = addTiled(scene, model.geometry, material, placements, (mesh) => {
+      mesh.castShadow = true
+      mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
+    }, TREE_TILE)
+    planting.push(...(tiled.meshes as StandardInstancedMesh[]))
   })
 
   /*

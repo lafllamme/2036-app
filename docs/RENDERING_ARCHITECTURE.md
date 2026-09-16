@@ -584,3 +584,47 @@ Zwei Dinge, die jede Messung hier wertlos machen, wenn man sie übersieht:
   über die Frames, die es gab — aber es gab dann fast keine.
 - **Das Protokoll läuft nur mit `?bench`.** Ohne den Schalter ist `FrameLog` gar nicht erst angelegt,
   und im Renderpfad steht nichts als ein `null`-Vergleich.
+
+## Was den Frame wirklich kostet — und was nicht
+
+Mit dem Messstand lässt sich eine Schicht **wiegen**: dieselbe Fahrt zweimal, einmal mit ihr und
+einmal ohne. `bench.cost('planting')`. Das erste Ergebnis war, dass es kein Ergebnis gab:
+
+| Schicht | Bilder mit | ohne |
+|---|---|---|
+| Bepflanzung | 1.081 | 1.081 |
+| **Gebäude** | 1.081 | 1.080 |
+
+Die **ganze Stadt** auszublenden ändert die Bildzahl nicht. Das Bild lag auf der Bildwiederholrate —
+120 Hz, bei Auflösungsfaktor 1,65 und noch Luft. Solange der Schirm die Grenze ist, ist jede
+Optimierung unsichtbar, und jede Messung darüber ist wertlos. `bench.flight(sekunden, faktor)` heftet
+deshalb die Auflösung fest; bei 3,0 fällt das Bild auf 84 FPS, und ab da zählt wieder etwas.
+
+Dasselbe noch einmal, auf 3,0 festgehalten:
+
+| Schicht | Meshes | Dreiecke | Bilder mit | ohne | Gewinn |
+|---|---|---|---|---|---|
+| **Bepflanzung** | 16 | 2,37 Mio. | 603 | 803 | **+33 %** |
+| Gebäude | 36 | 1,37 Mio. | 598 | 653 | +9 % |
+| Möblierung | 6 | 0,27 Mio. | 568 | 588 | +4 % |
+| **geparkte Autos** | 357 | **3,98 Mio.** | 605 | 605 | **0 %** |
+
+Die geparkten Autos haben **mehr** Dreiecke als die Bäume und kosten **nichts**. Der Unterschied sind
+nicht die Dreiecke, sondern die Hüllkugeln: die Autos liegen in 357 Kacheln, die Bäume lagen in
+sechzehn Meshes über die ganze Karte. Eine Hüllkugel über die ganze Karte schneidet den Sichtkegel
+immer — also wurde jede der 37.112 Bauminstanzen in jedem Bild abgeschickt, auch die hinter der
+Kamera.
+
+### Die Rücknahme
+
+In `trees.ts` stand, Kacheln seien hier falsch: die Menge sei schon nach Arten geschnitten, Kacheln
+vervielfachten sie, und die Übersicht sei von neunzig auf zwölfhundert Draws gegangen. Der Schluss
+daraus — „ein Baum hat zweihundert Dreiecke, die Geometrie war hier nie das Problem" — war falsch,
+weil **Draws gezählt und nicht Bilder gemessen** wurden. Die 357 Kacheln der geparkten Autos beweisen
+im selben Bild, dass Draws auf dieser Maschine nicht der Preis sind.
+
+Die Bepflanzung liegt jetzt in Kacheln von 1.800 m — größer als die 1.000 des Standards, weil sie bis
+in die Feldflur reicht und sechzehn Arten die Kachelzahl multiplizieren. Ergebnis, auf 3,0
+festgehalten und zweimal gefahren: **717 und 726 Bilder gegen vorher 598 bis 605**, also **+20 %**.
+Gezeichnete Dreiecke an derselben Stelle: **3,4 statt 5,5 Millionen**. Draws 300 statt 169 — und die
+kosten, wie gemessen, nichts.

@@ -488,23 +488,44 @@ Drei weitere kippten am Inhalt und nicht an der Technik — aufgefallen sind sie
 - **Milieuschutz nach Flächenverkauf.** Milieuschutz ist ein Planungsinstrument auf *privatem*
   Bestand; die Stadt muss dafür gar nichts besitzen.
 
-### Was sie gebracht haben, und was nicht
+### Was Türen gebracht haben, und was Verzweigungen
 
-| | |
-| --- | --- |
-| Vorlagen an einer Weiche | 10 → 15 von 78 |
-| Pflichtteil | 21 → **22** |
-| Überschneidung zweier Läufe | 69 % → **68 %** |
+| | Türen (5) | + Verzweigungen (24) |
+| --- | --- | --- |
+| Bibliothek | 78 | **103** |
+| Pflichtteil | 22 | **21** |
+| Überschneidung zweier Läufe | 68 % | **61 %** |
 
-Fast nichts — und das ist das eigentliche Ergebnis. Der Messtest maß zunächst an sich selbst vorbei:
-er ließ nur die Monate laufen und stimmte über nichts ab, sodass `choices` leer blieb und keine
-einzige Tür greifen konnte. Er spielt jetzt drei Haltungen durch (zu allem Ja, zu allem Nein,
-Enthaltung) — und auch dann bewegt sich die Zahl um einen Punkt.
+Türen, die schließen, bringen fast nichts — gemessen einen Punkt. Vorlagen, die **nur auf einem Pfad
+existieren**, bringen den Rest: die Hälfte der Durchläufe sieht sie nie.
 
-**Damit ist es dreimal unabhängig gemessen:** die Ziehungsrate brachte 82 → 69 %, Bedingungen an 31
-Vorlagen brachten wenige Punkte, fünf Türen brachten einen. Dafür müsste die *Mehrheit* der Vorlagen
-an einer Weiche hängen, und das sind zwei- bis dreihundert geschriebene Verzweigungen — Inhalt, keine
-Zahl in einer Datei.
+Der Messtest maß dabei zunächst an sich selbst vorbei: er ließ nur die Monate laufen und stimmte über
+nichts ab, sodass `choices` leer blieb und keine einzige Tür greifen konnte. Er spielt jetzt drei
+Haltungen durch — zu allem Ja, zu allem Nein, Enthaltung.
+
+### Der Preis, den eine größere Bibliothek hat
+
+Bei fester Ziehungsrate senkten die 24 Verzweigungen die Überschneidung von 68 auf **62 %**. Dann
+schlugen `goals.test.ts` und `reachable.test.ts` an: der Betriebsbestand erreichte sein Kampagnenziel
+nicht mehr, und die Schwelle der Hitzetoten lag außerhalb des Erreichbaren.
+
+Der Grund ist systemisch und hat nichts mit den neuen Vorlagen zu tun. **Die Rate war gegen 78
+Vorlagen eingestellt; mit 103 feuert jede einzelne seltener.** Kennzahlen, die nur über bestimmte
+Vorlagen zu bewegen sind, kommen dann nicht mehr an ihre Ziele. Der Ausgleich — Rate von 0,62 auf
+0,70 — gab einen der sechs Punkte wieder her.
+
+| Rate | Bibliothek | Pflichtteil | Überschneidung | Ziele erreichbar |
+| --- | --- | --- | --- | --- |
+| 0,80 | 78 | 42 | 82 % | ja |
+| 0,62 | 78 | 21 | 69 % | ja |
+| 0,62 | 103 | 17 | 62 % | **nein** |
+| **0,70** | **103** | **21** | **61 %** | **ja** |
+| 0,80 | 103 | 29 | 65 % | nein |
+
+Daraus folgt die Rechnung für alles Weitere: **eine pfad-exklusive Vorlage ist rund 0,3 Punkte wert**,
+nicht 0,75 wie nach den ersten acht geschätzt — der Ratenausgleich frisst die Hälfte. Von 61 % auf
+50 % sind damit etwa **36 weitere** Verzweigungen, und jede zwölfte davon wird eine Zielschwelle
+nachziehen.
 
 ## „Nächstes Ereignis" statt „Nächster Monat"
 

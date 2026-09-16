@@ -451,3 +451,51 @@ bei einem Bild von einer Million auf dem Land. Zwei Grasbüschel unterscheidet a
 niemand, ihre Dreieckszahl schon: 20 Teile `grass_leafs`, 5 `grass`, 2 `grass_large`, je 1 für die
 beiden Blüten. Ergebnis bei gleicher Dichte — 4.829 Büschel, **336.000 Dreiecke** statt 600.000. Die
 Blüten bleiben nebenbei der Akzent statt vierzig Prozent der Fläche.
+
+## Was aus zwei Kilometern überhaupt noch liest
+
+Das Umland war leer, und der Reflex dagegen ist, mehr Kleinzeug hineinzulegen. Der Reflex ist falsch.
+Ein Grasbüschel ist 0,38 m hoch und auf dreihundert Metern kein Pixel mehr; ein Zaun, eine Fruchtreihe
+und eine Ackerfarbe genauso. Was auf ein bis fünf Kilometern liest, ist **Silhouette**, und dafür muss
+ein Ding dreißig bis zweihundert Meter hoch sein. Davon stand dort nichts.
+
+| Ding | Höhe | Dreiecke je Stück | Anzahl | Draws |
+|---|---|---|---|---|
+| Windrad (`structures/windFarm.ts`) | 166 m bis Blattspitze | 76 | 58 | 2 |
+| Kühlturm (`structures/powerPlant.ts`) | 118 m | ~200 | 2 | — |
+| Schornstein mit Warnringen | 162 m | ~170 | 1 | — |
+| Kraftwerk gesamt, ein Mesh | | ~800 | 1 | 1 |
+| Hochspannungsmast | 46 m | 44 | 22 | 1 |
+
+Vier Draws für den ganzen Horizont. Zum Vergleich: die Stadt zeichnet 130.
+
+Drei Regeln stecken darin, und alle drei sind gemessen.
+
+**Getrennte Meshes nur für das, was sich bewegt.** Beim Windrad steht der Turm in einer Matrix, die nie
+wieder angefasst wird, und nur der Rotor bekommt seine im langsamen Takt. Bei knapp sechzig Rädern sind
+das dreihundert Matrizen je Sekunde.
+
+**Nichts davon wirft einen Schatten.** Ein Bauwerk von hundertsechzig Metern zieht die Schattenkarte
+über die halbe Karte auf und nimmt der Stadt genau die Auflösung, in der ihre eigenen Schatten stecken.
+Alles hier steht so weit draußen, dass sein Schatten ohnehin auf leeres Feld fiele.
+
+**Vereinfachen, wo die Entfernung es ohnehin tut.** Ein echter Hochspannungsmast ist ein Fachwerk aus
+hunderten Winkeln — nachgebaut tausende Dreiecke, aus achthundert Metern ein graues Kreuz. Also ist er
+gleich ein graues Kreuz. Umgekehrt bekommt der Schornstein seine sieben Warnringe, obwohl das
+Geometrie kostet: sie sind das Einzige, was aus drei Kilometern die **Höhe** verrät. Ein weißes Rohr
+ohne Maßstab könnte zwanzig Meter hoch sein.
+
+### Zwei Fehler, die nur am Modell zu sehen waren
+
+`LatheGeometry`, `CylinderGeometry` und `BoxGeometry` liegen alle in ihrer eigenen Achse, und ein
+zusammengesetztes Ding erbt jede Verwechslung davon. Beim Rotor lagen die Flügel mit ihrer langen Kante
+**auf** der Drehachse statt quer dazu — drei Blätter zeigten geradeaus nach vorn und verdeckten sich
+gegenseitig. Im Bild war das ein nackter Mast, und zwar nur bei Tageslicht aus der richtigen Richtung
+zu sehen. Am Modell ist es eine Bounding-Box in einer Millisekunde: `tests/unit/windFarm.test.ts`
+prüft jetzt Reichweite in der Rotorebene, Flachheit entlang der Achse und den Winkelabstand der drei
+Blätter über die Resultierende der verdreifachten Winkel.
+
+Der zweite: die Instanzmatrizen eines `InstancedMesh` stehen beim ersten Bild auf **Null**. three
+berechnet daraus eine Hüllkugel im Ursprung und schneidet den ganzen Park danach überall weg, wo die
+Kartenmitte nicht im Bild ist. Was erst nach dem ersten Frame gefüllt wird, braucht entweder
+`frustumCulled = false` oder ein `computeBoundingSphere()` **nach** dem Füllen.

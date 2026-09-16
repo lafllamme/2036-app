@@ -10,6 +10,7 @@ import type { RoadNetwork } from './streets/roadNetwork'
 import type { StreetLights } from './streets/streetLights'
 import type { TrafficSignals } from './streets/trafficLights'
 import type { CityBuildings } from './structures/buildings'
+import type { PowerPlant } from './structures/powerPlant'
 import type { WindFarm } from './structures/windFarm'
 import type { Meadow } from './terrain/meadow'
 import type { CityTrees } from './terrain/trees'
@@ -32,6 +33,7 @@ import { addTrafficLights } from './streets/trafficLights'
 import { createBuildings } from './structures/buildings'
 import { createConstructionSites } from './structures/construction'
 import { createGrowth } from './structures/growth'
+import { addPowerPlant } from './structures/powerPlant'
 import { addWindFarms } from './structures/windFarm'
 import { addGround } from './terrain/ground'
 import { addMeadow } from './terrain/meadow'
@@ -77,6 +79,8 @@ export interface WorldVisuals extends CityBuildings, CityTrees {
   meadow: Meadow
   /** Windparks im Umland: die einzige Silhouette, die aus zwei Kilometern noch liest. */
   windFarm: WindFarm | null
+  /** Das Heizkraftwerk und seine Trasse: das eine Bauwerk, von dem es nur eines gibt. */
+  powerPlant: PowerPlant | null
   /**
    * People outside the town hall when the city has had enough. Three draws while they are there and
    * none at all when they are not, which is most of a well-run decade.
@@ -116,6 +120,7 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
     prowlers: addProwlers(scene, blueprint, models),
     meadow: addMeadow(scene, blueprint, models),
     windFarm: addWindFarms(scene, blueprint),
+    powerPlant: addPowerPlant(scene, blueprint),
     protest: addProtest(scene, blueprint, models),
     precipitation: addPrecipitation(scene),
     surfaces: trackSurfaces(paved, soft),

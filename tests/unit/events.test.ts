@@ -113,6 +113,15 @@ describe('event library', () => {
       'mob-funding-apply', // ein dichterer Takt ist Betrieb, kein Projekt
       'soc-judgment-build', // wie soc-childcare-build
       'gov-cyber-rebuild', // „dauerhaft absichern" heißt dauerhaft
+      'mob-night-run', // ein Nachttakt ist Betrieb, kein Projekt
+      'soc-school-build', // eine Schule braucht dauerhaft Lehrkräfte und Hausmeister
+      'soc-school-container', // die Miete läuft, solange sie stehen, und sie stehen lange
+      'soc-language-staff', // zwölf Stellen in den Kitas
+      'soc-youth-outreach', // neun Stellen in den Quartieren
+      'saf-drug-consumption-room', // ein Konsumraum ist eine Einrichtung mit Personal
+      'saf-drug-presence', // Ordnungsdienst rund um die Uhr
+      'saf-fire-build', // achtzehn Stellen auf der vierten Wache
+      'fin-housing-sell', // Verwaltungsentgelt an den Fonds, solange er beteiligt ist
     ])
     const unexpected = EVENTS.flatMap(event => event.options)
       .filter(option => option.monthlyCost > 0 && option.costMonths === undefined && !forever.has(option.id))

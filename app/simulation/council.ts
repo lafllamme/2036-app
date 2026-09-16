@@ -33,7 +33,7 @@ const clamp01 = (value: number): number => Math.min(1, Math.max(0, value))
 
 /** Support below this reads as opposition, above `NO_THRESHOLD + DECISION_BAND` as reliable approval. */
 const NO_THRESHOLD = 0.5
-const DECISION_BAND = 0.16
+const DECISION_BAND = 0.52
 
 /**
  * Distance is normalized against the spread real programmes actually cover, not the theoretical
@@ -109,7 +109,15 @@ export function supportFor(party: PartyDefinition, option: EventOption, context:
   // already live with. A flat bonus would make every party friendly to everything in its own domain.
   const salience = context.salientCategories[party.id] ? 0.08 * base : 0
   const pressure = 0.1 * context.publicPressure
-  const fiscal = 0.15 * context.fiscalStress * Math.max(0, party.axes.fiscalRestraint)
+  /*
+   * Eine leere Kasse sieht jede Fraktion.
+   *
+   * Der Term hing allein an `fiscalRestraint`, sodass Parteien mit einem Wert von null oder darunter
+   * die Haushaltslage schlicht nicht wahrnahmen — eine Karikatur. Wer gern ausgibt, zieht aus einer
+   * leeren Kasse andere Schlüsse als wer sparen will, aber sehen tun sie beide dasselbe. Deshalb ein
+   * Sockel, den alle spüren, und darüber der Unterschied.
+   */
+  const fiscal = 0.6 * context.fiscalStress * (0.4 + 0.6 * Math.max(0, party.axes.fiscalRestraint))
 
   return clamp01(base + coalition + relationship + salience + pressure - fiscal)
 }

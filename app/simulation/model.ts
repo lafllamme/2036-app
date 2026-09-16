@@ -228,6 +228,36 @@ export function createInitialState(seed = 2036, partyId: PartyId | null = null, 
 // Council votes
 // ---------------------------------------------------------------------------
 
+/**
+ * Wie weit über den laufenden Saldo hinaus ein Rat zu gehen bereit ist.
+ *
+ * Nicht null, weil kein Haushalt je exakt ausgeglichen beschlossen wird und eine Stadt Rücklagen
+ * auch auflösen darf. Aber klein, denn ein Beschluss, der mehr bindet als die Stadt im Monat übrig
+ * hat, ist genau das, was zehn Jahre später die Kassenkredite erklärt.
+ */
+const MONTHLY_HEADROOM = 1.6
+
+/**
+ * Wie schwer eine Verpflichtung der Stadt fällt — und **eine Rücklage ist kein Einkommen.**
+ *
+ * Gemessen wurde das allein gegen `cityBudget`, also gegen den Haufen. Zwei Fehler steckten darin.
+ * Erstens wird `cityBudget` bei null gekappt und der Rest läuft in `debt`, sodass eine Stadt mit
+ * achthundert Millionen Schulden sich las wie eine mit null: jenseits der Null sah der Rat seine
+ * Lage nicht mehr. Zweitens, und das war der teurere: 386 Millionen Rücklage bei 0,5 Millionen
+ * Überschuss im Monat lassen jede Dauerkosten-Vorlage bezahlbar aussehen, und sie ist es nicht.
+ * Gespielt hieß das, dass fünf von sechs Parteien im Jahrzehnt bei minus dreihundert bis minus
+ * tausend landeten — auch dann, wenn der Spieler gegen alles stimmte.
+ *
+ * Also zwei Maße, und es gilt das strengere. **Laufendes** wird am Monatssaldo gemessen: wer schon
+ * im Minus wirtschaftet, für den ist jede weitere Dauerausgabe maximal belastend. **Einmaliges** an
+ * der Rücklage, vermindert um das, was der Schuldendienst bindet.
+ */
+function fiscalStressOf(state: SimulationState, oneOff: number, monthly: number): number {
+  const room = Math.max(0.35, state.metrics.monthlyBalance + MONTHLY_HEADROOM)
+  const reserve = Math.max(20, state.metrics.cityBudget - state.metrics.debt * 0.35)
+  return clamp(Math.max(monthly / room, oneOff / reserve), 0, 1)
+}
+
 function voteContext(state: SimulationState, option: EventOption | PolicyDefinition, campaigned: boolean): VoteContext {
   const cost = 'oneOffCost' in option ? option.oneOffCost : option.implementationCost
   // What it actually commits the city to, over two years. A cut that ends after five is a smaller
@@ -243,7 +273,7 @@ function voteContext(state: SimulationState, option: EventOption | PolicyDefinit
     playerNegotiation: own?.stats.negotiation ?? 50,
     relationships: state.relationships,
     publicPressure: campaigned ? 0.75 : clamp((100 - state.metrics.satisfaction) / 100, 0, 1) * 0.4,
-    fiscalStress: clamp((cost + monthly * 24) / Math.max(30, state.metrics.cityBudget), 0, 1),
+    fiscalStress: fiscalStressOf(state, cost, monthly),
     salientCategories: salient,
   }
 }

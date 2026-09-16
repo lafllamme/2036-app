@@ -364,6 +364,28 @@ Five mechanisms make 2026 decisions still legible in 2036:
 4. **Asymmetric trust.** Perception falls roughly five times faster than it recovers, so cheap wins do not repair a reputation.
 5. **Election checkpoints.** 2030 and 2035 convert accumulated per-domain satisfaction into seats, which changes the vote arithmetic for the remaining term.
 
+## Wie viel im Jahrzehnt passieren muss
+
+Ein durchgespieltes Jahrzehnt ergab **zwei Entscheidungen in achtunddreißig Monaten**. Nachgemessen
+über alle sechs Parteien: 12 bis 15 Vorlagen in zehn Jahren, keine nach 2033, und in den meisten
+Januaren ab 2030 stand **null** Ereignis zur Wahl. Vier Ursachen, alle gemessen:
+
+| | |
+| --- | --- |
+| Vier Ereignisse waren unmöglich | Sturmflut, Anschlag, Hafenbrücke, Cyberangriff — Schwellen über dem, was die Stadt je erreicht |
+| `polarisation` bewegte sich vier Punkte | als Auslöser damit wertlos |
+| Jede *gestellte* Vorlage war verbraucht | der Vorrat war die Zahl der geschriebenen Entscheidungen |
+| Fünfundzwanzig Entscheidungen | füllen zehn Jahre nicht |
+
+Jetzt sind es **65 Ereignisse, 51 davon mit Optionen**, und `tests/unit/reachable.test.ts` spielt bei
+jedem Lauf sechs Parteien auf drei Arten durch und lässt keine Schwelle zu, die die Stadt nicht
+erreicht. Gemessen ergibt das 45 bis 56 Vorlagen im Jahrzehnt, in jedem Jahr welche.
+
+**Für Autoren heißt das:** eine neue Bedingung wird nicht geschätzt, sie wird gemessen. Der Test sagt
+die Spanne, die eine Kennzahl wirklich annimmt, und verlangt ein Zehntel davon als Luft — eine
+Schwelle am äußersten Rand feuert in einem von zwanzig Läufen und ist damit ein Gerücht, kein
+Ereignis. Beim Schreiben verschieben sich die Spannen; das ist normal, und der Test sagt es.
+
 ## Authoring rules
 
 - Every event ID is stable and never reused; the library is content-versioned with the policies.

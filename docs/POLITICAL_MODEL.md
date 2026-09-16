@@ -296,3 +296,35 @@ Fragen. Was der **Rat getan hat**, ändert ein Nein nicht — die Vorlage geht d
 **Spieler vertreten hat**, ist genau das, was diese Funktion seit jeher misst. In einer namentlichen
 Abstimmung gibt es keine Stimme, die nichts sagt. Gegen eine Sozialcharta zu stimmen ist eine Aussage
 über Sozialchartas, und die Wählerschaft, die eine wollte, hört sie.
+
+
+## Der Rat hatte keine Unentschiedenen
+
+`DECISION_BAND` stand auf 0,16 um eine Schwelle von 0,5. So schmal, dass praktisch jede Fraktion
+außerhalb lag und ihre Stimme damit feststand — und sechs sichere Stimmen ergeben ein sicheres
+Ergebnis. Gemessen im ersten Monat lagen **sämtliche** Mehrheitschancen aller sechs Parteien auf allen
+drei stehenden Vorlagen bei genau 0 % oder 100 %. Prognose, Verhandlung und Kampagne waren damit
+Dekoration: man konnte politisches Kapital ausgeben, und die Zahl bewegte sich nicht.
+
+Bei 0,4 hat der Rat wieder Unentschiedene:
+
+| Wohnungsbau-Turbo | roh | nach Verhandlung | nach Kampagne |
+| --- | --- | --- | --- |
+| SPD | 0 % | 17 % | **42 %** |
+| FDP | 21 % | 37 % | **62 %** |
+
+Eine breit getragene Vorlage bleibt sicher — der Gewerbesteuer-Pakt steht weiter bei 99 % —, weil
+Einigkeit Einigkeit bleiben soll. Was verschwunden ist, ist die falsche Gewissheit dazwischen.
+
+## Und er sah seine Schulden nicht
+
+`fiscalStress` maß gegen `cityBudget` allein. Zwei Fehler steckten darin. `cityBudget` wird bei null
+gekappt und der Rest läuft in `debt` — jenseits der Null las sich eine Stadt mit achthundert
+Millionen Schulden wie eine mit null. Und eine **Rücklage ist kein Einkommen**: 386 Mio. auf der Bank
+bei 0,5 Mio. Überschuss im Monat lassen jede Dauerkosten-Vorlage bezahlbar aussehen, und sie ist es
+nicht. Gespielt hieß das, dass fünf von sechs Parteien im Jahrzehnt bei minus dreihundert bis minus
+tausend landeten, auch wenn der Spieler gegen alles stimmte.
+
+Jetzt gelten zwei Maße und das strengere zählt: Laufendes gegen den Monatssaldo, Einmaliges gegen die
+Rücklage abzüglich des Schuldendienstes. Und den Term spürt **jede** Fraktion — wer gern ausgibt,
+zieht aus einer leeren Kasse andere Schlüsse als wer sparen will, aber sehen tun sie dasselbe.

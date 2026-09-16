@@ -25,8 +25,15 @@ describe('monthly simulation', () => {
 
     expect(building.metrics.housingUnits).toBeGreaterThan(baseline.metrics.housingUnits)
     expect(building.metrics.averageRent).toBeLessThan(baseline.metrics.averageRent)
-    expect(building.metrics.cityBudget).toBeLessThan(baseline.metrics.cityBudget)
     expect(building.causalEdges.some(edge => edge.from.includes('housing-accelerator'))).toBe(true)
+    /*
+     * Dass Bauen Geld kostet, stand hier als Vergleich zweier Haushalte — und der vergleicht seit dem
+     * Inhaltsschub zwei verschiedene Jahrzehnte: beide Läufe ziehen ab dem ersten Monat andere
+     * Ereignisse, und deren Kosten überdecken die 1,4 Mio. der Vorlage um ein Vielfaches. Geprüft
+     * wird deshalb, was gemeint war: dass die Maßnahme läuft und den Haushalt jeden Monat belastet.
+     */
+    const turbo = building.activeMeasures.find(measure => measure.id.startsWith('housing-accelerator'))
+    expect(turbo?.monthlyCost).toBeGreaterThan(0)
   })
 
   it('moves a metric only when something drove it', () => {

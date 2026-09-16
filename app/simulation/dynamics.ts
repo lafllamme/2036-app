@@ -250,7 +250,20 @@ export function stepDynamics(
   const fees = metrics.population * 0.0000181
   const revenue = tradeTax + transfers + fees
 
-  const operating = 16.9 + metrics.population * 0.0000442
+  /*
+   * Was der Apparat kostet, bevor irgendjemand etwas beschließt.
+   *
+   * Stand auf 16,9 und ließ der Stadt damit 0,5 Mio. € im Monat — 1,9 % der Einnahmen. Drei
+   * unabhängige Messungen liefen auf dieselbe Zahl zu: die drei stehenden Vorlagen kosten 1,2 bis
+   * 1,9 Mio. im Monat und waren damit sämtlich unbezahlbar; ein Jahrzehnt mit fünfzig Entscheidungen
+   * endete bei jeder Partei tief im Minus; und ein Rat, der seine Lage ehrlich liest, lehnte den
+   * Wohnungsbau-Turbo im ersten Monat mit null Prozent Mehrheitschance ab.
+   *
+   * 15,3 lässt rund 2,1 Mio. im Monat, also gut acht Prozent der Einnahmen. Für eine deutsche Stadt
+   * immer noch knapp — und genug, dass Politik eine Wahl zwischen Vorhaben ist statt zwischen
+   * keinem und keinem.
+   */
+  const operating = 15.3 + metrics.population * 0.0000442
   const serviceCost
     = stocks.childcarePlaces * 0.000151
       + stocks.schoolPlaces * 0.0000587

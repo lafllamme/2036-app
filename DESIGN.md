@@ -44,10 +44,18 @@ once, and the bordered amber button was the single most dated element in the int
 
 ## Surface
 
-One panel primitive, used everywhere: `rgba(10, 14, 17, 0.58)`, **no border**, 24 px radius, 42 px
-backdrop blur with light saturation, and a soft shadow for separation. Panels stand through depth and
-space rather than through lines. Inside a panel, structure comes from hairline rules
-(`rgba(246, 243, 236, 0.08)`) and generous spacing, not from nested boxes.
+One panel primitive, used everywhere: `rgba(10, 14, 17, 0.90)`, **no border**, 24 px radius, and a
+soft shadow for separation. Panels stand through depth and space rather than through lines. Inside a
+panel, structure comes from hairline rules (`rgba(246, 243, 236, 0.08)`) and generous spacing, not
+from nested boxes.
+
+**No backdrop blur during play.** It used to be the panel's defining treatment — 42 px on six
+surfaces — and it was measured out: **91 FPS with, 109 without**, same scene, resolution scaler
+pinned at 1.65× both times. Those six surfaces covered 459 000 of 760 000 viewport pixels, sixty per
+cent of the screen, and the scaler renders 2.7× that many. It was the most expensive thing in the
+frontend and it bought nothing that opacity does not. The entry flow keeps a blur of its own, on a
+local token: there the camera stands still, nobody is playing, and the party hall depends on the city
+lying behind the cards rather than under them.
 
 **Exactly one filled action per region.** The filled action is paper on dark, fully rounded. Every
 other control is text inside a hairline pill. A screen full of solid buttons destroys the air the
@@ -59,4 +67,4 @@ Camera motion is damped and interruptible. UI motion uses opacity/transform only
 
 ## Avoid
 
-No generic SaaS cards, neon cyberpunk, random gradients, copied broadcast branding, flat GIS presentation, or fake 3D map extrusion as the primary world. Blur is deliberate and load-bearing here, but it stays on a dark ground: a translucent panel light enough for the city to wash out its body copy is a defect, not a style.
+No generic SaaS cards, neon cyberpunk, random gradients, copied broadcast branding, flat GIS presentation, or fake 3D map extrusion as the primary world. And no backdrop blur in the playing surface — see "Surface" for what it cost. A panel light enough for the city to wash out its body copy is a defect, not a style; the answer is opacity, which is free.

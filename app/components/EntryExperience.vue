@@ -409,6 +409,16 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 
 <style scoped>
 /*
+ * Der Einstieg behält seinen Blur, und zwar als **eigenen** Wert.
+ *
+ * Im laufenden Spiel ist er gestrichen: dort deckten sechs solcher Flächen sechzig Prozent des
+ * Schirms ab und kosteten gemessen 18 FPS. Hier steht die Kamera still, es wird nichts gespielt, und
+ * die Parteienhalle lebt davon, dass die Stadt hinter den Karten liegt statt zugedeckt zu sein. Der
+ * Wert steht als Zahl und nicht als Token: ein Token ist eine Einladung, ihn woanders auch zu
+ * nehmen, und `tests/architecture/boundaries.test.ts` besteht zu Recht darauf, dass jeder Token
+ * global definiert ist. Hier soll er gerade nicht global sein.
+ */
+/*
  * Entry flow on the Signal system. Every value here comes from the tokens in
  * app/assets/css/styles.css — no local colours, no second display face. See DESIGN.md.
  */
@@ -653,8 +663,8 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   border: 1px solid var(--rule);
   border-radius: var(--r-inner);
   background: var(--panel);
-  -webkit-backdrop-filter: blur(var(--blur)) saturate(1.2);
-  backdrop-filter: blur(var(--blur)) saturate(1.2);
+  -webkit-backdrop-filter: blur(42px) saturate(1.2);
+  backdrop-filter: blur(42px) saturate(1.2);
   text-align: left;
   cursor: pointer;
   transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
@@ -746,7 +756,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   border: 1px solid var(--rule);
   border-radius: var(--r-panel);
   background: var(--panel);
-  -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(42px); backdrop-filter: blur(42px);
 }
 .profile-banner::before {
   content: '';
@@ -782,7 +792,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   padding: 28px 30px 24px;
   border-radius: var(--r-panel);
   background: var(--panel);
-  -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(42px); backdrop-filter: blur(42px);
   box-shadow: var(--shadow);
 }
 .profile-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: end; }
@@ -884,7 +894,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   border: 1px solid var(--rule);
   border-radius: var(--r-panel);
   background: var(--panel);
-  -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(42px); backdrop-filter: blur(42px);
 }
 .manifesto-party::before {
   content: '';
@@ -925,7 +935,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   border: 1px solid var(--rule);
   border-radius: var(--r-inner);
   background: var(--panel);
-  -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(42px); backdrop-filter: blur(42px);
 }
 
 .leader-name > span {
@@ -976,7 +986,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   border: 1px solid var(--rule);
   border-radius: var(--r-inner);
   background: var(--panel);
-  -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(42px); backdrop-filter: blur(42px);
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -1021,7 +1031,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   padding: 44px 46px 40px;
   border-radius: var(--r-panel);
   background: var(--panel-strong);
-  -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
+  -webkit-backdrop-filter: blur(42px); backdrop-filter: blur(42px);
   box-shadow: var(--shadow);
 }
 .intro-card::before {

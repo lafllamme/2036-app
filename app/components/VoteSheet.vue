@@ -154,6 +154,20 @@ const tabledOption = computed(() => {
 })
 
 /**
+ * Ob diese Sache überhaupt schon auf der Tagesordnung steht.
+ *
+ * Eine **stehende Vorlage** aus dem eigenen Programm steht dort nicht: sie liegt herum, bis man sie
+ * einbringt, und genau das ist die Handlung. Zu ihr nimmt man keine Haltung ein — Einbringen *ist*
+ * die Haltung.
+ *
+ * Ohne diese Unterscheidung zeigte das Blatt seit der Formregel auch auf dem eigenen Programm
+ * „Dafür · Enthalten · Dagegen": eine Option heißt Vorlage, und eine Vorlage heißt abstimmen. Der
+ * Knopf rief dann `voteOnMotion`, das nach einem Eintrag in `pending` sucht, für eine stehende
+ * Vorlage keinen findet und nichts tut. Das Blatt schloss sich, und die Vorlage lag weiter da.
+ */
+const onTheAgenda = computed(() => Number.isFinite(openDecision.value?.entry.expiresMonth ?? Number.POSITIVE_INFINITY))
+
+/**
  * Die Formregel: **die Zahl der Optionen bestimmt die Form.**
  *
  * Eine Vorlage — ein konkreter Vorschlag — bekommt Dafür · Enthalten · Dagegen. Eine Weggabelung
@@ -161,7 +175,8 @@ const tabledOption = computed(() => {
  * hieß Ja/Nein, eine eigene hieß Optionen wählen, eine Krise wieder Optionen. Das war nicht zu
  * lernen, weil es nichts zu lernen gab.
  */
-const isVorlage = computed(() => Boolean(tabledOption.value) || openDecision.value?.definition.options.length === 1)
+const isVorlage = computed(() =>
+  Boolean(tabledOption.value) || (onTheAgenda.value && openDecision.value?.definition.options.length === 1))
 
 const VOTE_LABELS: Record<PartyVote, string> = { yes: 'Dafür stimmen', abstain: 'Enthalten', no: 'Dagegen stimmen' }
 
@@ -346,7 +361,7 @@ function negotiationHint(partyId: PartyId): string {
             {{ openDecision.prepared.campaignedOptionIds.includes(option.id) ? 'Kampagne läuft' : 'Öffentliche Kampagne · 18 Kapital' }}
           </button>
           <button type="button" class="primary" @click="callVote(option)">
-            Abstimmen lassen
+            {{ onTheAgenda ? 'Abstimmen lassen' : 'Einbringen' }}
           </button>
         </div>
       </section>

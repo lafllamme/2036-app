@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { EVENTS } from '../../app/content/events'
 import { BASELINE_METRICS } from '../../app/simulation/baseline'
 import { eligibleEvents } from '../../app/simulation/events'
-import { advanceMonths, createInitialState, motionOnTheAgenda, resolveDecision, voteOnMotion } from '../../app/simulation/model'
+import { advanceMonths, createInitialState, motionOnTheAgenda, proposePolicy, resolveDecision, voteOnMotion } from '../../app/simulation/model'
 
 /**
  * „Nein heißt nicht weg."
@@ -113,5 +113,21 @@ describe('what comes back because it was refused', () => {
     }
     expect(refusedOnce, 'in einem Jahrzehnt wurde nichts abgelehnt').toBe(true)
     expect(parentId.length).toBeGreaterThan(0)
+  })
+
+  /*
+   * Eine stehende Vorlage ist keine, zu der man Haltung bezieht.
+   *
+   * Sie liegt im eigenen Programm, bis man sie einbringt — und Einbringen *ist* die Haltung. Seit der
+   * Formregel zeigte das Blatt auch auf ihr „Dafür · Enthalten · Dagegen", weil sie eine Option hat;
+   * der Knopf rief dann `voteOnMotion`, das einen Eintrag in `pending` sucht, für eine stehende
+   * Vorlage keinen findet und nichts tut. Das Blatt schloss sich, und die Vorlage lag weiter da.
+   */
+  it('has no agenda entry for a standing motion, so voting on it does nothing', () => {
+    const state = createInitialState(2036, 'spd', [])
+    expect(motionOnTheAgenda(state, 'housing-accelerator')).toBeNull()
+    expect(voteOnMotion(state, 'housing-accelerator', 'yes').result).toBeNull()
+    // Der Weg hinein ist das Einbringen, und das lässt den Rat abstimmen.
+    expect(proposePolicy(state, 'housing-accelerator').result).not.toBeNull()
   })
 })

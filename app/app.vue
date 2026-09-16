@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSound } from '~/composables/useSound'
 import { getParty } from '~/content/parties'
 import { useGameStore } from '~/stores/game'
+import { tenancyAt } from '~/world/tenancy'
 
 /*
  * Die Schale, und sonst nichts.
@@ -33,6 +34,22 @@ const {
   selectedCitizen,
   rendererStats,
 } = storeToRefs(game)
+
+/*
+ * Was im Erdgeschoss des angeklickten Hauses ist.
+ *
+ * Der Anteil kommt aus dem Einzelhandelsbestand gegen seinen Ausgangswert: bricht er ein, stehen
+ * hier sichtbar Läden leer. Die Richtung läuft nur so herum — siehe `world/tenancy.ts`.
+ */
+const CITY_SEED = 2036
+const tenancy = computed(() => {
+  const picked = selectedBuilding.value
+  const now = game.snapshot?.metrics.businessStock
+  const start = game.snapshot?.baselineMetrics.businessStock
+  if (!picked || now === undefined || !start)
+    return null
+  return tenancyAt(picked, CITY_SEED, now / start)
+})
 
 const buildingLabels = {
   altbau: 'Gründerzeit-Wohnhaus',
@@ -182,6 +199,16 @@ function restart(): void {
             <div><dt>Objekt</dt><dd>{{ selectedBuilding.id.toUpperCase() }}</dd></div>
             <div><dt>Zustand</dt><dd>{{ (selectedBuilding.condition * 100).toFixed(0) }} %</dd></div>
             <div><dt>Auslastung</dt><dd>{{ (selectedBuilding.occupancy * 100).toFixed(0) }} %</dd></div>
+            <!--
+              Das Erdgeschoss. Eine Adresse ist erst eine Adresse, wenn etwas darin ist — und ein
+              zugeklebtes Schaufenster ist die Kennzahl „Gewerbebestand", auf der Straße gelesen.
+            -->
+            <div v-if="tenancy">
+              <dt>Erdgeschoss</dt>
+              <dd :class="{ vacant: !tenancy.open }">
+                {{ tenancy.open ? tenancy.label : `${tenancy.label} · geschlossen` }}
+              </dd>
+            </div>
           </dl>
         </section>
 
@@ -342,6 +369,8 @@ function restart(): void {
 }
 .pick dl > div:first-child { border-top: 0; }
 .pick dt { color: var(--ink-2); font-size: 12.5px; }
+/* Ein leerstehendes Erdgeschoss ist kein Fehler, aber ein Verlust — also grau und nicht rot. */
+.pick dd.vacant { color: var(--ink-3); }
 .pick dd { margin: 0; font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 
 .note { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); color: var(--ink-3); font-size: 11.5px; line-height: 1.55; }

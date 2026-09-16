@@ -122,6 +122,8 @@ describe('event library', () => {
       'saf-drug-presence', // Ordnungsdienst rund um die Uhr
       'saf-fire-build', // achtzehn Stellen auf der vierten Wache
       'fin-housing-sell', // Verwaltungsentgelt an den Fonds, solange er beteiligt ist
+      'soc-language-schools', // zwanzig Stellen an den Schulen
+      'saf-response-comply', // achtzehn Stellen auf der Wache, die das Urteil verlangt
     ])
     const unexpected = EVENTS.flatMap(event => event.options)
       .filter(option => option.monthlyCost > 0 && option.costMonths === undefined && !forever.has(option.id))

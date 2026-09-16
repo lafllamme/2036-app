@@ -298,7 +298,23 @@ Jede Stufe ist für sich spielbar.
    Die alten „Prioritäten" sind damit weg. Ihre einzige echte Wirkung — welche Fraktion ein Thema für
    ihres hält und deshalb eher mitgeht — haben die Ziele übernommen, über das Politikfeld, an das
    jedes Ziel gebunden ist.
-5. **Abgelehnt kehrt zurück.** Ein Trigger-Feld, dazu Folge-Ereignisse für die wichtigsten Ablehnungen.
+5. **Abgelehnt kehrt zurück.** *Erledigt.* Ein Trigger-Feld — `requiresRefusedEventIds` — und acht
+   Nachspiele. „Abgelehnt" ist kein eigener Zustand, sondern die Lücke zwischen zwei Listen, die es
+   ohnehin gibt: der Rat wurde gefragt (`firedOnce`) und hat nichts beschlossen (`choices`).
+
+   Jedes Nachspiel bietet dieselbe Sache noch einmal an, in anderer Form und **teurer** — das
+   Hafenviertel kippt und der Ankauf kostet das Dreifache der Satzung; die Hilfsfrist steht vor
+   Gericht und die Wache wird unter Frist ausgeschrieben; elftausend Unterschriften holen die
+   Radachse als Bürgerbegehren zurück. Ein Test verlangt, dass jedes Nachspiel mehr verlangt als
+   seine Elternvorlage, sonst wäre Ablehnen gratis und die Folge eine zweite Chance.
+
+   Beim Durchspielen fiel dabei ein Fehler auf, der zwei Mechaniken gleichzeitig stilllegte: der
+   **Preis einer Ablehnung** lief durch dieselbe Funktion wie ein Beschluss und landete deshalb in
+   `choices`. Damit hieß „abgelehnt" dasselbe wie „beschlossen" — die Vorlage kam nie wieder, und
+   keine der Türen hinter einem Nein ging auf. Gemessen: **null von 786 Monaten** stand eine der
+   Elternvorlagen als abgelehnt da, während der Rat sie in Wahrheit in vier von fünf Fällen ablehnte.
+   Seit der Trennung kommen 4 bis 8 Nachspiele im Jahrzehnt an — und bei einer CDU, die als
+   Ratsmehrheit alles durchbringt, genau null, was dieselbe Regel von der anderen Seite zeigt.
 6. **Startlage je Partei.** Haushalt, Beziehungen, `organization`, Namensfeld.
 7. **Die Lage.** Vier Weltgrößen, ihre Drift, ihre Schocks, und die Ereignisse, die sie auslösen.
 

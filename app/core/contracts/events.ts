@@ -68,6 +68,17 @@ export interface EventTrigger {
   requiresChoiceIds?: string[]
   /** Never again once one of these choices was carried. The door this decision shut. */
   blockedByChoiceIds?: string[]
+  /**
+   * Erst, nachdem eine dieser Vorlagen **abgelehnt** wurde.
+   *
+   * Die dritte Art von Tür, und die einzige, die sich hinter einem *Nein* öffnet. Eine abgelehnte
+   * Vorlage ist im Zustand genau daran zu erkennen, dass sie in `firedOnce` steht und in `choices`
+   * nicht: der Rat wurde gefragt und hat nichts beschlossen.
+   *
+   * Damit ist Nichtstun eine Entscheidung mit Preis statt eines Auswegs. Die Ursache verschwindet
+   * nicht, wenn man sie wegstimmt — sie kommt wieder, in anderer Form und teurer.
+   */
+  requiresRefusedEventIds?: string[]
   /** Never while one of these measures is running. A problem somebody is already paying for. */
   blockedByMeasureIds?: string[]
   scheduledMonthOfYear?: number

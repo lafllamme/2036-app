@@ -209,6 +209,16 @@ export function eligibleEvents(state: EventDrawState, monthOfYear: number): Even
     // The doors. See `EventTrigger` for why they are all written at the gated event.
     if (trigger.requiresChoiceIds && !trigger.requiresChoiceIds.some(id => state.choices.includes(id)))
       return false
+    /*
+     * Die Tür, die sich hinter einem Nein öffnet.
+     *
+     * „Abgelehnt" ist kein eigener Zustand — es ist die Lücke zwischen den beiden Listen, die es
+     * ohnehin gibt: der Rat wurde gefragt (`firedOnce`) und hat nichts beschlossen (`choices`).
+     */
+    if (trigger.requiresRefusedEventIds && !trigger.requiresRefusedEventIds.some(id =>
+      state.firedOnce.includes(id) && !state.choices.some(choice => choice.startsWith(`${id}:`)))) {
+      return false
+    }
     if (trigger.blockedByChoiceIds?.some(id => state.choices.includes(id)))
       return false
     if (trigger.blockedByMeasureIds?.some(id => state.activeMeasureSources.includes(id)))

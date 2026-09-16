@@ -439,16 +439,23 @@ const INCIDENT_OPTION_IDS = new Set(['sofort', 'abgelehnt'])
  *
  * The choice is recorded here rather than where the vote is counted, because this is the one place
  * every road runs through: a council motion that passed, a standing motion the player tabled
- * themselves, an incident that simply happened. A motion that was voted down never reaches here,
- * which is exactly right — it closes no door, because nothing was done.
+ * themselves, an incident that simply happened.
+ *
+ * **Was hier hereinkommt, ist nicht immer eine Entscheidung.** Der Schock eines Vorfalls und der
+ * Preis einer Ablehnung laufen durch dieselbe Funktion, weil beide über Monate wirken — aber keiner
+ * von beiden ist etwas, das der Rat *getan* hat. Stünden sie in `choices`, hieße „abgelehnt"
+ * dasselbe wie „beschlossen": die Vorlage käme nie wieder, und die Tür, die sich hinter einem Nein
+ * öffnen soll, bliebe zu. Gemessen war das der Fall — fünf von sechs Nachspielen konnten nie
+ * eintreten, weil ihre Elternvorlage nach der Ablehnung als erledigt galt.
  */
 function adoptMeasure(state: SimulationState, sourceId: string, option: EventOption, category: ActiveMeasure['category']): SimulationState {
   const metrics = { ...state.metrics, cityBudget: Math.max(0, state.metrics.cityBudget - option.oneOffCost) }
+  const decided = !INCIDENT_OPTION_IDS.has(option.id)
   const choice = `${sourceId}:${option.id}`
   return {
     ...state,
     metrics,
-    choices: state.choices.includes(choice) ? state.choices : [...state.choices, choice],
+    choices: !decided || state.choices.includes(choice) ? state.choices : [...state.choices, choice],
     measures: [...state.measures, measureFromOption(sourceId, option, category, state.month, INCIDENT_OPTION_IDS.has(option.id) ? 'incident' : 'decision')],
   }
 }
@@ -460,8 +467,12 @@ function adoptMeasure(state: SimulationState, sourceId: string, option: EventOpt
  * The floor is what happens even to a council the player fully controls: other groups do table
  * things, and a decade without a single opposition motion is not a chamber. The spread is what a
  * lost majority adds on top — at zero coalition seats it is more likely than not.
+ *
+ * Stand auf 0,36 und rutschte auf 17,7 % Oppositionsanteil, als abgelehnte Vorlagen wieder
+ * zurückkommen durften: die Wiedervorlagen landen alle beim Spieler und verwässern den Anteil.
+ * Bei 0,56 liegt er wieder bei 24 %.
  */
-const FOREIGN_MOTION_FLOOR = 0.36
+const FOREIGN_MOTION_FLOOR = 0.56
 const FOREIGN_MOTION_SPREAD = 0.5
 /** Too small a group to command the agenda, however much it might want to. */
 const OPPOSITION_SEATS = 4

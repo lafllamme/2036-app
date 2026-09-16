@@ -128,6 +128,11 @@ describe('event library', () => {
       'lage-arrivals-capacity', // Plätze und Kurse in vier Quartieren, mit Personal
       'saf-cctv-more', // dreißig weitere Anlagen wollen dauerhaft betrieben und gewartet werden
       'saf-prevention-all', // sechs Quartiersbüros mit je einer Stelle
+      'hou-preempt-own', // eine eigene Hausverwaltung ist Personal, kein Projekt
+      'hou-second-preempt', // dreihundert Wohnungen wollen dauerhaft verwaltet werden
+      'soc-decentral-extend', // vier Schulanbauten brauchen dauerhaft Lehrkräfte
+      'soc-central-split', // vier Standorte mit Betreuung und Kursen
+      'hou-vacancy-team', // neun Stellen für den Vollzug der Satzung
     ])
     const unexpected = EVENTS.flatMap(event => event.options)
       .filter(option => option.monthlyCost > 0 && option.costMonths === undefined && !forever.has(option.id))

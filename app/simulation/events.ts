@@ -260,28 +260,29 @@ export function eligibleEvents(state: EventDrawState, monthOfYear: number): Even
  * Ziehung eine stillere Stadt gewesen; jetzt meldet sich der Stadtfunk 5,7 mal im Monat, und eine
  * Ratsvorlage darf wieder etwas sein, das nicht jeden Monat kommt.
  *
- * Durchgemessen über zwölf Durchläufe mit vier Parteien, nachdem 31 Vorlagen ihre Bedingung
- * bekommen hatten — und gegen die Gegenprobe, ob der Spieler seine Kampagnenziele überhaupt noch
- * erreichen kann:
+ * Durchgemessen über zwölf Durchläufe mit vier Parteien und drei Haltungen, gegen die Gegenprobe, ob
+ * der Spieler seine Kampagnenziele überhaupt noch erreichen kann:
  *
- * | Rate | Pflichtteil | Überschneidung | Ziele erreichbar |
- * | --- | --- | --- | --- |
- * | 0,80 | 42 | 82 % | ja |
- * | 0,68 | 25 | 71 % | **nein** |
- * | **0,62** | **21** | **69 %** | **ja** |
- * | 0,55 | 16 | 61 % | nein |
- * | 0,37 | 4 | 45 % | nein |
+ * | Rate | Bibliothek | Pflichtteil | Überschneidung | Ziele erreichbar |
+ * | --- | --- | --- | --- | --- |
+ * | 0,80 | 78 | 42 | 82 % | ja |
+ * | 0,62 | 78 | 21 | 69 % | ja |
+ * | 0,62 | 103 | 17 | 62 % | **nein** |
+ * | **0,70** | **103** | **21** | **61 %** | **ja** |
+ * | 0,80 | 103 | 29 | 65 % | nein |
  *
- * **Hier liegt eine Decke, und sie ist keine Tuningfrage.** Halb so viele Ratsvorlagen sind halb so
- * viele Hebel: unter 0,62 schrumpft die erreichbare Spanne jeder Kennzahl so weit, dass eigene
- * Kampagnenziele unerreichbar werden — und ein Durchlauf, in dem man seine Versprechen nicht halten
- * kann*, ist kaputter als einer, der sich wiederholt. Handlungsfähigkeit schlägt Abwechslung.
+ * **Eine größere Bibliothek braucht eine höhere Rate.** Das ist der unangenehme Teil: die Rate war
+ * gegen 78 Vorlagen eingestellt, und mit 103 feuert jede einzelne davon seltener. Kennzahlen, die nur
+ * über bestimmte Vorlagen zu bewegen sind, erreichen ihre Ziele dann nicht mehr — gemessen fiel bei
+ * 0,62 der Betriebsbestand unter die Zielschwelle und die Hitzeschwelle aus der Reichweite.
  *
- * Weiter kommt man von hier nur mit mehr Inhalt, nicht mit einer anderen Zahl: mehr Vorlagen, mehr
- * Verzweigungen, oder Vorlagen, die sich ihren Ort und ihre Zahlen aus dem Spielstand holen statt
- * fest geschrieben zu sein. Siehe `tests/unit/replay.test.ts` für die gemessene Lage.
+ * Damit frisst der Ausgleich einen Teil dessen auf, was die Verzweigungen gebracht haben: 24 neue
+ * pfad-exklusive Vorlagen senkten die Überschneidung bei fester Rate von 68 auf 62 %, und die für die
+ * Ziele nötige Anhebung auf 0,70 gab einen Punkt davon zurück.
+ *
+ * Unter 0,70 werden Kampagnenziele unerreichbar, darüber wird der Vorrat wieder leergespielt.
  */
-const DRAW_CHANCE = 0.62
+const DRAW_CHANCE = 0.70
 
 /**
  * Weighted seeded draw. Roughly 0.8 events per month (docs/EVENT_MATRIX.md pressure budget), with

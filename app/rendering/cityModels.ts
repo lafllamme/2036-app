@@ -62,7 +62,67 @@ export const CREW_IDS = {
 } as const
 const SERVICE_IDS = Object.values(CREW_IDS).flat()
 
-const NATURE_IDS = ['tree_default', 'tree_detailed', 'tree_oak', 'tree_tall', 'tree_thin', 'tree_small', 'tree_fat', 'tree_pineTallA', 'tree_pineRoundA', 'plant_bushLarge', 'plant_bushSmall']
+/**
+ * Was wächst — und warum es jetzt deutlich mehr ist.
+ *
+ * Aus dem Nature Kit lagen elf von rund neunzig Modellen im Repo, und die elf waren neun Laubbäume
+ * einer einzigen Jahreszeit und zwei Sträucher. Ein Wald daraus sieht aus wie ein Wald: **alle Bäume
+ * gleich alt, gleich grün, gleich gesund.**
+ *
+ * Das Kit hält für jeden seiner Bäume eine `_dark`- und eine `_fall`-Fassung bereit — dieselbe
+ * Silhouette in dunklerem Grün und in Herbstfärbung — dazu Nadelbäume, Grasbüschel, Feldblumen,
+ * Zäune, Tore, Fruchtreihen, Feldsteine, Stümpfe und Totholz. Genau das, was einer leeren Wiese
+ * fehlt, vom selben Künstler und im selben Stil, und alles zusammen **380 Kilobyte**.
+ *
+ * Jede Art ist eine eigene Instanz und damit ein eigener Draw, deshalb steht hier eine Auswahl und
+ * nicht das ganze Kit: die Sorten, die aus der Luft einen Unterschied machen.
+ */
+const NATURE_IDS = [
+  // Laubbäume, jetzt in drei Färbungen statt einer.
+  'tree_default',
+  'tree_default_dark',
+  'tree_detailed',
+  'tree_oak',
+  'tree_oak_dark',
+  'tree_oak_fall',
+  'tree_tall',
+  'tree_tall_fall',
+  'tree_thin',
+  'tree_small',
+  'tree_fat',
+  // Nadelholz für die Forsten.
+  'tree_pineTallA',
+  'tree_pineRoundA',
+  'tree_pineDefaultA',
+  // Unterholz und Hecke.
+  'plant_bushLarge',
+  'plant_bushSmall',
+  // Und was auf einer Wiese sonst noch steht.
+  'grass',
+  'grass_large',
+  'grass_leafs',
+  'flower_yellowA',
+  'flower_purpleA',
+  'rock_smallA',
+  'stump_round',
+  'log_stack',
+  'fence_simple',
+  'fence_gate',
+  'crops_wheatStageB',
+  'crops_cornStageC',
+]
+
+/**
+ * Was davon ein Baum ist, was Bodendecke und was Flurstück-Zubehör.
+ *
+ * Die Rollen stehen hier und nicht im Renderer, weil sie am Modell hängen und nicht am Ort: ein
+ * Grasbüschel ist überall ein Grasbüschel. `addTrees` pflanzt Bäume in Wälder und Parks, die Hecken
+ * ziehen aus den Sträuchern, und die Bodendecke ist eine eigene Schicht mit eigener Sichtweite —
+ * dreißigtausend Grasbüschel über zehn Kilometer wären sonst dreißigtausend Grasbüschel, die
+ * niemand sieht.
+ */
+export const GROUND_COVER_IDS = new Set(['grass', 'grass_large', 'grass_leafs', 'flower_yellowA', 'flower_purpleA'])
+export const FIELD_CLUTTER_IDS = new Set(['rock_smallA', 'stump_round', 'log_stack', 'fence_simple', 'fence_gate', 'crops_wheatStageB', 'crops_cornStageC'])
 
 /**
  * Street furniture, from the road kit. The signals and the lamps are picked out of it by name; the
@@ -122,6 +182,10 @@ export interface CityModels {
    */
   peopleSkins: THREE.MeshStandardMaterial[]
   natureMaterial: THREE.MeshStandardMaterial
+  /** Grasbüschel und Feldblumen: dicht, klein, und nur in der Nähe der Kamera gezeichnet. */
+  groundCover: CityModel[]
+  /** Feldsteine, Stümpfe, Totholz, Zäune, Fruchtreihen — was auf einem bewirtschafteten Schlag steht. */
+  fieldClutter: CityModel[]
   roadsMaterial: THREE.MeshStandardMaterial
   trafficLight: CityModel | null
   streetLamp: CityModel | null
@@ -455,7 +519,14 @@ export async function loadCityModels(): Promise<CityModels> {
     offices: commercial.models.filter(model => OFFICE_IDS.includes(model.id)),
     towers: commercial.models.filter(model => TOWER_IDS.includes(model.id)),
     distant: distant.models,
-    trees: nature.models,
+    /*
+     * Nur die Bäume und Sträucher gehen an die Pflanzung. Bodendecke und Flurstück-Zubehör stehen
+     * im selben Kit und in derselben Liste, gehören aber in eigene Schichten mit eigener Sichtweite —
+     * sonst zieht `addTrees` Grasbüschel in einen Wald und Feldsteine in einen Park.
+     */
+    trees: nature.models.filter(model => !GROUND_COVER_IDS.has(model.id) && !FIELD_CLUTTER_IDS.has(model.id)),
+    groundCover: nature.models.filter(model => GROUND_COVER_IDS.has(model.id)),
+    fieldClutter: nature.models.filter(model => FIELD_CLUTTER_IDS.has(model.id)),
     vehicles: vehicles.models,
     people: people.models,
     riders: riders.models,

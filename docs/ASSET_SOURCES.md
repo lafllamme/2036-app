@@ -146,3 +146,42 @@ Menge.
 sechs Instanzen frei und bezahlt damit zwei zusätzliche Modelle zum Nulltarif — auf Kosten des
 Gangbildes. Oder ein Entfernungs-LOD, das jenseits von dreihundert Metern alle Figuren auf ein
 einziges Modell zusammenzieht; das wäre die saubere Lösung und ist eigene Arbeit.
+
+## Nature Kit, vollständig geholt
+
+| Was | Quelle | Lizenz | Stand |
+| --- | --- | --- | --- |
+| 28 Modelle: Laubbäume in drei Färbungen, Nadelholz, Sträucher, Grasbüschel, Feldblumen, Feldsteine, Stümpfe, Totholz, Zäune, Tore, Fruchtreihen | Kenney Nature Kit 2.1, kenney.nl | CC0 1.0 | 2026-09-16 |
+
+Im Repo lagen **elf von rund neunzig** Modellen dieses Kits, und die elf waren neun Laubbäume einer
+einzigen Jahreszeit plus zwei Sträucher. Ein Wald daraus sieht aus wie ein Wald: alle Bäume gleich
+alt, gleich grün, gleich gesund.
+
+Das Kit hält für jeden Baum eine `_dark`- und eine `_fall`-Fassung bereit — dieselbe Silhouette in
+dunklerem Grün und in Herbstfärbung —, dazu Nadelholz und alles, was einer leeren Wiese fehlt. Das
+ganze Paket wiegt im Repo **380 Kilobyte**; die Modelle liegen zwischen 16 und 402 Dreiecken.
+
+### Was es gekostet hat, und die Grenze, die dabei sichtbar wurde
+
+An derselben Kameraposition gemessen, Fenster sichtbar:
+
+| | vorher | nachher |
+| --- | --- | --- |
+| Baumarten | 11 | 16 |
+| Dreiecke | 4.895k | 5.226k |
+| Draws | 115 | 120 |
+| **FPS** | **92** | **65** |
+
+Siebenundzwanzig Bilder für 331.000 Dreiecke und fünf Draws ist unverhältnismäßig — und die Antwort
+steht in derselben Zeile: die selbstregelnde Auflösung ist von 1,65 auf 1,53 gefallen. **Das Bild ist
+füllratenbegrenzt und nicht dreiecksbegrenzt.** Über die Kampagne hinweg ist die Vegetation von 6.460
+auf 25.200 Bäume plus 14.000 Hecken gewachsen, und jeder davon malt Pixel.
+
+Deshalb liegen `groundCover` (Grasbüschel, Feldblumen) und `fieldClutter` (Steine, Stümpfe, Zäune,
+Fruchtreihen) zwar geladen und nach Rolle getrennt vor, werden aber **noch nicht gezeichnet**. Sie
+sind das Dichteste, was es gibt, und ohne eine Entfernungsstaffelung würden sie das Bild kosten,
+nicht füllen.
+
+Der nächste Schritt an der Karte ist deshalb kein weiteres Asset, sondern **Kacheln mit Sichtweite**
+für die Pflanzung: die Bäume liegen heute in elf Instanzen über zehn Kilometer, von denen jede
+vollständig gezeichnet wird, egal wohin die Kamera schaut.

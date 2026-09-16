@@ -299,6 +299,44 @@ function simplifyWheel(mesh: THREE.Mesh): THREE.BufferGeometry | null {
   else if (axis === 'z')
     wheel.rotateX(Math.PI / 2)
   wheel.translate(centre.x, centre.y, centre.z)
+  /*
+   * **Und die UVs des Originals mitnehmen, sonst wird das Rad zum Farbfächer.**
+   *
+   * Die Fahrzeuge malen über einen Atlas, in dem jeder Farbton ein einzelnes Texel ist. Ein frischer
+   * `CylinderGeometry` bringt seine eigene Abwicklung mit — die zieht sich über den halben Atlas, und
+   * genau so sah es aus: gestreifte Regenbogenreifen. Was ein Rad braucht, ist **ein** Texel, und zwar
+   * das des Reifens.
+   *
+   * Genommen wird es von der Ecke des Originals, die am weitesten von der Radmitte weg liegt: das ist
+   * die Lauffläche und nie die Nabe. Alle Ecken des Zylinders bekommen dieselbe Koordinate, also
+   * dieselbe Farbe, und ein Reifen ist einfarbig.
+   */
+  const source = mesh.geometry.getAttribute('uv') as THREE.BufferAttribute | undefined
+  const points = mesh.geometry.getAttribute('position') as THREE.BufferAttribute | undefined
+  let u = 0
+  let v = 0
+  if (source && points) {
+    let furthest = -1
+    for (let vertex = 0; vertex < points.count; vertex += 1) {
+      const dx = points.getX(vertex) - centre.x
+      const dy = points.getY(vertex) - centre.y
+      const dz = points.getZ(vertex) - centre.z
+      // Abstand quer zur Achse: die Lauffläche, nicht die Flanke.
+      const across = axis === 'x' ? dy * dy + dz * dz : axis === 'y' ? dx * dx + dz * dz : dx * dx + dy * dy
+      if (across > furthest) {
+        furthest = across
+        u = source.getX(vertex)
+        v = source.getY(vertex)
+      }
+    }
+  }
+  const count = wheel.getAttribute('position').count
+  const uv = new Float32Array(count * 2)
+  for (let vertex = 0; vertex < count; vertex += 1) {
+    uv[vertex * 2] = u
+    uv[vertex * 2 + 1] = v
+  }
+  wheel.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
   return wheel
 }
 

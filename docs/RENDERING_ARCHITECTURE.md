@@ -400,6 +400,13 @@ Aus jeder Kamera dieses Spiels ist ein Rad ein paar Pixel groß. Das Kit benennt
 mit zehn Seiten, auf die Maße des Originals gezogen. **864 statt 2.032 Dreiecke je Limousine, rund
 55 % weniger Verkehrsgeometrie insgesamt.**
 
+Und ein Nachtrag, der im ersten Anlauf fehlte: **die UVs des Originals müssen mit.** Die Fahrzeuge
+malen über einen Atlas, in dem jeder Farbton ein einzelnes Texel ist. Ein frischer
+`CylinderGeometry` bringt seine eigene Abwicklung mit, die sich über den halben Atlas zieht — und
+genau so sah es aus, gestreifte Regenbogenreifen. Was ein Rad braucht, ist **ein** Texel, und zwar
+das des Reifens. Genommen wird es von der Ecke des Originals, die am weitesten von der Radachse weg
+liegt: das ist die Lauffläche und nie die Nabe.
+
 ### Eine Messregel, die dabei zweimal wehgetan hat
 
 `castShadow` zur Laufzeit umzuschalten, um die Schattenkosten zu messen, machte das Bild **langsamer**

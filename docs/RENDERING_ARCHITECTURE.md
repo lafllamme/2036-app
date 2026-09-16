@@ -544,3 +544,43 @@ eigentliche Fehler, nicht die drei vergessenen Schichten.
 
 Ergebnis über 1.480 Frames ununterbrochenen Schwenkens und Zoomens: Median **1,0 ms**, p99 2,8 ms,
 längster Frame **4,1 ms**, kein einziger Frame über 20 ms.
+
+## Der Messstand: `?bench`
+
+Messen und Spielen vertragen sich nicht. Bei laufender Uhr springt irgendwann eine Vorlage auf,
+verdeckt die halbe Stadt und hält den Renderer an — was man dann misst, ist ein anderes Bild als das,
+das man messen wollte. Und ein FPS-Zähler zeigt ohnehin nie, worum es geht: ein Ruckler ist ein
+**einzelner langer Frame**, und sechzig kurze plus einer zu 87 ms sind zusammen immer noch über
+hundert Bilder je Sekunde.
+
+`http://localhost:3000/?bench` schaltet deshalb drei Dinge zusammen:
+
+1. **Kein Einstiegsablauf.** Partei, Ziele und Amtsinhaberin sind gesetzt, die Stadt wird gebaut, man
+   landet direkt darin.
+2. **Die Uhr steht.** Ohne Monatswechsel gibt es keine Ereignisse — es braucht dafür keinen zweiten
+   Schalter.
+3. **`window.bench`** mit `reset()`, `stats()` und `flight(sekunden)`.
+
+`flight` nimmt jedes Mal denselben Weg: ein voller Umlauf um die Stadt, dabei einmal von neunhundert
+Metern Höhe bis dicht über die Dächer und zurück. Stillstehend misst man den einen Blick, in dem
+gerade alles übersetzt ist; die teuersten Frames entstehen aber beim **Wechsel** — wenn
+Straßenmöblierung in Sicht kommt, die Bodendecke sät, eine Kachel Vegetation eintritt.
+
+Zwei Läufe hintereinander, damit man sieht, was das Ding wert ist:
+
+| | Frames | Median | p95 | p99 | längster | Ruckler | render | update |
+|---|---|---|---|---|---|---|---|---|
+| Lauf 1 | 1.807 | 1,4 ms | 3,5 | 4,4 | 5,6 | 0 | 1,51 | 0,24 |
+| Lauf 2 | 1.805 | 1,4 ms | 3,5 | 4,6 | 5,8 | 0 | 1,50 | 0,24 |
+
+Auf Rundungsfehler genau wiederholbar — damit taugt es zum Vergleichen. **Der allererste Lauf nach
+dem Laden zählt nicht**: dort standen 13,6 ms als längster Frame, weil auch die beste Aufwärmrunde
+nicht jede Pipeline vorwegnimmt. Einmal fliegen, dann messen.
+
+Zwei Dinge, die jede Messung hier wertlos machen, wenn man sie übersieht:
+
+- **Der Browser muss sichtbar sein.** Verdeckt meldet die Seite `visibilityState: hidden`,
+  `requestAnimationFrame` fällt auf 1 Hz, und jede Bildrate ist Unsinn. `stats()` sagt die Wahrheit
+  über die Frames, die es gab — aber es gab dann fast keine.
+- **Das Protokoll läuft nur mit `?bench`.** Ohne den Schalter ist `FrameLog` gar nicht erst angelegt,
+  und im Renderpfad steht nichts als ein `null`-Vergleich.

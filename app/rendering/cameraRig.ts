@@ -133,6 +133,20 @@ export class CameraRig {
     }
   }
 
+  /**
+   * Die Kamera hart an einen Punkt stellen, ohne Tween und ohne Dämpfung.
+   *
+   * Nur für den Messstand (`?bench`): eine Messfahrt muss jedes Mal denselben Weg nehmen, sonst
+   * vergleicht man zwei verschiedene Bilder miteinander. Steht hier und nicht im Renderer, weil die
+   * Kamera hier wohnt — und weil ein laufender Anflug sonst mitten in die Messfahrt hineinzöge.
+   */
+  placeFor(targetX: number, targetZ: number, bearing: number, reach: number, height: number): void {
+    this.tween = null
+    this.controls.target.set(targetX, 0, targetZ)
+    this.camera.position.set(targetX + Math.cos(bearing) * reach, height, targetZ + Math.sin(bearing) * reach)
+    this.controls.update()
+  }
+
   update(now: number): void {
     if (this.tween) {
       const raw = Math.min(1, (now - this.tween.started) / (FOCUS_DURATION * 1_000))

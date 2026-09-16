@@ -1,6 +1,7 @@
 import type { BuildingRecord, CityBlueprint, SimulationSnapshot, SkyState } from '../core/contracts'
 import type { Weather } from '../core/weather'
 import type { CityModels } from './cityModels'
+import type { FrameStats } from './frameLog'
 import type { SkyVisuals } from './sky/index'
 import type { WorldVisuals } from './world/index'
 import type { PersonAt } from './world/traffic/agents'
@@ -9,8 +10,10 @@ import * as THREE from 'three/webgpu'
 import { useCityAmbience } from '../audio/cityAmbience'
 import { useCityScore } from '../audio/cityScore'
 import { useCityMixer } from '../audio/mixer'
+import { debugFlags } from '../core/debug'
 import { CALM } from '../core/weather'
 import { CameraRig } from './cameraRig'
+import { FrameLog } from './frameLog'
 import { BuildingPicker } from './picking'
 import { Atmosphere } from './sky/atmosphere'
 import { createSky } from './sky/index'
@@ -176,6 +179,8 @@ export class CityRenderer {
   private readonly announced = new Map<number, IncidentStatus>()
   private readonly buildingCount: number
 
+  /** Nur im Messstand belegt. Ohne `?bench` kostet das Protokoll keinen Zweig im Renderpfad. */
+  private readonly bench: FrameLog | null
   private frameCounter = 0
   private fps = 0
   private fpsWindowStart = performance.now()
@@ -203,7 +208,8 @@ export class CityRenderer {
     this.districts = options.blueprint.definition.districts
     this.buildingCount = options.blueprint.buildings.length
 
-    const forceWebGL = new URLSearchParams(window.location.search).has('webgl')
+    const { webgl: forceWebGL, bench } = debugFlags()
+    this.bench = bench ? new FrameLog() : null
     this.renderer = new THREE.WebGPURenderer({ canvas: this.canvas, antialias: true, forceWebGL })
     this.resolution = Math.min(window.devicePixelRatio, RESOLUTION_MAX)
     this.renderer.setPixelRatio(this.resolution)
@@ -241,6 +247,7 @@ export class CityRenderer {
         this.resize()
         await this.warmUp()
         this.renderer.setAnimationLoop(this.render)
+        this.installBench()
         options.onReady(this.getStats())
       })
       .catch((error: unknown) => {
@@ -310,6 +317,59 @@ export class CityRenderer {
       this.world.meadow.seeded = false
       this.sky.sun.light.shadow.needsUpdate = true
     }
+  }
+
+  /**
+   * Der Messstand, und warum er eine Fahrt fliegt statt still zu stehen.
+   *
+   * Stillstehend misst man den einen Blick, in dem gerade alles übersetzt ist — und genau die
+   * teuersten Frames entstehen beim **Wechsel**: wenn Straßenmöblierung in Sicht kommt, die
+   * Bodendecke sät, eine Kachel Vegetation eintritt. Die Fahrt nimmt darum jedes Mal denselben Weg,
+   * einmal hoch über die Stadt und einmal dicht darüber, damit zwei Messungen vergleichbar sind.
+   *
+   * Erreichbar als `window.bench` und nur mit `?bench`. Siehe `core/debug.ts`.
+   */
+  private installBench(): void {
+    const log = this.bench
+    if (!log)
+      return
+    Object.assign(window, {
+      bench: {
+        reset: () => log.reset(),
+        stats: () => log.stats(),
+        flight: (seconds = 14) => this.flight(seconds),
+      },
+    })
+  }
+
+  private flight(seconds: number): Promise<FrameStats> {
+    const log = this.bench
+    if (!log)
+      return Promise.resolve({ frames: 0, median: 0, p95: 0, p99: 0, longest: 0, long: 0, render: 0, update: 0 })
+
+    const started = performance.now()
+    log.reset()
+    return new Promise<FrameStats>((resolve) => {
+      const step = (): void => {
+        const run = (performance.now() - started) / (seconds * 1_000)
+        if (run >= 1) {
+          resolve(log.stats())
+          return
+        }
+        // Ein voller Umlauf, und dazwischen einmal ganz herunter und wieder hinauf.
+        const bearing = run * Math.PI * 2
+        const dive = Math.sin(run * Math.PI)
+        this.rig.placeFor(
+          Math.cos(bearing) * 760,
+          Math.sin(bearing) * 760,
+          bearing,
+          1_500 - dive * 1_380,
+          980 - dive * 930,
+        )
+        requestAnimationFrame(step)
+      }
+      requestAnimationFrame(step)
+    })
   }
 
   /** The sky follows campaign time, not the render loop: it stops dead when the player pauses. */
@@ -544,7 +604,10 @@ export class CityRenderer {
     this.rig.update(now)
     this.sky.rig.position.copy(this.rig.camera.position)
     this.renderer.info.reset()
+    const beforeRender = this.bench ? performance.now() : 0
     this.renderer.render(this.scene, this.rig.camera)
+    if (this.bench)
+      this.bench.add(performance.now() - now, performance.now() - beforeRender)
 
     this.frameCounter += 1
     if (now - this.fpsWindowStart >= 1_000) {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSound } from '~/composables/useSound'
 import { getParty } from '~/content/parties'
 import { useGameStore } from '~/stores/game'
@@ -17,6 +17,14 @@ import { useGameStore } from '~/stores/game'
 
 const game = useGameStore()
 const sound = useSound()
+
+/*
+ * Der Messstand, falls `?bench` an der Adresse hängt — nach dem Mounten, nie im Setup.
+ *
+ * Pinia überschreibt den Client-Zustand nach dem Setup mit dem des Servers; alles, was der Messstand
+ * vorher setzt, ist danach wieder weg. Siehe `enterBench` im Store.
+ */
+onMounted(() => game.enterBench())
 const {
   experienceStage,
   selectedBuilding,

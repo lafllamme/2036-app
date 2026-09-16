@@ -25,6 +25,7 @@ import { getEvent } from '~/content/events'
 import { getPolicy } from '~/content/policies'
 import { CAMPAIGN_LAST_MONTH, isCampaignComplete } from '~/core/campaign'
 import { formatClock, readDaylight } from '~/core/daylight'
+import { debugFlags } from '~/core/debug'
 import { weatherAt } from '~/core/weather'
 import { initialSupport } from '~/simulation/electorate'
 import { citizenAt } from '~/world/citizens'
@@ -176,6 +177,34 @@ export const useGameStore = defineStore('game', () => {
 
   function refreshSavedGame(): void {
     savedGame.value = readSummary()
+  }
+
+  /**
+   * Der Messstand geht an der Kampagne vorbei.
+   *
+   * Mit `?bench` landet man ohne Einstiegsablauf in der Stadt, und die Uhr steht. Das ist nicht
+   * bequemer, sondern die Voraussetzung dafür, dass eine Messung etwas bedeutet: bei laufender Uhr
+   * springt irgendwann eine Vorlage auf, verdeckt die halbe Stadt und hält den Renderer an — dann
+   * misst man ein anderes Bild als das, das man messen wollte. Ohne Monatswechsel gibt es keine
+   * Ereignisse, also braucht es dafür keinen zweiten Schalter.
+   *
+   * Wird **nach dem Mounten** gerufen und nicht im Setup, aus demselben Grund wie `refreshSavedGame`:
+   * der Store entsteht schon beim Server-Rendern, und Pinia überschreibt danach den Client-Zustand
+   * mit dem des Servers. Im Setup gesetzt, stand eine Sekunde später wieder der Titelbildschirm da —
+   * gemessen `stage: 'title'`, `speed: 1`, obwohl der Zweig nachweislich gelaufen war.
+   *
+   * Partei und Ziele sind gesetzt, weil die Stadt sonst nicht baut; welche es sind, ist für ein Bild
+   * ohne Belang.
+   */
+  function enterBench(): void {
+    if (!debugFlags().bench)
+      return
+    selectedPartyId.value = 'gruene'
+    selectedGoalIds.value = ['affordable-rent', 'bound-stock', 'nobody-outside']
+    leaderName.value = 'Messfahrt'
+    leaderBackgroundId.value = 'administration'
+    experienceStage.value = 'gameplay'
+    speed.value = 0
   }
   /*
    * True while the worker owes us a snapshot. It drives the waiting sound and is the honest place
@@ -781,6 +810,7 @@ export const useGameStore = defineStore('game', () => {
     saveStatus,
     savedGame,
     refreshSavedGame,
+    enterBench,
     resume,
     forgetSave,
     pendingCommand,

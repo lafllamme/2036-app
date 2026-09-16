@@ -17,6 +17,15 @@ const FRICTIONAL_VACANCY = 0.02
 
 const BASELINE_SOCIAL_SHARE_PP = socialShare(BASE) * 100
 
+/**
+ * Wie schnell der Streit einer Abstimmung verblasst.
+ *
+ * 0,975 im Monat heißt Halbwertszeit von gut zwei Jahren: lang genug, dass eine strittige
+ * Legislaturperiode als solche spürbar bleibt, kurz genug, dass eine Stadt sich wieder beruhigen
+ * kann, wenn der Rat aufhört, sie zu spalten.
+ */
+const HEAT_DECAY = 0.975
+
 export interface DynamicsResult {
   metrics: CityMetrics
   stocks: CityStocks
@@ -272,7 +281,33 @@ export function stepDynamics(
 
   // --- Politics -------------------------------------------------------------
   metrics.politicalCapital = clamp(previous.politicalCapital + 1.1)
-  metrics.polarisation = clamp(approach(previous.polarisation, BASE.polarisation + 0.35 * (BASE.satisfaction - previous.satisfaction), 0.06))
+  /*
+   * Woran sich eine Stadt spaltet.
+   *
+   * Vorher stand hier ein einziger Term — Unzufriedenheit —, und der war so schwach dosiert, dass
+   * `polarisation` über ein Jahrzehnt zwischen 36,5 und 40,2 blieb. Eine Größe, die nichts tut und
+   * der nichts angetan werden kann; der Anschlag auf den Wochenmarkt setzte 58 voraus und konnte
+   * deshalb nie stattfinden.
+   *
+   * Jetzt lesen es vier Dinge, und alle vier sind das, worüber in einer Stadt wirklich gestritten
+   * wird: was das Wohnen kostet, wie viele draußen schlafen, ob man sich sicher fühlt — und wie
+   * strittig der Rat selbst zuletzt war. Der letzte Term ist der wichtige: er macht das Spalten zu
+   * einer Folge des Regierens statt zu einem Wetterphänomen.
+   */
+  stocks.politicalHeat = previousStocks.politicalHeat * HEAT_DECAY
+  const polarisationTarget
+    = BASE.polarisation
+      + 0.35 * (BASE.satisfaction - previous.satisfaction)
+      + 2.6 * Math.max(0, previous.averageRent - BASE.averageRent)
+      + 0.0075 * Math.max(0, previous.homelessPeople - BASE.homelessPeople)
+      + 0.3 * Math.max(0, previous.crimeRate - BASE.crimeRate)
+      + stocks.politicalHeat
+  metrics.polarisation = clamp(approach(previous.polarisation, polarisationTarget, 0.06))
+  note(
+    'polarisation',
+    metrics.polarisation - previous.polarisation,
+    `Mietniveau, Wohnungslosigkeit, Sicherheitsgefühl und ${formatNumber(stocks.politicalHeat, 1)} Punkte aus strittigen Beschlüssen`,
+  )
   metrics.annualBalance = stocks.fiscalYearRevenue - stocks.fiscalYearSpending
 
   const perception = stepPerception(metrics, previousPerception)

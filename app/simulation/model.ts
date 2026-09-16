@@ -448,6 +448,25 @@ export function resolveDecision(state: SimulationState, eventId: string, optionI
   return decide(state, eventId, optionId, 'yes')
 }
 
+/** Was eine laute, hauchdünn entschiedene Abstimmung an Polarisierung hinterlässt. */
+const HEAT_PER_VOTE = 1.35
+
+/**
+ * Wie sehr eine Abstimmung die Stadt spaltet.
+ *
+ * Zwei Faktoren, beide schon vorhanden. **Lautstärke** ist die Salienz der Vorlage — worüber
+ * niemand streitet, spaltet auch niemanden; es ist dieselbe Summe, mit der `shiftFromDecision` misst,
+ * wie laut eine Entscheidung auf der Straße ankommt. **Knappheit** ist der Abstand im Rat: 57:3
+ * eint, 31:29 spaltet. Ein Ergebnis, das beides ist — laut und knapp —, kostet gut einen
+ * Polarisierungspunkt, und ein Jahrzehnt davon verschiebt die Stadt spürbar.
+ */
+function heatOf(option: EventOption, result: VoteResult): number {
+  const loudness = clamp(Object.values(option.salience).reduce((sum, value) => sum + Math.abs(value ?? 0), 0) / 3, 0, 1)
+  const decided = result.yesSeats + result.noSeats
+  const closeness = decided === 0 ? 0 : 1 - Math.abs(result.yesSeats - result.noSeats) / decided
+  return HEAT_PER_VOTE * loudness * closeness
+}
+
 function decide(state: SimulationState, eventId: string, optionId: string, playerVote: PartyVote | undefined): { state: SimulationState, result: VoteResult | null } {
   const event = getEvent(eventId)
   const option = event?.options.find(candidate => candidate.id === optionId)
@@ -473,6 +492,7 @@ function decide(state: SimulationState, eventId: string, optionId: string, playe
   const stance = playerVote === 'no' ? -1 : 1
   let next: SimulationState = {
     ...state,
+    stocks: { ...state.stocks, politicalHeat: state.stocks.politicalHeat + heatOf(option, result) },
     support: playerVote === 'abstain' ? state.support : shiftFromDecision(state.support, option, stance),
     pending: state.pending.filter(entry => entry.eventId !== eventId),
     motionPrep: withoutPreparation(state.motionPrep, eventId),

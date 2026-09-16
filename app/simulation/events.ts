@@ -179,19 +179,21 @@ export function eligibleEvents(state: EventDrawState, monthOfYear: number): Even
     if (state.month < trigger.earliestMonth || state.month > trigger.latestMonth)
       return false
     /*
-     * A motion the council has already decided never comes back.
+     * Eine **beschlossene** Vorlage kommt nicht wieder. Eine gestellte schon.
      *
-     * `firedOnce` is written when a decision is *resolved*, so this is exactly "has this been before
-     * the council". It used to apply only to the nine events flagged `oncePerCampaign`, and a defeat
-     * actively put the other nine back — cleared from `firedOnce` and with the cooldown cut to forty
-     * per cent — on the reasoning that a problem voted down is still a problem. That is true of the
-     * *problem* and not of the *motion*: what the player saw was the same sheet, with the same
-     * options, offered again until they voted the way the council wanted.
+     * Hier stand `firedOnce`, also „war das schon einmal auf der Tagesordnung" — und damit war jedes
+     * Ereignis mit Optionen faktisch einmalig, ganz gleich was `oncePerCampaign` sagte. Der
+     * Inhaltsvorrat für ein Jahrzehnt war exakt die Zahl der geschriebenen Entscheidungen. Gemessen
+     * über alle sechs Parteien: 12 bis 15 Vorlagen in zehn Jahren, und ab 2029 praktisch keine mehr.
+     * Sieben Jahre, in denen ein Spieler nur „Nächster Monat" drückt.
      *
-     * The problem coming back is the job of the metrics, which get worse on their own, and of the
-     * other seventeen events that read them. This is the motion, and a motion is spent.
+     * `choices` ist die richtige Liste — was der Rat wirklich getan hat. Was beschlossen ist, ist
+     * getan und steht nicht wieder zur Wahl. Was abgelehnt wurde, darf nach seiner Sperrfrist
+     * wiederkommen: die Sache ist ja nicht erledigt, und eine Stadt fragt ein zweites Mal, wenn das
+     * Problem bleibt. Dass man den Rat nicht beliebig oft fragen kann, sichern die Sperrfristen von
+     * 18 bis 60 Monaten, der Vertrauensverlust jeder Niederlage und der Preis in `refusedEffects`.
      */
-    if (event.options.length > 0 && state.firedOnce.includes(event.id))
+    if (event.options.length > 0 && state.choices.some(choice => choice.startsWith(`${event.id}:`)))
       return false
     if (trigger.oncePerCampaign && state.firedOnce.includes(event.id))
       return false

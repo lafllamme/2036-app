@@ -39,7 +39,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Seit zwei Monaten häufen sich Wohnungseinbrüche im Wohnring Süd. Die Polizei ist Landessache, die Stadt kann über Ordnungsdienst, Beleuchtung und Prävention entscheiden.',
     urgency: 'important',
-    trigger: { earliestMonth: 4, latestMonth: 120, conditions: [{ metric: 'burglaryRate', operator: '>', value: 4.1, sustainedMonths: 2 }], baseWeight: 10, cooldownMonths: 18, oncePerCampaign: false },
+    trigger: { earliestMonth: 4, latestMonth: 120, conditions: [{ metric: 'burglaryRate', operator: '>', value: 3.6, sustainedMonths: 2 }], baseWeight: 10, cooldownMonths: 18, oncePerCampaign: false },
     immediateEffects: [],
     defaultOptionId: 'saf-burglary-none',
     expiresInMonths: 3,
@@ -1084,7 +1084,7 @@ export const EVENTS: EventDefinition[] = [
      * the sustained condition is what keeps this from reading as a dice roll — it takes a council
      * eight months of failing to hold the city together before this is on the table at all.
      */
-    trigger: { earliestMonth: 20, latestMonth: 130, conditions: [{ metric: 'polarisation', operator: '>', value: 58, sustainedMonths: 8 }], baseWeight: 4, cooldownMonths: 60, oncePerCampaign: true },
+    trigger: { earliestMonth: 20, latestMonth: 130, conditions: [{ metric: 'polarisation', operator: '>', value: 47, sustainedMonths: 8 }], baseWeight: 4, cooldownMonths: 60, oncePerCampaign: true },
     immediateEffects: [
       effect({ target: 'cityBudget', expected: -2.6, delayMonths: 0, rampMonths: 1 }),
       effect({ target: 'polarisation', expected: 6.5, delayMonths: 0, rampMonths: 3 }),

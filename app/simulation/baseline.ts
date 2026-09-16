@@ -20,6 +20,19 @@ export interface CityStocks extends Record<StockId, number> {
   arrivalsTrailingYear: number
   fiscalYearRevenue: number
   fiscalYearSpending: number
+  /**
+   * Wie strittig die Politik der letzten Jahre war.
+   *
+   * Steigt mit jeder namentlichen Abstimmung, und zwar umso mehr, je lauter die Vorlage war und je
+   * knapper sie ausging; klingt über Jahre ab. Keine Kapazität, die jemand kauft — deshalb steht sie
+   * hier und nicht in `StockId`, und keine Option kann sie schreiben.
+   *
+   * Sie existiert, weil `polarisation` eine Größe war, die nichts bewegte und die nichts bewegte:
+   * Zielwert war allein `38 + 0,35 × (67 − Zufriedenheit)`, sodass sie über ein Jahrzehnt in einem
+   * Band von vier Punkten blieb. Ereignisse, die Polarisierung voraussetzen, konnten damit nie
+   * eintreten, und das Spaltende am Regieren kam im Modell schlicht nicht vor.
+   */
+  politicalHeat: number
 }
 
 export const BASELINE_METRICS: CityMetrics = {
@@ -89,6 +102,8 @@ export const BASELINE_STOCKS: CityStocks = {
   // 120.000 × 0,0019 Zuzug × 0,34 international × 12 Monate. Muss mit der Dynamik übereinstimmen,
   // sonst stürzt die Quote im ersten Jahr ab, ohne dass irgendetwas passiert ist.
   arrivalsTrailingYear: 930,
+  /** Ein Rat, der noch nichts Strittiges entschieden hat. */
+  politicalHeat: 0,
   maintenanceSpend: 1,
   fiscalYearRevenue: 0,
   fiscalYearSpending: 0,

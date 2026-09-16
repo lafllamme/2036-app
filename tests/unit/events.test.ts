@@ -265,14 +265,41 @@ describe('a motion the council has decided', () => {
     expect(withOptions.length).toBeGreaterThan(10)
   })
 
-  it('never comes back once it has been before the council', () => {
+  /*
+   * Beschlossen heißt erledigt — gestellt heißt nur gestellt.
+   *
+   * Der Test verlangte hier `firedOnce`, also „war schon einmal auf der Tagesordnung", und deckte
+   * damit eine Regel ab, die den Inhaltsvorrat des ganzen Spiels auf die Zahl der geschriebenen
+   * Entscheidungen begrenzte: ab 2029 stand in den meisten Monaten null Ereignis zur Wahl. Was der
+   * Rat *getan* hat, kommt nicht wieder; worüber er nur gestritten hat, schon — nach seiner
+   * Sperrfrist, denn das Problem ist ja geblieben.
+   */
+  it('never comes back once the council has carried it', () => {
     for (const event of withOptions) {
-      const decided: EventDrawState = {
+      const carried: EventDrawState = {
         ...drawState(),
-        firedOnce: [event.id],
+        choices: [`${event.id}:${event.options[0]!.id}`],
         month: event.trigger.earliestMonth + 1,
       }
-      expect(eligibleEvents(decided, 1).map(entry => entry.id), event.id).not.toContain(event.id)
+      expect(eligibleEvents(carried, 1).map(entry => entry.id), event.id).not.toContain(event.id)
+    }
+  })
+
+  it('comes back after its cooldown when the council refused it', () => {
+    // Eine Vorlage, die abgelehnt wurde: gestellt, aber nichts beschlossen.
+    const repeatable = withOptions.filter(event => !event.trigger.oncePerCampaign)
+    expect(repeatable.length, 'kein einziges Ereignis darf sich wiederholen').toBeGreaterThan(5)
+    for (const event of repeatable) {
+      const refused: EventDrawState = {
+        ...drawState(),
+        firedOnce: [event.id],
+        month: Math.min(event.trigger.latestMonth, event.trigger.earliestMonth + event.trigger.cooldownMonths + 1),
+      }
+      const eligible = eligibleEvents({ ...refused, cooldowns: {} }, 1).map(entry => entry.id)
+      // Bedingungen können es weiterhin ausschließen; geprüft wird nur, dass `firedOnce` allein es nicht tut.
+      const blockedByFiredOnce = !eligible.includes(event.id)
+        && eligibleEvents({ ...refused, cooldowns: {}, firedOnce: [] }, 1).map(entry => entry.id).includes(event.id)
+      expect(blockedByFiredOnce, `${event.id} bleibt allein deshalb weg, weil es schon einmal gestellt wurde`).toBe(false)
     }
   })
 

@@ -432,6 +432,13 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
 .time-controls button.active { background: rgba(246, 243, 236, 0.13); color: var(--ink); }
 .time-controls > span { width: 1px; height: 18px; margin: 0 5px; background: var(--hairline); }
 .time-controls .advance { padding: 9px 18px; }
+/*
+ * Während der Zeitraffer läuft, ist der Knopf die Bremse und nicht mehr das Gaspedal — also muss er
+ * anders aussehen. Ein Puls, weil etwas läuft; kein Farbwechsel ins Warnende, weil nichts falsch ist.
+ */
+.time-controls .advance.skipping { animation: skipping-pulse 1.1s ease-in-out infinite; }
+@keyframes skipping-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.62; } }
+@media (prefers-reduced-motion: reduce) { .time-controls .advance.skipping { animation: none; opacity: 0.75; } }
 .time-controls .overview { display: grid; place-items: center; min-width: 38px; padding: 7px 10px; }
 .time-controls .overview svg {
   width: 15px; height: 15px; fill: none; stroke: currentcolor; stroke-width: 1.4;

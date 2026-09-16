@@ -386,6 +386,102 @@ die Spanne, die eine Kennzahl wirklich annimmt, und verlangt ein Zehntel davon a
 Schwelle am äußersten Rand feuert in einem von zwanzig Läufen und ist damit ein Gerücht, kein
 Ereignis. Beim Schreiben verschieben sich die Spannen; das ist normal, und der Test sagt es.
 
+## Der Takt: drei Schichten statt einer
+
+Nachgemessen, bevor irgendetwas geändert wurde: **48,4 Ereignisse je Kampagne** auf 132 Monate, also
+eines alle 2,7 Monate. Ein Monat dauert fünf reale Minuten (`MONTH_DURATION_MS`), der Spieler saß
+also bis zu dreizehn Minuten vor einer Stadt, die ihm nichts sagte — und der Stadtfunk trug dabei
+etwa eine Zeile im Monat.
+
+Der naheliegende Ausweg wäre gewesen, mehr Vorlagen zu schreiben. Das ist der falsche: eine Vorlage
+braucht Optionen, Kosten, Achsen und Fraktionspositionen. Für eine Entscheidung alle zehn Tage
+bräuchte es rund **400** davon.
+
+**Was häufig passiert, muss gemeldet und nicht entschieden werden.**
+
+| Schicht | Takt | Wo | Hält die Zeit an? | Woher |
+| --- | --- | --- | --- | --- |
+| **Einsätze** | alle 34–210 s | Stadtfunk unten | nein | `dispatch.ts`, aus sechs Kennzahlen |
+| **Meldungen** | 3,5 je Monat | Stadtfunk | nein | `bulletin.ts`, aus den Monatsdeltas |
+| **Vorlagen** | ~0,6 je Monat | Pop-up | **ja** | `events.ts`, 78 geschriebene |
+
+Die mittlere Schicht ist der eigentliche Fund: die Simulation rechnet jeden Monat dreißig Kennzahlen
+neu, und jede Bewegung darin *ist* eine Nachricht. Es musste nichts erfunden werden, es hat nur nie
+jemand vorgelesen. Gemessen über sechs Kampagnen: **5,70 Meldungen je Monat statt einer, kein
+einziger stummer Monat**, 106 verschiedene Absender.
+
+Jede Zeile ist dabei ein Ablesen und nie ein Stellen — es gibt keinen Regler „mehr Meldungen", es
+gibt nur eine Stadt, die man anders regiert. Dieselbe Einbahnstraße wie in `docs/CITY_LIFE.md`.
+
+### Eilmeldung heißt Eilmeldung
+
+Die erste Fassung der Schwellen erzeugte **115 Eilmeldungen je Kampagne**, also fast eine im Monat.
+Eine Eilmeldung, die jeden Monat kommt, ist keine Dringlichkeitsstufe mehr, sondern eine
+Schriftgröße. Eine Kennzahl muss jetzt das 4,5-Fache ihrer üblichen Monatsbewegung machen; danach
+sind es 29.
+
+## Wiederspielwert, gemessen
+
+Zwölf Durchläufe, **vier verschiedene Parteien**, drei Seeds:
+
+| | vorher | jetzt |
+| --- | --- | --- |
+| Vorlagen, die in **jedem** Lauf feuern | 42 von 78 | **21** |
+| Überschneidung zweier Läufe | **82 %** | **69 %** |
+| Je Lauf gesehen | 56–69 | 44–57 |
+
+Der Grund für das Vorher stand im Inhalt: **62 % der Vorlagen hatten `conditions: []`** — sie fragten
+die Stadt gar nicht, sondern feuerten, weil der Monat stimmte und der Würfel fiel. 31 davon haben
+jetzt einen Haken am Zustand, jede Schwelle aus den gemessenen Spannen von acht durchgespielten
+Kampagnen: eine offene Drogenszene hat, wer Menschen auf der Straße hat; ein Werk schließt in der
+Flaute und nicht im Aufschwung.
+
+Dazu fiel die Ziehungsrate von 0,80 auf 0,62 — möglich erst, seit der Stadtfunk den Takt trägt.
+
+### Die Decke, und warum sie keine Tuningfrage ist
+
+| Rate | Pflichtteil | Überschneidung | Kampagnenziele erreichbar |
+| --- | --- | --- | --- |
+| 0,80 | 42 | 82 % | ja |
+| 0,68 | 25 | 71 % | **nein** |
+| **0,62** | **21** | **69 %** | **ja** |
+| 0,55 | 16 | 61 % | nein |
+| 0,37 | 4 | 45 % | nein |
+
+Halb so viele Ratsvorlagen sind halb so viele Hebel. Unter 0,62 schrumpft die erreichbare Spanne
+jeder Kennzahl so weit, dass eigene Kampagnenziele unerreichbar werden — und ein Durchlauf, in dem
+man seine Versprechen nicht halten *kann*, ist kaputter als einer, der sich wiederholt.
+**Handlungsfähigkeit schlägt Abwechslung.**
+
+Gewollt wären ein Pflichtteil unter 15 und eine Überschneidung unter 50 %. Dorthin kommt man von hier
+nur mit Inhalt: mehr Verzweigungen, oder Vorlagen, die sich ihren Ort und ihre Zahlen aus dem
+Spielstand holen statt fest geschrieben zu sein. `tests/unit/replay.test.ts` hält beides fest — den
+Stand und das Ziel.
+
+## „Nächstes Ereignis" statt „Nächster Monat"
+
+Der Knopf hieß „Nächster Monat" und war damit das Gegenteil dessen, wofür er da war:
+
+| | Dauer einer Kampagne |
+| --- | --- |
+| 132 Monate bei 1× | **11 Stunden** |
+| bei 4× | 2¾ Stunden |
+| nur den Knopf drücken | **~10 Minuten** |
+
+Er war der Unterschied zwischen einem Spiel und einem Durchklicken — und saß als prominentester Knopf
+in der Leiste. Gefragt war er trotzdem, denn die Beschwerde dahinter stimmt: wer fertig entschieden
+hat, will nicht warten.
+
+Die Antwort ist nicht „überspring einen Monat", sondern **„lauf, bis mich etwas braucht"**: ein
+sichtbarer Zeitraffer bei zwanzigfacher Geschwindigkeit, der anhält, sobald etwas auf den Tisch
+kommt. Das überspringt nie mehr Zeit als nötig und kann nichts überspringen, weil es von selbst
+stoppt. Sichtbar und nicht als Schnitt, weil in einer Simulation über zehn Jahre das Vergehen der
+Zeit der Punkt ist und kein Ladebalken — und weil man einen Zeitraffer, den man ansieht, nicht so
+gedankenlos wegdrückt wie einen Knopf, der sofort springt.
+
+Gemessen im Browser: 09:31 auf 13:31 in 2,5 Sekunden, Anhalten nach 32,5 Sekunden mit einer Vorlage
+auf dem Tisch.
+
 ## Authoring rules
 
 - Every event ID is stable and never reused; the library is content-versioned with the policies.

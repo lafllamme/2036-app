@@ -33,6 +33,14 @@ import { createCityReports } from './cityReports'
 import { clearSummary, readSave, readSummary, writeSave } from './saveStore'
 
 const MONTH_DURATION_MS = 300_000
+/**
+ * Wie schnell der Zeitraffer läuft, als Vielfaches der einfachen Geschwindigkeit.
+ *
+ * Zwanzigfach heißt: ein Monat in fünfzehn Sekunden. Schnell genug, dass Warten sich nicht nach
+ * Warten anfühlt, langsam genug, dass man Tag und Nacht über die Stadt ziehen sieht und merkt, wie
+ * viel von einem Jahrzehnt man gerade verbraucht.
+ */
+const SKIP_SPEED = 20
 export type ExperienceStage = 'title' | 'leader' | 'partyHall' | 'partyProfile' | 'manifesto' | 'intro' | 'gameplay'
 
 export const useGameStore = defineStore('game', () => {
@@ -74,6 +82,26 @@ export const useGameStore = defineStore('game', () => {
    * on its own, which is the only moment the game should stop by itself.
    */
   const speed = ref<0 | 1 | 2 | 4>(1)
+  /**
+   * Läuft der Zeitraffer bis zum nächsten Ereignis?
+   *
+   * Der Knopf hieß „Nächster Monat" und war damit das Gegenteil dessen, wofür er da war. Ein Monat
+   * dauert fünf reale Minuten; eine Kampagne über 132 Monate also elf Stunden bei einfacher
+   * Geschwindigkeit — oder **zehn Minuten**, wenn man nur diesen Knopf drückt. Er war der
+   * Unterschied zwischen einem Spiel und einem Durchklicken, und er saß als prominentester Knopf in
+   * der Leiste.
+   *
+   * Gefragt war er trotzdem, denn die Beschwerde dahinter stimmt: wer fertig entschieden hat, will
+   * nicht warten. Nur ist die Antwort darauf nicht „überspring einen Monat", sondern **„lauf, bis
+   * mich etwas braucht"**. Das überspringt nie mehr Zeit als nötig, und es kann nichts überspringen,
+   * weil es von selbst anhält.
+   *
+   * Sichtbar und nicht als Schnitt: die Uhr läuft hoch, Tag wird Nacht, die Stadt rendert weiter. In
+   * einer Simulation über zehn Jahre ist das Vergehen der Zeit der Punkt und kein Ladebalken — und
+   * einen Zeitraffer, den man ansieht, drückt man nicht so gedankenlos weg wie einen Knopf, der
+   * sofort springt.
+   */
+  const skipping = ref(false)
   /** The speed to go back to once whatever interrupted the player is out of the way. */
   let heldSpeed: 0 | 1 | 2 | 4 = 0
 
@@ -293,7 +321,7 @@ export const useGameStore = defineStore('game', () => {
       previousTime = now
       if (speed.value === 0 || !ready.value || isCampaignComplete(snapshot.value?.month ?? 0))
         return
-      accumulatedMs += elapsed * speed.value
+      accumulatedMs += elapsed * (skipping.value ? SKIP_SPEED : speed.value)
       if (accumulatedMs >= MONTH_DURATION_MS) {
         accumulatedMs %= MONTH_DURATION_MS
         send({ type: 'ADVANCE', months: 1 })
@@ -343,6 +371,8 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function setSpeed(nextSpeed: 0 | 1 | 2 | 4): void {
+    // Von Hand an der Geschwindigkeit drehen heißt: ich will wieder selbst fahren.
+    skipping.value = false
     speed.value = canAdvance.value ? nextSpeed : 0
     heldSpeed = speed.value
   }
@@ -359,9 +389,29 @@ export const useGameStore = defineStore('game', () => {
    * A player who was already paused stays paused: `heldSpeed` is only ever set from a running clock.
    */
   function holdClock(): void {
+    // Was den Spieler aufhält, beendet auch den Zeitraffer — dafür ist er da.
+    skipping.value = false
     if (speed.value !== 0)
       heldSpeed = speed.value
     speed.value = 0
+  }
+
+  /**
+   * Lauf, bis mich etwas braucht.
+   *
+   * Nochmal gedrückt hält an — ein Zeitraffer ohne Bremse ist eine Falle. Ansonsten endet er von
+   * selbst: `holdClock` läuft, sobald eine Vorlage auf den Tisch kommt, und schaltet ihn ab.
+   */
+  function skipToEvent(): void {
+    if (!canAdvance.value)
+      return
+    if (skipping.value) {
+      skipping.value = false
+      return
+    }
+    skipping.value = true
+    if (speed.value === 0)
+      speed.value = heldSpeed === 0 ? 1 : heldSpeed
   }
 
   /** Nothing left on screen to answer, so give the month back its speed. */
@@ -685,6 +735,8 @@ export const useGameStore = defineStore('game', () => {
     leaderBackgroundId,
     leader,
     speed,
+    skipping,
+    skipToEvent,
     overviewRequest,
     showOverview,
     cityReports,

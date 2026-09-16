@@ -21,6 +21,7 @@ const {
   experienceStage,
   selectedPartyId,
   speed,
+  skipping,
   selectedBuilding,
   selectedNews,
   selectedReport,
@@ -401,8 +402,17 @@ function restart(): void {
             {{ `${value}×` }}
           </button>
           <span />
-          <button type="button" class="advance" :disabled="!canAdvance" @click="game.advanceMonth">
-            {{ canAdvance ? 'Nächster Monat' : 'Kampagne abgeschlossen' }}
+          <!--
+            „Nächstes Ereignis" statt „Nächster Monat".
+
+            Ein Monat dauert fünf reale Minuten, eine Kampagne also elf Stunden — oder zehn Minuten,
+            wenn man nur diesen Knopf drückt. Er war damit der Unterschied zwischen einem Spiel und
+            einem Durchklicken. Die Beschwerde dahinter stimmt trotzdem: wer fertig entschieden hat,
+            will nicht warten. Die Antwort darauf ist nicht „überspring einen Monat", sondern „lauf,
+            bis mich etwas braucht" — das überspringt nie mehr Zeit als nötig und hält von selbst an.
+          -->
+          <button type="button" class="advance" :class="{ skipping }" :disabled="!canAdvance" @click="game.skipToEvent">
+            {{ !canAdvance ? 'Kampagne abgeschlossen' : skipping ? 'Anhalten' : 'Nächstes Ereignis' }}
           </button>
         </section>
 

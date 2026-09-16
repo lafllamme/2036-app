@@ -60,6 +60,16 @@ export class CityState {
    */
   originMix = 0
   idleness = 0
+  /**
+   * Die Verkehrsmittelwahl, wie der Rat sie hinterlassen hat — siehe `cycling` in `CityVisualState`.
+   *
+   * Startwerte so, dass eine Stadt vor der ersten Übernahme genau so aussieht wie bisher: voller
+   * Autoverkehr, ein Viertel auf dem Rad.
+   */
+  cycling = 0.25
+  carTraffic = 1
+  /** Wie viel Bahn fährt. Gelesen von `updateRailway`, das bis hierher gar nichts davon wusste. */
+  transitDensity = 0.7
   /** How many growth parcels the simulation has filled, kept so the warm-up can hand them back. */
   delivered = 0
 
@@ -96,6 +106,9 @@ export class CityState {
     }
     this.originMix = city.originMix
     this.idleness = city.idleness
+    this.cycling = city.cycling
+    this.carTraffic = city.carTraffic
+    this.transitDensity = city.transitDensity
 
     // Delivered housing fills the free parcels the generator left, from the centre outward.
     this.delivered = THREE.MathUtils.clamp(Math.round(city.completedUnitsSinceStart / this.unitsPerBuilding), 0, slots.length)

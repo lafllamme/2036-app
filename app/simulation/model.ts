@@ -904,6 +904,31 @@ function visualsFrom(metrics: CityMetrics, stocks: CityStocks): CityVisualState 
     vacancyRate: vacancy,
     blight,
     transitDensity: clamp(metrics.transitCoverage / 100, 0, 1),
+    /*
+     * Radverkehr aus dem, was ihn in Wirklichkeit trägt: ein Netz, das man befahren kann, und eine
+     * Stadt, die nicht am Auto klebt. Die Erschließung steht für das Netz, der Emissionsindex für
+     * das Gegenteil — er fällt, wenn der Rat Wege verlagert, und steigt, wenn er es nicht tut.
+     * Gemessene Spannen über acht Kampagnen: Erschließung 63,8–81,7, Emissionen 44,7–52,2. Beide
+     * sind hier auf ihre eigene Spanne normiert, damit keine die andere überfährt.
+     */
+    cycling: clamp(
+      0.25
+      + clamp((metrics.transitCoverage - 64) / 18, 0, 1) * 0.45
+      + clamp((50 - metrics.emissions) / 5, 0, 1) * 0.3,
+      0.18,
+      1,
+    ),
+    /*
+     * Und was übrig bleibt, sitzt im Auto. Kein eigener Strom, sondern das Gegenstück: eine Stadt,
+     * die Rad und Bahn ausbaut, hat weniger Autos auf der Straße, und das sieht man aus jeder Höhe.
+     */
+    carTraffic: clamp(
+      1.12
+      - clamp((metrics.transitCoverage - 64) / 18, 0, 1) * 0.3
+      - clamp((50 - metrics.emissions) / 5, 0, 1) * 0.22,
+      0.55,
+      1.12,
+    ),
     nightLife: clamp(metrics.satisfaction / 100, 0, 1),
     greenery: clamp(stocks.greenSpaceHectares / BASELINE_STOCKS.greenSpaceHectares, 0.4, 1.8),
     unrest: clamp((metrics.polarisation / 100) * (1 - metrics.satisfaction / 100) * 2.2, 0, 1),

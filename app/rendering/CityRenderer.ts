@@ -419,7 +419,7 @@ export class CityRenderer {
      * time — and given a frame's delta five times a second it crawls across the map at a twentieth
      * of its own speed.
      */
-    updateRailway(this.world.railway, delta, this.rig.camera.position)
+    updateRailway(this.world.railway, delta, this.rig.camera.position, this.city.transitDensity)
 
     /*
      * And the weather, for the same reason: a curtain of rain is somewhere plus speed times time.
@@ -447,6 +447,8 @@ export class CityRenderer {
          * of either is what empties a pavement altogether.
          */
         1 - Math.min(0.68, this.weather.rain * 0.5 + this.weather.snow * 0.62 + this.weather.wind * 0.12),
+        // Und was der Rat für den Verkehr beschlossen hat. Siehe `cycling` in `CityVisualState`.
+        { cycling: this.city.cycling, cars: this.city.carTraffic },
       )
       this.reportIncidents()
       updateIncidentScenes(

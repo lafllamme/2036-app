@@ -124,13 +124,27 @@ const head = { x: 0, y: 0, z: 0, ux: 0, uz: 1 }
  * along the *route*. Following the route rather than the head's heading is what lets a train go
  * round a curve looking like a train rather than like a plank.
  */
-export function updateRailway(railway: Railway | null, delta: number, listener?: THREE.Vector3): void {
+/**
+ * Wie viele Züge fahren — und das ist eine politische Zahl.
+ *
+ * `transitDensity` stand seit jeher im Sichtvertrag und wurde von niemandem gelesen: es fuhren immer
+ * dieselben fünf Züge, ganz gleich ob der Rat den Takt erhöht oder das Netz hatte verrotten lassen.
+ * Eine Bahn, die auf Nahverkehrspolitik nicht reagiert, ist Kulisse.
+ *
+ * Nie unter einem — eine Strecke ohne einen einzigen Zug liest sich als stillgelegt, und das ist
+ * etwas anderes als ein ausgedünnter Takt. Und es kostet keinen Draw: die Wagen liegen in einer
+ * Instanz, es wird nur eine kürzere Reihe davon gefüllt.
+ */
+export function updateRailway(railway: Railway | null, delta: number, listener?: THREE.Vector3, density = 1): void {
   if (!railway)
     return
 
+  const running = Math.max(1, Math.round(railway.trains.length * THREE.MathUtils.clamp(0.35 + density * 0.75, 0.35, 1)))
   let placed = 0
   let nearest = Number.POSITIVE_INFINITY
-  for (const train of railway.trains) {
+  for (const [index, train] of railway.trains.entries()) {
+    if (index >= running)
+      continue
     const route = railway.routes[train.route]
     if (!route)
       continue

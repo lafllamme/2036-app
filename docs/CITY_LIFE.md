@@ -186,3 +186,40 @@ zurück in das wirken, was gerechnet wird.
 - Keine benannten Personen, keine Biografien. Die Stadt hat 120 000 Einwohner und der Spieler ist
   Ratsmitglied, nicht Erzähler.
 - Keine Interaktion mit einzelnen NPCs. Angeklickt werden Gebäude und Bezirke.
+
+## What the council changes, the map shows
+
+The rule for this whole file is that the city is a **reading** of the simulation and never a switch
+an event throws. That held — and it meant almost nothing reached the picture. Counted before any of
+this: of nineteen signals in `CityVisualState`, the renderer read **four**. `transitDensity` had sat
+in the contract for months and the trains ran in the same number regardless; `blight`, `greenery`,
+`constructionSites` and `roughSleeping` were the only ones that ever changed anything on screen.
+
+And the scale rule, which is the one that decides what is worth building at all: **it has to be
+visible from a distance.** Recolouring a single house because of a decision buys nothing. What is
+legible from the overview camera is whole fleets, whole stocks, whole surfaces.
+
+| Reading | What it moves | Cost |
+| --- | --- | --- |
+| `cycling` | how many of the 220 bicycles are out | 0 — the fleet is already in memory |
+| `carTraffic` | how many of the 620 cars are out | 0 |
+| `transitDensity` | how many of the five trains run | 0 — a shorter instance range |
+| `blight` | colour drained from a share of the stock | 0 |
+| `greenery` | how many trees stand, and how dry they are | 0 |
+| `constructionSites` | cranes on the next parcels in line | 0 |
+| `roughSleeping` | people in doorways | 0 |
+
+`cycling` and `carTraffic` are deliberately one decision seen from two sides: somebody who takes the
+bike is not in the car. A transport vote therefore changes **what** is on the street and not only how
+much of it, which is the difference between a policy you can see and a number that went up.
+
+None of it is a lever. There is no setting for "more cyclists" — there is a city with a transport
+network, an emissions index, and a council that decided how much of each to have. Same one-way
+street as everything else here; `tests/unit/cityReacts.test.ts` measures that the spans actually move
+across six differently-played decades, and that bikes and cars move against each other.
+
+### Still not visible
+
+Buses do not exist — the vehicle kit holds thirteen models and every one is in use, none of them a
+bus. Bike lanes are painted on the road surface but their extent does not follow policy. And the
+crowd is drawn from six character models, which is why everybody looks alike.

@@ -399,6 +399,17 @@ export function updateAgents(
    * exactly when the two precipitation draws have arrived.
    */
   exposure: number,
+  /**
+   * Was der Rat beschlossen hat, als Verkehrsmittelwahl — siehe `cycling` und `carTraffic`.
+   *
+   * Bis hierher hing der Radverkehr an Uhrzeit und Wetter und an sonst nichts. Eine Radachse zu
+   * beschließen änderte eine Zahl in einer Kachel und auf der Karte **kein einziges Fahrrad**. Die
+   * Streife machte es längst richtig vor: ihre ganze Zahl ist ein Politikergebnis.
+   *
+   * Es kostet nichts. Die Flotten stehen ohnehin im Speicher; es wird nur ein anderer Anteil davon
+   * bewegt, und `drive` zeichnet ohnehin nur, was es bewegt.
+   */
+  modal: { cycling: number, cars: number },
 ): void {
   /*
    * How busy the city is at this hour, and how busy the council has made it. The two multiply: a
@@ -414,10 +425,10 @@ export function updateAgents(
   dispatch(agents, elapsed)
 
   const streets: Streets = { network: agents.network, signals: agents.signals, pressure: agents.pressure }
-  drive(agents.cars, streets, delta, elapsed, cameraDistance > CAR_RANGE ? 0 : busy, camera, focus)
+  drive(agents.cars, streets, delta, elapsed, cameraDistance > CAR_RANGE ? 0 : busy * modal.cars, camera, focus)
   // Cycling follows the same hour as driving, and a little more of it in the middle of the day.
   // Cyclists take the weather worse than anyone: squared, a wet day empties the lanes rather than thins them.
-  drive(agents.cyclists, streets, delta, elapsed, cameraDistance > CYCLIST_RANGE ? 0 : busy * exposure * exposure, camera, focus)
+  drive(agents.cyclists, streets, delta, elapsed, cameraDistance > CYCLIST_RANGE ? 0 : busy * exposure * exposure * modal.cycling, camera, focus)
   // People are out when the city is awake, but a pavement is never as empty as a road at night.
   /*
    * How many of the crowd have nowhere to be. Idleness times the working day: at three in the

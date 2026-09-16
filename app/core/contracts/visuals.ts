@@ -37,7 +37,27 @@ export interface CityVisualState {
   completedUnitsSinceStart: number
   vacancyRate: number
   blight: number
+  /**
+   * Wie viel Bahn fährt, 0 … 1. Aus der Erschließung.
+   *
+   * Stand seit jeher in diesem Vertrag und wurde von **niemandem gelesen** — die Züge fuhren in
+   * fester Zahl, ganz gleich was der Rat für den Nahverkehr beschlossen hatte.
+   */
   transitDensity: number
+  /**
+   * Wie viele in die Pedale treten, 0 … 1 — und wie viele im Auto sitzen.
+   *
+   * Der Anteil der Radfahrer hing an Uhrzeit und Wetter und an sonst nichts. Eine Radachse zu
+   * beschließen änderte eine Zahl in einer Kachel und auf der Karte kein einziges Fahrrad. Das ist
+   * die billigste Verbindung zwischen Beschluss und Bild, die es gibt: die Flotten stehen bereits im
+   * Speicher, es wird nur ein anderer Anteil davon bewegt — **kein Modell, kein Draw, kein Dreieck.**
+   *
+   * Und sie hängen zusammen. Wer aufs Rad steigt, sitzt nicht im Auto: `carTraffic` fällt, wenn
+   * `cycling` und `transitDensity` steigen. Ein Verkehrsbeschluss verschiebt damit, *was* auf der
+   * Straße zu sehen ist, und nicht nur, wie viel.
+   */
+  cycling: number
+  carTraffic: number
   nightLife: number
   greenery: number
   unrest: number

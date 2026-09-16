@@ -5,6 +5,7 @@ import { computed, onMounted } from 'vue'
 import { useSound } from '~/composables/useSound'
 import { useSoundSettings } from '~/composables/useSoundSettings'
 import { CAMPAIGN_GOALS } from '~/content/goals'
+import { LEADER_BACKGROUNDS } from '~/content/leaders'
 import {
   getParty,
   getPartyEvidence,
@@ -22,8 +23,19 @@ const {
   rendererStats,
   selectedPartyId,
   selectedGoalIds,
+  leaderName,
+  leaderBackgroundId,
+  leader,
   savedGame,
 } = storeToRefs(game)
+
+/** Die Initialen, als Platzhalter für ein Gesicht, das es noch nicht gibt. */
+const monogram = computed(() => {
+  const parts = leaderName.value.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0)
+    return '—'
+  return (parts.length === 1 ? parts[0]!.slice(0, 2) : parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase()
+})
 
 /**
  * The campaign waiting on this machine, said in a line.
@@ -161,18 +173,78 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
         </p>
       </section>
 
-      <section v-else-if="experienceStage === 'partyHall'" key="party-hall" class="entry-screen party-hall" aria-labelledby="party-hall-title">
+      <!--
+        Wer den Vorsitz übernimmt. Steht vor der Parteienwahl, weil es so herum stimmt: erst ist man
+        jemand, dann tritt man für eine Fraktion an. Vorher wählte man eine Partei und war niemand.
+      -->
+      <section v-else-if="experienceStage === 'leader'" key="leader" class="entry-screen leader-screen" aria-labelledby="leader-title">
         <header class="entry-header">
           <button class="entry-back" type="button" @click="game.showTitle">
             ← Titel
           </button>
           <div>
-            <small>01 · Politische Kraft</small>
+            <small>01 · Der Vorsitz</small>
+            <h1 id="leader-title">
+              Wer tritt an?
+            </h1>
+          </div>
+          <span class="entry-step">1 / 4</span>
+        </header>
+
+        <div class="leader-layout">
+          <label class="leader-name">
+            <span>Name</span>
+            <input
+              v-model="leaderName"
+              type="text"
+              maxlength="42"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Wie sollen dich die Leute nennen?"
+              @keydown.enter="game.confirmLeader"
+            >
+            <!-- Das Monogramm ist das Gesicht, bis es eines gibt: die Initialen in der Farbe, die
+                 die Partei später beisteuert. -->
+            <i class="leader-monogram" aria-hidden="true">{{ monogram }}</i>
+          </label>
+
+          <div class="leader-grid" aria-label="Werdegang">
+            <button
+              v-for="background in LEADER_BACKGROUNDS"
+              :key="background.id"
+              type="button"
+              :class="{ selected: leaderBackgroundId === background.id }"
+              :aria-pressed="leaderBackgroundId === background.id"
+              @click="game.chooseBackground(background.id)"
+            >
+              <span>
+                {{ background.effect }}
+                <Icon :name="leaderBackgroundId === background.id ? 'lucide:check' : 'lucide:plus'" />
+              </span>
+              <strong>{{ background.name }}</strong>
+              <small>{{ background.description }}</small>
+            </button>
+          </div>
+        </div>
+
+        <button class="entry-primary" type="button" :disabled="!leader" @click="game.confirmLeader">
+          {{ leader ? 'Weiter zur Partei' : leaderName.trim() ? 'Werdegang wählen' : 'Namen eintragen' }}
+          <Icon v-if="leader" name="lucide:arrow-right" />
+        </button>
+      </section>
+
+      <section v-else-if="experienceStage === 'partyHall'" key="party-hall" class="entry-screen party-hall" aria-labelledby="party-hall-title">
+        <header class="entry-header">
+          <button class="entry-back" type="button" @click="game.showLeader">
+            ← Vorsitz
+          </button>
+          <div>
+            <small>02 · Politische Kraft</small>
             <h1 id="party-hall-title">
               Welche Richtung für Lindenhafen?
             </h1>
           </div>
-          <span class="entry-step">1 / 3</span>
+          <span class="entry-step">2 / 4</span>
         </header>
 
         <div class="party-banner-row" aria-label="Spielbare fiktive Parteien">
@@ -277,7 +349,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
             ← Profil
           </button>
           <div>
-            <small>03 · Mandat 2026</small><h1 id="manifesto-title">
+            <small>04 · Mandat 2026</small><h1 id="manifesto-title">
               Drei Ziele für das Jahrzehnt
             </h1>
           </div>
@@ -839,8 +911,65 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 }
 .manifesto-party p { margin: 0; color: var(--dim); font-size: 12px; line-height: 1.55; }
 
-.priority-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.priority-grid button {
+/*
+ * Der Vorsitz. Das Namensfeld trägt das Monogramm rechts, damit der Name sofort ein Gesicht bekommt
+ * und nicht erst auf dem nächsten Bildschirm.
+ */
+.leader-layout { display: grid; gap: 18px; }
+
+.leader-name {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 20px 96px 20px 20px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-inner);
+  background: var(--panel);
+  -webkit-backdrop-filter: blur(var(--blur)); backdrop-filter: blur(var(--blur));
+}
+
+.leader-name > span {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.leader-name input {
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  padding: 0 0 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+.leader-name input:focus { outline: none; border-bottom-color: var(--ink); }
+.leader-name input::placeholder { color: var(--faint); font-size: 15px; }
+
+.leader-monogram {
+  position: absolute;
+  inset-block: 50% auto;
+  inset-inline-end: 20px;
+  translate: 0 -50%;
+  display: grid;
+  place-items: center;
+  inline-size: 58px;
+  block-size: 58px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  color: var(--ink);
+  font-size: 19px;
+  font-style: normal;
+  letter-spacing: 0.04em;
+}
+
+.priority-grid,
+.leader-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.priority-grid button,
+.leader-grid button {
   display: grid;
   gap: 8px;
   padding: 20px;
@@ -853,11 +982,14 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   cursor: pointer;
   transition: border-color 160ms ease, background-color 160ms ease;
 }
-.priority-grid button:hover { border-color: var(--hairline); background: rgba(18, 24, 29, 0.74); }
+.priority-grid button:hover,
+.leader-grid button:hover { border-color: var(--hairline); background: rgba(18, 24, 29, 0.74); }
 /* Selection is paper, matching the filled action elsewhere — the old olive was an amber leftover. */
-.priority-grid button.selected { border-color: var(--ink); background: rgba(246, 243, 236, 0.07); }
+.priority-grid button.selected,
+.leader-grid button.selected { border-color: var(--ink); background: rgba(246, 243, 236, 0.07); }
 
-.priority-grid button span {
+.priority-grid button span,
+.leader-grid button span {
   display: flex;
   align-items: center;
   justify-content: space-between;

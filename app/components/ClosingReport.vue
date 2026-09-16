@@ -2,6 +2,7 @@
 import { onKeyStroke } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, nextTick, ref, watch } from 'vue'
+import { getBackground } from '~/content/leaders'
 import { getParty } from '~/content/parties'
 import { isCampaignComplete } from '~/core/campaign'
 import { closingReport } from '~/simulation/report'
@@ -39,6 +40,11 @@ const report = computed(() =>
 const years = computed(() => Math.floor((report.value?.months ?? 0) / 12))
 
 /** A share of the value it started at, with the sign it actually moved in. */
+const backgroundName = computed(() => {
+  const id = snapshot.value?.leader?.backgroundId
+  return id ? getBackground(id)?.name ?? '' : ''
+})
+
 /** Wie weit sich eine Zeile der Bilanz bewegt hat, in Prozent ihres Ausgangswerts. */
 function share(value: number): string {
   return `${value > 0 ? '+' : '−'}${formatNumber(Math.abs(value) * 100, 1)} %`
@@ -105,7 +111,10 @@ onKeyStroke('Escape', () => {
       </button>
 
       <header>
-        <small>Januar 2026 – {{ snapshot?.year }} · {{ report.months }} Monate im Amt</small>
+        <!-- Wer das war. Der Bericht redete zehn Jahre lang von „der eigenen Fraktion". -->
+        <small>
+          <template v-if="snapshot?.leader">{{ snapshot.leader.name }} · {{ backgroundName }} · </template>Januar 2026 – {{ snapshot?.year }} · {{ report.months }} Monate im Amt
+        </small>
         <h2 id="closing-title" :class="report.ending.kind">
           {{ report.ending.headline }}
         </h2>

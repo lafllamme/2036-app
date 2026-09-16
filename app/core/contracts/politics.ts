@@ -12,6 +12,35 @@ export type CampaignPriorityId = 'housing' | 'employment' | 'mobility' | 'climat
 
 export type PolicyStance = 'support' | 'conditional' | 'oppose'
 
+export type LeaderBackgroundId = 'administration' | 'union' | 'business' | 'grassroots'
+
+/**
+ * Was jemand mitbringt, der den Vorsitz übernimmt.
+ *
+ * Alle Werte sind Startlage oder Rate, keine Rechnung: sie setzen an, wo das Modell ohnehin schon
+ * Zahlen hat, und verzweigen auf keine Partei.
+ */
+export interface LeaderBackgroundDefinition {
+  id: LeaderBackgroundId
+  name: string
+  description: string
+  /** Was er bewirkt, in einem Satz, damit die Wahl eine Wahl ist. */
+  effect: string
+  /** Politisches Kapital je Monat. Der Grundwert ist 1,1. */
+  capitalPerMonth: number
+  /** Verhältnis zu jeder anderen Fraktion am ersten Tag, −1 … 1. */
+  startingRelationship: number
+  startingCapital: number
+  /** Was eine öffentliche Kampagne billiger wird. Regulär kostet sie 18. */
+  campaignDiscount?: number
+}
+
+/** Wer spielt: ein Name, ein Werdegang. */
+export interface CampaignLeader {
+  name: string
+  backgroundId: LeaderBackgroundId
+}
+
 export type CampaignGoalId
   = | 'affordable-rent' | 'bound-stock' | 'nobody-outside'
     | 'work' | 'firms'

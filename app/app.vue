@@ -171,6 +171,9 @@ function flyToReport(): void {
 }
 
 const coalitionStanding = computed(() => (snapshot.value?.coalitionSupport ?? 0) > 30 ? 'Mehrheit' : 'Minderheit')
+const leaderLine = computed(() => snapshot.value?.leader?.name ?? '')
+const standingLine = computed(() =>
+  selectedParty.value ? `${selectedParty.value.abbreviation} · ${coalitionStanding.value}` : 'Politische Stadtsimulation')
 
 /*
  * One glyph carries the state of the sky. The words for each phase and the exact sunrise and sunset
@@ -263,7 +266,14 @@ function restart(): void {
             <strong>20<span>36</span></strong>
             <div>
               <b>LINDENHAFEN</b>
-              <small>{{ selectedParty ? `${selectedParty.abbreviation} · ${coalitionStanding}` : 'Politische Stadtsimulation' }}</small>
+              <!--
+                Der Name steht vor der Fraktion: es ist deine Amtszeit, nicht die der Partei. Auf
+                zwei Zeilen fest gesetzt, weil die Marke schmal ist und „Marlene Vogt · GRÜNE ·
+                Minderheit" sonst dreizeilig umbricht.
+              -->
+              <small>
+                <template v-if="leaderLine">{{ leaderLine }}<br></template>{{ standingLine }}
+              </small>
             </div>
           </div>
           <div class="date-block">

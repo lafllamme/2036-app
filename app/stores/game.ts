@@ -1,7 +1,9 @@
 import type {
   BuildingRecord,
   CampaignGoalId,
+  CampaignLeader,
   EventDefinition,
+  LeaderBackgroundId,
   NewsItem,
   PartyId,
   PartyVote,
@@ -31,7 +33,7 @@ import { createCityReports } from './cityReports'
 import { clearSummary, readSave, readSummary, writeSave } from './saveStore'
 
 const MONTH_DURATION_MS = 300_000
-export type ExperienceStage = 'title' | 'partyHall' | 'partyProfile' | 'manifesto' | 'intro' | 'gameplay'
+export type ExperienceStage = 'title' | 'leader' | 'partyHall' | 'partyProfile' | 'manifesto' | 'intro' | 'gameplay'
 
 export const useGameStore = defineStore('game', () => {
   /** The one seed the city, its weather and every save are built from. */
@@ -53,6 +55,19 @@ export const useGameStore = defineStore('game', () => {
    * ob man sie erreicht hatte. Jetzt sind es Schwellen, die im Dezember 2036 gelten oder nicht.
    */
   const selectedGoalIds = ref<CampaignGoalId[]>([])
+  /**
+   * Wer den Vorsitz übernimmt.
+   *
+   * Man wählte eine Fraktion und war dann niemand: das Spiel sprach von „der eigenen Partei" und nie
+   * von einem Menschen. Der Name steht jetzt im Lagebild und im Abschlussbericht, und der Werdegang
+   * bringt mit, was man aus dem vorigen Leben mitnimmt.
+   */
+  const leaderName = ref('')
+  const leaderBackgroundId = ref<LeaderBackgroundId | null>(null)
+  const leader = computed<CampaignLeader | null>(() =>
+    leaderName.value.trim().length > 0 && leaderBackgroundId.value !== null
+      ? { name: leaderName.value.trim(), backgroundId: leaderBackgroundId.value }
+      : null)
   /*
    * The campaign runs as soon as the player enters the city. Starting paused made the clock and the
    * sky look broken: nothing moved until you found the speed buttons. A raised motion still pauses
@@ -205,6 +220,7 @@ export const useGameStore = defineStore('game', () => {
         citySeed: CITY_SEED,
         partyId: selectedPartyId.value ?? undefined,
         goalIds: [...selectedGoalIds.value],
+        leader: leader.value,
         state: data.state,
         snapshot: data.snapshot,
         savedAt: new Date().toISOString(),
@@ -385,12 +401,28 @@ export const useGameStore = defineStore('game', () => {
     speed.value = 0
     selectedPartyId.value = null
     selectedGoalIds.value = []
-    experienceStage.value = 'partyHall'
+    leaderName.value = ''
+    leaderBackgroundId.value = null
+    // Erst bist du jemand, dann wählst du eine Partei.
+    experienceStage.value = 'leader'
     /*
      * The old campaign is gone the moment the first month of the new one is saved over it, so the
      * title screen must stop offering it now rather than offering a campaign that no longer exists.
      */
     forgetSave()
+  }
+
+  function chooseBackground(backgroundId: LeaderBackgroundId): void {
+    leaderBackgroundId.value = leaderBackgroundId.value === backgroundId ? null : backgroundId
+  }
+
+  function confirmLeader(): void {
+    if (leader.value)
+      experienceStage.value = 'partyHall'
+  }
+
+  function showLeader(): void {
+    experienceStage.value = 'leader'
   }
 
   function selectParty(partyId: PartyId): void {
@@ -414,12 +446,12 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function reviewCampaign(): void {
-    if (selectedPartyId.value && selectedGoalIds.value.length === 3)
+    if (selectedPartyId.value && selectedGoalIds.value.length === 3 && leader.value)
       experienceStage.value = 'intro'
   }
 
   function enterCity(): void {
-    if (!selectedPartyId.value || selectedGoalIds.value.length !== 3)
+    if (!selectedPartyId.value || selectedGoalIds.value.length !== 3 || !leader.value)
       return
     reset()
     speed.value = 1
@@ -557,7 +589,7 @@ export const useGameStore = defineStore('game', () => {
     selectedBuilding.value = null
     selectedNews.value = null
     // Spread the priority list: a ref's value is a reactive Proxy, and structured clone rejects it.
-    send({ type: 'RESET', seed: CITY_SEED, partyId: selectedPartyId.value ?? undefined, goalIds: [...selectedGoalIds.value] })
+    send({ type: 'RESET', seed: CITY_SEED, partyId: selectedPartyId.value ?? undefined, goalIds: [...selectedGoalIds.value], leader: leader.value ?? undefined })
   }
 
   /**
@@ -616,6 +648,8 @@ export const useGameStore = defineStore('game', () => {
       }
       selectedPartyId.value = payload.partyId ?? null
       selectedGoalIds.value = [...(payload.goalIds ?? [])]
+      leaderName.value = payload.leader?.name ?? ''
+      leaderBackgroundId.value = payload.leader?.backgroundId ?? null
       accumulatedMs = 0
       monthProgress.value = 0
       selectedBuilding.value = null
@@ -647,6 +681,9 @@ export const useGameStore = defineStore('game', () => {
     experienceStage,
     selectedPartyId,
     selectedGoalIds,
+    leaderName,
+    leaderBackgroundId,
+    leader,
     speed,
     overviewRequest,
     showOverview,
@@ -691,6 +728,9 @@ export const useGameStore = defineStore('game', () => {
     selectParty,
     confirmParty,
     toggleGoal,
+    chooseBackground,
+    confirmLeader,
+    showLeader,
     reviewCampaign,
     enterCity,
     showTitle,

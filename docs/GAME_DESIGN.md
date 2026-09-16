@@ -96,8 +96,25 @@ ein Jahr nicht mehr regierbar. **Ein verfehltes Ziel beendet nichts** — es ste
 
 ## 5. Der Parteivorsitz
 
-Du gibst dir einen **Namen** und wählst eine **Partei**. Die Partei bestimmt spürbar, womit du
-anfängst — heute fühlen sich alle sechs beim Start fast gleich an.
+Du gibst dir einen **Namen**, wählst einen **Werdegang** und dann eine **Partei** — in dieser
+Reihenfolge, weil sie so stimmt: erst bist du jemand, dann trittst du für eine Fraktion an. Vorher
+wählte man eine Partei und war niemand; das Spiel sprach zehn Jahre lang von „der eigenen Fraktion"
+und nie von einem Menschen.
+
+| Werdegang | Was er mitbringt |
+| --- | --- |
+| Aus der Verwaltung | politisches Kapital wächst schneller (1,7 statt 1,1 im Monat) |
+| Aus der Gewerkschaft | alle Fraktionen starten wohlgesonnener (+0,18 statt 0) |
+| Aus der Wirtschaft | mehr Kapital beim Antritt (78 statt 60) |
+| Aus der Bürgerinitiative | Kampagnen kosten 12 statt 18 Kapital |
+
+Jeder Werdegang steht jeder Fraktion offen, und was er bewirkt, ist für alle gleich — die
+Architekturregel gilt hier wie überall. Was sich unterscheidet, ist der Mensch, nicht die Mathematik
+der Partei. `tests/unit/leaders.test.ts` verlangt, dass jeder Werdegang tatsächlich etwas tut und
+dass ein Jahrzehnt auch ohne einen spielbar bleibt, weil Spielstände von vorher keinen haben.
+
+Offen bleibt die **Startlage je Partei**: Haushaltsspielraum und Verhältnis zu jeder Fraktion sind
+noch für alle sechs gleich.
 
 | Woran | Woher |
 | --- | --- |

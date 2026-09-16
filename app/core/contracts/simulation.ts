@@ -10,7 +10,7 @@ import type { DistrictId } from './city'
 import type { MotionPreparationView, PartyVote, PendingDecision, VoteForecast, VoteResult } from './events'
 import type { CausalEdge, CityMetrics, HealthScores, MetricId, PerceptionState } from './metrics'
 import type { ActiveMeasureView } from './policies'
-import type { CampaignGoalId, PartyId } from './politics'
+import type { CampaignGoalId, CampaignLeader, PartyId } from './politics'
 import type { CityVisualState } from './visuals'
 
 export interface NewsItem {
@@ -62,6 +62,8 @@ export interface SimulationSnapshot {
   /** The three the player ran on. The closing report scores them against what they left behind. */
   /** Die drei Ziele, an denen dieses Jahrzehnt gemessen wird. */
   goalIds: CampaignGoalId[]
+  /** Wer den Vorsitz hat. */
+  leader: CampaignLeader | null
   /** Wie weit jedes davon heute steht. Berechnet, nie gespeichert. */
   goals: CampaignGoalProgress[]
   pendingDecisions: PendingDecision[]
@@ -92,10 +94,10 @@ export interface SimulationSnapshot {
 }
 
 export type SimulationCommand
-  = | { type: 'INIT', seed: number, partyId?: PartyId, goalIds?: CampaignGoalId[] }
+  = | { type: 'INIT', seed: number, partyId?: PartyId, goalIds?: CampaignGoalId[], leader?: CampaignLeader }
     | { type: 'ADVANCE', months: number }
     | { type: 'APPLY_POLICY', policyId: string }
-    | { type: 'RESET', seed: number, partyId?: PartyId, goalIds?: CampaignGoalId[] }
+    | { type: 'RESET', seed: number, partyId?: PartyId, goalIds?: CampaignGoalId[], leader?: CampaignLeader }
     | SimulationCommandExtra
 
 export type SimulationMessage
@@ -115,4 +117,4 @@ export type SimulationCommandExtra
     | { type: 'VOTE_ON_MOTION', eventId: string, vote: PartyVote }
     | { type: 'NEGOTIATE', eventId: string, partyId: PartyId }
     | { type: 'CAMPAIGN', eventId: string, optionId: string }
-    | { type: 'SET_CAMPAIGN', partyId: PartyId, goalIds: CampaignGoalId[] }
+    | { type: 'SET_CAMPAIGN', partyId: PartyId, goalIds: CampaignGoalId[], leader?: CampaignLeader }

@@ -1,6 +1,7 @@
 import type {
   ActiveMeasureView,
   CampaignGoalId,
+  CampaignLeader,
   CampaignPriorityId,
   CausalEdge,
   CityMetrics,
@@ -27,6 +28,7 @@ import type { Support } from './electorate'
 import type { ActiveMeasure, EventDrawState } from './events'
 import { getEvent } from '../content/events'
 import { getGoal, goalIsMet } from '../content/goals'
+import { getBackground } from '../content/leaders'
 import { getParty, mapParties, PARTIES } from '../content/parties'
 import { getPolicy, mayTable } from '../content/policies'
 import { CAMPAIGN_LAST_MONTH } from '../core/campaign'
@@ -40,7 +42,7 @@ import {
   vacancyRate,
 } from './baseline'
 import { castVote, forecastVote, supportFor } from './council'
-import { clamp, healthFromState, stepDynamics } from './dynamics'
+import { BASE_CAPITAL_PER_MONTH, clamp, healthFromState, stepDynamics } from './dynamics'
 import { defeatFromEdges, holdElection, isElectionMonth, MAJORITY, trackEdges, votedOut } from './election'
 import { driftFromCity, initialSupport, shiftFromDecision } from './electorate'
 import {
@@ -79,6 +81,8 @@ export interface SimulationState {
   month: number
   partyId: PartyId | null
   goalIds: CampaignGoalId[]
+  /** Wer den Vorsitz hat. Null in Spielständen von vor Stufe 6 und in Tests. */
+  leader: CampaignLeader | null
   metrics: CityMetrics
   previousMetrics: CityMetrics
   /**
@@ -193,13 +197,42 @@ function formCoalitionWith(partyId: PartyId | null, seats: Record<PartyId, numbe
   return coalition
 }
 
-export function createInitialState(seed = 2036, partyId: PartyId | null = null, goalIds: CampaignGoalId[] = []): SimulationState {
-  const metrics = { ...BASELINE_METRICS }
+/** Das Verhältnis zu jeder anderen Fraktion am ersten Tag. */
+function relationshipsAtStart(leader: CampaignLeader | null): Partial<Record<PartyId, number>> {
+  const start = leader ? getBackground(leader.backgroundId)?.startingRelationship ?? 0 : 0
+  if (start === 0)
+    return {}
+  return Object.fromEntries(PARTIES.map(party => [party.id, start]))
+}
+
+/** Was eine öffentliche Kampagne regulär kostet. */
+const CAMPAIGN_COST = 18
+
+/** Was sie diesen Vorsitz kostet: wer der Stadt schon bekannt ist, braucht weniger Anlauf. */
+export function campaignCost(leader: CampaignLeader | null): number {
+  return CAMPAIGN_COST - (leader ? getBackground(leader.backgroundId)?.campaignDiscount ?? 0 : 0)
+}
+
+/** Wie schnell politisches Kapital nachwächst. Der Grundwert steht in `dynamics`. */
+export function capitalPerMonth(leader: CampaignLeader | null): number {
+  return leader ? getBackground(leader.backgroundId)?.capitalPerMonth ?? BASE_CAPITAL_PER_MONTH : BASE_CAPITAL_PER_MONTH
+}
+
+export function createInitialState(
+  seed = 2036,
+  partyId: PartyId | null = null,
+  goalIds: CampaignGoalId[] = [],
+  leader: CampaignLeader | null = null,
+): SimulationState {
+  // Womit man antritt: ein Betrieb im Rücken bringt Spielraum, eine Bürgerinitiative bringt Publikum.
+  const background = leader ? getBackground(leader.backgroundId) : undefined
+  const metrics = { ...BASELINE_METRICS, politicalCapital: background?.startingCapital ?? BASELINE_METRICS.politicalCapital }
   return {
     seed,
     month: 0,
     partyId,
     goalIds,
+    leader,
     metrics,
     previousMetrics: { ...metrics },
     stocks: { ...BASELINE_STOCKS },
@@ -212,7 +245,14 @@ export function createInitialState(seed = 2036, partyId: PartyId | null = null, 
     firedOnce: [],
     choices: [],
     tabledByOthers: 0,
-    relationships: {},
+    /*
+     * Wie der Rat zu einem steht, bevor irgendetwas passiert ist.
+     *
+     * Stand bei allen auf null: sechs Fraktionen, die einen gleich gut kennen. Wer aus der
+     * Gewerkschaft kommt, hat in diesem Raum schon gesessen; wer aus einer Bürgerinitiative kommt,
+     * hat ihn gegen sich aufgebracht.
+     */
+    relationships: relationshipsAtStart(leader),
     seatsByParty: seatsFromContent(),
     coalitionPartyIds: formCoalition(partyId),
     support: initialSupport(),
@@ -642,6 +682,7 @@ export function migrateState(state: SimulationState): SimulationState {
     ...state,
     // Ein Spielstand von vor den Zielen hat keine. Er wird ohne Wertung zu Ende gespielt.
     goalIds: state.goalIds ?? [],
+    leader: state.leader ?? null,
     metrics: healed(state.metrics, BASELINE_METRICS),
     stocks: healed(state.stocks, BASELINE_STOCKS),
     support: state.support ?? initialSupport(),
@@ -667,7 +708,6 @@ function seatsOfCoalition(state: SimulationState): number {
 }
 
 const NEGOTIATION_COST = 12
-const CAMPAIGN_COST = 18
 
 function withPreparation(state: SimulationState, motionId: string, change: Partial<MotionPreparation>): SimulationState {
   const current = preparationFor(state, motionId)
@@ -693,10 +733,11 @@ export function negotiate(state: SimulationState, motionId: string, partyId: Par
 /** Spend political capital on a public campaign for one option of one motion. */
 export function campaignFor(state: SimulationState, motionId: string, optionId: string): SimulationState {
   const prepared = preparationFor(state, motionId)
-  if (prepared.campaignedOptionIds.includes(optionId) || state.metrics.politicalCapital < CAMPAIGN_COST)
+  const cost = campaignCost(state.leader)
+  if (prepared.campaignedOptionIds.includes(optionId) || state.metrics.politicalCapital < cost)
     return state
   const next = withPreparation(state, motionId, { campaignedOptionIds: [...prepared.campaignedOptionIds, optionId] })
-  return { ...next, metrics: { ...next.metrics, politicalCapital: clamp(next.metrics.politicalCapital - CAMPAIGN_COST) } }
+  return { ...next, metrics: { ...next.metrics, politicalCapital: clamp(next.metrics.politicalCapital - cost) } }
 }
 
 /** Direct adoption without a vote. Used by the three legacy policies and by tests. */
@@ -880,6 +921,7 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     activeMeasures: measures,
     choices: state.choices,
     goalIds: state.goalIds,
+    leader: state.leader,
     goals: state.goalIds.flatMap((id) => {
       const goal = getGoal(id)
       if (!goal)
@@ -938,7 +980,7 @@ function advanceOneMonth(state: SimulationState): SimulationState {
   }
 
   const previousHealth = healthFromState(state.metrics, state.perception)
-  const stepped = stepDynamics(workingMetrics, workingStocks, state.perception, previousHealth, measureCost)
+  const stepped = stepDynamics(workingMetrics, workingStocks, state.perception, previousHealth, measureCost, capitalPerMonth(state.leader))
   edges.push(...stepped.edges)
 
   /*

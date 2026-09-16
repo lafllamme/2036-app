@@ -7,7 +7,7 @@
  */
 
 import type { SimulationState } from '../../simulation/model'
-import type { CampaignGoalId, PartyId } from './politics'
+import type { CampaignGoalId, CampaignLeader, PartyId } from './politics'
 import type { SimulationSnapshot } from './simulation'
 
 /**
@@ -27,6 +27,7 @@ export interface SaveGame {
   citySeed: number
   partyId?: PartyId
   goalIds?: CampaignGoalId[]
+  leader?: CampaignLeader | null
   state: SimulationState
   snapshot: SimulationSnapshot
   savedAt: string

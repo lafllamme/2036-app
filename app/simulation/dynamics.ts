@@ -27,6 +27,15 @@ const BASELINE_SOCIAL_SHARE_PP = socialShare(BASE) * 100
 const HEAT_DECAY = 0.975
 
 /**
+ * Wie schnell politisches Kapital ohne Zutun nachwächst.
+ *
+ * Der Grundwert. Ein Vorsitz, der aus der Verwaltung kommt, arbeitet schneller — `organization`
+ * stand seit jeher im Parteiprofil und wurde von null Code gelesen; der Werdegang ist der Ort, an dem
+ * dasselbe endlich etwas tut.
+ */
+export const BASE_CAPITAL_PER_MONTH = 1.1
+
+/**
  * Die Bestände, die eine Verwaltung beim Wachsen von selbst nachzieht — Personal und Betrieb, nichts
  * mit Fläche oder Kapital. Grünflächen entstehen nicht dadurch, dass jemand zuzieht.
  */
@@ -66,6 +75,7 @@ export function stepDynamics(
   previousPerception: PerceptionState,
   health: HealthScores,
   measureMonthlyCost = 0,
+  capitalPerMonth = BASE_CAPITAL_PER_MONTH,
 ): DynamicsResult {
   const metrics = { ...previous }
   const stocks = { ...previousStocks }
@@ -351,7 +361,7 @@ export function stepDynamics(
   note('investmentBacklog', underfunded - overfunded * 1.15, underfunded > 0 ? 'Unterhalt unter Bedarf – Sanierungsstau wächst' : 'Unterhalt über Bedarf – Sanierungsstau schrumpft')
 
   // --- Politics -------------------------------------------------------------
-  metrics.politicalCapital = clamp(previous.politicalCapital + 1.1)
+  metrics.politicalCapital = clamp(previous.politicalCapital + capitalPerMonth)
   /*
    * Woran sich eine Stadt spaltet.
    *

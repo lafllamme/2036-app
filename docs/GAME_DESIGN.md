@@ -197,22 +197,27 @@ Zuwanderungsdruck. Sie driftet über das Jahrzehnt, hat seltene Schocks, und tut
 Du beantwortest nie den Krieg. Du beantwortest, was er in Lindenhafen auslöst. Das ist der ehrliche
 Maßstab einer Kommune und zugleich der spielbare.
 
-## Was davon schon steht
+## Was davon steht
+
+Alle sieben Stufen sind gebaut. Stand heute:
 
 | | |
 | --- | --- |
-| Zufällige Widerfahrnisse (Katastrophe, Unfall, Anschlag) | **13 von 29 Ereignissen** |
-| Verzweigung — was du entscheidest, schließt Türen | **14 Türen** |
-| Vorlagen anderer Fraktionen mit Ja/Nein | **fertig**, ~37 %, erste bis Monat 6 |
+| Ereignisse insgesamt | **78** — 39 Entscheidungen, 17 Vorfälle, 11 von außen, 10 Ketten, 1 Meilenstein |
+| Vorlagen im Jahrzehnt | **45–56**, in jedem Jahr welche |
+| Parteiprogramme | **27 Vorlagen** — vier je Partei, zwei gemeinsame |
+| Verzweigung — was du entscheidest, schließt Türen | **7 Türen** |
+| Abgelehnt → kehrt anders zurück | **8 Nachspiele**, 4–8 pro Jahrzehnt |
+| Vorlagen anderer Fraktionen mit Ja/Nein | fertig, ~24 % der Tagesordnung |
+| Form-Regel (Vorlage/Weggabelung) | fertig |
+| Drei harte Ziele, nachgerechnet | fertig — 12 im Katalog |
+| Vorsitz: Name, Werdegang, Startlage, `organization` | fertig |
+| Die Lage: Gaspreis, Konjunktur, Bundesmittel, Zuwanderung | fertig |
 | Rat stimmt ab, Prognose, Verhandlung, Kampagne | fertig |
 | Wahlen, Rückhalt, zwei Niederlagen, Abschlussbericht | fertig |
-| **Form-Regel (Vorlage/Weggabelung)** | **neu** |
-| **Dein Ja auch auf eigenen Vorlagen** | **neu** |
-| **Abgelehnt → kehrt anders zurück** | **neu** |
-| **Drei harte Ziele statt Prioritäten** | **neu** |
-| **Name, Startlage je Partei, `organization`** | **neu** |
-| **Parteieigene Programme (4 + 2)** | **neu** |
-| **Die Lage** | **fertig** |
+
+Was als Nächstes kommt, ist kein Mechanikschritt mehr: **die Oberfläche und die Karte.** Die Form
+steht, also lohnt der Feinschliff jetzt.
 
 ## Baureihenfolge
 

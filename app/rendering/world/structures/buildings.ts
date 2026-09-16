@@ -1,10 +1,11 @@
 import type { BuildingRecord, BuildingType, CityBlueprint } from '../../../core/contracts'
 import type { DistrictCharacter } from '../../../world/districtCharacter'
 import type { Relief } from '../../../world/relief'
+import { attribute, float, mix, normalWorld, positionWorld, select, texture, uv, vec2 } from 'three/tsl'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../../core/rng'
 import { DISTRICT_CHARACTER } from '../../../world/districtCharacter'
-import { BAY_WIDTH, facadeTexture, STOREY_HEIGHT, windowLightTexture } from './facade'
+import { BAY_WIDTH, FACADE_REPEAT, facadeTexture, GROUND_REPEAT, groundFloorTexture, REAR_U, ROOF_GRAIN, roofTexture, STOREY_HEIGHT, windowLightTexture } from './facade'
 import { findTownHall } from './townHall'
 
 /**
@@ -94,8 +95,63 @@ const SKIRT = 8
  * building sits on something instead of growing out of the lawn.
  */
 const PLINTH = 0.35
-/** How much darker the base course is than the wall above it. */
+/**
+ * How much darker the base course is than the wall above it, and what it is made of.
+ *
+ * Es war die Wandfarbe mal 0,62 — also dieselbe Farbe, nur dunkler, und damit las sich der Sockel
+ * an einem Hang als eine mehrere Meter hohe, vollkommen tote Fläche derselben Farbe wie das Haus.
+ * Ein Sockel ist aber ein anderes Material als die Wand darüber: Beton, Naturstein, Klinker. Er zieht
+ * deshalb zusätzlich in Richtung Stein, statt nur abzudunkeln.
+ */
 const PLINTH_SHADE = 0.62
+/**
+ * Die Treppe vor der Haustür.
+ *
+ * Ein Haus steht auf dem **höchsten** Boden, den sein Umriss überdeckt — es ist starr, das ist
+ * richtig so —, und am Hang liegt sein Fußboden deshalb einen bis drei Meter über dem Gehweg davor.
+ * Die Tür, die dort sitzt, ging bisher ins Leere: die Leute in Lindenhafen hätten fliegen müssen.
+ *
+ * Eine Freitreppe ist außerdem das eine Detail, das an einer Fassade auf jede Entfernung wirkt, weil
+ * sie aus dem Haus herausragt und dadurch einen eigenen Schatten wirft — die Fassade selbst ist eine
+ * Ebene und kann das nicht. Sie kostet je Stufe zehn Dreiecke und steht nur dort, wo es wirklich
+ * einen Höhenunterschied zu überwinden gibt.
+ */
+const STOOP_WIDTH = 2.9
+const STOOP_DEPTH = 1.6
+const STOOP_RISE = 0.19
+const STOOP_STEPS_MAX = 3
+/**
+ * Woraus eine Freitreppe ist — **und warum sie nicht die Farbe des Hauses trägt.**
+ *
+ * Sie hatte die des Sockels, also die Wandfarbe abgedunkelt. Damit stand sie vor einer Fläche
+ * derselben Farbe, und eine Stufenkante ist ein Millimeter Schatten: aus jedem flachen Winkel war
+ * die ganze Treppe schlicht nicht zu erkennen. Sie war da, sie war nur unsichtbar.
+ *
+ * Eine Freitreppe ist in Wirklichkeit auch nie aus dem Material der Fassade. Sie ist Beton,
+ * Naturstein oder Granit — ein kühles, mittleres Grau, das gegen Klinker, Ocker, Salbei und Weißputz
+ * gleichermaßen steht. Und die Trittfläche ist heller als die Setzstufe darunter, weil die eine nach
+ * oben zeigt und die andere nach vorn: **das** ist es, was eine Treppe als Treppe lesbar macht,
+ * nicht ihre Form.
+ */
+const STOOP_RISER = /* @__PURE__ */ new THREE.Color('#6e6f6d')
+const STOOP_TREAD = /* @__PURE__ */ new THREE.Color('#b4b3ad')
+/**
+ * Ab wann aus einer Schwelle eine Treppe wird.
+ *
+ * Es hing an 0,55 Metern, und damit bekam auf ebenem Boden **kein einziges Haus** eine: der
+ * Fußboden liegt dort genau `PLINTH` — 0,35 Meter — über dem Gehweg. Auf 0,35 Meter gehört aber
+ * sehr wohl eine Stufe, das ist eine ganz normale Haustürschwelle. Darunter bleibt eine Stufe,
+ * darüber werden es so viele, wie der Höhenunterschied verlangt.
+ */
+const STOOP_SINGLE = 0.7
+/** Die Haustür: wie breit, wie hoch, und wie weit ihr Rahmen vor der Wand steht. */
+const DOOR_WIDTH = 1.25
+const DOOR_HEIGHT = 2.35
+const DOOR_PROUD = 0.09
+const DOOR_LEAF = /* @__PURE__ */ new THREE.Color('#3b2f27')
+const DOOR_FRAME = /* @__PURE__ */ new THREE.Color('#e6e2d8')
+const PLINTH_STONE = /* @__PURE__ */ new THREE.Color('#544f48')
+const PLINTH_STONINESS = 0.45
 /** The low wall a flat roof stops at. */
 const PARAPET = 0.9
 
@@ -272,7 +328,6 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
   }
 
   const wallMaterial = new THREE.MeshStandardMaterial({
-    map: facadeTexture(),
     emissiveMap: windowLightTexture(),
     emissive: '#ffffff',
     emissiveIntensity: 0,
@@ -280,7 +335,49 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
     roughness: 0.82,
     metalness: 0.02,
   })
+  /*
+   * Das Erdgeschoss ist ein anderes Geschoss — und das kostet hier nichts.
+   *
+   * Ein Haus hatte fünf Mal dasselbe Stockwerk übereinander: keine Tür, kein Laden, kein Sockel, und
+   * das fünfte sah aus wie das erste. Der übliche Weg dahin wäre ein eigenes Band Geometrie am Fuß
+   * jeder Wand — zwei Dreiecke je Fläche mehr, also die halbe Stadt noch einmal.
+   *
+   * Nötig ist das nicht. Die Wand trägt ihre Geschosszahl längst in `v`: null am Fußboden, eins nach
+   * dem ersten Stockwerk. Der Shader weiß damit ohne ein einziges zusätzliches Attribut, wo er steht,
+   * und liest unterhalb von eins die Erdgeschosskachel statt der Fensterkachel. Zwei Fetches statt
+   * einem auf einer 256er-Textur, die vollständig im Cache liegt — **kein Dreieck und kein Draw.**
+   *
+   * Beide Kacheln bekommen ihre Wiederholung hier eingerechnet, statt über `texture.repeat`: die
+   * Matrix des Materials gilt für eine Textur, und hier sind es zwei mit verschiedenem Takt.
+   */
+  const facade = texture(facadeTexture(), uv().mul(vec2(...FACADE_REPEAT)))
+  /*
+   * Vorder- und Rückseite liegen in derselben Kachel übereinander, und welche gilt, steht im Versatz
+   * der u-Koordinate. Das kostet keinen zweiten Zugriff: es ist dieselbe Textur, nur eine Zeile
+   * höher gelesen — und `v` läuft im Erdgeschoss immer zwischen null und eins, kann also nie in die
+   * falsche Zeile umlaufen.
+   */
+  const backside = uv().x.greaterThan(REAR_U / 2)
+  const groundUv = vec2(uv().x, uv().y.add(select(backside, 1, 0))).mul(vec2(...GROUND_REPEAT))
+  const ground = texture(groundFloorTexture(), groundUv)
+  wallMaterial.colorNode = select(uv().y.lessThan(1), ground, facade).mul(attribute('color', 'vec3'))
   const roofMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0 })
+  /*
+   * Die Dachhaut, über die Weltkoordinate gelegt.
+   *
+   * Dachflächen tragen keine UVs — `(0, 0)` auf jedem Eckpunkt —, und ihnen welche zu geben hieße,
+   * für Walm, Sattel, Pyramide, Attika, Schornstein und Freitreppe je eine eigene Abwicklung zu
+   * rechnen. Ein Dach liegt aber fast waagerecht, also *ist* seine Lage in der Welt schon eine
+   * brauchbare Koordinate. Das Raster liegt damit über der ganzen Stadt statt über dem einzelnen
+   * Dach, was nebenbei dafür sorgt, dass zwei Nachbarhäuser verschiedene Ausschnitte bekommen.
+   *
+   * Dieselbe Gruppe zeichnet aber auch Senkrechtes: Sockel, Schornsteinwangen, Treppenflanken. Auf
+   * denen würde eine Textur über x und z zu Streifen verschmieren, und deshalb hängt ihre Stärke an
+   * der Neigung — waagerecht voll, senkrecht gar nicht. Drei Rechenschritte, kein Draw, kein Dreieck.
+   */
+  const grain = texture(roofTexture(), positionWorld.xz.div(ROOF_GRAIN))
+  const flatness = normalWorld.y.abs()
+  roofMaterial.colorNode = mix(float(1), grain.r, flatness).mul(attribute('color', 'vec3'))
 
   const buildingMeshes: THREE.Mesh[] = []
   const buildingRecords = new Map<THREE.Mesh, BuildingRecord[]>()
@@ -400,12 +497,23 @@ function tinted(base: THREE.Color, exposure: number): THREE.Color {
   return colour.setHSL(hue, hsl.s * (1 - exposure * 0.1), THREE.MathUtils.clamp(hsl.l * (1 + exposure), 0.03, 0.97))
 }
 
+/**
+ * Verwitterung — aber nicht bis ins Schwarze.
+ *
+ * Ein dunkler Anstrich bei schlechtem Bauzustand verlor ein Drittel seiner Helligkeit, und weil eine
+ * senkrechte Wand ohnehin nur einen Bruchteil des Lichts eines Daches bekommt, landete Flaschengrün
+ * am Wohnring als schwarzer Fleck. Verwitterung *bleicht* Putz aber eher aus, als ihn abzudunkeln:
+ * sie nimmt vor allem Sättigung. Der Helligkeitsverlust bleibt, hat jetzt aber einen Boden, unter den
+ * keine Fassade fällt.
+ */
+const WEATHERED_FLOOR = 0.26
+
 function weathered(base: THREE.Color, condition: number): THREE.Color {
   const colour = base.clone()
   const hsl = { h: 0, s: 0, l: 0 }
   colour.getHSL(hsl)
   const wear = 1 - THREE.MathUtils.clamp(condition, 0, 1)
-  return colour.setHSL(hsl.h, hsl.s * (1 - wear * 0.55), hsl.l * (1 - wear * 0.34))
+  return colour.setHSL(hsl.h, hsl.s * (1 - wear * 0.55), Math.max(WEATHERED_FLOOR, hsl.l * (1 - wear * 0.26)))
 }
 
 function tileOf(x: number, z: number): number {
@@ -472,7 +580,7 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
   const soiling = (1 - keep) * 0.5 + 0.1
   const wallFoot = wall.clone().multiplyScalar(1 - soiling * 0.34)
   const wallHead = wall.clone().lerp(SUN_BLEACH, 0.05 + (1 - keep) * 0.12)
-  const plinth = wall.clone().multiplyScalar(PLINTH_SHADE)
+  const plinth = wall.clone().lerp(PLINTH_STONE, PLINTH_STONINESS).multiplyScalar(PLINTH_SHADE)
   const roof = roofColour(building, character, wall, rng)
   tile.records.push(building)
   tile.colours.push(wall)
@@ -490,6 +598,24 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
 
   // ---- walls ----
   const storeys = Math.max(1, Math.round((wallTop - floor) / storeyHeight))
+  /*
+   * Welche Wand die Straßenseite ist.
+   *
+   * Die längste. Das ist keine Vereinfachung, sondern die Regel, nach der eine Stadt gebaut ist: eine
+   * Parzelle ist schmal und tief, das Haus steht mit seiner langen Seite an der Straße, und die
+   * kurzen Seiten sind Brandwand oder Hof. Wo es nicht stimmt — am Eckhaus —, hat das Haus eben eine
+   * Ladenfront und eine Hofseite statt zweier Ladenfronten, was immer noch richtiger ist als vier.
+   */
+  let street = 0
+  let longest = -1
+  for (let i = 0; i < corners; i += 1) {
+    const j = (i + 1) % corners
+    const length = Math.hypot(ring[j * 2]! - ring[i * 2]!, ring[j * 2 + 1]! - ring[i * 2 + 1]!)
+    if (length > longest) {
+      longest = length
+      street = i
+    }
+  }
   for (let i = 0; i < corners; i += 1) {
     const j = (i + 1) % corners
     const ax = ring[i * 2]!
@@ -510,8 +636,10 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
      * every row above it a third of a storey out.
      */
     const bays = Math.max(1, Math.round(span / bayWidth))
-    const u0 = 0
-    const u1 = bays
+    // Der Versatz ist ein Vielfaches der Kachelbreite: die Fensterreihen darüber sitzen auf dem Texel
+    // genau wie vorher, und nur das Erdgeschoss liest daraufhin die Hofseite statt der Straßenseite.
+    const u0 = i === street ? 0 : REAR_U
+    const u1 = u0 + bays
     const vTop = storeys
 
     /*
@@ -551,6 +679,16 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
     tile.wallIndex.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2)
   }
 
+  /*
+   * Und die Stufen davor, an der Straßenseite.
+   *
+   * Sie sitzen in der Mitte der längsten Wand, dort, wo die Erdgeschosskachel ihren Hauseingang hat,
+   * und sie überwinden genau den Unterschied zwischen dem Boden vor der Tür und dem Fußboden dahinter.
+   * Wo der unter einem halben Meter liegt, steht keine Treppe — da ist eine Schwelle, und die ist im
+   * Sockel schon drin.
+   */
+  entrance(tile, ring, street, corners, floor, relief)
+
   // ---- roof ----
   const capHeight = ground + building.height
   /*
@@ -560,6 +698,7 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
    */
   if (corners === 4 && building.roofHeight > 0.4) {
     gable(tile, ring, wallTop, capHeight, roof, wallHead)
+    roofFurniture(tile, ring, wallTop, capHeight, wall, roof, rng)
     if (landmarked)
       landmark(tile, building, capHeight, wall, roof)
     tile.ranges.push({ start, count: tile.position.length / 3 - start })
@@ -618,6 +757,8 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
     push(tile, cap[i * 2]!, capHeight, cap[i * 2 + 1]!, 0, 0, 0, 0, roof, true)
   for (const triangle of triangulate(cap))
     tile.roofIndex.push(capBase + triangle[2], capBase + triangle[1], capBase + triangle[0])
+
+  roofFurniture(tile, ring, wallTop, capHeight, wall, roof, rng)
 
   if (landmarked)
     landmark(tile, building, capHeight, wall, roof)
@@ -846,8 +987,281 @@ function gable(tile: Tile, ring: number[], wallTop: number, ridgeHeight: number,
     tile.roofIndex.push(vertex, vertex + 2, vertex + 1)
   }
 
-  end(a1, b0, ridge0)
-  end(b1, a0, ridge1)
+  /*
+   * Auf der **Wand**, nicht auf der Traufe.
+   *
+   * `a1` und `b0` sind die um `EAVES` nach außen geschobenen Traufpunkte — der Giebel stand damit auf
+   * jeder Seite einen halben Meter neben der Wand unter ihm, und genau das sah man: eine Stufe
+   * zwischen Wandkante und Dachfläche, mal als Überstand, mal als Loch. Ein Ortgang kragt über die
+   * Giebelwand aus, die Giebelwand selbst steht in der Flucht der Wand. Der First liegt ohnehin
+   * richtig: die beiden Versätze heben sich in seiner Mitte gegenseitig auf.
+   */
+  end(eaveA[1]!, eaveB[0]!, ridge0)
+  end(eaveB[1]!, eaveA[0]!, ridge1)
+}
+
+/**
+ * Eine Freitreppe vor dem Hauseingang.
+ *
+ * Jede Stufe ist ein Kasten ohne Boden. Sie stehen ineinander geschachtelt, die unterste am weitesten
+ * vom Haus weg, sodass die Kanten die Schattenlinien werfen, an denen man eine Treppe als Treppe
+ * erkennt. Alles in der Dachgruppe — kein Fenstergitter darauf, kein zusätzlicher Draw.
+ */
+function entrance(
+  tile: Tile,
+  ring: number[],
+  street: number,
+  corners: number,
+  floor: number,
+  relief: Relief,
+): void {
+  const j = (street + 1) % corners
+  const ax = ring[street * 2]!
+  const az = ring[street * 2 + 1]!
+  const bx = ring[j * 2]!
+  const bz = ring[j * 2 + 1]!
+  const span = Math.hypot(bx - ax, bz - az)
+  if (span < STOOP_WIDTH * 1.4)
+    return
+
+  // Die Mitte der Straßenwand, und die Richtung, in die sie zeigt.
+  const mx = (ax + bx) / 2
+  const mz = (az + bz) / 2
+  /*
+   * **Nach außen, und zwar nachweislich.**
+   *
+   * Die Normale wird aus der Umlaufrichtung des Umrisses abgeleitet, und die stimmt nicht bei jedem
+   * Grundriss: wo sie kippt, wuchs die Freitreppe ins Haus hinein — ein Klotz, der aus der Fassade
+   * ragt und im Erdgeschoss steckt. Statt sich auf die Umlaufrichtung zu verlassen, wird hier
+   * gefragt: liegt ein Punkt einen halben Meter in dieser Richtung *im* Gebäude? Dann ist es die
+   * falsche. Das kostet einen Punkt-im-Polygon-Test je Haus, einmal beim Aufbau.
+   */
+  const facing = pointInside(mx - (bz - az) / span * 0.5, mz + (bx - ax) / span * 0.5, ring) ? -1 : 1
+  const nx = (-(bz - az) / span) * facing
+  const nz = ((bx - ax) / span) * facing
+
+  // Der Boden einen Schritt vor der Tür — nicht der unter dem Haus, denn genau darum geht es.
+  const outside = relief.height(mx + nx * STOOP_DEPTH, mz + nz * STOOP_DEPTH)
+  const drop = Math.max(0.2, floor - outside)
+  /*
+   * Eine Schwelle ist eine Stufe, ein Hang sind so viele, wie er braucht. Der billige Fall ist der
+   * häufige: auf ebenem Boden kostet ein Eingang genau eine Stufe, also acht Dreiecke.
+   */
+  const steps = drop <= STOOP_SINGLE ? 1 : Math.min(STOOP_STEPS_MAX, Math.round(drop / STOOP_RISE))
+  const half = STOOP_WIDTH / 2
+  /*
+   * Längs der Wand, damit die Treppe mitdreht, statt achsenparallel danebenzustehen — und mit
+   * demselben Vorzeichen wie die Normale. Wird nur eine der beiden Achsen gespiegelt, kippt die
+   * Händigkeit des Dreibeins, und dann zeigen Stufenflanken und Türblatt nach innen statt nach
+   * außen: sichtbar wären sie trotzdem, aber von hinten und damit schwarz.
+   */
+  const tx = ((bx - ax) / span) * facing
+  const tz = ((bz - az) / span) * facing
+
+  for (let step = 0; step < steps; step += 1) {
+    // Die unterste Stufe ragt am weitesten heraus, die oberste liegt an der Wand.
+    const reach = STOOP_DEPTH * (1 - step / steps)
+    const top = outside + (drop * (step + 1)) / steps
+    const corner = (alongSign: number, out: number): [number, number] =>
+      [mx + tx * half * alongSign + nx * out, mz + tz * half * alongSign + nz * out]
+    const quad: [number, number][] = [corner(-1, 0), corner(-1, reach), corner(1, reach), corner(1, 0)]
+    // Drei Seiten, nicht vier: die vierte liegt an der Hauswand und ist von keiner Kamera aus zu sehen.
+    for (let i = 0; i < 3; i += 1) {
+      const [px, pz] = quad[i]!
+      const [qx, qz] = quad[i + 1]!
+      const edge = Math.hypot(qx - px, qz - pz) || 1
+      const ex = -(qz - pz) / edge
+      const ez = (qx - px) / edge
+      const side = tile.position.length / 3
+      push(tile, px, outside - 0.4, pz, ex, ez, 0, 0, STOOP_RISER)
+      push(tile, qx, outside - 0.4, qz, ex, ez, 0, 0, STOOP_RISER)
+      push(tile, qx, top, qz, ex, ez, 0, 0, STOOP_RISER)
+      push(tile, px, top, pz, ex, ez, 0, 0, STOOP_RISER)
+      tile.roofIndex.push(side, side + 2, side + 1, side, side + 3, side + 2)
+    }
+    const tread = tile.position.length / 3
+    for (const [px, pz] of quad)
+      push(tile, px, top, pz, 0, 0, 0, 0, STOOP_TREAD, true)
+    tile.roofIndex.push(tread, tread + 2, tread + 1, tread, tread + 3, tread + 2)
+  }
+
+  /*
+   * Und die Tür oben drauf — **einmal je Haus, und deshalb Geometrie.**
+   *
+   * In der Erdgeschosskachel stand sie vorher, und weil die sich alle zwei Achsen wiederholt, hatte
+   * ein dreißig Meter langer Block vier Haustüren. Was genau einmal an einem Gebäude vorkommt, kann
+   * keine gekachelte Textur leisten. Hier sind es zwei Flächen — Rahmen und Türblatt, sechs Dreiecke
+   * — und sie stehen ein paar Zentimeter vor der Wand, damit sie eine eigene Schattenkante haben und
+   * nicht mit der Fassade um dieselbe Tiefe streiten.
+   */
+  const panel = (halfWidth: number, height: number, out: number, shade: THREE.Color): void => {
+    const foot = floor - 0.02
+    const left: [number, number] = [mx - tx * halfWidth + nx * out, mz - tz * halfWidth + nz * out]
+    const right: [number, number] = [mx + tx * halfWidth + nx * out, mz + tz * halfWidth + nz * out]
+    const vertex = tile.position.length / 3
+    push(tile, left[0], foot, left[1], nx, nz, 0, 0, shade)
+    push(tile, right[0], foot, right[1], nx, nz, 0, 0, shade)
+    push(tile, right[0], foot + height, right[1], nx, nz, 0, 0, shade)
+    push(tile, left[0], foot + height, left[1], nx, nz, 0, 0, shade)
+    // Dieselbe Wicklung wie jede Wand: ein Ring, der auf der Karte gegen den Uhrzeigersinn läuft,
+    // läuft für eine Kamera von oben im Uhrzeigersinn, und die Außenseite ist die, die bleibt.
+    tile.roofIndex.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2)
+  }
+  panel(DOOR_WIDTH / 2 + 0.16, DOOR_HEIGHT + 0.18, DOOR_PROUD * 0.5, DOOR_FRAME)
+  panel(DOOR_WIDTH / 2, DOOR_HEIGHT, DOOR_PROUD, DOOR_LEAF)
+}
+
+/**
+ * Was auf einem Dach steht.
+ *
+ * Man schaut von schräg oben auf Lindenhafen, also ist die Dachfläche die *wichtigste* Fläche der
+ * Stadt — und sie war vollkommen leer. Kein Schornstein, keine Gaube, kein Lüfteraufbau, keine
+ * Aufzugsüberfahrt. Eine leere Dachfläche ist der Grund, aus dem ein Haus wie ein Volumen aussieht
+ * und nicht wie ein Gebäude, und zu zwölftausend davon addiert sie sich zu einem Stadtmodell aus
+ * Bauklötzen.
+ *
+ * Es ist außerdem der billigste Detailgrad, den es gibt. Ein Kasten sind zehn Dreiecke, er geht in
+ * die Dachgruppe (**kein zusätzlicher Draw, kein zweites Material**), und er steht auf einer Fläche,
+ * die von dieser Kamera aus immer zu sehen ist — anders als jede Fassadenverfeinerung, die nur an
+ * einer von vier Seiten und nur aus der Nähe etwas bringt.
+ *
+ * Was daraufkommt, folgt der Dachform: auf ein geneigtes Dach Schornsteine, auf ein Flachdach die
+ * Technik. Beides ist an `condition` und Viertel gebunden — auf einer gepflegten Gründerzeitzeile
+ * stehen gemauerte Schornsteine, auf der Halle im Hafen steht ein Lüfterblock.
+ */
+const CHIMNEY_SHARE = 0.72
+const PLANT_SHARE = 0.66
+/** Wie weit ein Aufbau über die Dachfläche ragt, in Metern. */
+const CHIMNEY_RISE = 1.4
+/** Ziegel, aus denen ein Schornstein gemauert ist — dunkler als jedes Dach, auf dem er steht. */
+const CHIMNEY_BRICK = ['#6d3a29', '#5a3024', '#7a4632', '#4a352d', '#63453a']
+const PLANT_RISE = 2.6
+
+function roofFurniture(
+  tile: Tile,
+  ring: number[],
+  wallTop: number,
+  capHeight: number,
+  wall: THREE.Color,
+  roof: THREE.Color,
+  rng: { next: () => number },
+): void {
+  /*
+   * **Alles hier kommt aus dem Umriss, nichts aus dem Datensatz.**
+   *
+   * Es stand vorher auf `building.x/z/rotation/width/depth` — also auf einer gedachten Kiste um das
+   * Haus herum. Für ein Rechteck geht das gut, und elf von vierzehntausend Häusern in Lindenhafen
+   * sind Rechtecke. Die anderen sind L-Formen, Ecken, Fünfecke auf einer Kurve, und bei denen liegt
+   * der Mittelpunkt dieser Kiste außerhalb des Gebäudes: der Schornstein stand neben dem Dach, der
+   * Lüfterkasten hing halb über der Traufe, und beides sah genau so aus, wie es war.
+   *
+   * Der Umriss ist zur Hand, er ist bereits trianguliert, und der Mittelpunkt eines seiner Dreiecke
+   * liegt garantiert im Gebäude — auch bei einem L. Das ist die ganze Korrektur.
+   */
+  const spot = (margin: number): [number, number] | null => {
+    const shrunk = inset(ring, margin)
+    const parts = triangulate(shrunk)
+    if (parts.length === 0)
+      return null
+    const part = parts[Math.min(parts.length - 1, Math.floor(rng.next() * parts.length))]!
+    const x = (shrunk[part[0] * 2]! + shrunk[part[1] * 2]! + shrunk[part[2] * 2]!) / 3
+    const z = (shrunk[part[0] * 2 + 1]! + shrunk[part[1] * 2 + 1]! + shrunk[part[2] * 2 + 1]!) / 3
+    return pointInside(x, z, ring) ? [x, z] : null
+  }
+
+  if (capHeight - wallTop > 0.4) {
+    if (rng.next() > CHIMNEY_SHARE)
+      return
+    /*
+     * Der Schornstein ist gemauert — also roter oder dunkler Ziegel, ganz gleich, welche Farbe das
+     * Dach hat. Sein Fuß steht auf der Traufhöhe und steckt damit unter der Dachfläche; nach oben
+     * muss er über den First hinaus, sonst verschwindet er im Dach. Beides ist hier garantiert,
+     * ohne die Dachhöhe an seiner Stelle ausrechnen zu müssen.
+     */
+    const brick = pick(CHIMNEY_BRICK, rng)
+    const half = 0.45 + rng.next() * 0.3
+    const place = spot(half + 1.2)
+    if (!place)
+      return
+    box(tile, place, half, wallTop, capHeight + CHIMNEY_RISE * (0.7 + rng.next() * 0.8), brick)
+    const second = rng.next() < 0.45 ? spot(half + 1.2) : null
+    if (second)
+      box(tile, second, half * 0.9, wallTop, capHeight + CHIMNEY_RISE, brick)
+    return
+  }
+
+  if (capHeight - wallTop > 0.4 || rng.next() > PLANT_SHARE)
+    return
+  /*
+   * Auf dem Flachdach die Technik: Aufzugsüberfahrt, Lüftung, Treppenhauskopf. Sie steht in der Farbe
+   * des Hauses, weil sie aus demselben Beton ist — und sie steht **auf** der Dachfläche, nicht auf
+   * der Traufe: bei einem Flachdach sind beide dasselbe, bei allem anderen wäre sie eingegraben.
+   *
+   * Der Rand ist großzügig. Ein Aufbau, der die Attika berührt, sieht aus wie ein Fehler, auch wenn
+   * er innerhalb des Umrisses liegt.
+   */
+  const half = 1.4 + rng.next() * 1.2
+  const place = spot(half + 2.5)
+  if (!place)
+    return
+  box(tile, place, half, capHeight, capHeight + PLANT_RISE * (0.6 + rng.next() * 0.7), wall)
+  const second = rng.next() < 0.5 ? spot(half + 2.5) : null
+  if (second)
+    box(tile, second, half * 0.55, capHeight, capHeight + PLANT_RISE * 0.5, roof)
+}
+
+/**
+ * Liegt ein Punkt im Grundriss? Strahlensatz, wie er seit jeher aussieht.
+ *
+ * Gebraucht, weil ein Umriss weder konvex noch um seinen Datensatzmittelpunkt zentriert sein muss:
+ * der Schwerpunkt eines L liegt im Hof davor, und alles, was dort platziert wird, steht neben dem
+ * Haus statt darauf.
+ */
+export function pointInside(x: number, z: number, ring: number[]): boolean {
+  const corners = ring.length / 2
+  let inside = false
+  for (let i = 0, j = corners - 1; i < corners; j = i, i += 1) {
+    const xi = ring[i * 2]!
+    const zi = ring[i * 2 + 1]!
+    const xj = ring[j * 2]!
+    const zj = ring[j * 2 + 1]!
+    if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi)
+      inside = !inside
+  }
+  return inside
+}
+
+/**
+ * Ein achsenparalleler Kasten auf dem Dach: vier Wände und ein Deckel, zehn Dreiecke.
+ *
+ * Er hat keinen Boden — der steckt unter der Dachfläche und wäre von keiner erreichbaren Kamera aus
+ * zu sehen. Das spart zwei Dreiecke je Aufbau, also bei zehntausend Aufbauten zwanzigtausend.
+ */
+function box(tile: Tile, centre: [number, number], half: number, base: number, top: number, colour: THREE.Color): void {
+  const [cx, cz] = centre
+  const ring: [number, number][] = [
+    [cx - half, cz - half],
+    [cx - half, cz + half],
+    [cx + half, cz + half],
+    [cx + half, cz - half],
+  ]
+  for (let i = 0; i < 4; i += 1) {
+    const [ax, az] = ring[i]!
+    const [bx, bz] = ring[(i + 1) % 4]!
+    const span = Math.hypot(bx - ax, bz - az) || 1
+    const nx = -(bz - az) / span
+    const nz = (bx - ax) / span
+    const vertex = tile.position.length / 3
+    push(tile, ax, base, az, nx, nz, 0, 0, colour)
+    push(tile, bx, base, bz, nx, nz, 0, 0, colour)
+    push(tile, bx, top, bz, nx, nz, 0, 0, colour)
+    push(tile, ax, top, az, nx, nz, 0, 0, colour)
+    tile.roofIndex.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2)
+  }
+  const lid = tile.position.length / 3
+  for (const [x, z] of ring)
+    push(tile, x, top, z, 0, 0, 0, 0, colour, true)
+  tile.roofIndex.push(lid, lid + 2, lid + 1, lid, lid + 3, lid + 2)
 }
 
 /** The outward normal of a triangle, wound the way the roof indices are. */
@@ -866,7 +1280,7 @@ function faceNormal(a: number[], b: number[], c: number[]): number[] {
 }
 
 /** Move every corner in toward the ring's centre, which is enough of a roof at this scale. */
-function inset(ring: number[], amount: number): number[] {
+export function inset(ring: number[], amount: number): number[] {
   const corners = ring.length / 2
   let cx = 0
   let cz = 0

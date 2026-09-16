@@ -198,12 +198,86 @@ je Wandfläche geschrieben; es ist kein Dreieck und kein Draw mehr.
 Zusammen mit dem Verlauf über die Höhe (unten schmutzig, oben ausgeblichen) trägt jede Hauswand
 damit vier verschiedene Werte statt einem. Gemessen auf Straßenhöhe: **120 FPS**.
 
+### Ein Erdgeschoss, eine Rückseite, eine Tür
+
+Ein Haus hatte fünf Mal dasselbe Geschoss übereinander, von allen vier Seiten gleich, ohne Tür und
+ohne Sockel. Drei Schalter, keiner davon kostet ein Dreieck:
+
+| | Wie | Kosten |
+| --- | --- | --- |
+| **Erdgeschoss** | Die Wand trägt ihre Geschosszahl längst in `v` — null am Fußboden, aufwärts zählend. Der Shader liest unterhalb von eins eine andere Kachel: Schaufenster, Rollgitter, Sockel, Graffiti | 1 Textur­zugriff |
+| **Rückseite** | Eine Hofwand bekommt eine um `REAR_U` verschobene u-Koordinate. Der Betrag ist ein Vielfaches der Kachelbreite, die Wiederholung ändert sich also um kein Texel — der Shader liest ihn aber als Schalter und greift eine Kachelzeile höher | 0 |
+| **Dachhaut** | Dachflächen tragen keine UVs. Ein Dach liegt aber fast waagerecht, also ist seine Lage in der Welt schon eine Koordinate: das Raster liegt über der ganzen Stadt statt über dem einzelnen Dach. Auf Senkrechtem würde es verschmieren, deshalb hängt seine Stärke an `\|n.y\|` | 1 Textur­zugriff |
+
+**Was eine gekachelte Textur nicht kann, ist etwas, das genau einmal vorkommt.** Der Hauseingang
+stand zuerst in der Erdgeschosskachel — und weil die sich alle zwei Achsen wiederholt, hatte ein
+dreißig Meter langer Block vier Haustüren. Tür und Freitreppe sind darum Geometrie, in der Mitte der
+längsten Wand, die als Straßenseite gilt.
+
+### Die Freitreppe, und warum sie nicht die Farbe des Hauses hat
+
+Sie hatte sie: die des Sockels, also die Wandfarbe abgedunkelt. Damit stand sie vor einer Fläche
+derselben Farbe, und eine Stufenkante ist ein Millimeter Schatten — aus jedem flachen Winkel war die
+ganze Treppe schlicht nicht zu sehen. Sie war da, sie war nur unsichtbar.
+
+Eine Freitreppe ist in Wirklichkeit auch nie aus dem Material der Fassade: Beton, Naturstein,
+Granit. Ein kühles mittleres Grau steht gegen Klinker, Ocker, Salbei und Weißputz gleichermaßen, und
+die Trittfläche ist heller als die Setzstufe darunter — **das** macht eine Treppe lesbar, nicht ihre
+Form.
+
+Sie steht dort, wo ein Höhenunterschied zu überwinden ist, und das ist überall: ein Gebäude steht auf
+dem **höchsten** Boden, den sein Umriss überdeckt, sein Fußboden liegt also mindestens `PLINTH` über
+dem Gehweg und am Hang ein bis drei Meter. Die erste Fassung hing an 0,55 Metern und traf damit auf
+ebenem Boden kein einziges Haus.
+
+### Alles am Gebäude kommt aus dem Grundriss
+
+Schornsteine, Lüfteraufbauten und Freitreppen standen auf `building.x/z/rotation/width/depth` — also
+auf einer gedachten Kiste um das Haus herum. Für ein Rechteck geht das, und elf von vierzehntausend
+Häusern sind Rechtecke. Die anderen sind L-Formen, Ecken und Fünfecke auf einer Kurve, und bei denen
+liegt der Mittelpunkt dieser Kiste **außerhalb des Gebäudes**: der Schornstein stand neben dem Dach,
+der Lüfterkasten hing über der Traufe, die Treppe wuchs ins Erdgeschoss.
+
+Der Umriss ist zur Hand und bereits trianguliert, und der Mittelpunkt eines seiner Dreiecke liegt
+garantiert im Gebäude — auch bei einem L. Für die Richtung einer Wand nach außen genügt ein
+Punkt-im-Polygon-Test statt der Umlaufrichtung, auf die kein Verlass war. `tests/unit/footprints.test.ts`
+hält beide Aussagen fest, einschließlich eines Umrisses mit umgekehrter Umlaufrichtung.
+
+### Was eine Wand vom Dach unterscheidet — und was das mit Licht zu tun hat
+
+Die Palette war breit und die Stadt sah trotzdem dunkel aus. Der Grund stand nicht in der Palette:
+ein Hemisphärenlicht mischt für eine Normale `mix(Boden, Himmel, 0,5·n.y + 0,5)`. Ein Dach bekommt
+den Himmel voll, eine senkrechte Wand exakt die Hälfte Himmel und die Hälfte **Boden** — und der
+Boden stand auf einem sehr dunklen Erdbraun.
+
+Nachgerechnet, Sonne auf 52°:
+
+| `DAY_GROUND` | Wand besonnt | Wand im Schatten |
+| --- | --- | --- |
+| `#4a4439` (vorher) | 64 % eines Daches | **35 %** |
+| `#8f8a76` (jetzt) | 72 % | **44 %** |
+
+Das ist auch der physikalisch richtigere Wert: was eine Wand von unten anleuchtet, ist nicht die
+Albedo des Bodens, sondern seine *Leuchtdichte* — Gras und Asphalt, die selbst in der Sonne stehen.
+Dazu wurde die Untergrenze der Wandpaletten auf 42 % Helligkeit angehoben, unter Erhalt der Spanne
+innerhalb jeder Farbgruppe, und die Verwitterung dunkelt nicht mehr unter einen Boden ab.
+
+### Was es kostet
+
+| | Dreiecke | Draws |
+| --- | --- | --- |
+| Stadt vor diesem Block | 442 465 | unverändert |
+| **+ Dachtechnik** (Schornsteine, Aufbauten) | 523 035 | 0 |
+| **+ Türen und Freitreppen** | 922 555 | 0 |
+
+Gemessen: **120 FPS** aus der Überblickskamera, 92 in einer Nahaufnahme bei Regen. Kein einziger
+zusätzlicher Draw und kein zweites Material — die Stadt zeichnet weiterhin mit **einem** Wand- und
+**einem** Dachmaterial.
+
 ### Was hier noch fehlt
 
-Ein Haus in Lindenhafen hat **ein** Fenster — dasselbe wie jedes andere, weil die ganze Stadt eine
-128er-Kachel teilt. Und es hat keine Tür: das Erdgeschoss sieht aus wie das fünfte. Beides ist ohne
-zusätzliche Draws zu lösen — die Kachel kann mehrere Entwürfe tragen, und eine Tür ist Geometrie in
-der Gruppe, die ohnehin ohne Fassadentextur zeichnet —, und beides steht noch aus.
+Die Dachflächen haben Körnung, aber keine Gaube und keine Kehle. Und die Bewohner laufen zufällig
+umher, statt zu wohnen, zu arbeiten und dazwischen durch die Türen zu gehen, die es jetzt gibt.
 
 ## Obdachlosigkeit
 

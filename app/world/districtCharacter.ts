@@ -93,21 +93,21 @@ const ROOF = {
  * unter vielen. Die Listen unten sind darum aus Farben gebaut, mit den Neutralen als Minderheit.
  */
 const WALL = {
-  klinker: ['#9c4a35', '#a85942', '#8d3f2e', '#b06349', '#7e3527'],
-  backstein: ['#a4553c', '#93472f', '#b2694a'],
+  klinker: ['#bf5c43', '#bf725c', '#b2503a', '#c17f69', '#a44533'],
+  backstein: ['#b35d41', '#a24e34', '#b97457'],
   ocker: ['#c8974a', '#d9a441', '#b8842f', '#cea45c', '#bd8c3a'],
   senf: ['#c4aa3a', '#d3b35a', '#b39a2f'],
   salbei: ['#8aa08c', '#7d9a86', '#94a998', '#6f8a78'],
   mint: ['#9db9ad', '#8aa89c', '#b0c7bc'],
-  flaschengruen: ['#4f6f56', '#456349', '#5b7d62'],
-  taubenblau: ['#5b7f94', '#4a6b80', '#6c8fa3', '#3f5f72'],
+  flaschengruen: ['#628a6b', '#587e5d', '#709778'],
+  taubenblau: ['#6e91a6', '#587f98', '#83a0b1', '#4c738a'],
   altrosa: ['#c08f80', '#b8786b', '#cb9d8f', '#a86c60'],
   terracotta: ['#c2683f', '#b35b35', '#cf7a51'],
   sandstein: ['#d5c39a', '#c6b184', '#e0d1ab'],
   creme: ['#e8ded0', '#dfd3c1', '#efe8dc'],
   weissputz: ['#f0ece4', '#e6e2d8'],
   hellgrau: ['#c2c4c0', '#b1b4b0', '#d0d2ce'],
-  anthrazit: ['#4a4f52', '#3a3f43', '#5a6063'],
+  anthrazit: ['#747c81', '#636c73', '#868d91'],
   beton: ['#b8b2a6', '#a8a196', '#c6c0b4'],
 } as const
 

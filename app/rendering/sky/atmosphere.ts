@@ -38,9 +38,24 @@ const SUN_LOW = /* @__PURE__ */ new THREE.Color('#ffe2be')
  */
 const NIGHT_AMBIENT = 0x6E82A8
 const DAY_AMBIENT = /* @__PURE__ */ new THREE.Color('#d8e4e7')
-/** What the ground bounces back — which is what lights the underside of everything vertical. */
+/**
+ * What the ground bounces back — which is what lights the underside of everything vertical.
+ *
+ * Und damit **die halbe Beleuchtung jeder Hauswand.** Ein Hemisphärenlicht mischt für eine Normale
+ * genau `mix(Boden, Himmel, 0,5·n.y + 0,5)`: ein Dach bekommt den Himmel voll, eine senkrechte Wand
+ * bekommt exakt die Hälfte Himmel und die Hälfte Boden. Der Boden stand auf einem sehr dunklen
+ * Erdbraun, und damit war jede Wand in Lindenhafen halb ausgeschaltet.
+ *
+ * Nachgerechnet, mit Sonne auf 52° und der Tagesfüllung: eine Wand im Schatten stand bei **35 %** der
+ * Leuchtdichte eines Daches, eine besonnte bei 64. Genau das sah man — die Farbe der Stadt saß auf
+ * den Dächern und die Fassaden soffen ab, egal wie bunt die Palette war.
+ *
+ * Der Wert hier ist auch der physikalisch richtigere. Was eine Wand von unten anleuchtet, ist nicht
+ * die Albedo des Bodens, sondern seine *Leuchtdichte* — Gras und Asphalt, die selbst in der vollen
+ * Sonne stehen. Mit diesem Ton steht die Schattenwand bei 44 % und die besonnte bei 72.
+ */
 const NIGHT_GROUND = 0x4A5872
-const DAY_GROUND = /* @__PURE__ */ new THREE.Color('#4a4439')
+const DAY_GROUND = /* @__PURE__ */ new THREE.Color('#8f8a76')
 /** How strong the ambient is at night and how much the daylight adds on top of it. */
 /**
  * The fog the scene is built with, and the colour a dirty one tends toward.

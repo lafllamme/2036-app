@@ -11,6 +11,7 @@ import { COMMON_VEHICLES, CREW_IDS, EMERGENCY_VEHICLES } from '../../cityModels'
 import { CYCLE_SPREAD, cycleLane, DRIVING_SPREAD, drivingLane, PAVEMENT_SPREAD, pavementLane } from '../streets/lanes'
 import { sampleEdge } from '../streets/roadNetwork'
 import { bicycleGeometry, bicycleMaterial } from './bicycle'
+import { busModels } from './bus'
 import { addBeacons, dispatch, paintBeacons } from './dispatch'
 import { BIG_CAR_LENGTH, BIG_VEHICLES, buildFleet, CAR_LENGTH, drive, PERSON_HEIGHT } from './fleet'
 
@@ -35,6 +36,17 @@ import { BIG_CAR_LENGTH, BIG_VEHICLES, buildFleet, CAR_LENGTH, drive, PERSON_HEI
 const CALM_CITY: CityPressure = { burglary: 0, fire: 0, accident: 0, violent: 0, response: 0.6, building: 0 }
 
 const CAR_COUNT = 620
+/**
+ * Wie viele Busse die Stadt überhaupt halten kann, und wie weit man sie sieht.
+ *
+ * Achtzig ist die volle Flotte einer gut ausgebauten Stadt dieser Größe; gefahren wird davon der
+ * Anteil, den die Erschließung hergibt — bei einem verrotteten Netz sind es knapp zwanzig. Sie
+ * reichen weiter als Autos, weil sie größer sind: was man von tausend Metern noch erkennt, lohnt es
+ * auch zu zeichnen.
+ */
+const BUS_COUNT = 80
+const BUS_RANGE = 2_000
+const BUS_LENGTH = 11.6
 /**
  * How many are out on foot.
  *
@@ -115,6 +127,14 @@ const RUSH: readonly number[] = [
 ]
 export interface Agents extends Dispatcher {
   cars: Fleet
+  /**
+   * Die Busse — und ihre Zahl ist ein Beschluss, kein Schmuck.
+   *
+   * Ein Bus ist doppelt so lang wie ein Auto und trägt eine Farbe, die sonst niemand fährt. Ob eine
+   * Stadt Nahverkehr bestellt hat, sieht man an ihm noch aus der Überblickskamera — und das war
+   * bisher an nichts zu sehen, weil es in keinem der Kits einen gibt. Siehe `bus.ts`.
+   */
+  buses: Fleet
   /** People on bikes, in the lane painted for them. */
   cyclists: Fleet
   pedestrians: Fleet
@@ -268,6 +288,33 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
    * The cyclists. Kit people on machines written out in `bicycle.ts`, riding the same graph the cars
    * do and stopping at the same signals — the one difference is where on the carriageway they sit.
    */
+  /*
+   * Busse fahren dieselben Straßen wie die Autos und halten sich an dieselben Ampeln — sie sind nur
+   * größer, langsamer und seltener. Weiter auseinander als Autos, weil ein Bus alle paar hundert
+   * Meter kommt und nicht alle neunzig.
+   */
+  const buses = buildFleet(scene, network, driveable, busModels(), models.vehicleMaterial, BUS_COUNT, draw, {
+    laneOf: drivingLane,
+    spread: DRIVING_SPREAD,
+    /*
+     * Alle hundertvierzig Meter einer, über das ganze Netz gerechnet. Bei 320 standen gemessen
+     * **vier** Busse im Bild — zu wenig, um als Ergebnis einer Nahverkehrspolitik gelesen zu werden,
+     * und ein Draw je Fahrzeug. Hundertvierzig ist auf einer Hauptachse ein dichter Takt und auf
+     * einer Wohnstraße gar keiner, was zusammen ungefähr ein Liniennetz ergibt.
+     */
+    spacing: 140,
+    lift: 0.05,
+    obeysSignals: true,
+    gatherRange: [2_000, 1_400],
+    speed: [7, 12],
+    // Selbst gebaut und damit schon in Metern: kein Skalieren auf eine fremde Einheit.
+    scale: model => BUS_LENGTH / Math.max(0.001, Math.max(model.size.x, model.size.z)),
+    // Vier Linienfarben, gleichmäßig verteilt, und keiner davon fährt auf einen Notruf.
+    weight: () => 1,
+    service: () => 'none',
+    seed,
+  })
+
   const cyclists = buildFleet(scene, network, driveable, models.riders, models.peopleSkins, CYCLIST_COUNT, draw, {
     laneOf: cycleLane,
     spread: CYCLE_SPREAD,
@@ -289,6 +336,7 @@ export function createAgents(scene: THREE.Scene, blueprint: CityBlueprint, model
 
   return {
     cars,
+    buses,
     cyclists,
     /*
      * The patrol. Built from the two uniformed characters rather than the civilian six, and
@@ -409,7 +457,7 @@ export function updateAgents(
    * Es kostet nichts. Die Flotten stehen ohnehin im Speicher; es wird nur ein anderer Anteil davon
    * bewegt, und `drive` zeichnet ohnehin nur, was es bewegt.
    */
-  modal: { cycling: number, cars: number },
+  modal: { cycling: number, cars: number, transit: number },
 ): void {
   /*
    * How busy the city is at this hour, and how busy the council has made it. The two multiply: a
@@ -426,6 +474,12 @@ export function updateAgents(
 
   const streets: Streets = { network: agents.network, signals: agents.signals, pressure: agents.pressure }
   drive(agents.cars, streets, delta, elapsed, cameraDistance > CAR_RANGE ? 0 : busy * modal.cars, camera, focus)
+  /*
+   * Und die Busse, deren ganze Zahl die Nahverkehrspolitik ist. Der Sockel von 0,22 ist Absicht:
+   * eine Stadt ohne einen einzigen Bus gibt es nicht, auch nicht nach zehn Jahren Sparen — was es
+   * gibt, ist ein Netz, auf dem einer alle zwanzig Minuten kommt.
+   */
+  drive(agents.buses, streets, delta, elapsed, cameraDistance > BUS_RANGE ? 0 : busy * (0.22 + modal.transit * 0.78), camera, focus)
   // Cycling follows the same hour as driving, and a little more of it in the middle of the day.
   // Cyclists take the weather worse than anyone: squared, a wet day empties the lanes rather than thins them.
   drive(agents.cyclists, streets, delta, elapsed, cameraDistance > CYCLIST_RANGE ? 0 : busy * exposure * exposure * modal.cycling, camera, focus)
@@ -449,7 +503,8 @@ export function updateAgents(
    * is the only pass that already knows where everything is. Adding them up is this module's job:
    * a fleet has no business knowing that the city keeps a total.
    */
-  agents.trafficNearby = agents.cars.nearby + agents.cyclists.nearby
+  // Busse zählen zum Verkehr, den man hört: sie sind lauter als ein Auto, nicht leiser.
+  agents.trafficNearby = agents.cars.nearby + agents.cyclists.nearby + agents.buses.nearby
   agents.peopleNearby = agents.pedestrians.nearby
 
   paintBeacons(agents, elapsed, cameraDistance, camera)

@@ -72,3 +72,47 @@ Liegt unter `public/models/roads`. Die Ampel steht an jeder signalisierten Kreuz
 Zufahrt; welche Kreuzung eine bekommt und was sie zeigt, entscheidet `app/rendering/world/streets/signalPlan.ts`
 — dieselbe Quelle, der auch der Verkehr gehorcht. Die Laterne ersetzt den früheren gestreckten
 Würfel.
+
+## Recherche: was die Kits hergeben und was nicht
+
+Nachgesehen, weil zwei Dinge fehlten — ein Bus und Vielfalt in der Menge.
+
+| Kit | Umfang | Davon in Gebrauch |
+| --- | --- | --- |
+| Kenney Car Kit 3.1 | 13 Modelle im Repo | **13** — jedes einzelne |
+| Kenney Mini Characters | 12 Figuren | **12** — 6 Zivilisten, 6 Einsatzkräfte |
+| Kenney City Kit (Suburban / Commercial) | 56 Modelle | Neubau und Umland |
+| Kenney Nature Kit | 11 Modelle | Bäume und Sträucher |
+
+Kenneys 3D-Katalog führt außerdem **City Kit (Industrial)**, **Retro Urban Kit** (120+ Modelle) und
+**Modular Buildings** (90+). Alles CC0. In keinem davon ist ein Bus, und keines enthält weitere
+Figuren im Stil der Mini Characters.
+
+**Ergebnis: es gibt keinen Bus zu holen.** Weder im Car Kit noch in einem anderen Kenney-Pack. Auf
+Poly Pizza liegen Busse von Google Poly und Einzelautoren — andere Hand, anderer Stil, teils
+CC-BY —, und ein zugekauftes Modell aus fremder Hand fällt in dieser Stadt sofort auf.
+
+Deshalb dieselbe Antwort wie bei den Schiffen: **selbst gebaut.** `app/rendering/world/traffic/bus.ts`
+ist ein Gelenkbus aus fünf Kästen und vier Rädern, 90 Dreiecke, Vertexfarben statt Textur, drei
+Linienfarben. Er trifft den Stil exakt, weil wir ihn kontrollieren, und er fährt über dieselbe
+Flottenmechanik wie jedes Auto. Gemessen: **41 Busse im Bild für 3 Draws.**
+
+### Die Menge sieht sich noch zu ähnlich, und woran es liegt
+
+Sechs Zivilmodelle für die ganze Stadt. Was daran schon variiert:
+
+| | Varianten |
+| --- | --- |
+| Modell | 6 |
+| Hautton | 6, je eine eingefärbte Kopie des Atlas |
+| Statur | stufenlos aus dem Alter |
+| Pose | mehrere Standbilder je Modell, nach Schrittphase |
+
+Was **nicht** variiert, ist die Kleidung: sie steckt im Texturatlas und nicht in einer Vertexfarbe.
+Sie ließe sich wie der Hautton einfärben — aber jede Variante ist ein eigenes Material und damit ein
+eigener Draw, und bei sechs Tönen mal drei Garderoben wären es achtzehn statt sechs.
+
+Der saubere Weg wäre ein Pack mit mehr Figuren. Kenney hat keins im selben Stil; Quaternius'
+*Ultimate Modular Characters* (CC0) hat deutlich mehr, ist aber eine andere Handschrift — ein
+Wechsel wäre ein Austausch des ganzen Personals, nicht eine Ergänzung. **Das ist eine
+Gestaltungsentscheidung und keine technische**, und sie steht hier offen statt nebenbei getroffen.

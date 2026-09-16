@@ -448,7 +448,7 @@ export class CityRenderer {
          */
         1 - Math.min(0.68, this.weather.rain * 0.5 + this.weather.snow * 0.62 + this.weather.wind * 0.12),
         // Und was der Rat für den Verkehr beschlossen hat. Siehe `cycling` in `CityVisualState`.
-        { cycling: this.city.cycling, cars: this.city.carTraffic },
+        { cycling: this.city.cycling, cars: this.city.carTraffic, transit: this.city.transitDensity },
       )
       this.reportIncidents()
       updateIncidentScenes(

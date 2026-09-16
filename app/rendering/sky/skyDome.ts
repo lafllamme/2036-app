@@ -38,6 +38,15 @@ export function createSkyDome(): GameSky {
   if (scattering)
     sky.material.colorNode = vec4(scattering.rgb.mul(sky.brightness), sky.nightFade)
   sky.material.transparent = true
+  /*
+   * Der Himmel liegt nicht in der Luftschicht, er ist sie.
+   *
+   * Die Kuppel sitzt auf siebentausend Einheiten, und der Szenennebel griff auch auf sie zu: bei der
+   * Dichte eines bedeckten Tages blieben davon **0,06 %** übrig. Sichtbar war damit nie der Himmel,
+   * sondern `scene.fog.color` — eine einzige flache Fläche über der halben Bildhöhe, und die
+   * Streuung, der Verlauf und die Wolken darin waren umsonst gerechnet.
+   */
+  sky.material.fog = false
 
   // The sun is a sprite we art-direct; the model's own disc only added a second, blinding one.
   sky.showSunDisc.value = 0

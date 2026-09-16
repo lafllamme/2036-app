@@ -205,8 +205,17 @@ export class Atmosphere {
     this.sunDirection.copy(this.direction)
     sky.dome.sunPosition.value.copy(this.sunDirection)
     // Turbid and unscattered: a cloudy sky is a bright even grey rather than a blue gradient.
-    sky.dome.turbidity.value = 3.4 + horizonWarmth * 6.5 + covered * 9
-    sky.dome.rayleigh.value = (1.5 + horizonWarmth * 1.7) * (1 - covered * 0.75)
+    /*
+     * Diese Kamera schaut fast nie nach oben.
+     *
+     * Sie steht über der Stadt und blickt flach darüber hinweg, also ist der sichtbare Himmel immer
+     * das **Horizontband** — und genau dort staut Preetham seine Trübung. Bei 3,4 + 9 unter
+     * geschlossener Decke lief das Band ins Weiße, der Verlauf verschwand und die Wolken, die das
+     * Modell wirklich rechnet, waren darin nicht mehr zu sehen. Weniger Trübung und mehr Rayleigh
+     * halten Farbe im Band, ohne dass ein bedeckter Tag aufhört, bedeckt zu sein.
+     */
+    sky.dome.turbidity.value = 2.6 + horizonWarmth * 4.5 + covered * 5.5
+    sky.dome.rayleigh.value = (2.2 + horizonWarmth * 1.7) * (1 - covered * 0.5)
     sky.dome.nightFade.value = THREE.MathUtils.smoothstep(arc, -0.3, -0.02)
 
     /*

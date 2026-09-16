@@ -628,3 +628,47 @@ in die Feldflur reicht und sechzehn Arten die Kachelzahl multiplizieren. Ergebni
 festgehalten und zweimal gefahren: **717 und 726 Bilder gegen vorher 598 bis 605**, also **+20 %**.
 Gezeichnete Dreiecke an derselben Stelle: **3,4 statt 5,5 Millionen**. Draws 300 statt 169 — und die
 kosten, wie gemessen, nichts.
+
+## Der teuerste Fehler lag nicht im Bild, sondern an der Maus
+
+Gemeldet wurde: beim **Ziehen** im Chrome 24 FPS. Der Messstand hat davon nie etwas gesehen — und
+das war kein Zufall, sondern ein Loch in der Methode: **die Messfahrt bewegt die Kamera und nie den
+Zeiger.** Was man nicht bewegt, misst man nicht.
+
+Nachgestellt, indem die Fahrt zusätzlich `pointermove` schickt:
+
+| | Bilder in 8 s | Median | längster |
+|---|---|---|---|
+| ohne Maus | 960 | 2,3 ms | 5,6 ms |
+| **mit Maus** | **413** | **17,5 ms** | 49,1 ms |
+
+Die Ursache stand in `picking.ts`. Jedes `pointermove` schoss einen Strahl gegen die Stadt — und die
+Stadt sind 36 zusammengelegte Kacheln mit zusammen **1,37 Millionen Dreiecken ohne
+Beschleunigungsstruktur**. `Raycaster.intersectObjects` prüft dort jedes einzelne Dreieck. Chrome
+liefert `pointermove` mit der Abtastrate der Maus: gewöhnlich 125-mal, bei einer Spielmaus bis
+1.000-mal je Sekunde. Beim Ziehen kommen sie ununterbrochen.
+
+Drei Änderungen, jede für sich begründet:
+
+1. **Beim gedrückten Knopf gar keine Probe.** Wer zieht, schwenkt die Kamera und zeigt auf nichts.
+2. **Höchstens eine Probe je Bild.** `pointermove` merkt nur die Position; der Strahl fliegt aus
+   `picker.update()` im Renderpfad. Ein Zeiger kann zwischen zwei Bildern nicht zweimal woanders
+   sein, also war jede weitere Probe ohnehin verworfen.
+3. **Kästen statt Dreiecke.** Jedes Haus bekommt beim Bau einen `Box3` aus dem Bereich, den es in
+   seiner Kachel belegt (`buildingBoxes`). Die Probe ist dann: Hüllkugel der Kachel, dann rund
+   zwölftausend Strahl-Kasten-Tests — zwei Größenordnungen billiger als 1,37 Millionen
+   Strahl-Dreieck-Tests. Ein Haus ist ein extrudierter Grundriss und füllt seinen Kasten fast aus;
+   der Fehler ist ein Pixel an der Dachkante.
+
+Punkt 1 und 2 allein brachten 413 auf … immer noch nur eine Probe, aber die kostete 15 ms. Erst mit
+den Kästen:
+
+| | Bilder in 8 s | Median | längster |
+|---|---|---|---|
+| ohne Maus | 958 | 2,2 ms | 6,1 ms |
+| **mit Maus** | **960** | **2,4 ms** | 6,0 ms |
+
+Die Maus zu bewegen kostet jetzt **0,2 ms** statt 15,2 — nicht mehr von Stillstand zu unterscheiden.
+
+`bench.flight(sekunden, faktor, true)` schickt seither immer Zeigerbewegungen mit. Ein Messstand, der
+eine ganze Eingabeart auslässt, misst zuverlässig das Falsche.

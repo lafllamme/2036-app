@@ -339,7 +339,7 @@ export class CityRenderer {
       bench: {
         reset: () => log.reset(),
         stats: () => log.stats(),
-        flight: (seconds = 14, scale?: number) => this.flight(seconds, scale),
+        flight: (seconds = 14, scale?: number, pointer = false) => this.flight(seconds, scale, pointer),
         layers: () => Object.fromEntries(Object.entries(this.benchLayers()).map(([name, parts]) => [name, this.weigh(parts)])),
         cost: (layer: string, seconds = 12, scale?: number) => this.cost(layer, seconds, scale),
       },
@@ -418,7 +418,7 @@ export class CityRenderer {
    * ist jede Optimierung unsichtbar. Erst über den Faktor hinaufgedreht, bis das Bild unter die
    * Wiederholrate fällt, wird wieder vergleichbar, was etwas kostet.
    */
-  private flight(seconds: number, scale?: number): Promise<FrameStats> {
+  private flight(seconds: number, scale?: number, pointer = false): Promise<FrameStats> {
     const log = this.bench
     if (!log)
       return Promise.resolve({ frames: 0, median: 0, p95: 0, p99: 0, longest: 0, long: 0, render: 0, update: 0 })
@@ -448,6 +448,24 @@ export class CityRenderer {
           return
         }
         // Ein voller Umlauf, und dazwischen einmal ganz herunter und wieder hinauf.
+        /*
+         * Optional die Maus mitbewegen, und das ist keine Spielerei.
+         *
+         * Die Fahrt allein bewegt die **Kamera** und nie den **Zeiger** — und genau dazwischen lag
+         * der teuerste Fehler, den dieses Projekt hatte: ein Strahl gegen 1,37 Millionen Dreiecke je
+         * Mausereignis, gemeldet als 24 FPS beim Ziehen, von jeder Messung hier strukturell
+         * übersprungen. Was man nicht bewegt, misst man nicht.
+         */
+        if (pointer) {
+          const box = this.canvas.getBoundingClientRect()
+          this.canvas.dispatchEvent(new PointerEvent('pointermove', {
+            bubbles: true,
+            pointerId: 1,
+            pointerType: 'mouse',
+            clientX: box.left + box.width * (0.5 + Math.cos(run * 37) * 0.3),
+            clientY: box.top + box.height * (0.5 + Math.sin(run * 23) * 0.3),
+          }))
+        }
         const bearing = run * Math.PI * 2
         const dive = Math.sin(run * Math.PI)
         this.rig.placeFor(
@@ -693,6 +711,8 @@ export class CityRenderer {
     }
 
     this.rig.update(now)
+    // Der Strahl unter dem Zeiger, einmal je Bild statt einmal je Mausereignis. Siehe `picking.ts`.
+    this.picker.update()
     this.sky.rig.position.copy(this.rig.camera.position)
     this.renderer.info.reset()
     const beforeRender = this.bench ? performance.now() : 0

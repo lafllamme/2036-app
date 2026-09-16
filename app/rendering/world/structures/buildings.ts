@@ -308,6 +308,16 @@ export interface CityBuildings {
   buildingRanges: Map<THREE.Mesh, { start: number, count: number }[]>
   /** Which building each triangle belongs to, so a ray hit can be turned back into a building. */
   buildingOfTriangle: Map<THREE.Mesh, Uint16Array>
+  /**
+   * Ein Kasten je Gebäude, damit ein Strahl nicht durch alle Dreiecke muss.
+   *
+   * Die Stadt liegt in 36 zusammengelegten Meshes mit zusammen 1,37 Millionen Dreiecken und ohne
+   * Beschleunigungsstruktur. Ein Strahl dagegen prüft jedes einzelne Dreieck — gemessen 15 ms, und
+   * die liefen bei jeder Mausbewegung. Gegen zwölftausend Kästen zu prüfen ist zwei Größenordnungen
+   * billiger, und für ein Überfahren reicht der Kasten: ein Haus ist ein extrudierter Grundriss und
+   * füllt seinen Kasten fast aus.
+   */
+  buildingBoxes: Map<THREE.Mesh, THREE.Box3[]>
   buildingColors: Map<THREE.Mesh, THREE.Color[]>
   /** The two materials the whole city is drawn with: its walls and its roofs. */
   buildingMaterials: THREE.MeshStandardMaterial[]
@@ -410,6 +420,7 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
   const buildingRecords = new Map<THREE.Mesh, BuildingRecord[]>()
   const buildingRanges = new Map<THREE.Mesh, { start: number, count: number }[]>()
   const buildingOfTriangle = new Map<THREE.Mesh, Uint16Array>()
+  const buildingBoxes = new Map<THREE.Mesh, THREE.Box3[]>()
   const buildingColors = new Map<THREE.Mesh, THREE.Color[]>()
 
   for (const tile of tiles) {
@@ -436,9 +447,26 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
     buildingRanges.set(mesh, tile.ranges)
     buildingColors.set(mesh, tile.colours)
     buildingOfTriangle.set(mesh, triangleOwners(tile))
+    buildingBoxes.set(mesh, boxesOf(geometry, tile.ranges))
   }
 
-  return { buildingMeshes, buildingRecords, buildingRanges, buildingOfTriangle, buildingColors, buildingMaterials: [wallMaterial, roofMaterial] }
+  return { buildingMeshes, buildingRecords, buildingRanges, buildingOfTriangle, buildingBoxes, buildingColors, buildingMaterials: [wallMaterial, roofMaterial] }
+}
+
+/** Je Gebäude der Kasten um seine Ecken, aus dem Bereich, den es in der Kachel belegt. */
+function boxesOf(geometry: THREE.BufferGeometry, ranges: { start: number, count: number }[]): THREE.Box3[] {
+  const position = geometry.getAttribute('position')
+  const index = geometry.getIndex()
+  const point = new THREE.Vector3()
+
+  return ranges.map((range) => {
+    const box = new THREE.Box3()
+    for (let at = range.start; at < range.start + range.count; at += 1) {
+      const vertex = index ? index.getX(at) : at
+      box.expandByPoint(point.fromBufferAttribute(position, vertex))
+    }
+    return box
+  })
 }
 
 /**

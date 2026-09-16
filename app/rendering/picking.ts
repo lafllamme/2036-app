@@ -17,6 +17,9 @@ import { peopleMeshes, personAt } from './world/traffic/agents'
  * a right click flies the camera to it.
  */
 
+/** Wohin `intersectBox` seinen Treffer schreibt. Ein Vektor je Probe wäre ein Vektor je Probe. */
+const SCRATCH = /* @__PURE__ */ new THREE.Vector3()
+
 const HOVER = /* @__PURE__ */ new THREE.Color('#f0c65a')
 /** How far the pointer may travel between press and release and still count as a click, in pixels. */
 const DRAG_SLOP = 5
@@ -49,6 +52,8 @@ export class BuildingPicker {
   /** Whoever is lit up, and the colour they were before. */
   private marked: { mesh: THREE.InstancedMesh, instance: number, own: THREE.Color } | null = null
   private pressed: { x: number, y: number, button: number } | null = null
+  /** Wo der Zeiger zuletzt stand, solange noch kein Bild ihn ausgewertet hat. */
+  private wanted: { x: number, y: number } | null = null
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -81,10 +86,44 @@ export class BuildingPicker {
     return undefined
   }
 
+  /**
+   * Die Maus bewegt sich — gerechnet wird deswegen noch nichts.
+   *
+   * Hier stand der teuerste Code des ganzen Spiels, und er lief an der schlechtesten Stelle. Jeder
+   * `pointermove` schoss einen Strahl gegen die Stadt, und die Stadt sind 36 zusammengelegte Meshes
+   * mit **1,37 Millionen Dreiecken** ohne Beschleunigungsstruktur — also 1,37 Millionen
+   * Dreiecksproben je Ereignis. Chrome liefert `pointermove` mit der Abtastrate der Maus, bei einer
+   * gewöhnlichen 125-mal und bei einer Spielmaus bis zu 1.000-mal je Sekunde.
+   *
+   * Beim **Ziehen** ist das am schlimmsten: da kommen die Ereignisse ununterbrochen, und gemeldet
+   * waren 24 FPS. Meine eigene Messfahrt hat das nie gesehen, weil sie die Kamera bewegt und nie die
+   * Maus — ein Messfehler, der genau diesen Fall strukturell übersprungen hat.
+   *
+   * Zwei Regeln jetzt. Beim gedrückten Knopf wird **gar nicht** geprüft: wer zieht, schwenkt die
+   * Kamera und zeigt auf nichts. Und sonst wird die Position nur gemerkt; der Strahl fliegt einmal
+   * je Bild aus `update()`. Ein Zeiger kann sich zwischen zwei Bildern nicht zweimal woandershin
+   * bewegen, also war jede Probe darüber hinaus ohnehin verworfen.
+   */
   private readonly handlePointerMove = (event: PointerEvent): void => {
+    if (this.pressed) {
+      this.wanted = null
+      return
+    }
     const rect = this.canvas.getBoundingClientRect()
-    this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1
-    this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+    this.wanted = {
+      x: ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      y: -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    }
+  }
+
+  /** Einmal je Bild: der Strahl, den `handlePointerMove` nur vorgemerkt hat. */
+  update(): void {
+    const wanted = this.wanted
+    if (!wanted)
+      return
+    this.wanted = null
+    this.pointer.x = wanted.x
+    this.pointer.y = wanted.y
     this.raycaster.setFromCamera(this.pointer, this.camera)
     /*
      * People first, and only then buildings.
@@ -115,11 +154,7 @@ export class BuildingPicker {
      * instance. The lookup from triangle to building is built once when the tile is; walking twelve
      * thousand ranges per pointer move would be the only expensive thing in the frame.
      */
-    const hit = this.raycaster.intersectObjects(this.buildings.buildingMeshes, false)[0]
-    const owners = hit?.object instanceof THREE.Mesh ? this.buildings.buildingOfTriangle.get(hit.object) : undefined
-    const next = hit?.object instanceof THREE.Mesh && owners && typeof hit.faceIndex === 'number'
-      ? { mesh: hit.object, index: owners[hit.faceIndex] ?? 0 }
-      : null
+    const next = this.buildingUnder()
     if (this.hovered && next && this.hovered.mesh === next.mesh && this.hovered.index === next.index)
       return
 
@@ -128,6 +163,42 @@ export class BuildingPicker {
     if (next)
       paint(this.buildings, next.mesh, next.index, HOVER)
     this.canvas.style.cursor = next ? 'pointer' : 'grab'
+  }
+
+  /**
+   * Welches Haus unter dem Zeiger liegt — über Kästen, nicht über Dreiecke.
+   *
+   * `intersectObjects` gegen die Stadt prüft jedes der 1,37 Millionen Dreiecke, weil die Kacheln
+   * keine Beschleunigungsstruktur haben; gemessen hat das **15 ms** gekostet, bei einem Bild von
+   * 2,3 ms Median. Jedes Haus hat aber einen Kasten, der beim Bau ohnehin entsteht, und ein Haus ist
+   * ein extrudierter Grundriss — es füllt seinen Kasten fast aus. Zwölftausend Kästen statt 1,37
+   * Millionen Dreiecke, und der Fehler dabei ist ein Pixel am Dachrand.
+   *
+   * Die Hüllkugel der Kachel zuerst, damit die Kacheln hinter der Kamera nichts kosten.
+   */
+  private buildingUnder(): { mesh: THREE.Mesh, index: number } | null {
+    let best: { mesh: THREE.Mesh, index: number } | null = null
+    let nearest = Number.POSITIVE_INFINITY
+
+    for (const mesh of this.buildings.buildingMeshes) {
+      const sphere = mesh.geometry.boundingSphere
+      if (sphere && !this.raycaster.ray.intersectsSphere(sphere))
+        continue
+      const boxes = this.buildings.buildingBoxes.get(mesh)
+      if (!boxes)
+        continue
+      for (let index = 0; index < boxes.length; index += 1) {
+        const box = boxes[index]!
+        if (!this.raycaster.ray.intersectBox(box, SCRATCH))
+          continue
+        const away = this.raycaster.ray.origin.distanceToSquared(SCRATCH)
+        if (away >= nearest)
+          continue
+        nearest = away
+        best = { mesh, index }
+      }
+    }
+    return best
   }
 
   private readonly handlePointerLeave = (): void => {
@@ -169,6 +240,8 @@ export class BuildingPicker {
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
     this.pressed = { x: event.clientX, y: event.clientY, button: event.button }
+    // Was beim Drücken noch vorgemerkt war, ist mit dem Ziehen hinfällig.
+    this.wanted = null
   }
 
   private readonly handlePointerUp = (event: PointerEvent): void => {

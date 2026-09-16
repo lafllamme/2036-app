@@ -13,6 +13,7 @@ import { useCityMixer } from '../audio/mixer'
 import { debugFlags } from '../core/debug'
 import { CALM } from '../core/weather'
 import { CameraRig } from './cameraRig'
+import { WalkAbout } from './firstPerson'
 import { FrameLog } from './frameLog'
 import { BuildingPicker } from './picking'
 import { Atmosphere } from './sky/atmosphere'
@@ -168,6 +169,8 @@ export class CityRenderer {
   private readonly atmosphere: Atmosphere
   private readonly city: CityState
   private readonly picker: BuildingPicker
+  /** Zu Fuß durch die Stadt. Siehe `firstPerson.ts`. */
+  private readonly walk: WalkAbout
   private readonly timer = new THREE.Timer()
   private readonly resizeObserver: ResizeObserver
   private readonly onStats: CityRendererOptions['onStats']
@@ -235,6 +238,7 @@ export class CityRenderer {
       streetLights: this.world.streetLights,
     })
     this.city = new CityState(options.blueprint, this.world)
+    this.walk = new WalkAbout(this.canvas, this.rig.camera, options.blueprint.relief, this.world)
     this.picker = new BuildingPicker(this.canvas, this.rig.camera, this.world, this.world.agents, {
       onSelected: options.onBuildingSelected,
       onFocus: building => this.rig.focusOn(building),
@@ -610,7 +614,26 @@ export class CityRenderer {
     }
   }
 
+  /**
+   * Den Begehen-Modus ein- oder ausschalten.
+   *
+   * Hinein geht es dorthin, wo die Karte gerade **hinsieht**, nicht dorthin, wo die Kamera steht —
+   * sonst stünde man achthundert Meter schräg über der Stadt in der Luft.
+   */
+  setWalking(walking: boolean): void {
+    if (walking === this.walk.state.active)
+      return
+    if (walking) {
+      this.walk.enter(this.rig.controls.target)
+      this.rig.handOver(true, null)
+      return
+    }
+    const back = this.walk.leave()
+    this.rig.handOver(false, back)
+  }
+
   dispose(): void {
+    this.walk.dispose()
     this.renderer.setAnimationLoop(null)
     this.resizeObserver.disconnect()
     this.picker.dispose()
@@ -763,9 +786,11 @@ export class CityRenderer {
       this.slowClock = 0
     }
 
+    this.walk.update(delta)
     this.rig.update(now)
     // Der Strahl unter dem Zeiger, einmal je Bild statt einmal je Mausereignis. Siehe `picking.ts`.
-    this.picker.update()
+    if (!this.walk.state.active)
+      this.picker.update()
     this.sky.rig.position.copy(this.rig.camera.position)
     this.renderer.info.reset()
     const beforeRender = this.bench ? performance.now() : 0

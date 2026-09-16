@@ -36,6 +36,7 @@ const {
   railOpen,
   decisionsOpen,
   saveStatus,
+  walking,
 } = storeToRefs(game)
 
 const party = computed(() => selectedPartyId.value ? getParty(selectedPartyId.value) : null)
@@ -186,6 +187,29 @@ const saved = computed(() => saveStatus.value.startsWith('Gespeichert'))
  * Beide Schubladen geben Laut, weil sie etwas auf- und zumachen — dieselben zwei Klänge, die das
  * Lagebild schon hatte, als es sich noch selbst ein- und ausklappte.
  */
+/**
+ * Hinein ins Begehen und wieder heraus.
+ *
+ * Derselbe Klang wie beim Öffnen einer Schublade: es ist dieselbe Art von Handlung — eine andere
+ * Sicht auf dieselbe Stadt, kein Eingriff in sie.
+ */
+function toggleWalking(): void {
+  game.walking = !walking.value
+  sound.play(game.walking ? 'hud.railExpanded' : 'hud.railCollapsed')
+  /*
+   * Wer die Stadt begeht, will sie sehen.
+   *
+   * Aus der Karte heraus sind die beiden Schubladen ein Drittel des Bildes über einer Stadt, die man
+   * ohnehin von oben überblickt. Auf Augenhöhe stehen sie vor der Straße, in die man gerade
+   * hineingelaufen ist. Sie gehen zu und beim Verlassen nicht von selbst wieder auf — was jemand
+   * zugemacht hat, macht das Spiel nicht hinter seinem Rücken wieder auf.
+   */
+  if (game.walking) {
+    game.railOpen = false
+    game.decisionsOpen = false
+  }
+}
+
 function toggleRail(): void {
   game.railOpen = !railOpen.value
   sound.play(game.railOpen ? 'hud.railExpanded' : 'hud.railCollapsed')
@@ -317,6 +341,27 @@ function toggleDecisions(): void {
         @click="game.skipToEvent"
       >
         {{ advanceLabel }}
+      </button>
+
+      <!--
+        Zu Fuß durch die Stadt.
+
+        Steht bei der Gesamtansicht und nicht bei den Schubladen, weil es dasselbe ist wie sie: eine
+        Art, die Stadt anzusehen. Was gebaut wurde — Türen, Treppen, Markisen — ist aus der Karte
+        bestenfalls ein Pixel und auf Augenhöhe ein Ort.
+      -->
+      <button
+        type="button"
+        class="round"
+        :class="{ 'is-on': walking }"
+        :aria-pressed="walking"
+        :aria-label="walking ? 'Begehen beenden' : 'Stadt begehen'"
+        :title="walking ? 'Begehen beenden' : 'Stadt begehen · WASD gehen, Maus schauen'"
+        @click="toggleWalking"
+      >
+        <svg viewBox="0 0 24 24" class="icon" aria-hidden="true">
+          <circle cx="13" cy="4" r="2" /><path d="M11 21l1.5-6-3-2.5V8l4-1.5 3 3 3 1M9.5 21l2-4.5" />
+        </svg>
       </button>
 
       <span class="divider" />

@@ -7,7 +7,7 @@ import { loadCityBlueprint } from '~/world/cityData'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const game = useGameStore()
-const { snapshot, daylight, weather, experienceStage, overviewRequest, focusRequest } = storeToRefs(game)
+const { snapshot, daylight, weather, experienceStage, overviewRequest, focusRequest, walking } = storeToRefs(game)
 let cityRenderer: CityRenderer | null = null
 
 const MENU_FRAME_CAP = 30
@@ -67,6 +67,8 @@ watch(experienceStage, (stage) => {
 
 // Taking the player back to the whole city. The store only asks; the camera lives here.
 watch(overviewRequest, () => cityRenderer?.showOverview())
+// Zu Fuß oder über der Stadt. Siehe `rendering/firstPerson.ts`.
+watch(walking, on => cityRenderer?.setWalking(on))
 
 // And taking them to a place they asked to see — an incident read off the news bar.
 watch(focusRequest, (request) => {

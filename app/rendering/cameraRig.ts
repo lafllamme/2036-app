@@ -147,7 +147,28 @@ export class CameraRig {
     this.controls.update()
   }
 
+  /**
+   * Die Kamera abgeben oder zurücknehmen.
+   *
+   * Zwei Steuerungen auf derselben Kamera streiten sich jeden Frame, also wird umgeschaltet statt
+   * ergänzt: wer zu Fuß geht, bekommt `MapControls` ausgeschaltet, und beim Zurückkommen wird der
+   * Blick wiederhergestellt, aus dem man gekommen ist.
+   */
+  handOver(walking: boolean, returnTo: THREE.Vector3 | null): void {
+    this.controls.enabled = !walking
+    if (walking) {
+      this.tween = null
+      return
+    }
+    if (returnTo)
+      this.controls.target.copy(returnTo)
+    this.controls.update()
+  }
+
   update(now: number): void {
+    // Wer zu Fuß unterwegs ist, führt seine Kamera selbst. Siehe `firstPerson.ts`.
+    if (!this.controls.enabled)
+      return
     if (this.tween) {
       const raw = Math.min(1, (now - this.tween.started) / (FOCUS_DURATION * 1_000))
       const eased = 1 - (1 - raw) ** 3

@@ -159,6 +159,15 @@ export const useGameStore = defineStore('game', () => {
    * player is meant to be looking at. Both fold to their headers now, and the decisions panel starts
    * folded when there is nothing to decide, so the screen is only as full as the month is busy.
    */
+  /**
+   * Zu Fuß in der Stadt statt über ihr.
+   *
+   * Nur ein Schalter: was er bewirkt, steht in `rendering/firstPerson.ts`. Der Store weiß davon
+   * nichts weiter, weil es eine Kamerasache ist und keine Spielregel — die Stadt läuft weiter,
+   * während jemand darin herumläuft.
+   */
+  const walking = ref(false)
+
   const railOpen = ref(true)
   const decisionsOpen = ref(true)
 
@@ -804,6 +813,7 @@ export const useGameStore = defineStore('game', () => {
     focusRequest,
     focusOnPlace,
     railOpen,
+    walking,
     decisionsOpen,
     ready,
     error,

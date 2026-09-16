@@ -323,6 +323,49 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
  * bleibt, zieht ins Graubraune. Nur abzudunkeln ließ ein verwahrlostes Haus wie ein beschattetes
  * aussehen.
  */
+/**
+ * Die Häuser, die aus der Reihe tanzen.
+ *
+ * Eine deutsche Stadt ist gedämpft, aber sie ist nicht einfarbig: zwischen dem Putz stehen die
+ * sanierten Blöcke in kräftigem Rot, Grün oder Blau, die Achtziger in Türkis, ein Kindergarten in
+ * Gelb, eine Werbeagentur in Anthrazit mit oranger Brüstung. Ohne die liest sich jede Palette, so
+ * breit sie auch ist, als Rauschen um einen Mittelwert.
+ *
+ * Dosiert wie in Wirklichkeit: etwa jedes achte Haus, und in der Vorstadt seltener als am Hafen, wo
+ * Hallen sowieso in Firmenfarben stehen. Punktzeichen, kein Konfetti.
+ */
+const ACCENTS = [
+  '#a8443a', // Klinkerrot, aber als Anstrich
+  '#8f3f36',
+  '#c2683f', // Terracotta
+  '#4f6f56', // Flaschengrün
+  '#6e8a5e', // Lindgrün
+  '#3f5f72', // Preußischblau
+  '#5b7f94', // Taubenblau
+  '#d9a441', // Ockergelb
+  '#c7a86b',
+  '#8a6f9c', // Flieder, selten und meistens achtziger Jahre
+  '#3a3f43', // Anthrazit
+  '#7a9aa0', // Türkis
+]
+
+const ACCENT_SHARE: Partial<Record<BuildingType, number>> = {
+  altbau: 0.14,
+  residential: 0.13,
+  modern: 0.16,
+  commercial: 0.12,
+  industrial: 0.2,
+  civic: 0.1,
+}
+
+function accent(building: BuildingRecord, rng: { next: () => number }): THREE.Color | null {
+  const share = ACCENT_SHARE[building.type] ?? 0
+  return rng.next() < share ? new THREE.Color(ACCENTS[Math.floor(rng.next() * ACCENTS.length)]!) : null
+}
+
+/** Wohin eine Fassade zieht, wenn die Sonne jahrelang darauf steht. */
+const SUN_BLEACH = /* @__PURE__ */ new THREE.Color('#f2ece0')
+
 function weathered(base: THREE.Color, condition: number): THREE.Color {
   const colour = base.clone()
   const hsl = { h: 0, s: 0, l: 0 }
@@ -381,7 +424,20 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
    * bei `condition` 0,3 steht dreißig Prozent dunkler und halb so satt wie dasselbe Haus in Ordnung.
    */
   const keep = building.condition
-  const wall = weathered(pick(WALL_COLOURS[building.type], rng), keep)
+  const base = accent(building, rng) ?? pick(WALL_COLOURS[building.type], rng)
+  const wall = weathered(base, keep)
+  /*
+   * Der Verlauf über die Höhe.
+   *
+   * Ein Haus war **eine** Farbe, von der Sohlbank bis zur Traufe — und nichts sieht so sehr nach
+   * Computer aus wie eine gleichmäßig eingefärbte Box. Eine echte Fassade ist unten dunkler: Spritz-
+   * wasser, Reifenabrieb, Abgase, und im Erdgeschoss oft ein anderer Sockelputz. Oben bleicht die
+   * Sonne sie aus. Das kostet keinen Draw und kein Dreieck — der Quader hat unten und oben eigene
+   * Ecken, und die Wandfarbe war immer schon eine Vertex-Farbe.
+   */
+  const soiling = (1 - keep) * 0.5 + 0.1
+  const wallFoot = wall.clone().multiplyScalar(1 - soiling * 0.34)
+  const wallHead = wall.clone().lerp(SUN_BLEACH, 0.05 + (1 - keep) * 0.12)
   const plinth = wall.clone().multiplyScalar(PLINTH_SHADE)
   const roof = pick(ROOF_COLOURS[building.type], rng)
   tile.records.push(building)
@@ -441,10 +497,10 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
 
     // And the wall above it, one storey of façade per storey of building, starting at the floor.
     const vertex = tile.position.length / 3
-    push(tile, ax, floor, az, nx, nz, u0, 0, wall)
-    push(tile, bx, floor, bz, nx, nz, u1, 0, wall)
-    push(tile, bx, wallTop, bz, nx, nz, u1, vTop, wall)
-    push(tile, ax, wallTop, az, nx, nz, u0, vTop, wall)
+    push(tile, ax, floor, az, nx, nz, u0, 0, wallFoot)
+    push(tile, bx, floor, bz, nx, nz, u1, 0, wallFoot)
+    push(tile, bx, wallTop, bz, nx, nz, u1, vTop, wallHead)
+    push(tile, ax, wallTop, az, nx, nz, u0, vTop, wallHead)
     tile.wallIndex.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2)
   }
 

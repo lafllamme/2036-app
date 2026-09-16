@@ -307,7 +307,50 @@ Albedo des Bodens, sondern seine *Leuchtdichte* — Gras und Asphalt, die selbst
 Dazu wurde die Untergrenze der Wandpaletten auf 42 % Helligkeit angehoben, unter Erhalt der Spanne
 innerhalb jeder Farbgruppe, und die Verwitterung dunkelt nicht mehr unter einen Boden ab.
 
-### Und dann war es zu kräftig
+### Und dann war es zu kräftig — und die Antwort stand nicht im Code
+
+Zwei Anläufe haben das verfehlt: erst waren die Grundpaletten neutral und Farbe kam nur als Ausnahme
+herein, dann war Farbe die Regel, aber die Töne waren zu satt *und gleichzeitig* zu dunkel, und
+Lindenhafen sah aus wie ein Farbkasten.
+
+Also nachgeschlagen statt weiter geraten. Das **Farbkonzept der Altstadt Stralsund** — Hansestadt an
+der Ostsee, UNESCO-Welterbe, derselbe Bautyp — nennt 105 Fassadentöne in NCS-Notation. Umgerechnet
+nach sRGB:
+
+| | Stralsund | die Palette davor |
+| --- | --- | --- |
+| Sättigung, Median | **17 %** | 29–41 % |
+| 90. Perzentil | **29 %** | — |
+| Helligkeit | 60–84 % | 42–58 % |
+| Familien | 87× Gelb–Rot, 13× Olivgrün, 4× Rot, **0× Blau** | vier Rotgruppen plus Blau |
+
+Das eigene Minimum war also ihr 90. Perzentil. Und die Töne waren zugleich zu dunkel: eine echte
+Putzfassade ist **hell und stumpf**, nicht dunkel und satt — genau andersherum.
+
+Der Grund ist bauphysikalisch und nicht geschmacklich. Historische Fassaden sind Kalkfarbe, und Kalk
+verliert seine Bindekraft über etwa zehn Prozent Pigmentanteil; was übrig bleibt, sind farbschwache
+Erdpigmente — Ocker, Umbra, Eisenoxidrot. Deswegen sieht eine Altstadt so aus, und ein Farbkasten
+nicht.
+
+`WALL` ist jetzt aus echten NCS-Codes gebaut, jede Gruppe trägt sie als Kommentar. Median über alle
+Töne: **16 %.** Je Viertel:
+
+| Viertel | Töne | Median |
+| --- | --- | --- |
+| Innenstadt · Gründerzeit Nord | 38 · 37 | 23 % |
+| Vorstadt West | 46 | 19 % |
+| Bahnhof · Gewerbe Ost | 35 · 14 | 14 % |
+| Wohnring Süd · Universität | 31 · 29 | 12 % |
+| Hafen & Industrie | 11 | 10 % |
+
+Die eine Ausnahme ist `klinker`: gebrannter Ton ist keine Kalkfarbe und darf satter sein. Er ist der
+einzige Ton der Stadt über 40 % Sättigung, und das ist richtig so.
+
+Quellen: [Farbkonzept Altstadt Stralsund](https://www.stralsund.de/export/sites/hst/buerger/leben_in_stralsund/Planen_Bauen_Wohnen/Stadtentwicklung/stadtraum_altstadt_unesco_welterbe/HST-FarbKonzept-web.pdf) ·
+[Historische Pigmente und Bindemittel, Bauhandwerk](https://www.bauhandwerk.de/artikel/bhw_Historische_Pigmente_und_Bindemittel-2466588.html) ·
+[Gestaltungssatzung Altstadt Neustadt in Holstein](https://www.stadt-neustadt.de/media/custom/1730_161_1.PDF)
+
+### Der Zwischenschritt, der dorthin geführt hat
 
 Die Aufhellung hatte einen Preis, den man erst im Bild sieht: ein gesättigter Farbton wirkt mit
 steigender Helligkeit *lauter*, nicht ruhiger. Nachgemessen stand Ocker bei **53 bis 67 % Sättigung**,

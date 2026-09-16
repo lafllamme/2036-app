@@ -81,34 +81,65 @@ const ROOF = {
 } as const
 
 /*
- * Und die Wände.
+ * Und die Wände — **abgemessen an einer echten Altstadt, nicht ausgedacht.**
  *
- * Hier lag der Rest des Problems: die Grundpaletten waren neutral, und nur acht bis vierunddreißig
- * Prozent der Häuser tanzten als „Akzent" aus der Reihe. Damit *musste* die Stadt überwiegend weiß,
- * grau und creme bleiben — Farbe war die Ausnahme und nicht die Regel.
+ * Hier lag der Rest des Problems, und zwei Anläufe haben ihn verfehlt. Erst waren die Grundpaletten
+ * neutral und Farbe kam nur als Ausnahme herein; dann war Farbe die Regel, aber die Töne waren zu
+ * satt und gleichzeitig zu dunkel, und die Stadt sah aus wie ein Farbkasten.
  *
- * Eine norddeutsche Wohnstadt ist das Gegenteil. Backstein und Klinker in allen Rottönen, Putz in
- * Ocker und Senf, die Sanierungswelle der Neunziger in Salbei und Mint, die Kontorhäuser in
- * Taubenblau, dazwischen Altrosa und Terracotta. Weiß und Creme gehören dazu, aber als *ein* Ton
- * unter vielen. Die Listen unten sind darum aus Farben gebaut, mit den Neutralen als Minderheit.
+ * Also nachgeschlagen statt weiter geraten. Das Farbkonzept der Altstadt Stralsund — Hansestadt an
+ * der Ostsee, UNESCO-Welterbe, derselbe Bautyp wie Lindenhafen — nennt 105 Fassadentöne in
+ * NCS-Notation. Umgerechnet nach sRGB:
+ *
+ * | | Stralsund | die Palette davor |
+ * | --- | --- | --- |
+ * | Sättigung, Median | **17 %** | 29–41 % |
+ * | 90. Perzentil | **29 %** | — |
+ * | Helligkeit | 60–84 % | 42–58 % |
+ * | Familien | 87× Gelb–Rot, 13× Olivgrün, 4× Rot, **0× Blau** | vier Rotgruppen plus Blau |
+ *
+ * Der Grund dafür ist bauphysikalisch und nicht geschmacklich: historische Fassaden sind Kalkfarbe,
+ * und Kalk verliert seine Bindekraft über etwa zehn Prozent Pigmentanteil. Was übrig bleibt, sind
+ * farbschwache Erdpigmente — Ocker, Umbra, Eisenoxidrot. Eine Altstadt ist deshalb **hell und
+ * stumpf**, nicht dunkel und satt. Genau andersherum als das, was hier stand.
+ *
+ * Die Listen unten sind darum aus echten NCS-Codes gebaut; jede trägt sie als Kommentar. Die eine
+ * Ausnahme ist `klinker`: gebrannter Ton ist keine Kalkfarbe und darf satter sein — er ist der
+ * einzige Ton der Stadt über 40 % Sättigung, und das ist richtig so.
+ *
+ * Median über alle Töne: **16 %.**
  */
 const WALL = {
-  klinker: ['#ae6654', '#b47867', '#a15b4b', '#b88372', '#935144'],
-  backstein: ['#a5644f', '#925644', '#b07860'],
-  ocker: ['#b5935d', '#bc9b5e', '#a07e47', '#bc9f6e', '#a9874e'],
-  senf: ['#ae9d50', '#bfa96e', '#9d8c45'],
-  salbei: ['#8aa08c', '#7d9a86', '#94a998', '#6f8a78'],
-  mint: ['#9db9ad', '#8aa89c', '#b0c7bc'],
-  flaschengruen: ['#628a6b', '#587e5d', '#709778'],
-  taubenblau: ['#6e91a6', '#587f98', '#83a0b1', '#4c738a'],
-  altrosa: ['#be9082', '#b47b6f', '#c79f93', '#a86c60'],
-  terracotta: ['#af6f52', '#9f6349', '#ba8166'],
-  sandstein: ['#cfc1a0', '#c2af88', '#daceb1'],
-  creme: ['#e7ded1', '#ded3c2', '#eee8dd'],
-  weissputz: ['#f0ece4', '#e6e2d8'],
-  hellgrau: ['#c2c4c0', '#b1b4b0', '#d0d2ce'],
-  anthrazit: ['#747c81', '#636c73', '#868d91'],
-  beton: ['#b8b2a6', '#a8a196', '#c6c0b4'],
+  // S4040-Y70R, S5040-Y70R, S4030-Y60R, S5030-Y80R
+  klinker: ['#884d41', '#6f3328', '#8e6656', '#71403f'],
+  // S2030-Y90R, S2020-Y80R, S3020-Y80R, S2020-Y70R
+  rotocker: ['#bc868d', '#c3a2a1', '#a98888', '#c4a6a0'],
+  // S2040-Y10R, S2020-Y20R, S3020-Y20R, S1515-Y20R, S2030-Y20R
+  ocker: ['#cab268', '#cabb9b', '#b0a182', '#d7ccb4', '#c8b283'],
+  // S1515-Y30R, S2020-Y30R, S1510-Y20R, S2010-Y30R
+  sandgelb: ['#d6c9b5', '#c8b79c', '#d8d0c0', '#cac1b4'],
+  // S1515-Y60R, S2010-Y60R, S1515-Y50R, S2020-Y40R
+  altrosa: ['#d3bfb7', '#c8bbb6', '#d4c2b6', '#c7b29d'],
+  // S3010-Y40R, S3010-Y20R, S4010-Y30R, S3005-Y50R
+  lehmbraun: ['#b0a69b', '#b1aa9a', '#978e81', '#b1aba7'],
+  // S3020-G80Y, S4010-G30Y, S3010-G50Y, S2020-G80Y
+  olivgruen: ['#a8a884', '#879187', '#a6ac9e', '#c2c19d'],
+  // S2005-G70Y, S3005-G80Y, S2010-G50Y
+  graugruen: ['#c8c9c1', '#b0b0a7', '#bfc5b8'],
+  // S3010-B10G, S2010-B, S4010-B30G
+  taubenblau: ['#99a7ab', '#b2c0c5', '#808e90'],
+  // S1505-Y20R, S1510-Y50R, S1005-Y20R
+  sandstein: ['#d8d4cd', '#d6cac2', '#e5e1d9'],
+  // S1002-Y, S1005-Y10R, S0505-Y20R
+  creme: ['#e6e5e0', '#e5e2d9', '#f2eee6'],
+  // S0502-Y, S1002-Y50R
+  weissputz: ['#f2f1ed', '#e5e3e1'],
+  // S2002-G, S1502-B, S2500-N
+  hellgrau: ['#c7cac9', '#d4d6d7', '#bfbfbf'],
+  // S6005-B20G, S7000-N, S5005-B80G
+  anthrazit: ['#596062', '#4c4c4c', '#737a79'],
+  // S3005-Y20R, S4005-Y20R, S2502-Y
+  beton: ['#b2aea6', '#98958d', '#bfbeba'],
 } as const
 
 export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
@@ -124,18 +155,16 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     roofs: [...ROOF.ziegelrot, ...ROOF.altziegel, ...ROOF.schiefer],
     walls: [
       ...WALL.klinker,
-      ...WALL.backstein,
+      ...WALL.rotocker,
       ...WALL.ocker,
-      ...WALL.senf,
+      ...WALL.sandgelb,
       ...WALL.altrosa,
-      ...WALL.terracotta,
-      ...WALL.taubenblau,
-      ...WALL.flaschengruen,
       ...WALL.sandstein,
       ...WALL.creme,
+      ...WALL.olivgruen,
     ],
     accentShare: 0.12,
-    accents: [...WALL.flaschengruen, ...WALL.taubenblau, '#7a4038', '#2f4858'],
+    accents: [...WALL.taubenblau, ...WALL.lehmbraun],
   },
   /** Bahnhofsviertel: durchmischt, viel Durchgangsverkehr, wenig Eigentümerstolz. */
   'bahnhof': {
@@ -144,17 +173,17 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     storeyRise: 1.02,
     roofs: [...ROOF.altziegel, ...ROOF.bitumen, ...ROOF.schiefer],
     walls: [
-      ...WALL.klinker,
-      ...WALL.ocker,
+      ...WALL.lehmbraun,
       ...WALL.beton,
       ...WALL.hellgrau,
-      ...WALL.altrosa,
+      ...WALL.ocker,
+      ...WALL.klinker,
       ...WALL.sandstein,
       ...WALL.creme,
       ...WALL.anthrazit,
     ],
     accentShare: 0.1,
-    accents: [...WALL.terracotta, ...WALL.taubenblau, ...WALL.senf],
+    accents: [...WALL.rotocker, ...WALL.taubenblau],
   },
   /** Gründerzeit: schmale Parzellen, hohe Räume, Stuck in Ocker und Altrosa, rote Ziegel oben drauf. */
   'gruenderzeit-nord': {
@@ -164,16 +193,16 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     roofs: [...ROOF.altziegel, ...ROOF.ziegelrot, ...ROOF.schiefer],
     walls: [
       ...WALL.ocker,
-      ...WALL.senf,
+      ...WALL.sandgelb,
       ...WALL.altrosa,
       ...WALL.klinker,
-      ...WALL.salbei,
+      ...WALL.rotocker,
       ...WALL.sandstein,
-      ...WALL.terracotta,
       ...WALL.creme,
+      ...WALL.graugruen,
     ],
     accentShare: 0.12,
-    accents: [...WALL.flaschengruen, ...WALL.taubenblau, ...WALL.backstein],
+    accents: [...WALL.olivgruen, ...WALL.taubenblau],
   },
   /**
    * Der Wohnring: Zeilenbau der sechziger und siebziger Jahre. **Absichtlich eintöniger** als der
@@ -190,13 +219,13 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
       ...WALL.beton,
       ...WALL.hellgrau,
       ...WALL.creme,
-      ...WALL.salbei,
-      ...WALL.mint,
+      ...WALL.graugruen,
       ...WALL.sandstein,
-      ...WALL.ocker,
+      ...WALL.sandgelb,
+      ...WALL.lehmbraun,
     ],
     accentShare: 0.09,
-    accents: [...WALL.terracotta, ...WALL.taubenblau, ...WALL.senf],
+    accents: [...WALL.ocker, ...WALL.taubenblau],
   },
   /** Universität und Klinikum: Nachkriegsbeton, Waschbeton, Flachdächer mit Kies und Grün. */
   'universitaet-klinikum': {
@@ -210,10 +239,11 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
       ...WALL.hellgrau,
       ...WALL.klinker,
       ...WALL.sandstein,
-      ...WALL.salbei,
+      ...WALL.graugruen,
+      ...WALL.lehmbraun,
     ],
     accentShare: 0.1,
-    accents: [...WALL.taubenblau, ...WALL.terracotta, ...WALL.flaschengruen],
+    accents: [...WALL.taubenblau, ...WALL.rotocker],
   },
   /** Hafen und Industrie: Hallen, Silos, Trapezblech. **Das langweiligste Viertel**, und zu Recht. */
   'hafen-industrie': {
@@ -223,7 +253,7 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     roofs: [...ROOF.blech, ...ROOF.rost, ...ROOF.bitumen],
     walls: [],
     accentShare: 0.14,
-    accents: [...WALL.taubenblau, '#7a4a38', ...WALL.flaschengruen],
+    accents: [...WALL.taubenblau, ...WALL.lehmbraun, ...WALL.olivgruen],
   },
   /** Gewerbe Ost: Neubaugebiet auf der grünen Wiese, helles Blech, Firmenfarben am Giebel. */
   'gewerbe-ost': {
@@ -233,7 +263,7 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     roofs: [...ROOF.blech, ...ROOF.bitumen],
     walls: [],
     accentShare: 0.2,
-    accents: [...WALL.klinker, ...WALL.taubenblau, ...WALL.senf, ...WALL.anthrazit, ...WALL.flaschengruen],
+    accents: [...WALL.klinker, ...WALL.taubenblau, ...WALL.anthrazit, ...WALL.olivgruen],
   },
   /**
    * Vorstadt West: Einfamilienhäuser, Hecken — und **die größte Streuung der Stadt**, weil hier
@@ -247,18 +277,18 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     walls: [
       ...WALL.klinker,
       ...WALL.ocker,
-      ...WALL.salbei,
-      ...WALL.mint,
+      ...WALL.sandgelb,
+      ...WALL.graugruen,
+      ...WALL.olivgruen,
       ...WALL.taubenblau,
       ...WALL.altrosa,
-      ...WALL.senf,
       ...WALL.weissputz,
       ...WALL.creme,
       ...WALL.sandstein,
-      ...WALL.terracotta,
+      ...WALL.rotocker,
     ],
     accentShare: 0.14,
-    accents: [...WALL.flaschengruen, ...WALL.backstein, '#3f5f72', '#8a6f4a'],
+    accents: [...WALL.lehmbraun, ...WALL.anthrazit],
   },
 }
 

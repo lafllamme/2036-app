@@ -1,20 +1,31 @@
 <script setup lang="ts">
-import { useResizeObserver } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useGameStore } from '~/stores/game'
 
-const game = useGameStore()
-const { snapshot, cityReports } = storeToRefs(game)
+/*
+ * Der Stadtfunk, als Meldung statt als Laufband.
+ *
+ * Vorher lief eine Leiste über die ganze Bildbreite, in der eine Schleife endlos nach links kroch.
+ * Das kostete eine dauernd laufende Animation, eine Messung bei jeder Größenänderung und eine
+ * Sonderbehandlung für den Fall, dass eine einzige Meldung die Leiste nicht füllt — im Januar 2026
+ * also für den Normalfall. Und es war unlesbar: man wartet nicht, bis der Satz vorbeikommt.
+ *
+ * Jetzt melden sich die letzten drei Meldungen als Pillen über der Bedienung, die neueste unten.
+ * Nichts bewegt sich, nichts läuft je Bild, und eine Meldung steht so lange, wie sie gilt.
+ */
 
-const SCOPE_LABELS = { city: 'LINDENHAFEN', national: 'DEUTSCHLAND', world: 'WELT' } as const
+const game = useGameStore()
+const { snapshot, cityReports, railOpen, decisionsOpen } = storeToRefs(game)
+
+const SCOPE_LABELS = { city: 'Lindenhafen', national: 'Deutschland', world: 'Welt' } as const
 
 /**
- * What a call is announced as.
+ * Wie ein Einsatz angesagt wird.
  *
- * Plain and specific: a player should be able to tell a break-in from a collision without looking
- * up from the panel they are reading. The service is named because that is what the blue light on
- * the street belongs to, and it is the thing their staffing decisions change.
+ * Schlicht und genau: man soll einen Einbruch von einem Unfall unterscheiden können, ohne von dem
+ * aufzusehen, was man gerade liest. Der Dienst wird genannt, weil ihm das Blaulicht auf der Straße
+ * gehört — und weil er das ist, was die eigenen Personalentscheidungen verändern.
  */
 const CALL_HEADLINES = {
   burglary: 'Polizeieinsatz: Einbruch gemeldet',
@@ -23,13 +34,7 @@ const CALL_HEADLINES = {
   fire: 'Feuerwehr: Gebäudebrand',
 } as const
 
-/**
- * The two streams in one bar.
- *
- * Calls first, because they are what just happened; the council's own news behind them. They stay
- * separate all the way here — see `cityReports` in the store for why one may never become the other.
- */
-/** What is happening with it right now, in the two words a bar has room for. */
+/** Was gerade damit passiert, in den zwei Worten, für die eine Pille Platz hat. */
 const STATUS_WORDS = {
   open: 'Kräfte unterwegs',
   onScene: 'Kräfte vor Ort',
@@ -37,12 +42,11 @@ const STATUS_WORDS = {
 } as const
 
 /**
- * The colour a call is marked in, by what kind it is rather than by which service turned out.
+ * Die Farbe, in der ein Einsatz markiert wird — nach der Art des Einsatzes, nicht nach dem Dienst.
  *
- * The same four values the ring on the tarmac is drawn in, so a call read here and the same call
- * seen from the camera are recognisably one thing. They were defined as design tokens, documented
- * as being used for exactly this, and used by nothing — the tarmac had its own copy of the four hex
- * values and the bar had none. `tests/unit/callColours.test.ts` now holds the two copies together.
+ * Dieselben vier Werte, in denen der Ring auf der Fahrbahn gezeichnet ist, damit ein Einsatz hier
+ * und derselbe Einsatz aus der Kamera erkennbar dieselbe Sache sind. `tests/unit/callColours.test.ts`
+ * hält die beiden Kopien zusammen.
  */
 const CALL_COLOURS = {
   burglary: 'var(--call-theft)',
@@ -51,89 +55,115 @@ const CALL_COLOURS = {
   fire: 'var(--call-fire)',
 } as const
 
+/*
+ * Zwei Ströme in einer Spalte: Einsätze zuerst, weil sie gerade passiert sind, die Nachrichten des
+ * Rats dahinter. Sie bleiben bis hierher getrennt — warum der eine nie der andere werden darf,
+ * steht bei `cityReports` im Store.
+ */
 const items = computed(() => [
   ...cityReports.value.map(report => ({
     id: `call-${report.id}`,
-    label: report.status === 'cleared' ? 'ERLEDIGT' : 'EINSATZ',
-    urgent: report.status !== 'cleared',
+    label: report.status === 'cleared' ? 'Erledigt' : 'Einsatz',
     done: report.status === 'cleared',
     tone: CALL_COLOURS[report.kind],
-    headline: [
-      CALL_HEADLINES[report.kind],
-      report.district,
-      STATUS_WORDS[report.status],
-    ].filter(Boolean).join(' · '),
+    headline: [CALL_HEADLINES[report.kind], report.district, STATUS_WORDS[report.status]].filter(Boolean).join(' · '),
     open: () => { game.selectedReport = report },
   })),
   ...(snapshot.value?.news ?? []).map(item => ({
     id: item.id,
     label: SCOPE_LABELS[item.scope],
-    urgent: false,
-    headline: item.headline,
     done: false,
-    tone: undefined,
+    tone: undefined as string | undefined,
+    headline: item.headline,
     open: () => { game.selectedNews = item },
   })),
 ])
 
-const windowRef = ref<HTMLElement | null>(null)
-const cycleRef = ref<HTMLElement | null>(null)
-/** True only once the headlines are genuinely wider than the bar. */
-const scrolls = ref(false)
-
-/**
- * The marquee duplicates one cycle and slides by half its width, which only reads as a loop while a
- * single cycle is wider than the bar. In January 2026 there is one headline, so the old ticker left
- * half the bar empty and looked broken. Now short news simply sits still.
- */
-function measure(): void {
-  const bar = windowRef.value
-  const cycle = cycleRef.value
-  if (!bar || !cycle)
-    return
-  scrolls.value = cycle.scrollWidth > bar.clientWidth + 8
-}
-
-useResizeObserver(windowRef, () => measure())
-watch(items, () => void nextTick(measure))
-
-/** Constant reading speed regardless of how much history is in the loop. */
-const duration = computed(() => `${Math.max(38, items.value.length * 8)}s`)
+/** Drei Pillen sind das Meiste, was über der Bedienung Platz hat, ohne das Bild zuzustellen. */
+const shown = computed(() => items.value.slice(0, 3).reverse())
 </script>
 
 <template>
-  <section class="news-ticker" aria-label="Aktuelle Meldungen">
-    <div class="news-label">
-      <span /> STADTFUNK
-    </div>
-    <div ref="windowRef" class="ticker-window">
-      <span class="ticker-track" :class="{ 'is-static': !scrolls }" :style="{ '--ticker-duration': duration }">
-        <span ref="cycleRef" class="ticker-cycle">
-          <button v-for="item in items" :key="item.id" type="button" class="ticker-item" :class="{ 'is-call': item.urgent, 'is-done': item.done }" :style="item.tone ? { '--call-tone': item.tone } : undefined" @click="item.open()">
-            <b>{{ item.label }}</b>{{ item.headline }}
-          </button>
-        </span>
-        <!--
-          The second cycle is what makes the loop read as a loop. It used to be inert text, so the
-          moment the first cycle slid off the bar the only headlines on screen could not be clicked
-          — the bar looked interactive and was not. Same buttons, hidden from assistive technology
-          and out of the tab order, because to a screen reader they are the same headlines twice.
-        -->
-        <span v-if="scrolls" class="ticker-cycle" aria-hidden="true">
-          <button
-            v-for="item in items"
-            :key="`echo-${item.id}`"
-            type="button"
-            tabindex="-1"
-            class="ticker-item"
-            :class="{ 'is-call': item.urgent, 'is-done': item.done }"
-            :style="item.tone ? { '--call-tone': item.tone } : undefined"
-            @click="item.open()"
-          >
-            <b>{{ item.label }}</b>{{ item.headline }}
-          </button>
-        </span>
-      </span>
-    </div>
-  </section>
+  <aside
+    v-if="shown.length > 0"
+    class="wire"
+    :class="{ 'clears-rail': railOpen, 'clears-agenda': decisionsOpen }"
+    aria-label="Stadtfunk"
+  >
+    <button
+      v-for="item in shown"
+      :key="item.id"
+      type="button"
+      class="pod note"
+      :class="{ 'is-done': item.done }"
+      :style="{ '--tone': item.tone ?? 'var(--ink-3)' }"
+      @click="item.open()"
+    >
+      <span class="pulse" />
+      <span class="kind">{{ item.label }}</span>
+      <span class="text">{{ item.headline }}</span>
+    </button>
+  </aside>
 </template>
+
+<style scoped>
+.wire {
+  position: absolute; bottom: 152px; left: 34px; right: 34px; z-index: 5;
+  display: grid; gap: 8px; justify-items: start;
+  pointer-events: none;
+  transition: left 220ms cubic-bezier(0.16, 1, 0.3, 1), right 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.note { pointer-events: auto; }
+
+/*
+ * Der Stadtfunk teilt sich die untere Kante mit dem Lagebild und der Tagesordnung, und beide können
+ * offen sein. Statt zu überlappen weicht er aus: er beginnt rechts vom Lagebild und endet links von
+ * den Entscheidungen. Fährt eine der beiden Schubladen ein, nimmt er sich den Platz zurück.
+ */
+.wire.clears-rail { left: 406px; }
+.wire.clears-agenda { right: 446px; }
+
+.note {
+  display: flex; align-items: center; gap: 13px;
+  max-width: 100%; height: 46px; padding: 0 22px 0 18px; border: 0; border-radius: 999px;
+  color: var(--ink); text-align: left; cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1), filter 160ms ease;
+}
+.note:hover { transform: translateY(-1px); filter: brightness(1.12); }
+
+/* Ein laufender Einsatz pulst; ein abgeschlossener steht still und hört auf zu rufen. */
+.pulse {
+  position: relative; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--tone);
+}
+.pulse::after {
+  content: ""; position: absolute; inset: -6px; border-radius: 50%;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--tone), transparent 66%);
+  animation: wire-pulse 1.8s ease-out infinite;
+}
+.is-done .pulse { background: var(--ink-3); }
+.is-done .pulse::after { animation: none; box-shadow: none; }
+.is-done .kind, .is-done .text { color: var(--ink-3); }
+
+@keyframes wire-pulse {
+  0% { transform: scale(0.72); opacity: 0.9; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+
+.kind { flex: none; color: var(--tone); font-size: 12.5px; }
+.text {
+  overflow: hidden; color: var(--ink-2); font-size: 13px; white-space: nowrap; text-overflow: ellipsis;
+}
+
+/* Ältere Meldungen treten zurück, damit die neueste die ist, die man liest. */
+.note:not(:last-child) { opacity: 0.66; }
+.note:not(:last-child):hover { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse::after { animation: none; }
+}
+
+/* Auf schmalen Fenstern gewinnt die Meldung gegen die Schubladen: sie ist das Neue im Bild. */
+@media (max-width: 1440px) {
+  .wire.clears-agenda { right: 34px; }
+}
+</style>

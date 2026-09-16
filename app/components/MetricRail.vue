@@ -202,110 +202,194 @@ const perception = computed(() => snapshot.value?.perception)
 </script>
 
 <template>
-  <aside class="metric-rail panel" :class="{ expanded, 'is-folded': !railOpen }" aria-label="Stadtkennzahlen">
-    <header class="section-heading">
-      <span>Lagebild</span>
-      <button v-if="railOpen" type="button" class="rail-toggle" :aria-expanded="expanded" @click="toggleRail">
-        {{ expanded ? 'Kurzlage' : 'Lagebericht' }}
+  <!--
+    Das Lagebild wird gerufen, nicht ausgehalten.
+
+    Vorher stand hier eine bildschirmhohe Platte, die den ganzen linken Rand besetzt hat — den
+    größten Teil der Kampagne, um Zahlen zu zeigen, die sich im Monat einmal ändern. Jetzt ist es
+    ein Körper, der über dem Bild schwebt, so hoch wie sein Inhalt, und der Knopf, der ihn holt,
+    steht unten in der Bedienung.
+  -->
+  <aside v-if="railOpen" class="pod rail" :class="{ 'is-wide': expanded }" aria-label="Stadtkennzahlen">
+    <header>
+      <h2>Lagebild</h2>
+      <button type="button" class="link" :aria-expanded="expanded" @click="toggleRail">
+        {{ expanded ? 'Kurzlage' : 'Alles zeigen' }}
       </button>
-      <button
-        type="button"
-        class="fold-toggle"
-        :aria-expanded="railOpen"
-        :title="railOpen ? 'Lagebild einklappen' : 'Lagebild ausklappen'"
-        :aria-label="railOpen ? 'Lagebild einklappen' : 'Lagebild ausklappen'"
-        @click="game.railOpen = !railOpen"
-      >
-        {{ railOpen ? '−' : '+' }}
+      <button type="button" class="close-button" aria-label="Lagebild schließen" @click="game.railOpen = false">
+        <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
       </button>
     </header>
 
-    <dl v-if="metrics" class="metric-list">
-      <div v-for="item in headline" :key="item.label" :title="item.since">
-        <dt>{{ item.label }}</dt>
-        <dd>
-          {{ item.value }}
-          <i class="trend" :class="item.trend.tone" :title="`${item.trend.word} gegenüber dem Vormonat`">{{ item.trend.mark }}</i>
-        </dd>
-      </div>
-    </dl>
-
-    <template v-if="expanded">
-      <dl class="metric-list detail-list">
-        <div v-for="item in detail" :key="item.label">
+    <div class="body">
+      <dl v-if="metrics" class="figures">
+        <div v-for="item in headline" :key="item.label" :title="item.since">
           <dt>{{ item.label }}</dt>
-          <dd :class="{ neutral: item.note }">
+          <dd>
             {{ item.value }}
+            <i class="trend" :class="item.trend.tone" :title="`${item.trend.word} gegenüber dem Vormonat`" aria-hidden="true">
+              <svg viewBox="0 0 10 9"><path v-if="item.trend.mark === '▲'" d="M5 0 10 9H0z" /><path v-else-if="item.trend.mark === '▼'" d="M5 9 0 0h10z" /><circle v-else cx="5" cy="5" r="1.6" /></svg>
+            </i>
+            <span class="sr">{{ item.trend.word }}</span>
           </dd>
         </div>
       </dl>
-      <p class="rail-note">
-        Der Zuwanderungsanteil ist eine reine Zusammensetzungsangabe. Er geht in keine Bewertung und in keinen Ereignisauslöser ein –
-        wirksam sind die finanzierten Kapazitäten.
-      </p>
-      <div v-if="perception" class="perception-block">
-        <h3>Wahrnehmung</h3>
-        <div class="health-row">
-          <span>Sicherheitsgefühl</span><div class="health-track">
-            <i :style="{ width: `${perception.safety}%` }" />
-          </div><b>{{ perception.safety.toFixed(0) }}</b>
-        </div>
-        <div class="health-row">
-          <span>Mietdruck gefühlt</span><div class="health-track">
-            <i class="inverse" :style="{ width: `${perception.housingPressure}%` }" />
-          </div><b>{{ perception.housingPressure.toFixed(0) }}</b>
-        </div>
-        <div class="health-row">
-          <span>Vertrauen</span><div class="health-track">
-            <i :style="{ width: `${perception.trust}%` }" />
-          </div><b>{{ perception.trust.toFixed(0) }}</b>
-        </div>
-      </div>
-    </template>
 
-    <div v-if="snapshot" class="health-block">
-      <div class="health-title">
-        <span>Stadtgesundheit</span><strong>{{ snapshot.health.satisfaction.toFixed(0) }}</strong>
-      </div>
-      <div v-for="row in (expanded ? healthRows : healthRows.slice(0, 4))" :key="row[0]" class="health-row">
-        <span>{{ row[0] }}</span>
-        <div class="health-track">
-          <i :style="{ width: `${row[1]}%` }" />
+      <template v-if="expanded">
+        <dl class="figures detail">
+          <div v-for="item in detail" :key="item.label">
+            <dt>{{ item.label }}</dt>
+            <dd :class="{ muted: item.note }">
+              {{ item.value }}
+            </dd>
+          </div>
+        </dl>
+        <p class="note">
+          Der Zuwanderungsanteil ist eine reine Zusammensetzungsangabe. Er geht in keine Bewertung und in keinen
+          Ereignisauslöser ein – wirksam sind die finanzierten Kapazitäten.
+        </p>
+        <section v-if="perception" class="block">
+          <h3>Wahrnehmung</h3>
+          <div class="gauge">
+            <span>Sicherheitsgefühl</span><div class="track groove">
+              <i :style="{ width: `${perception.safety}%` }" />
+            </div><b>{{ perception.safety.toFixed(0) }}</b>
+          </div>
+          <div class="gauge">
+            <span>Mietdruck gefühlt</span><div class="track groove">
+              <i class="inverse" :style="{ width: `${perception.housingPressure}%` }" />
+            </div><b>{{ perception.housingPressure.toFixed(0) }}</b>
+          </div>
+          <div class="gauge">
+            <span>Vertrauen</span><div class="track groove">
+              <i :style="{ width: `${perception.trust}%` }" />
+            </div><b>{{ perception.trust.toFixed(0) }}</b>
+          </div>
+        </section>
+      </template>
+
+      <section v-if="snapshot" class="block">
+        <div class="block-head">
+          <h3>Stadtgesundheit</h3><strong>{{ snapshot.health.satisfaction.toFixed(0) }}</strong>
         </div>
-        <b>{{ row[1].toFixed(0) }}</b>
-      </div>
-    </div>
+        <div v-for="row in (expanded ? healthRows : healthRows.slice(0, 4))" :key="row[0]" class="gauge">
+          <span>{{ row[0] }}</span>
+          <div class="track groove">
+            <i :style="{ width: `${row[1]}%` }" />
+          </div>
+          <b>{{ row[1].toFixed(0) }}</b>
+        </div>
+      </section>
 
-    <!--
-      Die Welt über der Stadt. Vier Zahlen, die niemand hier beantwortet — aber die erklären, warum
-      derselbe Beschluss in diesem Jahrzehnt etwas anderes kostet als im letzten.
-    -->
-    <div v-if="situation.length > 0" class="goal-block">
-      <div class="health-title">
-        <span>Die Lage</span>
-      </div>
-      <div v-for="entry in situation" :key="entry.label" class="goal-row" :class="entry.tone">
-        <span>{{ entry.label }}</span>
-        <b>{{ entry.word }}</b>
-      </div>
-    </div>
+      <!--
+        Die Welt über der Stadt. Vier Zahlen, die niemand hier beantwortet — aber die erklären, warum
+        derselbe Beschluss in diesem Jahrzehnt etwas anderes kostet als im letzten.
+      -->
+      <section v-if="situation.length > 0" class="block">
+        <div class="block-head">
+          <h3>Die Lage</h3>
+        </div>
+        <div v-for="entry in situation" :key="entry.label" class="reading" :class="entry.tone">
+          <span>{{ entry.label }}</span>
+          <b>{{ entry.word }}</b>
+        </div>
+      </section>
 
-    <!--
-      Die drei Ziele, das ganze Jahrzehnt sichtbar.
-
-      Vorher wählte man beim Antritt drei „Prioritäten" und sah sie nie wieder — eine Wertung, an die
-      man nicht erinnert wird, ist keine. Hier steht, wo die Zahl heute steht und wo sie am Ende
-      stehen muss.
-    -->
-    <div v-if="goals.length > 0" class="goal-block">
-      <div class="health-title">
-        <span>Ziele 2036</span><strong>{{ goals.filter(goal => goal.met).length }} / {{ goals.length }}</strong>
-      </div>
-      <div v-for="goal in goals" :key="goal.id" class="goal-row" :class="{ met: goal.met }">
-        <span>{{ goal.name }}</span>
-        <b>{{ goal.reading }}</b>
-        <small>{{ goal.target }}</small>
-      </div>
+      <!--
+        Die drei Ziele, das ganze Jahrzehnt sichtbar. Vorher wählte man beim Antritt drei
+        „Prioritäten" und sah sie nie wieder — eine Wertung, an die man nicht erinnert wird, ist keine.
+      -->
+      <section v-if="goals.length > 0" class="block">
+        <div class="block-head">
+          <h3>Ziele 2036</h3><strong>{{ goals.filter(goal => goal.met).length }} / {{ goals.length }}</strong>
+        </div>
+        <div v-for="goal in goals" :key="goal.id" class="reading goal" :class="{ met: goal.met }">
+          <span>{{ goal.name }}</span>
+          <b>{{ goal.reading }}</b>
+          <small>{{ goal.target }}{{ goal.met ? ' · erreicht' : '' }}</small>
+        </div>
+      </section>
     </div>
   </aside>
 </template>
+
+<style scoped>
+.rail {
+  position: absolute; bottom: 152px; left: 34px; z-index: 5;
+  display: flex; flex-direction: column;
+  width: 352px; max-height: min(620px, calc(100% - 232px));
+  padding: 24px 0 18px;
+}
+.rail.is-wide { width: 392px; }
+
+header { display: flex; align-items: center; gap: 12px; padding: 0 24px 16px; }
+h2 { margin: 0; font-family: var(--display); font-size: 19px; font-weight: 700; letter-spacing: -0.03em; }
+.link {
+  margin-left: auto; padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--ink-3); font-family: var(--text); font-size: 12.5px;
+}
+.link:hover { color: var(--ink); }
+header .close-button { width: 32px; height: 32px; }
+header .close-button svg { width: 14px; height: 14px; }
+
+/*
+ * Nur der Inhalt rollt, nicht der Körper — und die letzte Zeile verläuft, damit die Kante „da ist
+ * mehr" sagt statt „hier ist Schluss". Einen Rollbalken sieht ohnehin nur eine Maus.
+ */
+.body {
+  flex: 1; min-height: 0; padding: 0 24px; overflow-y: auto;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent 100%);
+  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+.body::-webkit-scrollbar { width: 5px; }
+.body::-webkit-scrollbar-track { background: transparent; }
+.body::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
+
+.figures { margin: 0; }
+.figures > div {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+  padding: 9px 0; border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.figures > div:first-child { border-top: 0; }
+.figures dt { color: var(--ink-2); font-size: 12.5px; }
+.figures dd {
+  display: flex; align-items: center; gap: 7px; margin: 0;
+  font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.figures dd.muted { color: var(--ink-3); }
+.detail { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+
+/* Richtung wird gezeichnet, nicht getippt — und trägt daneben immer noch ihr Wort für Screenreader. */
+.trend { display: inline-flex; width: 9px; height: 9px; color: var(--ink-3); }
+.trend svg { width: 100%; height: 100%; fill: currentcolor; }
+.trend.good { color: var(--positive); }
+.trend.bad { color: var(--negative); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.note { margin: 12px 0 0; color: var(--ink-3); font-size: 11.5px; line-height: 1.55; }
+
+.block { margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.block-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+h3 { margin: 0; color: var(--ink-3); font-family: var(--text); font-size: 12.5px; font-weight: 400; }
+.block-head strong {
+  font-family: var(--display); font-size: 30px; font-weight: 700; letter-spacing: -0.035em; line-height: 0.85;
+}
+
+.gauge { display: grid; grid-template-columns: 96px 1fr 26px; align-items: center; gap: 11px; padding: 5px 0; }
+.gauge span { color: var(--ink-2); font-size: 12px; }
+.gauge b { color: var(--ink-3); font-family: var(--mono); font-size: 11px; font-weight: 400; text-align: right; }
+.track { position: relative; height: 4px; overflow: hidden; }
+.track i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: linear-gradient(180deg, #9ce0c6, #6cc9a7); }
+.track i.inverse { background: linear-gradient(180deg, #ffb59c, #f0805f); }
+
+.reading { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; align-items: baseline; padding: 7px 0; }
+.reading span { overflow: hidden; color: var(--ink-2); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.reading b { font-family: var(--mono); font-size: 11.5px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.reading small { grid-column: 1 / -1; color: var(--ink-3); font-size: 11px; }
+.reading.off-normal b { color: var(--negative); }
+.goal.met b { color: var(--positive); }
+
+@media (max-height: 900px) {
+  .rail { max-height: calc(100% - 210px); }
+}
+</style>

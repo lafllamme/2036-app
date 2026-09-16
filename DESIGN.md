@@ -1,70 +1,126 @@
-# Design — Civic Signal
+# Design — Batzen
 
-## Direction
+## Richtung
 
-The city is the hero. The interface resembles a restrained municipal command surface placed over a cinematic miniature, not a dashboard or television clone. Campaign entry is intentionally monumental; gameplay becomes quiet and edge-oriented. The detailed interaction contract lives in [`docs/superpowers/specs/2026-09-11-cinematic-ui-ux-direction-design.md`](docs/superpowers/specs/2026-09-11-cinematic-ui-ux-direction-design.md).
+Die Stadt ist der Held. Die Oberfläche ist kein Dashboard über einem 3D-Bild, sondern eine Handvoll
+**Körper**, die über dem unteren Bildrand schweben und der Stadt alles andere überlassen. Der
+Einstieg darf monumental sein; das laufende Spiel ist leise und kantennah.
 
-## Type
+Die Arbeitsteilung, die alles trägt: **die Karte sagt wo, die Kante sagt was.** Was ein Ort ist,
+gehört in die Stadt; was man vergleicht, entscheidet und drückt, gehört an den Rand. Eine Zahl klebt
+nie an etwas, das sich bei jeder Kamerabewegung verschiebt.
 
-| Role | Family | Source | Notes |
+## Schrift
+
+| Rolle | Familie | Quelle | Anmerkung |
 | --- | --- | --- | --- |
-| Display | Supreme | Fontshare | Weight 700, tight tracking. Headlines, the wordmark, key figures. |
-| Text | Switzer | Fontshare | Body copy, labels, briefings. |
-| Figures | Geist Mono | Google Fonts | Every number the player compares: money, seats, rates, dates. |
+| Display | Supreme | Fontshare | 700, enge Laufweite. Überschriften, die Marke, große Kennzahlen. |
+| Text | Switzer | Fontshare | Fließtext, **und alle Beschriftungen**. |
+| Zahlen | Geist Mono | Google Fonts | Jede Zahl, die ein Spieler vergleicht: Geld, Sitze, Raten, Uhrzeiten. |
 
-Numbers are always set in the monospace face and always formatted for German — `13,61 €/m²`, not
-`13.61`. A figure that a player might compare against another figure never sits in the text face.
+Zwei Regeln, und die zweite ist neu:
 
-## Colour roles
+**Zahlen deutsch.** `13,20 €/m²`, nie `13.20`. Eine vergleichbare Zahl steht nie in der Textschrift.
 
-Colour carries meaning, so exactly two of them do and everything else is paper, grey and depth. A
-player never needs a legend.
+**Beschriftung ist Sprache, keine Technik.** Eine Beschriftung heißt „Rückhalt", nicht `RÜCKHALT` in
+8 px gesperrten Mono-Versalien. Die alte Oberfläche setzte jedes Label so, und genau das ließ sie
+wie ein Datenblatt aussehen statt wie ein Spiel — Mono ist für Zahlen da, nicht als Kostüm für
+„technisch".
 
-| Role | Token | Means |
+## Farbrollen
+
+Farbe trägt Bedeutung, also tun das genau zwei, und alles andere ist Papier, Grau und Tiefe. Papier
+kommt in drei Stufen, nicht in fünf Einzelfarben.
+
+| Rolle | Token | Bedeutet |
 | --- | --- | --- |
-| Positive | `--positive` `#74c9ae` | approval, a gain, an indicator moving the way the city wants |
-| Negative | `--negative` `#ef7a60` | rejection, a loss, a risk, an indicator moving the wrong way |
-| Paper | `--ink` `#f6f3ec` | type, and the single filled action per region |
-| Grey | `--dim` `#97a09d` | labels, units, context that carries no judgement |
+| Positiv | `--positive` `#86d8b8` | Zustimmung, ein Gewinn, eine Kennzahl in die Richtung, die die Stadt will |
+| Negativ | `--negative` `#ff8f6b` | Ablehnung, ein Verlust, ein Risiko, eine Frist |
+| Papier | `--ink` `#f4f2ec` | Schrift, und die eine gefüllte Aktion je Region |
+| Beschriftung | `--ink-2` | alles, was benannt wird |
+| Beiwerk | `--ink-3` | Einheiten, Fußnoten, Zusammenhang ohne Wertung |
 
-Three rules follow. **Cost is never painted in the rejection colour** — "this is expensive" and
-"this will fail" are different facts a player acts on differently, so money is set in paper and mono.
-**Composition indicators the model deliberately does not judge** — `internationalShare` above all —
-are rendered grey, never positive or negative. And **party colours are identity, not judgement**:
-in the HUD they appear only as small round markers beside an abbreviation, never as a surface fill,
-because otherwise red would mean "SPD", "rejection" and "urgent" at the same time. The entry flow
-follows the same rule at a larger scale: a 2 px edge and the emblem ring, not a filled banner.
+Drei Regeln folgen. **Kosten stehen nie in der Ablehnungsfarbe** — „teuer" und „wird scheitern" sind
+verschiedene Tatsachen, nach denen man verschieden handelt; Geld steht in Papier und Mono.
+**Zusammensetzungsangaben, die das Modell bewusst nicht wertet** — `internationalShare` vor allem —
+sind grau, nie positiv oder negativ. Und **Parteifarben sind Identität, kein Urteil**: sie erscheinen
+ausschließlich als kleiner runder Punkt neben einem Kürzel, nie als Fläche, weil Rot sonst
+gleichzeitig „SPD", „Ablehnung" und „dringend" hieße.
 
-The authored party colours were chosen as surface fills, so the darkest of them disappears when used
-as a hairline on a dark panel. Accent use therefore derives a lifted value rather than taking the raw
-colour: `--party-accent: color-mix(in oklab, var(--party-color), var(--ink) 34%)`.
+Die vier Einsatzfarben (`--call-*`) gehören dem Renderer: sie sind die Kopie der Farben, in denen der
+Ring auf der Fahrbahn gezeichnet wird, damit ein Einsatz im Stadtfunk und derselbe Einsatz aus der
+Kamera erkennbar dieselbe Sache sind. `tests/unit/callColours.test.ts` hält beide Kopien zusammen.
 
-An earlier amber accent was removed entirely. It was carrying "pending", "selectable" and "FDP" at
-once, and the bordered amber button was the single most dated element in the interface.
+## Oberfläche
 
-## Surface
+**Kein Blur, und diesmal gemessen.** Die Vorgängerversion legte `backdrop-filter: blur(42px)` über
+eine Canvas, die bei Auflösungsfaktor 1,65 in 2,7-facher Pixelzahl rendert. Am alten Stand
+nachgemessen, gleiche Szene, Skalierer beide Male fest auf 1,65×:
 
-One panel primitive, used everywhere: `rgba(10, 14, 17, 0.90)`, **no border**, 24 px radius, and a
-soft shadow for separation. Panels stand through depth and space rather than through lines. Inside a
-panel, structure comes from hairline rules (`rgba(246, 243, 236, 0.08)`) and generous spacing, not
-from nested boxes.
+| | FPS | Draws | Dreiecke |
+| --- | --- | --- | --- |
+| mit Blur | **91** | 129 | 5,1 Mio. |
+| ohne Blur | **120** | 129 | 5,1 Mio. |
 
-**No backdrop blur during play.** It used to be the panel's defining treatment — 42 px on six
-surfaces — and it was measured out: **91 FPS with, 109 without**, same scene, resolution scaler
-pinned at 1.65× both times. Those six surfaces covered 459 000 of 760 000 viewport pixels, sixty per
-cent of the screen, and the scaler renders 2.7× that many. It was the most expensive thing in the
-frontend and it bought nothing that opacity does not. The entry flow keeps a blur of its own, on a
-local token: there the camera stands still, nobody is playing, and the party hall depends on the city
-lying behind the cards rather than under them.
+**29 FPS**, und keine davon aus Geometrie. Sechs gleichzeitig sichtbare Flächen deckten 459.000 von
+760.000 Pixeln ab — sechzig Prozent des Schirms —, die GPU zeichnete also gut 1,2 Millionen Pixel je
+Frame weich, damit Text lesbar wird, den Deckkraft umsonst lesbar macht. Ersatzlos gestrichen.
+Schrift, die direkt auf der Stadt steht, wird über `--lift` lesbar, einen zweistufigen
+Schlagschatten; Flächen, die etwas verdecken dürfen, sind fast undurchsichtig.
 
-**Exactly one filled action per region.** The filled action is paper on dark, fully rounded. Every
-other control is text inside a hairline pill. A screen full of solid buttons destroys the air the
-rest of the system is built on.
+Der Einstieg behält seinen Blur, als **Zahl** und nicht als Token: dort steht die Kamera still,
+niemand spielt, und die Parteienhalle lebt davon, dass die Stadt hinter den Karten liegt statt unter
+ihnen. Ein Token wäre eine Einladung, ihn wieder überall zu nehmen.
 
-## Motion and accessibility
+**Ein Flächen-Primitiv: `.pod`.** Ein Körper, kein Rechteck — Licht auf der Oberkante, ein Verlauf,
+der ihn nach unten schwerer macht, 26 px Radius und ein Schatten mit Versatz. Keine Komponente denkt
+sich ihre eigene Fläche aus. Innerhalb eines Körpers kommt Struktur aus Haarlinien und Abstand, nicht
+aus verschachtelten Kästen.
 
-Camera motion is damped and interruptible. UI motion uses opacity/transform only. Reduced-motion mode stops ticker movement and removes nonessential transitions. Focus rings, scalable text, clear numeric labels, and non-color-only status text are required.
+**Kein Körper spannt sich von Kante zu Kante.** Eine durchgehende Leiste liest wie eine Symbolleiste
+im Browser und nimmt dem Bild eine ganze Kante. Jeder Körper ist so breit wie sein Inhalt, mit Luft
+dazwischen — und keiner darf aus dem Bild laufen.
 
-## Avoid
+**Was weicht, weicht in dieser Reihenfolge**, und die Reihenfolge ist nicht beliebig: erst Luft
+(Abstände, Polster), dann Ausschmückung (die Rinne unter den Zahlen, das Wetterwort, der Name der
+Amtsinhaberin), dann Größe (Knöpfe und Ziffern), und **erst zuletzt ein ganzer Körper**. Nichts, was
+man drücken kann, verschwindet dabei je: Speichern und Einstellungen sind im laufenden Spiel nur an
+einer Stelle erreichbar, und ausgeblendet sind sie schlicht nicht erreichbar. Die Uhr geht nie.
 
-No generic SaaS cards, neon cyberpunk, random gradients, copied broadcast branding, flat GIS presentation, or fake 3D map extrusion as the primary world. And no backdrop blur in the playing surface — see "Surface" for what it cost. A panel light enough for the city to wash out its body copy is a defect, not a style; the answer is opacity, which is free.
+Der erste Entwurf blendete den Stand — Rückhalt, Mehrheit, Stand im Jahrzehnt — schon unter 1.620 px
+aus und die beiden Knöpfe unter 1.320 px, also auf so gut wie jedem Laptop. Drei Zahlen, um die das
+ganze Spiel geht, waren im normalen Spiel nie zu sehen, und zwei Funktionen gar nicht zu erreichen.
+
+**Genau eine gefüllte Aktion je Region.** Die gefüllte ist Papier auf Dunkel, vollrund. Jede andere
+ist dieselbe Pille in leise.
+
+**Eine Vertiefung für alles, was einen Füllstand hat** (`.groove`): Segmente, Balken, Fortschritt.
+
+**Icons werden gezeichnet.** Eine Strichstärke, ein Satz. Nie `▲`, `▼`, `·` oder ein Emoji als
+Ersatz — auch eine Richtungsangabe ist eine gezeichnete Form und trägt ihr Wort für Screenreader
+daneben.
+
+## Wo das CSS liegt
+
+Jedes Feature-CSS liegt im `<style scoped>` seiner Komponente. `app/assets/css/styles.css` trägt nur
+noch drei Dinge: die Token, den Reset und die geteilten Primitive (`.pod`, `.groove`, `.btn`,
+`.round`, `.modal-backdrop`, `.close-button`) — also genau das, was eine gekapselte Regel nicht
+leisten kann. Eine Regel für einen Knopf gehört neben den Knopf.
+
+UnoCSS trägt das Theme (Farben, die drei Schriftfamilien, Radien) und sonst nichts. Die Primitive
+stehen absichtlich **nicht** als Shortcuts dort: sie bestehen aus mehrlagigen Schatten und Verläufen
+und wären als Utility-Kette 200 Zeichen im Template.
+
+## Bewegung und Zugänglichkeit
+
+Kameraflug ist gedämpft und unterbrechbar. UI-Bewegung benutzt Deckkraft und Transform. Es gibt genau
+zwei gestaltete Momente — das Blatt einer Vorlage steigt einmal herein, der Schlussbericht auch — und
+sonst keine laufende Animation: das Laufband des Stadtfunks ist ersatzlos weg. Reduzierte Bewegung
+schaltet den Puls einer Meldung ab. Fokusringe, skalierbare Schrift, klare Zahlenbeschriftungen und
+Status, der nie nur über Farbe geht, sind Pflicht.
+
+## Vermeiden
+
+Keine generischen SaaS-Karten, kein Neon-Cyberpunk, keine zufälligen Verläufe, keine kopierte
+Fernsehgrafik, keine flache GIS-Darstellung. Keine durchgehende Leiste. Keine gesperrten
+Mono-Versalien als Beschriftung. Kein Blur.

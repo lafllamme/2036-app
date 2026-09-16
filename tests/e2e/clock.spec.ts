@@ -19,7 +19,7 @@ test.describe('campaign clock', () => {
   })
 
   test('runs by itself and does not wait for the player to pick a speed', async ({ page }) => {
-    const clock = page.locator('.date-block__clock')
+    const clock = page.locator('.clock')
     await expect(clock).toHaveText(/^\d{2}:\d{2}$/)
     const first = await clock.textContent()
 
@@ -27,8 +27,8 @@ test.describe('campaign clock', () => {
   })
 
   test('stops dead on pause and resumes on a speed', async ({ page }) => {
-    const clock = page.locator('.date-block__clock')
-    await page.getByRole('button', { name: 'Ⅱ' }).click()
+    const clock = page.locator('.clock')
+    await page.getByRole('button', { name: '1×' }).click()
     // Let any tick already in flight land before taking the reference reading.
     await page.waitForTimeout(600)
 
@@ -41,11 +41,11 @@ test.describe('campaign clock', () => {
   })
 
   test('reads the sky next to the clock and the sun times in the Lagebericht', async ({ page }) => {
-    await page.getByRole('button', { name: 'Ⅱ' }).click()
-    await expect(page.locator('.date-block__temp')).toHaveText(/-?\d+°C/)
-    await expect(page.locator('.date-block__sky')).toBeVisible()
+    await page.getByRole('button', { name: '1×' }).click()
+    await expect(page.locator('.temp')).toHaveText(/-?\d+ °C/)
+    await expect(page.locator('.sky-glyph')).toBeVisible()
 
-    await page.getByLabel('Stadtkennzahlen').getByRole('button', { name: 'Lagebericht' }).click()
+    await page.getByLabel('Stadtkennzahlen').getByRole('button', { name: 'Alles zeigen' }).click()
     const rail = page.getByLabel('Stadtkennzahlen')
     await expect(rail).toContainText('Sonnenaufgang')
     await expect(rail).toContainText('Sonnenuntergang')

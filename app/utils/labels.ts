@@ -33,6 +33,8 @@ const TARGET_LABELS: Record<string, string> = {
   satisfaction: 'Zufriedenheit',
   politicalCapital: 'Politisches Kapital',
   polarisation: 'Polarisierung',
+  businessSites: 'Gewerbeflächen',
+  cleanHeat: 'Fernwärme',
   greenSpaceHectares: 'Grünflächen',
   childcarePlaces: 'Kitaplätze',
   schoolPlaces: 'Schulplätze',
@@ -108,6 +110,8 @@ const TARGET_DIRECTION: Record<string, 1 | 0 | -1> = {
   politicalCapital: 1,
   polarisation: -1,
 
+  businessSites: 1,
+  cleanHeat: 1,
   greenSpaceHectares: 1,
   childcarePlaces: 1,
   schoolPlaces: 1,

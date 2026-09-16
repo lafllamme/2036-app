@@ -91,7 +91,9 @@ watch(() => openMotions.value.length, (now, before) => {
       <article v-for="policy in standingMotions" :key="policy.id" class="policy-card">
         <div class="policy-card__top">
           <span class="policy-category">{{ POLICY_CATEGORY_LABELS[policy.category] ?? policy.category }}</span>
-          <span>{{ formatNumber(policy.implementationCost) }} Mio. € · {{ formatNumber(policy.monthlyCost, 1) }} Mio. €/Monat</span>
+          <!-- Eine Vorlage, die der Stadt Geld bringt, darf nicht wie eine Ausgabe aussehen. -->
+          <span>{{ formatNumber(policy.implementationCost) }} Mio. €
+            · {{ policy.monthlyCost < 0 ? '+' : '' }}{{ formatNumber(Math.abs(policy.monthlyCost), 1) }} Mio. €/Monat{{ policy.monthlyCost < 0 ? ' Ertrag' : '' }}</span>
         </div>
         <h2>{{ policy.name }}</h2>
         <p>{{ policy.summary }}</p>

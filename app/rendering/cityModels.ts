@@ -258,6 +258,51 @@ async function loadAtlas(kit: string): Promise<THREE.Texture> {
 }
 
 /**
+ * Ein Rad ist aus jeder Kamera dieses Spiels ein paar Pixel groß — und kostet 332 Dreiecke.
+ *
+ * Nachgemessen an jedem Fahrzeug des Kits: eine Limousine hat 2.032 Dreiecke, davon **704 für die
+ * Karosserie und 1.328 für vier Räder**. Die Räder sind zwei Drittel jedes Autos, und es gibt
+ * dreizehn Modelle, von denen bis zu sechshundert gleichzeitig fahren. In einer Szene mit 14,4
+ * Millionen Dreiecken ist der Verkehr damit der größte Einzelposten — schwerer als die halbe Stadt,
+ * und pro Stück fünfmal schwerer als der aufwendigste Baum.
+ *
+ * Das Kit benennt sie selbst: `wheel-front-left` und so weiter. Sie werden beim Laden durch einen
+ * Zylinder mit zehn Seiten ersetzt, auf die Maße des Originals gezogen und in dessen Farbe. Aus der
+ * Nähe sieht man den Unterschied an der Silhouette der Lauffläche; aus zehn Metern nicht mehr, und
+ * näher kommt die Kamera nie an ein fahrendes Auto heran.
+ *
+ * Eine Limousine kostet danach **880 statt 2.032 Dreiecke.**
+ */
+const WHEEL_SIDES = 10
+
+function simplifyWheel(mesh: THREE.Mesh): THREE.BufferGeometry | null {
+  if (!/^wheel/i.test(mesh.name))
+    return null
+  mesh.geometry.computeBoundingBox()
+  const box = mesh.geometry.boundingBox
+  if (!box)
+    return null
+  const size = new THREE.Vector3()
+  box.getSize(size)
+  const centre = new THREE.Vector3()
+  box.getCenter(centre)
+  /*
+   * Die Achse ist die dünnste Richtung des Rades — ohne Annahme darüber, wie das Modell gedreht im
+   * Kit liegt, denn die Fahrzeuge zeigen nicht alle in dieselbe Richtung.
+   */
+  const axis = size.x < size.y && size.x < size.z ? 'x' : size.y < size.z ? 'y' : 'z'
+  const radius = axis === 'x' ? Math.max(size.y, size.z) / 2 : axis === 'y' ? Math.max(size.x, size.z) / 2 : Math.max(size.x, size.y) / 2
+  const width = size[axis]
+  const wheel = new THREE.CylinderGeometry(radius, radius, width, WHEEL_SIDES)
+  if (axis === 'x')
+    wheel.rotateZ(Math.PI / 2)
+  else if (axis === 'z')
+    wheel.rotateX(Math.PI / 2)
+  wheel.translate(centre.x, centre.y, centre.z)
+  return wheel
+}
+
+/**
  * Flatten a loaded model into one geometry.
  *
  * Every mesh in it is baked into world space and merged, so a car keeps its wheels and a tree its
@@ -274,7 +319,10 @@ function extract(id: string, scene: THREE.Object3D): { model: CityModel } | null
   scene.traverse((object) => {
     if (!(object instanceof THREE.Mesh))
       return
-    const geometry = object instanceof THREE.SkinnedMesh ? bakePose(object) : object.geometry.clone()
+    // Räder sind zwei Drittel jedes Fahrzeugs und ein paar Pixel groß. Siehe `simplifyWheel`.
+    const geometry = object instanceof THREE.SkinnedMesh
+      ? bakePose(object)
+      : (simplifyWheel(object) ?? object.geometry.clone())
     geometry.applyMatrix4(object.matrixWorld)
 
     const material = Array.isArray(object.material) ? object.material[0] : object.material

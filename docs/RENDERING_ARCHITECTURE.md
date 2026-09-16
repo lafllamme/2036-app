@@ -363,3 +363,46 @@ Der Reflex, eine schlechte Zahl erst einmal zu glauben und dann die eigene jüng
 verdächtigen, hat hier vier Schritte gekostet. Die billigere Reihenfolge steht deshalb hier: erst
 fragen, ob die Zahl überhaupt zustande kommen *kann* — Frameabstände, Sichtbarkeit, Drosselung —,
 und erst danach, woran sie liegt.
+
+## Wo der Frame wirklich hingeht
+
+Profiliert statt vermutet, nachdem die Vegetation von 6.460 auf 25.200 Bäume gewachsen war und die
+Bildrate von 92 auf 65 fiel.
+
+**Erstens: die 65 FPS waren kein Einbruch.** Der Auflösungsregler zielt auf ein Band von 58 bis 92
+und gibt Auflösung ab, um darin zu bleiben. Er hat die Vegetation bezahlt, indem er Pixel opferte —
+genau wie konstruiert. Wer nur auf die Bildrate schaut, sieht eine Regression, wo eine Regelung
+steht; die ehrliche Zahl ist **Bildrate zusammen mit Auflösung**.
+
+**Zweitens: füllratenbegrenzt, gemessen.** Bei Pixelratio 1 auf 910 × 835 lief dieselbe Szene mit
+**102,6 FPS**, bei 1,53× — also 2,34-mal so vielen Pixeln — mit 65. Fast exakt linear in der
+Pixelzahl. Dreiecke sind nicht der Engpass.
+
+**Drittens, und das war der Fund:** die Szene trägt 14,4 Millionen Dreiecke in 564 Meshes, von denen
+nur 68 ohne Frustum-Culling laufen. Culling arbeitet also. Der größte Einzelposten war etwas anderes.
+
+### Ein Rad kostete 332 Dreiecke
+
+An jedem Fahrzeug des Kits nachgemessen:
+
+| | Dreiecke |
+| --- | --- |
+| Karosserie einer Limousine | 704 |
+| **vier Räder** | **1.328** |
+| Summe | 2.032 |
+
+Die Räder sind **zwei Drittel jedes Autos**, es gibt dreizehn Modelle, und bis zu sechshundert fahren
+gleichzeitig — über anderthalb Millionen Dreiecke Verkehr, mehr als die halbe Stadt. Zum Vergleich:
+der aufwendigste Baum im Naturkit hat 402, der einfachste 16.
+
+Aus jeder Kamera dieses Spiels ist ein Rad ein paar Pixel groß. Das Kit benennt sie selbst
+(`wheel-front-left` und so weiter), also ersetzt `simplifyWheel` sie beim Laden durch einen Zylinder
+mit zehn Seiten, auf die Maße des Originals gezogen. **864 statt 2.032 Dreiecke je Limousine, rund
+55 % weniger Verkehrsgeometrie insgesamt.**
+
+### Eine Messregel, die dabei zweimal wehgetan hat
+
+`castShadow` zur Laufzeit umzuschalten, um die Schattenkosten zu messen, machte das Bild **langsamer**
+— 108 auf 45 FPS —, weil jede Materialänderung eine Shader-Neuübersetzung auslöst. Gemessen wurde die
+Kompilierung, nicht der Schatten. Was sich zur Laufzeit messen lässt, ist **Sichtbarkeit**; alles
+andere verändert die Sache, die man wiegen will.

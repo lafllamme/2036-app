@@ -156,6 +156,22 @@ export class CameraRig {
    */
   handOver(walking: boolean, returnTo: THREE.Vector3 | null): void {
     this.controls.enabled = !walking
+    /*
+     * Die Nahebene gehört zur Augenhöhe, nicht zur Karte.
+     *
+     * Sechs Meter sind richtig, solange die Kamera hunderte Meter über der Stadt steht: sie schneidet
+     * nichts weg, was man sehen könnte, und sie kauft der Tiefe Genauigkeit. Auf Augenhöhe schneidet
+     * sie **alles im Umkreis von sechs Metern** weg — den Boden vor den Füßen, den Sockel der Wand,
+     * an der man steht. Gemeldet als „der Boden kommt unten die ganze Zeit raus", und das war er
+     * nicht: er war weg, und man sah durch ihn hindurch.
+     *
+     * Die Fernebene geht zusammen mit ihr herunter, weil das Verhältnis der beiden die Genauigkeit
+     * des Tiefenpuffers bestimmt. Vom Gehweg aus sind sechzehn Kilometer ohnehin sinnlos — der Dunst
+     * schluckt die Stadt bei sechs, und was er schluckt, muss nicht gezeichnet werden.
+     */
+    this.camera.near = walking ? 0.12 : 6
+    this.camera.far = walking ? 4_000 : 16_000
+    this.camera.updateProjectionMatrix()
     if (walking) {
       this.tween = null
       return

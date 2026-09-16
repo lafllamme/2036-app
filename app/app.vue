@@ -185,7 +185,7 @@ function restart(): void {
         <div class="hints" aria-hidden="true">
           <!-- Die Steuerung, die gerade gilt — nicht die, die es sonst gäbe. -->
           <p v-if="walking">
-            <b>WASD</b> gehen · <b>Shift</b> laufen · <b>Maus</b> umsehen · <b>Knopf</b> zurück zur Karte
+            <b>WASD</b> gehen · <b>Shift</b> laufen · <b>Leertaste</b> springen · <b>Maus</b> umsehen · <b>Knopf</b> zurück zur Karte
           </p>
           <p v-else>
             <b>Links</b> verschieben · <b>Rechts</b> drehen · <b>Rad</b> zoomen · <b>Rechtsklick</b> anfliegen

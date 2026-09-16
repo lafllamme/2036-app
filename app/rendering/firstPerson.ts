@@ -43,6 +43,15 @@ const WALK = 4.6
 const RUN = 10.5
 /** Wie schnell die Geschwindigkeit dem Willen folgt. Kein Eis, aber auch kein Schalter. */
 const EASE = 9
+/**
+ * Springen: Anfangsgeschwindigkeit nach oben und die Schwerkraft, die einen wiederholt.
+ *
+ * Hier gibt es sonst keine Physik, und das bleibt auch so — ein Sprung ist eine Zahl, die nach oben
+ * zeigt, und eine, die sie jeden Frame kleiner macht. 5,2 m/s auf eine Sprunghöhe von gut anderthalb
+ * Metern, also über einen Bordstein und auf eine Freitreppe, aber nicht auf ein Dach.
+ */
+const JUMP = 5.2
+const GRAVITY = 17
 /** Wie weit der Blick nach oben und unten darf. Kein Salto. */
 const PITCH_LIMIT = Math.PI / 2 - 0.05
 /** Wie empfindlich die Maus ist, in Radiant je Pixel. */
@@ -80,6 +89,8 @@ export class WalkAbout {
 
   private readonly held = new Set<string>()
   private readonly velocity = new THREE.Vector3()
+  /** Geschwindigkeit nach oben, solange jemand in der Luft ist. Null heißt: steht auf dem Boden. */
+  private lift = 0
   private readonly step = new THREE.Vector3()
   private readonly probe = new THREE.Vector3()
   /** Der Blick der Karte, während jemand zu Fuß unterwegs ist. */
@@ -118,7 +129,8 @@ export class WalkAbout {
 
     // Die Blickrichtung beim Einstieg ist die, die die Karte gerade hatte.
     const away = this.camera.position.clone().sub(target)
-    this.state.yaw = Math.atan2(-away.x, -away.z)
+    // Zur Blickrichtung oben passend: aus (−sin, −cos) folgt atan2(away.x, away.z).
+    this.state.yaw = Math.atan2(away.x, away.z)
     this.state.pitch = 0
     this.state.active = true
 
@@ -134,6 +146,7 @@ export class WalkAbout {
     const free = this.freeSpot(target.x, target.z)
     this.camera.position.set(free.x, Math.max(this.relief.height(free.x, free.z), WATER_LEVEL) + EYE, free.z)
     this.velocity.set(0, 0, 0)
+    this.lift = 0
     this.held.clear()
     this.aim()
     void this.canvas.requestPointerLock?.()
@@ -169,10 +182,16 @@ export class WalkAbout {
     const sideways = (this.held.has('KeyD') || this.held.has('ArrowRight') ? 1 : 0)
       - (this.held.has('KeyA') || this.held.has('ArrowLeft') ? 1 : 0)
 
+    /*
+     * Eine Kamera in three schaut entlang ihrer **negativen** Z-Achse. Nach der Drehung um Y ist
+     * ihre Blickrichtung also (−sin, 0, −cos) und nicht (+sin, 0, +cos) — mit dem falschen Vorzeichen
+     * lief W rückwärts und S vorwärts, während A und D stimmten. Genau so wurde es gemeldet:
+     * „die Controls sind vertauscht".
+     */
     const wanted = this.step.set(
-      Math.sin(this.state.yaw) * forward + Math.cos(this.state.yaw) * sideways,
+      -Math.sin(this.state.yaw) * forward + Math.cos(this.state.yaw) * sideways,
       0,
-      Math.cos(this.state.yaw) * forward - Math.sin(this.state.yaw) * sideways,
+      -Math.cos(this.state.yaw) * forward - Math.sin(this.state.yaw) * sideways,
     )
     if (wanted.lengthSq() > 0)
       wanted.normalize().multiplyScalar(this.held.has('ShiftLeft') || this.held.has('ShiftRight') ? RUN : WALK)
@@ -210,7 +229,27 @@ export class WalkAbout {
      * nichts zu tun.
      */
     const ground = Math.max(this.relief.height(this.camera.position.x, this.camera.position.z), WATER_LEVEL)
-    this.camera.position.y = ground + EYE
+
+    /*
+     * Und der Sprung. Steigen, fallen, aufkommen — mehr ist es nicht.
+     *
+     * Der Boden bleibt die Führung: solange niemand springt, klebt das Auge an `ground + EYE`, und
+     * das ist auch der Grund, warum es keine Sprungerkennung braucht. Wer aufkommt, ist wieder auf
+     * dem Boden, und ein Hang trägt einen dabei von selbst mit.
+     */
+    if (this.lift > 0 || this.camera.position.y > ground + EYE + 0.001) {
+      this.lift -= GRAVITY * delta
+      this.camera.position.y += this.lift * delta
+      if (this.camera.position.y <= ground + EYE) {
+        this.camera.position.y = ground + EYE
+        this.lift = 0
+      }
+    }
+    else {
+      this.camera.position.y = ground + EYE
+      if (this.held.has('Space'))
+        this.lift = JUMP
+    }
 
     this.state.x = this.camera.position.x
     this.state.z = this.camera.position.z

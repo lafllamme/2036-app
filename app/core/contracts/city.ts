@@ -114,6 +114,15 @@ export interface TreeRecord {
   x: number
   z: number
   scale: number
+  /**
+   * Steht hier eine Hecke statt eines Baumes?
+   *
+   * Knicks auf den Feldgrenzen sind das Zahlreichste, was in dieser Landschaft wächst — vierzehntausend
+   * Gehölze —, und aus dem vollen Artenpool gezogen wären sie vierzehntausend Eichen zu vierhundert
+   * Dreiecken. Eine Wallhecke ist aber ein Strauch. Das Feld leitet sie auf die beiden Buschmodelle
+   * um, und das ist der Unterschied zwischen 830.000 zusätzlichen Dreiecken und einem Bruchteil davon.
+   */
+  hedge?: boolean
 }
 
 export interface CityBlueprint {

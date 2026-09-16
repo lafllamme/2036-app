@@ -688,3 +688,37 @@ unberührt, weil sie in einem ganz anderen Farbton liegen.
 | Dreiecke | 3,8 Mio. | **4,5 Mio.** |
 | Draws | 150 | **150** |
 | FPS | 110 | **100** |
+
+### Knicks, und Wälder, die keine Kreise mehr sind
+
+Zwei Sachen fielen im Bild sofort auf, nachdem die Feldflur stand.
+
+**Die Wälder waren perfekte Scheiben.** Gleichverteilt über eine Kreisfläche — aus der Höhe lagen
+runde Flecken auf der Ebene, die als gezeichnet auffielen. Ein gewachsener Bestand folgt dem Hang,
+der Feldgrenze und dem Graben; er hat Buchten und Zungen, und genau daran erkennt man ihn. Drei
+überlagerte Wellen über den Winkel geben ihm die: eine breite für die Grundform, zwei schmalere für
+die Ränder. Kostet drei Kosinus je Baum, einmal beim Aufbau.
+
+**Und die Feldflur hatte keine Kanten.** Eine norddeutsche Landschaft ist nicht durch ihre Äcker
+gegliedert, sondern durch das, was zwischen ihnen steht: Wallhecken auf den Grenzen, seit der
+Verkoppelung angelegt, um Vieh zu halten und Wind zu brechen. Sie sind der Grund, aus dem man aus
+der Luft überhaupt Felder *sieht*.
+
+`layKnicks` tastet das offene Land in einem Raster von 15 Metern ab, fragt `fieldAt`, wie weit jeder
+Punkt vom Schlagrand entfernt ist, und pflanzt, wo er dicht genug daran steht. Nur gut die Hälfte der
+Grenzen trägt einen — ein Knick an jedem Rand wäre ein Gitter. Ob eine Grenze eine Hecke hat,
+entscheidet ein Hash über den **Schlag** und nicht über den Punkt, damit ein Knick über seine ganze
+Länge durchgeht statt zu einer gepunkteten Linie zu zerfallen.
+
+**Eine Hecke ist ein Strauch.** Rund vierzehntausend Gehölze sind das Zahlreichste, was in dieser
+Landschaft wächst, und aus dem vollen Artenpool gezogen wären ein guter Teil davon Eichen zu
+vierhundert Dreiecken. `TreeRecord.hedge` leitet sie auf die beiden Buschmodelle um — dieselben
+Instanzen, dieselben Draws:
+
+| | Dreiecke |
+| --- | --- |
+| ohne Knicks | 4.482k |
+| Knicks aus dem vollen Pool | 5.312k |
+| **Knicks als Sträucher** | **4.895k** |
+
+Gemessen bei sichtbarem Fenster: **92 FPS, 115 Draws.**

@@ -69,8 +69,23 @@ export function addTrees(scene: THREE.Scene, blueprint: CityBlueprint, models: C
   const weights = cost.map(triangles => cheapest / triangles)
   const total = weights.reduce((sum, weight) => sum + weight, 0)
 
+  /*
+   * Eine Hecke ist ein Strauch und kein Baum.
+   *
+   * Die Knicks auf den Feldgrenzen sind das Zahlreichste, was in dieser Landschaft wächst, und aus
+   * dem vollen Artenpool gezogen wären sie zu großen Teilen Eichen zu vierhundert Dreiecken. Sie
+   * ziehen deshalb nur aus den Buschmodellen — dieselben Instanzen, dieselben Draws, ein Bruchteil
+   * der Dreiecke. Gibt es keine Büsche im Kit, fallen sie auf den Gesamtpool zurück.
+   */
+  const bushes = pool.map((model, index) => [model, index] as const).filter(([model]) => model.slenderness < BUSH_SLENDERNESS)
+  const hedgePool = bushes.length > 0 ? bushes : pool.map((model, index) => [model, index] as const)
+
   const crews: (typeof blueprint.trees)[] = pool.map(() => [])
   blueprint.trees.forEach((tree, index) => {
+    if (tree.hedge) {
+      crews[hedgePool[index % hedgePool.length]![1]]!.push(tree)
+      return
+    }
     let roll = (((index * 2_654_435_761) >>> 0) / 0x1_0000_0000) * total
     let chosen = 0
     while (chosen < weights.length - 1 && roll > weights[chosen]!) {

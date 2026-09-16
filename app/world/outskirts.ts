@@ -2,6 +2,7 @@ import type { BuildingRecord, RoadRecord, TreeRecord } from '../core/contracts'
 import type { Relief } from './relief'
 import { createRandomStream } from '../core/rng'
 import { districtAt } from './model/lindenhafen'
+import { fieldAt } from './terrain'
 
 /**
  * The country around the city — built by the same rules as the city inside it, and joined to it.
@@ -103,6 +104,24 @@ const TREE_SHARE = 0.55
 const VILLAGE_CLEARING = 42
 
 /**
+ * Die Knicks — und warum sie das Wichtigste an dieser Landschaft sind.
+ *
+ * Eine norddeutsche Feldflur ist nicht durch ihre Äcker gegliedert, sondern durch das, was zwischen
+ * ihnen steht: Wallhecken auf den Grenzen, seit der Verkoppelung angelegt, um Vieh zu halten und
+ * Wind zu brechen. Sie sind der Grund, aus dem man aus der Luft überhaupt Felder *sieht* — ohne sie
+ * ist eine Feldflur eine Fläche mit Farbverläufen darauf, und genau so sah sie hier aus.
+ *
+ * Gepflanzt wird auf den Grenzen, die `fieldAt` ohnehin kennt: ein Raster über das offene Land, jeder
+ * Punkt gefragt, wie weit er vom Rand seines Schlages entfernt ist, und wo er dicht genug daran
+ * steht, kommt ein Gehölz hin. Nicht auf jede Grenze — ein Knick an jedem Rand wäre ein Gitter, und
+ * die Verkoppelung war nicht ordentlicher als die Leute, die sie gemacht haben.
+ */
+const KNICK_STEP = 15
+const KNICK_EDGE = 0.06
+/** Anteil der Grenzen, der überhaupt einen Knick trägt. */
+const KNICK_SHARE = 0.58
+
+/**
  * Wie viele Wälder im offenen Land stehen, wie viele Bäume jeder hält und wie weit er reicht.
  *
  * Es waren 190 Bestände zu 34 Bäumen auf 110 Meter Radius — nachgerechnet **ein Baum je 1.100
@@ -182,6 +201,7 @@ export function buildOutskirts(seed: number, relief: Relief, cityRoads: RoadReco
   }
 
   scatterWoods(rng, relief, places, trees)
+  layKnicks(rng, relief, seed, places, trees)
 
   return { buildings, roads, trees }
 }
@@ -547,6 +567,56 @@ function pathLength(path: number[]): number {
  * so seventy clumps cost seventy times nothing and give the country somewhere for the eye to stop.
  * Kept well away from the places, because a wood in a village is a park and this is not one.
  */
+/**
+ * Wallhecken auf die Feldgrenzen.
+ *
+ * Abgetastet wird das offene Land in einem Raster von `KNICK_STEP`; `fieldAt` sagt für jeden Punkt,
+ * wie weit er vom Rand seines Schlages entfernt ist, und wo er dicht genug daran steht, kommt ein
+ * Gehölz hin. Dass nur gut die Hälfte der Grenzen einen trägt, entscheidet ein Hash über die
+ * Zellenmitte — damit bleibt ein Knick über seine ganze Länge ein Knick und flackert nicht.
+ *
+ * Klein gehalten: das hier sind Hecken und keine Alleen. Der Maßstab kommt aus `scale`, und die
+ * Baumarten sind ohnehin instanziert — es kostet Dreiecke, keinen Draw.
+ */
+function layKnicks(rng: Stream, relief: Relief, seed: number, places: Place[], trees: TreeRecord[]): void {
+  for (let x = -COUNTRY_REACH; x <= COUNTRY_REACH; x += KNICK_STEP) {
+    for (let z = -COUNTRY_REACH; z <= COUNTRY_REACH; z += KNICK_STEP) {
+      if (Math.hypot(x, z) > COUNTRY_REACH)
+        continue
+      // Nie im echten Grundriss, und nie mitten in einem Dorf.
+      if (Math.abs(x) < EXTRACT_HALF + 160 && Math.abs(z) < EXTRACT_HALF + 160)
+        continue
+      const { edge } = fieldAt(x, z, seed)
+      if (edge > KNICK_EDGE)
+        continue
+      if (places.some(place => Math.hypot(place.x - x, place.z - z) < 150))
+        continue
+      if (relief.height(x, z) < 0.6)
+        continue
+      /*
+       * Ob diese Grenze überhaupt eine Hecke trägt, entscheidet der Schlag und nicht der Punkt —
+       * sonst zerfällt ein Knick in eine gepunktete Linie.
+       */
+      if (hedgeAt(x, z, seed) > KNICK_SHARE)
+        continue
+      trees.push({
+        id: `o-knick-${trees.length.toString(36)}`,
+        x: round(x + rng.between(-4, 4)),
+        z: round(z + rng.between(-4, 4)),
+        scale: rng.between(0.34, 0.66),
+        hedge: true,
+      })
+    }
+  }
+}
+
+/** Ob auf dieser Feldgrenze eine Hecke steht. Über den Schlag gehasht, damit sie durchgehend ist. */
+function hedgeAt(x: number, z: number, seed: number): number {
+  const cell = Math.floor(x / 240) * 7919 + Math.floor(z / 240) * 104_729 + seed
+  const wobble = Math.sin(cell * 12.9898) * 43_758.5453
+  return wobble - Math.floor(wobble)
+}
+
 function scatterWoods(rng: Stream, relief: Relief, places: Place[], trees: TreeRecord[]): void {
   for (let wood = 0; wood < WOOD_COUNT; wood += 1) {
     const angle = rng.next() * Math.PI * 2
@@ -559,6 +629,22 @@ function scatterWoods(rng: Stream, relief: Relief, places: Place[], trees: TreeR
       continue
 
     const spread = WOOD_SPREAD * rng.between(0.6, 1.6)
+    /*
+     * Ein Wald ist kein Kreis.
+     *
+     * Er war einer: gleichverteilt über eine Kreisfläche, und aus der Höhe lagen dann fünf runde
+     * Scheiben auf der Ebene, die sofort als gezeichnet auffielen. Ein gewachsener Bestand folgt dem
+     * Hang, der Feldgrenze und dem Graben — er hat Buchten und Zungen, und genau daran erkennt man
+     * ihn. Drei überlagerte Wellen über den Winkel geben ihm die: eine breite für die Grundform, zwei
+     * schmalere für die Ränder. Kostet drei Kosinus je Baum, einmal beim Aufbau.
+     */
+    const lobes = 2 + Math.floor(rng.next() * 3)
+    const twist = rng.next() * Math.PI * 2
+    const outline = (bearing: number): number =>
+      0.62
+      + 0.3 * Math.cos(bearing * lobes + twist)
+      + 0.14 * Math.cos(bearing * (lobes * 2 + 1) - twist * 1.7)
+      + 0.1 * Math.cos(bearing * 7 + twist * 0.4)
     for (let tree = 0; tree < WOOD_TREES; tree += 1) {
       /*
        * Gleichverteilt in der Fläche statt zur Mitte hin verdichtet.
@@ -567,8 +653,8 @@ function scatterWoods(rng: Stream, relief: Relief, places: Place[], trees: TreeR
        * wenigen Bäumen, dass davon nichts zu sehen war. Ein Bestand ist innen so dicht wie außen —
        * was ihn als Wald lesbar macht, ist nicht der Verlauf zur Mitte, sondern die Kante.
        */
-      const away = Math.sqrt(rng.next()) * spread
       const bearing = rng.next() * Math.PI * 2
+      const away = Math.sqrt(rng.next()) * spread * Math.max(0.25, outline(bearing))
       const x = centreX + Math.cos(bearing) * away
       const z = centreZ + Math.sin(bearing) * away
       if (relief.height(x, z) < 0.8)

@@ -2,113 +2,45 @@
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useSound } from '~/composables/useSound'
-import { useSoundSettings } from '~/composables/useSoundSettings'
 import { getParty } from '~/content/parties'
 import { useGameStore } from '~/stores/game'
-import { formatNumber } from '~/utils/labels'
+
+/*
+ * Die Schale, und sonst nichts.
+ *
+ * Vorher standen hier die Kopfleiste, die Zeitsteuerung, die Kamerahilfe und das Render-Abzeichen im
+ * Template — ein halbes Layout in der Datei, die eigentlich nur sagen soll, was es auf dem Schirm
+ * gibt. Die Bedienung ist jetzt `CommandDeck`, jede Fläche bringt ihr eigenes CSS mit, und was hier
+ * bleibt, sind die Dinge, die zu nichts anderem gehören: die Auswahl unter dem Mauszeiger, die zwei
+ * Meldungsdialoge und der Fehlerzustand.
+ */
 
 const game = useGameStore()
-const settings = useSoundSettings()
 const sound = useSound()
 const {
-  snapshot,
-  clock,
-  daylight,
-  weather,
-  currentDate,
-  campaignProgress,
-  canAdvance,
   experienceStage,
-  selectedPartyId,
-  speed,
-  skipping,
-  nextAction,
   selectedBuilding,
   selectedNews,
   selectedReport,
   selectedCitizen,
   rendererStats,
 } = storeToRefs(game)
-const selectedParty = computed(() => selectedPartyId.value ? getParty(selectedPartyId.value) : null)
+
+const buildingLabels = {
+  altbau: 'Gründerzeit-Wohnhaus',
+  modern: 'Modernes Quartier',
+  residential: 'Wohngebäude',
+  commercial: 'Gewerbeimmobilie',
+  industrial: 'Industriebetrieb',
+  civic: 'Öffentliche Einrichtung',
+}
 
 /*
- * The two numbers that are deliberately not the same number.
+ * Ein Einsatz, dreimal gesagt.
  *
- * Seats are what the player has; support is what the city would give them if it were asked today.
- * They only move together at an election, and the gap between them is the position the whole
- * political model exists to put the player in — governing with a majority that is no longer the
- * city. Showing one without the other would hide exactly that.
- */
-const ownSupport = computed(() => {
-  const id = selectedPartyId.value
-  return id && snapshot.value ? (snapshot.value.support[id] ?? null) : null
-})
-
-/** What it was at the last committed month, so the arrow says which way the city is going. */
-const previousSupport = ref<Record<string, number>>({})
-watch(() => snapshot.value?.month, () => {
-  const support = snapshot.value?.support
-  if (support)
-    previousSupport.value = { ...support }
-})
-
-/** Which way it has moved since the last committed month, as −1, 0 or 1. A tenth of a point counts. */
-const supportDrift = computed(() => {
-  const id = selectedPartyId.value
-  const now = ownSupport.value
-  const before = id ? previousSupport.value[id] : undefined
-  if (!id || now === null || before === undefined)
-    return 0
-  const change = now - before
-  return Math.abs(change) < 0.0005 ? 0 : Math.sign(change)
-})
-
-const hasMajority = computed(() => (snapshot.value?.coalitionSupport ?? 0) > 30)
-
-/**
- * Why the clock has stopped, in the game's own words.
- *
- * The campaign pauses itself when a motion arrives and when it ends, and until now it did so in
- * complete silence: three speed buttons with none of them lit and a clock that had stopped, which
- * is indistinguishable from a crash. It was read as one.
- */
-/**
- * Was der große Knopf sagt — dasselbe, was er tut.
- *
- * Er sagte „Nächstes Ereignis" auch dann, wenn längst eines auf dem Tisch lag und die Uhr deshalb
- * stand. Genau in dem Zustand landet der Spieler nach jedem Laden und nach jedem Zeitraffer.
- */
-const advanceLabel = computed(() => {
-  if (nextAction.value === 'decide')
-    return 'Vorlage öffnen'
-  if (!canAdvance.value)
-    return 'Kampagne abgeschlossen'
-  return skipping.value ? 'Anhalten' : 'Nächstes Ereignis'
-})
-
-const pauseReason = computed(() => {
-  if (snapshot.value?.defeat)
-    return 'Kampagne beendet'
-  if ((snapshot.value?.pendingDecisions.length ?? 0) > 0)
-    return 'Vorlage wartet'
-  return 'Pausiert'
-})
-
-const supportHint = computed(() => {
-  if (ownSupport.value === null)
-    return ''
-  const share = formatNumber(ownSupport.value * 100, 1)
-  return hasMajority.value
-    ? `${share} % der Stimmen. Die Koalition hält noch eine Mehrheit.`
-    : `${share} % der Stimmen. Die Koalition hat keine Mehrheit mehr.`
-})
-
-/*
- * A call, said three ways.
- *
- * The bar has room for one line and says who was sent and what for. The dialog has room to split
- * that: the service and district as a kicker, the thing itself as the headline, and the reason it
- * happened underneath — because in this game an incident always has one.
+ * Die Meldung hat Platz für eine Zeile und sagt, wer hingeschickt wurde und wofür. Der Dialog hat
+ * Platz, das aufzuteilen: Dienst und Viertel als Vorzeile, die Sache selbst als Überschrift, und
+ * darunter der Grund — denn in diesem Spiel hat ein Einsatz immer einen.
  */
 const CALL_TITLES: Record<string, string> = {
   burglary: 'Einbruch gemeldet',
@@ -127,15 +59,13 @@ const SERVICE_LABELS: Record<string, string> = {
   ambulance: 'Rettungsdienst',
   fire: 'Feuerwehr',
 }
-/** Which colour a call wears: by what happened, not by who was sent. */
+/** Welche Farbe ein Einsatz trägt: nach dem, was passiert ist, nicht nach dem, wer gekommen ist. */
 const CALL_TONE: Record<string, string> = {
   burglary: 'theft',
   assault: 'police',
   accident: 'medical',
   fire: 'fire',
 }
-
-/** What is happening with the call, in words, and how long it has been going. */
 const REPORT_STATUS: Record<string, string> = {
   open: 'Kräfte unterwegs',
   onScene: 'Kräfte vor Ort',
@@ -143,11 +73,10 @@ const REPORT_STATUS: Record<string, string> = {
 }
 
 /*
- * A clock that ticks only while a call is open on screen.
+ * Eine Uhr, die nur tickt, solange ein Einsatz offen auf dem Schirm steht.
  *
- * A call is a thing that is happening, and the one question a player has looking at it is how long
- * it has been happening — so the dialog counts rather than showing a timestamp. Nothing runs when
- * no dialog is open.
+ * Ein Einsatz ist etwas, das gerade passiert, und die eine Frage dazu ist, wie lange schon — also
+ * zählt der Dialog, statt einen Zeitstempel zu zeigen. Ohne offenen Dialog läuft nichts.
  */
 const now = ref(Date.now())
 let ticking: ReturnType<typeof setInterval> | null = null
@@ -177,89 +106,13 @@ const reportElapsed = computed(() => {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 })
 
-/** Take the player there and get out of the way; the camera is the answer, not the dialog. */
+/** Den Spieler hinbringen und aus dem Weg gehen; die Kamera ist die Antwort, nicht der Dialog. */
 function flyToReport(): void {
   const report = selectedReport.value
   if (!report)
     return
   game.focusOnPlace(report.x, report.z)
   game.selectedReport = null
-}
-
-const coalitionStanding = computed(() => (snapshot.value?.coalitionSupport ?? 0) > 30 ? 'Mehrheit' : 'Minderheit')
-const leaderLine = computed(() => snapshot.value?.leader?.name ?? '')
-const standingLine = computed(() =>
-  selectedParty.value ? `${selectedParty.value.abbreviation} · ${coalitionStanding.value}` : 'Politische Stadtsimulation')
-
-/*
- * One glyph carries the state of the sky. The words for each phase and the exact sunrise and sunset
- * times live in the Lagebericht, where they are looked up rather than monitored — a label in the
- * command bar cost 290 px for something the sky itself already says.
- */
-const SUN_GLYPHS: Record<string, string> = {
-  night: 'lucide:moon',
-  dawn: 'lucide:sunrise',
-  sunrise: 'lucide:sunrise',
-  morning: 'lucide:sun',
-  noon: 'lucide:sun',
-  afternoon: 'lucide:sun',
-  goldenHour: 'lucide:sunset',
-  sunset: 'lucide:sunset',
-  dusk: 'lucide:sunset',
-}
-
-const PHASE_LABELS: Record<string, string> = {
-  night: 'Nacht',
-  dawn: 'Morgendämmerung',
-  sunrise: 'Sonnenaufgang',
-  morning: 'Vormittag',
-  noon: 'Mittag',
-  afternoon: 'Nachmittag',
-  goldenHour: 'Goldene Stunde',
-  sunset: 'Sonnenuntergang',
-  dusk: 'Abenddämmerung',
-}
-
-/**
- * What the sky reads as, in one glyph.
- *
- * The weather outranks the hour here on purpose: at two on a November afternoon the interesting fact
- * is that it is raining, not that the sun is technically up. Only when nothing is falling and the
- * sky is not shut does the phase of the day get the icon back.
- */
-function skyGlyph(phase: string): { glyph: string, label: string } {
-  const { rain, snow, cloud, wind } = weather.value
-  if (snow > 0.08)
-    return { glyph: 'lucide:cloud-snow', label: snow > 0.5 ? 'Schneefall' : 'Leichter Schnee' }
-  if (rain > 0.08)
-    return { glyph: rain > 0.5 ? 'lucide:cloud-rain' : 'lucide:cloud-drizzle', label: rain > 0.5 ? 'Regen' : 'Nieselregen' }
-  if (wind > 0.62)
-    return { glyph: 'lucide:wind', label: 'Windig' }
-  if (cloud > 0.78)
-    return { glyph: 'lucide:cloudy', label: 'Bedeckt' }
-  if (cloud > 0.52)
-    return { glyph: 'lucide:cloud-sun', label: 'Wechselnd bewölkt' }
-  return { glyph: SUN_GLYPHS[phase] ?? 'lucide:sun', label: PHASE_LABELS[phase] ?? '' }
-}
-
-const sky = computed(() => {
-  const reading = daylight.value
-  const look = skyGlyph(reading.phase)
-  return {
-    glyph: look.glyph,
-    label: `${look.label} · ${PHASE_LABELS[reading.phase] ?? ''}`,
-    temperature: `${formatNumber(weather.value.temperature, 0)}°`,
-    isNight: reading.phase === 'night',
-  }
-})
-
-const buildingLabels = {
-  altbau: 'Gründerzeit-Wohnhaus',
-  modern: 'Modernes Quartier',
-  residential: 'Wohngebäude',
-  commercial: 'Gewerbeimmobilie',
-  industrial: 'Industriebetrieb',
-  civic: 'Öffentliche Einrichtung',
 }
 
 function restart(): void {
@@ -277,68 +130,34 @@ function restart(): void {
 
     <ClientOnly>
       <template v-if="experienceStage === 'gameplay'">
-        <header class="top-command panel">
-          <div class="brand-block">
-            <strong>20<span>36</span></strong>
-            <div>
-              <b>LINDENHAFEN</b>
-              <!--
-                Der Name steht vor der Fraktion: es ist deine Amtszeit, nicht die der Partei. Auf
-                zwei Zeilen fest gesetzt, weil die Marke schmal ist und „Marlene Vogt · GRÜNE ·
-                Minderheit" sonst dreizeilig umbricht.
-              -->
-              <small>
-                <template v-if="leaderLine">{{ leaderLine }}<br></template>{{ standingLine }}
-              </small>
-            </div>
-          </div>
-          <div class="date-block">
-            <span class="date-block__month">{{ currentDate }}</span>
-            <span class="date-block__clock">{{ clock }}</span>
-            <span class="date-block__temp">{{ sky.temperature }}<small>C</small></span>
-            <Icon
-              class="date-block__sky"
-              :class="{ 'is-night': sky.isNight }"
-              :name="sky.glyph"
-              :aria-label="sky.label"
-            />
-            <div class="campaign-track">
-              <i :style="{ width: `${campaignProgress}%` }" />
-            </div>
-          </div>
-          <div v-if="snapshot && ownSupport !== null" class="coalition-block" :title="supportHint">
-            <small>Rückhalt</small>
-            <div class="seatline" role="img" :aria-label="supportHint">
-              <i class="support" :style="{ width: `${ownSupport * 100}%` }" />
-            </div>
-            <strong>
-              {{ formatNumber(ownSupport * 100, 1) }}<i>%</i>
-              <em v-if="supportDrift !== 0" :class="supportDrift > 0 ? 'up' : 'down'">{{ supportDrift > 0 ? '▲' : '▼' }}</em>
-            </strong>
-          </div>
-          <div v-if="snapshot" class="coalition-block" :class="{ tight: !hasMajority }">
-            <small>Koalition</small>
-            <div class="seatline" role="img" :aria-label="`${snapshot.coalitionSupport} von 60 Sitzen`">
-              <i :style="{ width: `${(snapshot.coalitionSupport / 60) * 100}%` }" />
-            </div>
-            <strong>{{ snapshot.coalitionSupport }}<i>/60</i></strong>
-          </div>
-          <button class="quiet-button" type="button" @click="game.save">
-            {{ game.saveStatus.startsWith('Gespeichert') ? 'Gespeichert' : 'Speichern' }}
-          </button>
-          <button class="icon-button" type="button" aria-label="Einstellungen" @click="settings.openSettings()">
-            <Icon name="lucide:settings" />
-          </button>
-        </header>
+        <div class="shell-hem" aria-hidden="true" />
 
         <MetricRail />
         <DecisionPanel />
+        <NewsTicker />
+        <CommandDeck />
+        <VoteSheet />
+        <VoteResult />
+        <ClosingReport />
 
-        <section v-if="selectedBuilding" class="selection-card panel">
-          <button type="button" aria-label="Auswahl schließen" @click="game.selectedBuilding = null">
-            ×
+        <!--
+          Die Kamerahilfe und das Render-Abzeichen: das Leiseste auf dem Schirm, in der Ecke des
+          Himmels, in der ohnehin nichts steht. Beides ist Auskunft und keine Bedienung.
+        -->
+        <div class="hints" aria-hidden="true">
+          <p><b>Links</b> verschieben · <b>Rechts</b> drehen · <b>Rad</b> zoomen · <b>Rechtsklick</b> anfliegen</p>
+          <p v-if="rendererStats" class="render-badge">
+            {{ rendererStats.backend }} · {{ rendererStats.fps }} FPS · {{ rendererStats.drawCalls }} Draws ·
+            {{ (rendererStats.triangles / 1000).toFixed(0) }}k Dreiecke · {{ rendererStats.resolution.toFixed(2) }}× ·
+            {{ rendererStats.buildings }} Gebäude
+          </p>
+        </div>
+
+        <section v-if="selectedBuilding" class="pod pick" aria-label="Ausgewähltes Gebäude">
+          <button type="button" class="close-button" aria-label="Auswahl schließen" @click="game.selectedBuilding = null">
+            <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
-          <small>{{ selectedBuilding.districtId.replaceAll('-', ' ') }}</small>
+          <span class="kick">{{ selectedBuilding.districtId.replaceAll('-', ' ') }}</span>
           <h2>{{ buildingLabels[selectedBuilding.type] }}</h2>
           <dl>
             <div><dt>Objekt</dt><dd>{{ selectedBuilding.id.toUpperCase() }}</dd></div>
@@ -348,26 +167,23 @@ function restart(): void {
         </section>
 
         <!--
-          Somebody in the street.
+          Jemand auf der Straße.
 
-          Everyone walking or riding in Lindenhafen has a name, an age, a job and a family history,
-          none of it stored and all of it derived from the number of the figure you happened to point
-          at — so there are five hundred people in the city and none of them cost anything until you
-          look. None of it is read back by anything: see `app/world/citizens.ts`.
+          Alle, die in Lindenhafen laufen oder fahren, haben einen Namen, ein Alter, einen Beruf und
+          eine Familiengeschichte — nichts davon gespeichert, alles abgeleitet aus der Nummer der
+          Figur, auf die man gezeigt hat. Es gibt also fünfhundert Menschen in der Stadt, und keiner
+          kostet etwas, bis man hinsieht. Siehe `app/world/citizens.ts`.
         -->
-        <section v-if="selectedCitizen" class="selection-card citizen-card panel">
-          <button type="button" aria-label="Auswahl schließen" @click="game.selectedCitizen = null">
-            ×
+        <section v-if="selectedCitizen" class="pod pick pick--person" aria-label="Ausgewählte Person">
+          <button type="button" class="close-button" aria-label="Auswahl schließen" @click="game.selectedCitizen = null">
+            <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
-          <small>Passantin oder Passant</small>
+          <span class="kick">Passantin oder Passant</span>
           <h2>{{ selectedCitizen.name }}</h2>
           <dl>
             <div><dt>Alter</dt><dd>{{ selectedCitizen.age }}</dd></div>
             <div><dt>Tätigkeit</dt><dd>{{ selectedCitizen.job }}</dd></div>
-            <div>
-              <dt>Herkunft</dt>
-              <dd>{{ selectedCitizen.origin.country }}</dd>
-            </div>
+            <div><dt>Herkunft</dt><dd>{{ selectedCitizen.origin.country }}</dd></div>
             <div>
               <dt>{{ selectedCitizen.origin.born === 'here' ? 'Geboren in' : 'In Lindenhafen seit' }}</dt>
               <dd>{{ selectedCitizen.origin.born === 'here' ? 'Lindenhafen' : selectedCitizen.since }}</dd>
@@ -375,70 +191,17 @@ function restart(): void {
             <div>
               <dt>Würde wählen</dt>
               <dd>
-                <i class="leaning-dot" :style="{ background: getParty(selectedCitizen.leaning).color }" />
+                <i class="party-dot" :style="{ background: getParty(selectedCitizen.leaning).color }" />
                 {{ getParty(selectedCitizen.leaning).abbreviation }}
               </dd>
             </div>
           </dl>
-          <p class="dialog-note">
-            Herkunft und Tätigkeit sind Merkmale und keine Werte: sie gehen in keine Bewertung, keinen Auslöser und keine Kennzahl ein. Die Wahlabsicht ergibt sich aus der Haltung dieser Person und daraus, wohin die Stadt gerade tendiert — sie kann sich im Lauf der Kampagne ändern.
+          <p class="note">
+            Herkunft und Tätigkeit sind Merkmale und keine Werte: sie gehen in keine Bewertung, keinen Auslöser und
+            keine Kennzahl ein. Die Wahlabsicht ergibt sich aus der Haltung dieser Person und daraus, wohin die Stadt
+            gerade tendiert – sie kann sich im Lauf der Kampagne ändern.
           </p>
         </section>
-
-        <section class="camera-help panel" aria-label="Kamerasteuerung">
-          <span><b>LINKS</b> verschieben</span><span><b>RECHTS</b> drehen</span><span><b>RAD</b> zoomen</span><span><b>RECHTSKLICK</b> anfliegen</span>
-        </section>
-
-        <section class="time-controls panel" :class="{ paused: speed === 0 }" aria-label="Zeitsteuerung">
-          <!--
-            The pause button was taken out because pausing is one click away on any of the speeds and
-            the campaign pauses itself for a vote anyway. What was missing is the other half of that:
-            the campaign pausing itself was completely silent. Three speed buttons with none of them
-            lit, and a clock that has stopped, is indistinguishable from a game that has crashed —
-            and was read as exactly that. The resume below says both that it is paused and why.
-          -->
-          <button
-            v-if="speed === 0 && canAdvance"
-            type="button"
-            class="resume"
-            :title="`${pauseReason} — klicken, um fortzusetzen`"
-            @click="game.setSpeed(1)"
-          >
-            <span aria-hidden="true">▶</span> {{ pauseReason }}
-          </button>
-          <button type="button" class="overview" title="Zurück zur Gesamtansicht" aria-label="Zurück zur Gesamtansicht" @click="game.showOverview">
-            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-              <path d="M1.5 5.5v-4h4M14.5 5.5v-4h-4M1.5 10.5v4h4M14.5 10.5v4h-4" />
-              <circle cx="8" cy="8" r="2.1" />
-            </svg>
-          </button>
-          <span />
-          <button v-for="value in [1, 2, 4] as const" :key="value" type="button" :class="{ active: speed === value }" @click="game.setSpeed(value)">
-            {{ `${value}×` }}
-          </button>
-          <span />
-          <!--
-            „Nächstes Ereignis" statt „Nächster Monat".
-
-            Ein Monat dauert fünf reale Minuten, eine Kampagne also elf Stunden — oder zehn Minuten,
-            wenn man nur diesen Knopf drückt. Er war damit der Unterschied zwischen einem Spiel und
-            einem Durchklicken. Die Beschwerde dahinter stimmt trotzdem: wer fertig entschieden hat,
-            will nicht warten. Die Antwort darauf ist nicht „überspring einen Monat", sondern „lauf,
-            bis mich etwas braucht" — das überspringt nie mehr Zeit als nötig und hält von selbst an.
-          -->
-          <button type="button" class="advance" :class="{ skipping }" :disabled="!canAdvance && nextAction !== 'decide'" @click="game.skipToEvent">
-            {{ advanceLabel }}
-          </button>
-        </section>
-
-        <div v-if="rendererStats" class="render-badge">
-          {{ rendererStats.backend }} · {{ rendererStats.fps }} FPS · {{ rendererStats.drawCalls }} Draws · {{ (rendererStats.triangles / 1000).toFixed(0) }}k Dreiecke · {{ rendererStats.resolution.toFixed(2) }}× · {{ rendererStats.buildings }} Gebäude
-        </div>
-
-        <NewsTicker />
-        <VoteSheet />
-        <VoteResult />
-        <ClosingReport />
       </template>
     </ClientOnly>
 
@@ -446,73 +209,159 @@ function restart(): void {
 
     <SettingsSheet />
 
-    <div v-if="game.error" class="error-state panel" role="alert">
-      <strong>Simulation angehalten</strong><p>{{ game.error }}</p><button type="button" @click="restart">
-        Neu laden
-      </button>
+    <div v-if="game.error" class="modal-backdrop" role="alert">
+      <div class="pod dialog">
+        <h2>Simulation angehalten</h2>
+        <p>{{ game.error }}</p>
+        <div class="dialog-actions">
+          <button type="button" class="btn" @click="restart">
+            Neu laden
+          </button>
+        </div>
+      </div>
     </div>
 
     <div v-if="selectedNews" class="modal-backdrop" @click.self="game.selectedNews = null">
-      <article class="news-dialog panel" role="dialog" aria-modal="true" aria-labelledby="news-title">
-        <button type="button" class="close-button" aria-label="Meldung schließen" @click="game.selectedNews = null">
-          ×
-        </button>
-        <small>{{ selectedNews.scope.toUpperCase() }} · MONAT {{ selectedNews.month }}</small>
+      <article class="pod dialog" role="dialog" aria-modal="true" aria-labelledby="news-title">
+        <div class="dialog-top">
+          <span class="kick">{{ selectedNews.scope }} · Monat {{ selectedNews.month }}</span>
+          <button type="button" class="close-button" aria-label="Meldung schließen" @click="game.selectedNews = null">
+            <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
         <h2 id="news-title">
           {{ selectedNews.headline }}
         </h2>
-        <p class="dialog-note">
-          Diese Meldung wurde aus dem deterministischen Stadtmodell erzeugt. Zugehörige Ursachen erscheinen im monatlichen Kausalprotokoll.
+        <p class="note">
+          Diese Meldung wurde aus dem deterministischen Stadtmodell erzeugt. Zugehörige Ursachen erscheinen im
+          monatlichen Kausalprotokoll.
         </p>
       </article>
     </div>
 
     <div v-if="selectedReport" class="modal-backdrop" @click.self="game.selectedReport = null">
       <article
-        class="news-dialog report-dialog panel"
+        class="pod dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby="report-title"
         :style="{ '--call': `var(--call-${CALL_TONE[selectedReport.kind]})` }"
       >
-        <button type="button" class="close-button" aria-label="Meldung schließen" @click="game.selectedReport = null">
-          ×
-        </button>
-        <small class="report-kicker">
-          <i /> {{ SERVICE_LABELS[selectedReport.service] }}{{ selectedReport.district ? ` · ${selectedReport.district}` : '' }}
-        </small>
-        <h2 id="report-title">
+        <div class="dialog-top">
+          <span class="kick call">
+            <i />{{ SERVICE_LABELS[selectedReport.service] }}{{ selectedReport.district ? ` · ${selectedReport.district}` : '' }}
+          </span>
+          <button type="button" class="close-button" aria-label="Meldung schließen" @click="game.selectedReport = null">
+            <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <h2 id="report-title" class="call">
           {{ CALL_TITLES[selectedReport.kind] }}
         </h2>
-        <p class="report-meta">
-          <span class="report-status" :class="selectedReport.status">
-            <i /> {{ REPORT_STATUS[selectedReport.status] }}
-          </span>
-          <span>· seit {{ reportElapsed }}</span>
+        <p class="status" :class="selectedReport.status">
+          <i />{{ REPORT_STATUS[selectedReport.status] }} · seit {{ reportElapsed }}
         </p>
-        <p class="report-cause">
+        <p class="cause">
           {{ CALL_SUBTITLES[selectedReport.kind] }}
         </p>
         <!--
-          The point of the whole thing: a call is a place, and the player should never have to go
-          hunting across three kilometres of city for the one they were just told about.
+          Der Sinn der ganzen Sache: ein Einsatz ist ein Ort, und niemand soll drei Kilometer Stadt
+          nach dem absuchen müssen, von dem ihm gerade erzählt wurde.
         -->
         <div class="dialog-actions">
-          <button type="button" class="dialog-action" :disabled="selectedReport.status === 'cleared'" @click="flyToReport">
-            <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-              <path d="M1.5 5.5v-4h4M14.5 5.5v-4h-4M1.5 10.5v4h4M14.5 10.5v4h-4" />
-              <circle cx="8" cy="8" r="2.1" />
-            </svg>
-            {{ selectedReport.status === 'cleared' ? 'Einsatz beendet' : 'Zum Einsatzort' }}
-          </button>
-          <button type="button" class="dialog-action ghost" @click="game.selectedReport = null">
+          <button type="button" class="btn btn--ghost btn--sm" @click="game.selectedReport = null">
             Später
           </button>
+          <button type="button" class="btn" :disabled="selectedReport.status === 'cleared'" @click="flyToReport">
+            {{ selectedReport.status === 'cleared' ? 'Einsatz beendet' : 'Zum Einsatzort' }}
+          </button>
         </div>
-        <p class="dialog-note">
-          Einsätze entstehen aus dem Stadtmodell: Einbrüche aus der Belastung des Ordnungsdienstes, Unfälle aus dem Verkehr. Sie sind keine Zufallsereignisse.
+        <p class="note">
+          Einsätze entstehen aus dem Stadtmodell: Einbrüche aus der Belastung des Ordnungsdienstes, Unfälle aus dem
+          Verkehr. Sie sind keine Zufallsereignisse.
         </p>
       </article>
     </div>
   </main>
 </template>
+
+<style scoped>
+/* --- Die leisesten Zeilen im Bild ---------------------------------------- */
+
+.hints {
+  position: absolute; top: 26px; right: 34px; z-index: 4;
+  display: grid; gap: 5px; justify-items: end; pointer-events: none;
+  color: rgba(244, 242, 236, 0.3);
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.04em; text-align: right;
+}
+.hints p { margin: 0; }
+.hints b { color: rgba(244, 242, 236, 0.5); font-weight: 400; }
+.render-badge { font-variant-numeric: tabular-nums; }
+
+/* --- Was unter dem Mauszeiger lag ---------------------------------------- */
+
+.pick {
+  position: absolute; top: 34px; left: 34px; z-index: 7;
+  width: 320px; padding: 22px 24px 20px;
+}
+/*
+ * Die Karte einer Person liegt über der eines Gebäudes, weil immer jemand vor einem steht: ein
+ * Klick wählt beides, und ohne diese Reihenfolge wäre das ein Kartenstreit.
+ */
+.pick--person { z-index: 8; }
+.pick .close-button { position: absolute; top: 14px; right: 14px; width: 32px; height: 32px; }
+.pick .close-button svg { width: 14px; height: 14px; }
+.kick { display: block; color: var(--ink-3); font-size: 12px; text-transform: capitalize; }
+.pick h2 {
+  margin: 9px 0 16px; font-family: var(--display); font-size: 21px; font-weight: 700;
+  letter-spacing: -0.03em; line-height: 1.1; max-width: 15ch;
+}
+.pick dl { display: grid; gap: 0; margin: 0; }
+.pick dl > div {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+  padding: 8px 0; border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.pick dl > div:first-child { border-top: 0; }
+.pick dt { color: var(--ink-2); font-size: 12.5px; }
+.pick dd { margin: 0; font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+.note { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); color: var(--ink-3); font-size: 11.5px; line-height: 1.55; }
+
+/* --- Die zwei Dialoge und der Fehlerzustand ------------------------------- */
+
+.dialog { width: min(460px, 100%); padding: 26px 28px 22px; border-radius: var(--r-card); }
+.dialog-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.dialog h2 {
+  margin: 12px 0 0; font-family: var(--display); font-size: 27px; font-weight: 700;
+  letter-spacing: -0.032em; line-height: 1.08;
+}
+.dialog > p { margin: 12px 0 0; color: var(--ink-2); font-size: 13.5px; line-height: 1.6; }
+
+/*
+ * Die Art des Einsatzes trägt die Farbe, und sie trägt sie auf der Überschrift: ein farbiger Strich
+ * quer über den Dialog las sich als verirrte Linie statt als Bedeutung.
+ */
+.kick.call { display: flex; align-items: center; gap: 8px; }
+.kick.call i { width: 7px; height: 7px; border-radius: 50%; background: var(--call); }
+h2.call { color: var(--call); }
+
+/*
+ * Ob schon jemand da ist: ein pulsender Punkt, solange die Kräfte fahren, ein ruhiger, sobald sie
+ * da sind, keiner mehr, wenn es vorbei ist — dieselben drei Zustände wie die Absperrung auf der
+ * Straße, damit Dialog und Stadt nie etwas Verschiedenes behaupten.
+ */
+.status { display: flex; align-items: center; gap: 8px; margin: 10px 0 0 !important; color: var(--ink) !important; font-size: 12.5px !important; }
+.status i { width: 7px; height: 7px; border-radius: 50%; background: var(--call); }
+.status.open i { animation: report-pulse 1.1s ease-in-out infinite; }
+.status.cleared { color: var(--ink-3) !important; }
+.status.cleared i { background: var(--ink-3); }
+@keyframes report-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+.cause { margin: 8px 0 0 !important; color: var(--ink-3) !important; font-size: 12.5px !important; }
+
+.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+@media (max-width: 1180px) {
+  .hints p:first-child { display: none; }
+}
+</style>

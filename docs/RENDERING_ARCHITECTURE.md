@@ -672,3 +672,36 @@ Die Maus zu bewegen kostet jetzt **0,2 ms** statt 15,2 — nicht mehr von Stills
 
 `bench.flight(sekunden, faktor, true)` schickt seither immer Zeigerbewegungen mit. Ein Messstand, der
 eine ganze Eingabeart auslässt, misst zuverlässig das Falsche.
+
+### Schnelles Zoomen: der Schattendurchgang übersetzt nach
+
+`bench.zoom(sekunden)` fährt schnell hinein und wieder heraus, statt einmal sanft hinunterzutauchen.
+Das ist eine eigene Belastung: was mit der **Entfernung** umschaltet, flippt dabei dutzendfach hin
+und her.
+
+Gemessen, direkt nach dem Laden und dann wiederholt:
+
+| Lauf | Median | p99 | längster | Ruckler |
+|---|---|---|---|---|
+| erster | 2,1 ms | 9,5 | **20,9 ms** | 1 |
+| zweiter | 2,1 ms | 4,3 | 8,5 ms | 0 |
+| dritter | 2,1 ms | 4,2 | **15,7 ms** | 0 |
+| vierter | 2,1 ms | 4,3 | 4,8 ms | 0 |
+
+Spitzen, die mit der Wiederholung seltener werden und nicht verschwinden: so sieht Übersetzung aus,
+und so sieht nichts anderes aus.
+
+Der Grund: **ein Mesh hat zwei Übersetzungen**, eine fürs Bild und eine für die Schattenkarte. Die
+zweite entsteht erst, wenn das Mesh wirklich im Schattendurchgang landet — und der deckt nur ab, was
+die Schattenkamera gerade umfasst. Ihr Ausschnitt hängt an der Kameraentfernung (`shadowExtent`,
+90 bis 1.100 m), also wandert beim Zoomen eine Kachel nach der anderen zum **ersten Mal** hinein und
+wird dort übersetzt.
+
+Die Aufwärmrunde macht deshalb zusätzlich zum Sichtbarmachen zweierlei: sie stellt den
+Schattenausschnitt für diese eine Runde auf sein Maximum und erklärt jede Kachel zum Werfer. Danach,
+im eingeschwungenen Zustand: **längster Frame 5,3 und 5,0 ms, kein Ruckler** — gegen vorher 8,5 bis
+15,7.
+
+Der allererste Lauf direkt nach dem Laden bleibt teuer (gemessen ein Frame von 219 ms), weil dort die
+Aufwärmrunde selbst und alles Erstmalige zusammenfallen. Das ist der Ladebildschirm, und dorthin
+gehört es.

@@ -295,6 +295,31 @@ export class CityRenderer {
     for (const object of hidden) object.visible = true
     for (const mesh of empty) mesh.count = mesh.instanceMatrix.count
 
+    /*
+     * Und der Schattendurchgang muss einmal die **ganze** Stadt sehen.
+     *
+     * Ein Mesh hat zwei Übersetzungen: eine fürs Bild und eine für die Schattenkarte. Die zweite
+     * entsteht erst, wenn das Mesh wirklich im Schattendurchgang landet — und der deckt nur ab, was
+     * die Schattenkamera gerade umfasst. Deren Ausschnitt hängt an der Kameraentfernung
+     * (`shadowExtent`), also wandert beim Zoomen eine Kachel nach der anderen zum ersten Mal hinein
+     * und wird dort übersetzt. Gemessen beim schnellen Hinein- und Hinauszoomen: ein Frame von 20,9
+     * ms beim ersten Durchgang, danach noch vereinzelt 15,7 — Spitzen, die mit jeder Wiederholung
+     * seltener werden. So sieht Übersetzung aus, und so sieht nichts anderes aus.
+     *
+     * Für diese eine Runde wird der Ausschnitt deshalb auf sein Maximum gestellt und jede Kachel
+     * zum Werfer erklärt.
+     */
+    const shadow = this.sky.sun.light.shadow.camera
+    const frame = { left: shadow.left, right: shadow.right, top: shadow.top, bottom: shadow.bottom }
+    const casters = this.world.buildingMeshes.map(mesh => mesh.castShadow)
+    const reach = shadowExtent(Number.POSITIVE_INFINITY)
+    shadow.left = -reach
+    shadow.right = reach
+    shadow.top = reach
+    shadow.bottom = -reach
+    shadow.updateProjectionMatrix()
+    for (const mesh of this.world.buildingMeshes) mesh.castShadow = true
+
     try {
       /*
        * `compileAsync` gibt zwischen den Objekten ab, blockiert also nicht; das erzwungene Bild
@@ -310,6 +335,11 @@ export class CityRenderer {
     finally {
       for (const object of hidden) object.visible = false
       for (const mesh of empty) mesh.count = 0
+      Object.assign(shadow, frame)
+      shadow.updateProjectionMatrix()
+      this.world.buildingMeshes.forEach((mesh, index) => {
+        mesh.castShadow = casters[index] ?? true
+      })
       /*
        * Der Neubau kommt aus der Simulation zurück und nicht aus einer Momentaufnahme von vorhin:
        * ein echter Schnappschuss kann landen, während der Übersetzer arbeitet — und tut es auch.
@@ -340,6 +370,7 @@ export class CityRenderer {
         reset: () => log.reset(),
         stats: () => log.stats(),
         flight: (seconds = 14, scale?: number, pointer = false) => this.flight(seconds, scale, pointer),
+        zoom: (seconds = 12, scale?: number) => this.flight(seconds, scale, false, true),
         layers: () => Object.fromEntries(Object.entries(this.benchLayers()).map(([name, parts]) => [name, this.weigh(parts)])),
         cost: (layer: string, seconds = 12, scale?: number) => this.cost(layer, seconds, scale),
       },
@@ -418,7 +449,7 @@ export class CityRenderer {
    * ist jede Optimierung unsichtbar. Erst über den Faktor hinaufgedreht, bis das Bild unter die
    * Wiederholrate fällt, wird wieder vergleichbar, was etwas kostet.
    */
-  private flight(seconds: number, scale?: number, pointer = false): Promise<FrameStats> {
+  private flight(seconds: number, scale?: number, pointer = false, shuttle = false): Promise<FrameStats> {
     const log = this.bench
     if (!log)
       return Promise.resolve({ frames: 0, median: 0, p95: 0, p99: 0, longest: 0, long: 0, render: 0, update: 0 })
@@ -467,7 +498,14 @@ export class CityRenderer {
           }))
         }
         const bearing = run * Math.PI * 2
-        const dive = Math.sin(run * Math.PI)
+        /*
+         * `shuttle` fährt schnell hinein und wieder heraus, statt einmal sanft hinunterzutauchen.
+         *
+         * Das ist eine eigene Belastung und nicht dieselbe in schnell: was mit der **Entfernung**
+         * umschaltet — Straßenmöblierung, die Nahansicht der geparkten Autos, welche Kachel Schatten
+         * wirft — flippt dabei dutzendfach hin und her, und genau dort wurde geruckelt gemeldet.
+         */
+        const dive = shuttle ? (1 - Math.cos(run * Math.PI * 12)) / 2 : Math.sin(run * Math.PI)
         this.rig.placeFor(
           Math.cos(bearing) * 760,
           Math.sin(bearing) * 760,

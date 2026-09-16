@@ -167,6 +167,13 @@ export const useGameStore = defineStore('game', () => {
    * während jemand darin herumläuft.
    */
   const walking = ref(false)
+  /**
+   * Wo der Fußgänger steht, für die Anzeige.
+   *
+   * An dieser Stelle sind zwei Reparaturen ins Leere gegangen, weil „sieht komisch aus" und „stecke
+   * fest" für ein halbes Dutzend Ursachen gleich aussehen. Drei Zahlen im Bild unterscheiden sie.
+   */
+  const walkState = shallowRef<{ x: number, z: number, ground: number, eye: number, stuck: boolean } | null>(null)
 
   const railOpen = ref(true)
   const decisionsOpen = ref(true)
@@ -814,6 +821,7 @@ export const useGameStore = defineStore('game', () => {
     focusOnPlace,
     railOpen,
     walking,
+    walkState,
     decisionsOpen,
     ready,
     error,

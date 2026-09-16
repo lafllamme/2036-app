@@ -1,6 +1,7 @@
 import type { Relief } from '../world/relief'
 import type { CityBuildings } from './world/structures/buildings'
 import * as THREE from 'three/webgpu'
+import { WATER_LEVEL } from './world/terrain/water'
 
 /**
  * Durch Lindenhafen laufen, statt darüber zu schweben.
@@ -51,10 +52,23 @@ export interface FirstPerson {
   /** Wohin geschaut wird. Getrennt gehalten, weil die Kamera beim Verlassen zurückgegeben wird. */
   yaw: number
   pitch: number
+  /**
+   * Wo man steht, wie hoch der Boden dort ist, und ob man in etwas steckt.
+   *
+   * Sichtbar in der Kamerahilfe, solange man zu Fuß unterwegs ist. Das ist kein Luxus: an dieser
+   * Stelle sind zwei Reparaturen hintereinander ins Leere gegangen, weil „es sieht komisch aus"
+   * und „ich stecke fest" für ein halbes Dutzend verschiedener Ursachen gleich aussehen. Drei
+   * Zahlen im Bild unterscheiden sie in einer Sekunde.
+   */
+  x: number
+  z: number
+  ground: number
+  eye: number
+  stuck: boolean
 }
 
 export class WalkAbout {
-  readonly state: FirstPerson = { active: false, yaw: 0, pitch: 0 }
+  readonly state: FirstPerson = { active: false, yaw: 0, pitch: 0, x: 0, z: 0, ground: 0, eye: 0, stuck: false }
 
   private readonly held = new Set<string>()
   private readonly velocity = new THREE.Vector3()
@@ -110,7 +124,7 @@ export class WalkAbout {
      * sah es aus.
      */
     const free = this.freeSpot(target.x, target.z)
-    this.camera.position.set(free.x, this.relief.height(free.x, free.z) + EYE, free.z)
+    this.camera.position.set(free.x, Math.max(this.relief.height(free.x, free.z), WATER_LEVEL) + EYE, free.z)
     this.velocity.set(0, 0, 0)
     this.held.clear()
     this.aim()
@@ -179,7 +193,22 @@ export class WalkAbout {
     if (inside || !this.blocked(this.camera.position.x, nextZ, eye))
       this.camera.position.z = nextZ
 
-    this.camera.position.y = this.relief.height(this.camera.position.x, this.camera.position.z) + EYE
+    /*
+     * Und nie unter die Wasserlinie.
+     *
+     * Das Gelände unter dem Hafenbecken liegt mehrere Meter unter dem Meeresspiegel. Wer dort steht,
+     * hat die Wasserfläche **über** sich — und schaut von unten gegen sie und gegen das Ufer
+     * dahinter. Das ist der zweite Weg, auf dem man unter die Welt gerät, und er hat mit Gebäuden
+     * nichts zu tun.
+     */
+    const ground = Math.max(this.relief.height(this.camera.position.x, this.camera.position.z), WATER_LEVEL)
+    this.camera.position.y = ground + EYE
+
+    this.state.x = this.camera.position.x
+    this.state.z = this.camera.position.z
+    this.state.ground = ground
+    this.state.eye = this.camera.position.y
+    this.state.stuck = inside
     this.aim()
   }
 
@@ -201,7 +230,7 @@ export class WalkAbout {
      * falsche Höhe fragt, antwortet nicht falsch, sondern immer „frei".
      */
     const at = (spotX: number, spotZ: number): boolean =>
-      this.blocked(spotX, spotZ, this.relief.height(spotX, spotZ) + EYE)
+      this.blocked(spotX, spotZ, Math.max(this.relief.height(spotX, spotZ), WATER_LEVEL) + EYE)
 
     if (!at(x, z))
       return { x, z }

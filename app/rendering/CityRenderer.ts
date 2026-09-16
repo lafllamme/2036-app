@@ -620,6 +620,12 @@ export class CityRenderer {
    * Hinein geht es dorthin, wo die Karte gerade **hinsieht**, nicht dorthin, wo die Kamera steht —
    * sonst stünde man achthundert Meter schräg über der Stadt in der Luft.
    */
+  /** Wo der Fußgänger steht — für die Anzeige in der Kamerahilfe. Siehe `firstPerson.ts`. */
+  get walkState(): { x: number, z: number, ground: number, eye: number, stuck: boolean } {
+    const state = this.walk.state
+    return { x: state.x, z: state.z, ground: state.ground, eye: state.eye, stuck: state.stuck }
+  }
+
   setWalking(walking: boolean): void {
     if (walking === this.walk.state.active)
       return

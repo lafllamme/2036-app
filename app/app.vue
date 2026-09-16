@@ -34,6 +34,7 @@ const {
   selectedCitizen,
   rendererStats,
   walking,
+  walkState,
 } = storeToRefs(game)
 
 /*
@@ -188,6 +189,20 @@ function restart(): void {
           </p>
           <p v-else>
             <b>Links</b> verschieben · <b>Rechts</b> drehen · <b>Rad</b> zoomen · <b>Rechtsklick</b> anfliegen
+          </p>
+          <!--
+            Wo man steht, solange man zu Fuß unterwegs ist.
+
+            Hier sind zwei Reparaturen ins Leere gegangen, weil „sieht komisch aus" und „stecke fest"
+            für ein halbes Dutzend Ursachen gleich aussehen: in einer Wand, unter Wasser, oder die
+            Steuerung läuft gar nicht. Drei Zahlen im Bild unterscheiden das in einer Sekunde.
+          -->
+          <p v-if="walking && walkState" class="render-badge">
+            Standort {{ walkState.x.toFixed(0) }} / {{ walkState.z.toFixed(0) }} ·
+            Boden {{ walkState.ground.toFixed(1) }} m · Auge {{ walkState.eye.toFixed(1) }} m
+            <template v-if="walkState.stuck">
+              · <b>in einem Gebäude</b>
+            </template>
           </p>
           <p v-if="rendererStats" class="render-badge">
             {{ rendererStats.backend }} · {{ rendererStats.fps }} FPS · {{ rendererStats.drawCalls }} Draws ·

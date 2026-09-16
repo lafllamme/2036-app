@@ -82,10 +82,12 @@ export interface FirstPerson {
   ground: number
   eye: number
   stuck: boolean
+  /** Anteil der letzten Frames, in denen die Bewegung an einer Wand abgelehnt wurde, 0 … 1. */
+  refused: number
 }
 
 export class WalkAbout {
-  readonly state: FirstPerson = { active: false, yaw: 0, pitch: 0, x: 0, z: 0, ground: 0, eye: 0, stuck: false }
+  readonly state: FirstPerson = { active: false, yaw: 0, pitch: 0, x: 0, z: 0, ground: 0, eye: 0, stuck: false, refused: 0 }
 
   private readonly held = new Set<string>()
   private readonly velocity = new THREE.Vector3()
@@ -215,10 +217,23 @@ export class WalkAbout {
      * Achsenweise geprüft, nicht als ein Schritt. Wer schräg gegen eine Wand läuft, soll an ihr
      * entlanggleiten und nicht kleben — und das ist der ganze Unterschied zwischen den beiden.
      */
-    if (inside || !this.blocked(nextX, this.camera.position.z, eye))
+    const freeX = inside || !this.blocked(nextX, this.camera.position.z, eye)
+    const freeZ = inside || !this.blocked(this.camera.position.x, nextZ, eye)
+    if (freeX)
       this.camera.position.x = nextX
-    if (inside || !this.blocked(this.camera.position.x, nextZ, eye))
+    if (freeZ)
       this.camera.position.z = nextZ
+
+    /*
+     * Wie oft eine Wand die Bewegung ablehnt, über die letzten Sekunden gemittelt.
+     *
+     * Gemeldet wurde „ich bleibe beim Sprinten immer wieder stehen", und dafür gibt es zwei ganz
+     * verschiedene Erklärungen: entweder greift die Kollision auf offener Straße, oder die Eingabe
+     * kommt nicht durch. Die beiden sehen gleich aus und haben nichts miteinander zu tun. Diese Zahl
+     * trennt sie: steht sie bei null, während man steht, liegt es nicht an den Wänden.
+     */
+    const refusedNow = wanted.lengthSq() > 0 && (!freeX || !freeZ) ? 1 : 0
+    this.state.refused += (refusedNow - this.state.refused) * Math.min(1, delta * 2)
 
     /*
      * Und nie unter die Wasserlinie.

@@ -173,7 +173,7 @@ export const useGameStore = defineStore('game', () => {
    * An dieser Stelle sind zwei Reparaturen ins Leere gegangen, weil „sieht komisch aus" und „stecke
    * fest" für ein halbes Dutzend Ursachen gleich aussehen. Drei Zahlen im Bild unterscheiden sie.
    */
-  const walkState = shallowRef<{ x: number, z: number, ground: number, eye: number, stuck: boolean } | null>(null)
+  const walkState = shallowRef<{ x: number, z: number, ground: number, eye: number, stuck: boolean, refused: number } | null>(null)
 
   const railOpen = ref(true)
   const decisionsOpen = ref(true)

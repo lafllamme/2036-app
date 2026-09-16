@@ -87,6 +87,8 @@ export interface CityRendererOptions {
   onBuildingSelected: (building: BuildingRecord | null) => void
   onReady: (stats: RendererStats) => void
   onStats: (stats: RendererStats) => void
+  /** Wo der Fußgänger steht, im langsamen Takt. Nur belegt, solange jemand zu Fuß unterwegs ist. */
+  onWalk?: (state: { x: number, z: number, ground: number, eye: number, stuck: boolean, refused: number }) => void
   onError: (message: string) => void
   /**
    * Called whenever a call changes: raised, reached, over. Optional — the city runs the same without
@@ -175,6 +177,7 @@ export class CityRenderer {
   private readonly resizeObserver: ResizeObserver
   private readonly onStats: CityRendererOptions['onStats']
   private readonly onIncident: CityRendererOptions['onIncident']
+  private readonly onWalk: CityRendererOptions['onWalk']
   /** Kept only so a call can be told which district it happened in. */
   private readonly blueprint: CityBlueprint
   private readonly districts: CityBlueprint['definition']['districts']
@@ -209,6 +212,7 @@ export class CityRenderer {
     this.canvas = options.canvas
     this.onStats = options.onStats
     this.onIncident = options.onIncident
+    this.onWalk = options.onWalk
     this.blueprint = options.blueprint
     this.districts = options.blueprint.definition.districts
     this.buildingCount = options.blueprint.buildings.length
@@ -621,9 +625,9 @@ export class CityRenderer {
    * sonst stünde man achthundert Meter schräg über der Stadt in der Luft.
    */
   /** Wo der Fußgänger steht — für die Anzeige in der Kamerahilfe. Siehe `firstPerson.ts`. */
-  get walkState(): { x: number, z: number, ground: number, eye: number, stuck: boolean } {
+  get walkState(): { x: number, z: number, ground: number, eye: number, stuck: boolean, refused: number } {
     const state = this.walk.state
-    return { x: state.x, z: state.z, ground: state.ground, eye: state.eye, stuck: state.stuck }
+    return { x: state.x, z: state.z, ground: state.ground, eye: state.eye, stuck: state.stuck, refused: state.refused }
   }
 
   setWalking(walking: boolean): void {
@@ -776,6 +780,16 @@ export class CityRenderer {
       this.atmosphere.update(this.slowClock, this.rig.controls.target, distance)
       // Die Bodendecke wandert mit dem Blickpunkt; sie sät erst nach 60 m neu. Siehe `terrain/meadow.ts`.
       updateMeadow(this.world.meadow, this.blueprint, this.rig.controls.target, distance)
+      /*
+       * Der Standort des Fußgängers, fünfmal die Sekunde statt einmal.
+       *
+       * Die Anzeige hing an `onStats`, und das läuft im Sekundentakt. Beim Nachmessen sah das aus
+       * wie Anhalten: zehn Meter, null, zehn Meter, null — in Wahrheit war es dieselbe Zahl zweimal
+       * abgelesen. Eine Anzeige, die stockt, während die Sache läuft, schickt genau dorthin, wo
+       * nichts zu finden ist.
+       */
+      if (this.walk.state.active)
+        this.onWalk?.(this.walkState)
       // Die Rotoren drehen nach dem Wind, den das Wetter meldet. Siehe `structures/windFarm.ts`.
       updateWindFarms(this.world.windFarm, this.animationElapsed, this.weather.wind)
       this.world.streetFurniture.visible = distance < FURNITURE_RANGE

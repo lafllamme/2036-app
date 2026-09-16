@@ -33,12 +33,9 @@ onMounted(async () => {
       models,
       onBuildingSelected: (building) => { game.selectedBuilding = building },
       onReady: (stats) => { game.rendererStats = stats },
-      onStats: (stats) => {
-        game.rendererStats = stats
-        // Solange jemand zu Fuß unterwegs ist: wo er steht. Siehe `rendering/firstPerson.ts`.
-        if (game.walking && cityRenderer)
-          game.walkState = cityRenderer.walkState
-      },
+      onStats: (stats) => { game.rendererStats = stats },
+      // Wo der Fußgänger steht. Eigener Rückruf, weil `onStats` nur einmal je Sekunde läuft.
+      onWalk: (state) => { game.walkState = state },
       onIncident: report => game.reportIncident(report),
       onPersonSelected: person => game.selectPerson(person),
       onError: (message) => { game.error = message },

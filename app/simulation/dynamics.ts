@@ -1,7 +1,9 @@
 import type { CausalEdge, CityMetrics, HealthScores, PerceptionState } from '../core/contracts'
 import type { CityStocks } from './baseline'
+import type { SituationState } from './situation'
 import { formatNumber } from '../core/format'
 import { BASELINE_METRICS as BASE, BASELINE_PERCEPTION as BASE_PERCEPTION, BASELINE_BUSINESS_DENSITY, BASELINE_STOCKS, BASELINE_VACANCY_RATE, businessDensity, CHILDCARE_DEMAND_RATE, HOUSEHOLD_SIZE, REQUIRED_MAINTENANCE, SCHOOL_DEMAND_RATE, socialShare, TARGET_VACANCY_RATE, vacancyRate } from './baseline'
+import { BASELINE_SITUATION, factor } from './situation'
 
 export const clamp = (value: number, min = 0, max = 100): number => Math.min(max, Math.max(min, value))
 
@@ -76,6 +78,7 @@ export function stepDynamics(
   health: HealthScores,
   measureMonthlyCost = 0,
   capitalPerMonth = BASE_CAPITAL_PER_MONTH,
+  situation: SituationState = BASELINE_SITUATION,
 ): DynamicsResult {
   const metrics = { ...previous }
   const stocks = { ...previousStocks }
@@ -135,7 +138,7 @@ export function stepDynamics(
       - 0.09 * (previous.averageRent - BASE.averageRent)
       - 0.012 * (previousPerception.housingPressure - BASE_PERCEPTION.housingPressure)
 
-  const potentialArrivals = previous.population * 0.0019 * clamp(1 + pull, 0.25, 1.9)
+  const potentialArrivals = previous.population * 0.0019 * clamp(1 + pull, 0.25, 1.9) * factor(situation.migrationPressure, 0.4)
   const absorbable = Math.max(0, headroomUnits) * ABSORPTION_RATE * HOUSEHOLD_SIZE
   const inMigration = Math.min(potentialArrivals, absorbable)
   const outMigration = previous.population * 0.0012 * clamp(1 - 0.4 * pull, 0.55, 1.8)
@@ -275,7 +278,7 @@ export function stepDynamics(
       - 0.16 * (metrics.transitCoverage - BASE.transitCoverage)
       + 22 * (metrics.population / BASE.population - 1)
       // Every megawatt on the heat network is a boiler that has stopped burning.
-      - 0.042 * (stocks.cleanHeat - BASELINE_STOCKS.cleanHeat)
+      - 0.042 * (stocks.cleanHeat - BASELINE_STOCKS.cleanHeat) * factor(situation.gasPrice, -0.22)
       /*
        * And industry emits. This is why moving hazardous plants out of a residential quarter lowers
        * the figure without any option having to write it: the sites go, and the emissions follow.
@@ -313,8 +316,8 @@ export function stepDynamics(
   metrics.integrationCapacity = stocks.integrationPlaces / Math.max(1, stocks.arrivalsTrailingYear)
 
   // --- Municipal finance ----------------------------------------------------
-  const tradeTax = metrics.businessStock * 0.00196 * (metrics.employment / BASE.employment)
-  const transfers = metrics.population * 0.0000982
+  const tradeTax = metrics.businessStock * 0.00196 * (metrics.employment / BASE.employment) * factor(situation.economy, 0.55)
+  const transfers = metrics.population * 0.0000982 * factor(situation.federalFunds, 0.35)
   const fees = metrics.population * 0.0000181
   const revenue = tradeTax + transfers + fees
 
@@ -331,7 +334,8 @@ export function stepDynamics(
    * immer noch knapp — und genug, dass Politik eine Wahl zwischen Vorhaben ist statt zwischen
    * keinem und keinem.
    */
-  const operating = 15.3 + metrics.population * 0.0000442
+  // Die Lage färbt ein: teures Gas trifft jede Liegenschaft der Stadt.
+  const operating = (15.3 + metrics.population * 0.0000442) * factor(situation.gasPrice, 0.16)
   const serviceCost
     = stocks.childcarePlaces * 0.000151
       + stocks.schoolPlaces * 0.0000587

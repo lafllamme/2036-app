@@ -10,6 +10,7 @@ import type { MetricId } from './metrics'
 import type { PolicyEffect } from './policies'
 import type { AxisVector, PartyId } from './politics'
 import type { NewsItem } from './simulation'
+import type { SituationKey } from './situation'
 
 export type EventCategory
   = | 'safety'
@@ -24,7 +25,15 @@ export type EventCategory
 export type EventKind = 'incident' | 'decision' | 'external' | 'chain' | 'milestone'
 
 export interface TriggerCondition {
-  metric: MetricId
+  /**
+   * Die Kennzahl, auf die geschaut wird — die der Stadt oder eine der vier der **Lage**.
+   *
+   * Beide stehen zur Auswahl, weil eine Bedingung immer dasselbe fragt: „ist diese Zahl über der
+   * Schwelle". Ob sie aus Lindenhafen kommt oder von draußen, ändert daran nichts, und der
+   * Ziehungsschritt reicht beide in einer Ansicht herein. Damit braucht die Welt keine zweite
+   * Bedingungsmechanik.
+   */
+  metric: MetricId | SituationKey
   operator: '<' | '<=' | '>' | '>='
   value: number
   sustainedMonths?: number

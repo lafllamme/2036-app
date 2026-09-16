@@ -212,7 +212,7 @@ Maßstab einer Kommune und zugleich der spielbare.
 | **Drei harte Ziele statt Prioritäten** | **neu** |
 | **Name, Startlage je Partei, `organization`** | **neu** |
 | **Parteieigene Programme (4 + 2)** | **neu** |
-| **Die Lage** | **neu** |
+| **Die Lage** | **fertig** |
 
 ## Baureihenfolge
 
@@ -316,6 +316,25 @@ Jede Stufe ist für sich spielbar.
    Seit der Trennung kommen 4 bis 8 Nachspiele im Jahrzehnt an — und bei einer CDU, die als
    Ratsmehrheit alles durchbringt, genau null, was dieselbe Regel von der anderen Seite zeigt.
 6. **Startlage je Partei.** Haushalt, Beziehungen, `organization`, Namensfeld.
-7. **Die Lage.** Vier Weltgrößen, ihre Drift, ihre Schocks, und die Ereignisse, die sie auslösen.
+7. **Die Lage.** *Erledigt.* Vier Indizes um 100 — Gaspreis, Konjunktur, Bundesmittel,
+   Zuwanderungsdruck —, jeder mit eigener Trägheit, eigenem Rauschen und eigenen Schocks, alles
+   deterministisch aus dem Spielstand. Sie tun beides, was sie sollen:
+
+   **Sie färben ein.** Teures Gas verteuert den Betrieb jeder städtischen Liegenschaft und macht die
+   Emissionen hartnäckiger; die Konjunktur trägt die Gewerbesteuer; die Bundestöpfe die Zuweisungen;
+   der Zuwanderungsdruck bringt Menschen, die Wohnraum und Kurse brauchen.
+
+   **Sie lösen aus.** Fünf Ereignisse lesen die Welt statt der Stadt: der Gaspreisschock, der die
+   Fernwärme plötzlich wirtschaftlich macht; die Rezession, die den Hafen erreicht; die
+   Bundesausschreibung mit acht Wochen Frist; die sprunghaft steigende Quote; der Aufschwung, der
+   Flächen sucht. Zwei davon sind Gelegenheiten, nicht Krisen — ein Test verlangt, dass die Lage in
+   beide Richtungen wirkt, sonst wäre sie nur ein zweiter Krisengenerator.
+
+   Eine Bedingung darf auf beides schauen, Stadt und Welt; zusammengeführt wird erst im
+   Ziehungsschritt, damit der Zustand sie getrennt hält. Gemessen über fünf Jahrzehnte bekommt jedes
+   seinen eigenen Charakter: der Gaspreis lief einmal auf 234 und einmal nie über 103, die Konjunktur
+   fiel dreimal in die Rezession, und je nach Lauf kommen ein bis vier Weltereignisse an. Zwei Ziele
+   mussten dafür neu gerechnet werden — Zuwanderungsdruck hebt die Wohnungslosigkeit, eine Rezession
+   drückt den Betriebsbestand.
 
 Erst danach das UI verfeinern. Was sich noch in der Form ändert, lohnt kein Feinschliff.

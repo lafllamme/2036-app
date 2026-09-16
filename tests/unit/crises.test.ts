@@ -25,9 +25,22 @@ import { EVENTS } from '../../app/content/events'
  */
 const FISCAL_LUCK = EVENTS.filter(event => /^fin-(?:windfall|shock)-/.test(event.id))
 
+/**
+ * Was die **Lage** in Lindenhafen auslöst: `lage-*`.
+ *
+ * Auch das passiert dem Spieler, aber es ist keine Krise — es ist die Welt, die eine Tür aufmacht.
+ * Ein Gaspreisschock kostet sofort und gehört zu den Krisen; eine Bundesausschreibung und ein
+ * Aufschwung, der Flächen sucht, kosten nichts, bevor jemand abgestimmt hat, und sollen es auch
+ * nicht. Die Regel „eine Krise kostet, bevor abgestimmt wird" trennt genau diese beiden Fälle, und
+ * eine Gelegenheit darf nicht daran scheitern, dass sie eine ist.
+ */
+const OPPORTUNITIES = EVENTS.filter(event => event.id.startsWith('lage-') && event.immediateEffects.length === 0)
+
 /** What happens *to* the player, as opposed to what they table. */
 const CRISES = EVENTS.filter(event =>
-  (event.kind === 'incident' || event.kind === 'external') && !FISCAL_LUCK.includes(event))
+  (event.kind === 'incident' || event.kind === 'external')
+  && !FISCAL_LUCK.includes(event)
+  && !OPPORTUNITIES.includes(event))
 
 function named(event: EventDefinition): string {
   return `${event.id} (${event.title})`
@@ -122,6 +135,23 @@ describe('the crises', () => {
       // sondern ein Ereignis, über das der Rat abstimmen können müsste.
       expect(Math.abs(cash(event)), `${named(event)} bewegt zu viel auf einmal`).toBeLessThanOrEqual(20)
       expect(event.options, `${named(event)} hat Optionen — dann gehört es zu den Entscheidungen`).toEqual([])
+    }
+  })
+
+  it('lets the world open a door as well as slam one', () => {
+    // Die Lage muss in beide Richtungen wirken, sonst ist sie nur ein zweiter Krisengenerator.
+    const world = EVENTS.filter(event => event.id.startsWith('lage-'))
+    expect(world.length, 'die Lage löst nichts aus').toBeGreaterThanOrEqual(4)
+    expect(OPPORTUNITIES.length, 'die Lage bringt nur schlechte Nachrichten').toBeGreaterThan(0)
+    expect(world.length - OPPORTUNITIES.length, 'die Lage bringt nur gute Nachrichten').toBeGreaterThan(0)
+
+    // Und jedes davon liest wirklich die Welt, nicht die Stadt.
+    const keys = new Set(['gasPrice', 'economy', 'federalFunds', 'migrationPressure'])
+    for (const event of world) {
+      expect(
+        event.trigger.conditions.some(condition => keys.has(condition.metric)),
+        `${named(event)} heißt „Lage" und schaut auf keine einzige Weltgröße`,
+      ).toBe(true)
     }
   })
 })

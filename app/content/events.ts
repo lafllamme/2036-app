@@ -2287,6 +2287,164 @@ export const EVENTS: EventDefinition[] = [
     sourceIds: MODEL,
   },
 
+  // --- Was die Lage in Lindenhafen auslöst ---------------------------------
+  /*
+   * Du beantwortest nie den Krieg. Du beantwortest, was er in Lindenhafen auslöst.
+   *
+   * Diese Ereignisse lesen die vier Weltgrößen statt der Stadt: den Gaspreis, die Konjunktur, die
+   * Bundestöpfe, den Zuwanderungsdruck. Damit bekommt das Jahrzehnt eine Richtung, die niemand im
+   * Rat gewählt hat — und die Stadt bekommt Momente, in denen sie auf etwas reagiert, statt es zu
+   * verursachen.
+   */
+  {
+    schemaVersion: 1,
+    id: 'lage-gas-shock',
+    kind: 'external',
+    category: 'environment',
+    title: 'Gaspreis verdoppelt sich',
+    briefing:
+      'Ein Lieferstopp treibt den Preis binnen Wochen auf das Doppelte. Die Stadtwerke rechnen mit einem Nachzahlungsbescheid für jede städtische Liegenschaft, und die Fernwärme ist plötzlich das günstige Netz.',
+    urgency: 'breaking',
+    trigger: { earliestMonth: 6, latestMonth: 128, conditions: [{ metric: 'gasPrice', operator: '>', value: 150 }], baseWeight: 14, cooldownMonths: 30, oncePerCampaign: false },
+    immediateEffects: [effect({ target: 'cityBudget', expected: -7.5, delayMonths: 0, rampMonths: 3, confidence: 'high' })],
+    refusedEffects: [effect({ target: 'investmentBacklog', expected: 9, delayMonths: 2, rampMonths: 10, confidence: 'medium' })],
+    options: [
+      {
+        id: 'lage-gas-network',
+        label: 'Fernwärme vorziehen, solange es sich rechnet',
+        rationale: 'Was bei billigem Gas unwirtschaftlich war, trägt sich jetzt. Das Zeitfenster ist so lang wie der Preis hoch bleibt.',
+        oneOffCost: 12.5,
+        monthlyCost: 0.26,
+        costMonths: 48,
+        axes: { climateAmbition: 0.7, marketVsPublic: -0.5, fiscalRestraint: -0.3 },
+        salience: { climateAmbition: 0.9, fiscalRestraint: 0.7, marketVsPublic: 0.5 },
+        effects: [effect({ target: 'cleanHeat', expected: 38, delayMonths: 8, rampMonths: 20, confidence: 'medium' })],
+        sourceIds: MODEL,
+      },
+    ],
+    expiresInMonths: 3,
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'lage-recession-closure',
+    kind: 'external',
+    category: 'economy',
+    title: 'Die Rezession erreicht den Hafen',
+    briefing:
+      'Zwei Zulieferer melden Kurzarbeit, ein dritter hat Insolvenz angemeldet. Was sonst über Jahre schleicht, passiert in diesem Winter auf einmal.',
+    urgency: 'breaking',
+    trigger: { earliestMonth: 8, latestMonth: 128, conditions: [{ metric: 'economy', operator: '<', value: 84, sustainedMonths: 3 }], baseWeight: 14, cooldownMonths: 36, oncePerCampaign: false },
+    immediateEffects: [effect({ target: 'businessSites', expected: -220, delayMonths: 0, rampMonths: 5, confidence: 'high' })],
+    refusedEffects: [effect({ target: 'businessSites', expected: -140, delayMonths: 3, rampMonths: 12, confidence: 'medium' })],
+    options: [
+      {
+        id: 'lage-recession-bridge',
+        label: 'Überbrückung und Qualifizierung',
+        rationale: 'Die Stadt hält die Hallen und die Leute, bis die Konjunktur zurückkommt. Sie kommt zurück, nur weiß niemand wann.',
+        oneOffCost: 6.4,
+        monthlyCost: 0.58,
+        costMonths: 36,
+        axes: { redistribution: 0.7, marketVsPublic: -0.6, fiscalRestraint: -0.5 },
+        salience: { redistribution: 0.9, marketVsPublic: 0.7, fiscalRestraint: 0.7 },
+        effects: [
+          effect({ target: 'businessSites', expected: 170, delayMonths: 8, rampMonths: 18, confidence: 'low' }),
+          effect({ target: 'integrationPlaces', expected: 60, delayMonths: 4, rampMonths: 10, confidence: 'medium' }),
+        ],
+        sourceIds: MODEL,
+      },
+    ],
+    expiresInMonths: 2,
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'lage-federal-call',
+    kind: 'external',
+    category: 'finance',
+    title: 'Der Bund schreibt aus',
+    briefing:
+      'Ein Sonderprogramm über zweihundert Millionen wird aufgelegt, Frist acht Wochen. Wer die Planung fertig in der Schublade hat, bekommt etwas; wer sie erst schreiben muss, bekommt nichts.',
+    urgency: 'important',
+    trigger: { earliestMonth: 10, latestMonth: 126, conditions: [{ metric: 'federalFunds', operator: '>', value: 128 }], baseWeight: 13, cooldownMonths: 32, oncePerCampaign: false },
+    immediateEffects: [],
+    options: [
+      {
+        id: 'lage-federal-apply',
+        label: 'Bewerben, mit allem was wir haben',
+        rationale: 'Vier Wochen Verwaltung im Ausnahmezustand für einen Zuschlag, der nicht sicher ist. Ohne Eigenanteil gibt es nichts.',
+        oneOffCost: 4.2,
+        monthlyCost: -0.72,
+        costMonths: 60,
+        axes: { fiscalRestraint: 0.2, marketVsPublic: -0.3, growthVsPreservation: -0.2 },
+        salience: { fiscalRestraint: 0.8, marketVsPublic: 0.4 },
+        effects: [effect({ target: 'maintenanceSpend', expected: 0.35, delayMonths: 6, rampMonths: 14, confidence: 'medium' })],
+        sourceIds: MODEL,
+      },
+    ],
+    expiresInMonths: 2,
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'lage-arrivals-surge',
+    kind: 'external',
+    category: 'social',
+    title: 'Die Zuweisungen steigen sprunghaft',
+    briefing:
+      'Das Land erhöht die Quote um sechzig Prozent, mit vier Wochen Vorlauf. Was an Plätzen da ist, ist da; was fehlt, fehlt ab dem ersten Tag.',
+    urgency: 'breaking',
+    trigger: { earliestMonth: 8, latestMonth: 128, conditions: [{ metric: 'migrationPressure', operator: '>', value: 142 }], baseWeight: 14, cooldownMonths: 30, oncePerCampaign: false },
+    immediateEffects: [],
+    refusedEffects: [effect({ target: 'integrationPlaces', expected: -90, delayMonths: 2, rampMonths: 10, confidence: 'medium' })],
+    options: [
+      {
+        id: 'lage-arrivals-capacity',
+        label: 'Plätze und Kurse aufstocken',
+        rationale: 'Dezentral, in vier Quartieren, mit Personal, das es auf dem Markt nicht gibt. Teuer und richtig.',
+        oneOffCost: 5.8,
+        monthlyCost: 0.66,
+        axes: { opennessIntegration: 0.8, redistribution: 0.7, marketVsPublic: -0.5 },
+        salience: { opennessIntegration: 1, redistribution: 0.8 },
+        effects: [effect({ target: 'integrationPlaces', expected: 210, delayMonths: 3, rampMonths: 10, confidence: 'high' })],
+        sourceIds: MODEL,
+      },
+    ],
+    expiresInMonths: 2,
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'lage-boom-sites',
+    kind: 'external',
+    category: 'economy',
+    title: 'Der Aufschwung sucht Flächen',
+    briefing:
+      'Drei Unternehmen fragen gleichzeitig nach Gewerbeflächen. In zwei Jahren fragt niemand mehr – und die Erschließung dauert achtzehn Monate.',
+    urgency: 'important',
+    trigger: { earliestMonth: 12, latestMonth: 124, conditions: [{ metric: 'economy', operator: '>', value: 116, sustainedMonths: 2 }], baseWeight: 12, cooldownMonths: 36, oncePerCampaign: false },
+    immediateEffects: [],
+    options: [
+      {
+        id: 'lage-boom-develop',
+        label: 'Erschließen, jetzt',
+        rationale: 'Auf Vorrat bauen, während das Geld da ist. Kommt die Konjunktur nicht mit, steht es leer.',
+        oneOffCost: 11.5,
+        monthlyCost: 0.18,
+        costMonths: 60,
+        axes: { marketVsPublic: 0.6, growthVsPreservation: -0.6, fiscalRestraint: -0.3 },
+        salience: { marketVsPublic: 0.8, growthVsPreservation: 0.8 },
+        effects: [
+          effect({ target: 'businessSites', expected: 330, delayMonths: 10, rampMonths: 18, confidence: 'medium' }),
+          effect({ target: 'greenSpaceHectares', expected: -11, delayMonths: 10, rampMonths: 10, confidence: 'high' }),
+        ],
+        sourceIds: MODEL,
+      },
+    ],
+    expiresInMonths: 2,
+    sourceIds: MODEL,
+  },
+
   // --- Kassenlage: was der Stadt zustößt, ohne dass jemand abstimmt ---------
   /*
    * Ein Haushalt besteht nicht nur aus Beschlüssen. Eine Betriebsprüfung, ein Urteil, ein

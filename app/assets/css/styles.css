@@ -947,3 +947,6 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
   content: ' ✓';
   color: var(--positive);
 }
+
+/* Die Lage weicht nur dann ins Auge, wenn sie von normal abweicht. */
+.goal-row.off-normal b { color: var(--negative); }

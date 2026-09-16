@@ -4,6 +4,7 @@ import { EVENTS } from '../../app/content/events'
 import { BASELINE_METRICS } from '../../app/simulation/baseline'
 import { eligibleEvents } from '../../app/simulation/events'
 import { advanceMonths, createInitialState, motionOnTheAgenda, proposePolicy, resolveDecision, voteOnMotion } from '../../app/simulation/model'
+import { BASELINE_SITUATION } from '../../app/simulation/situation'
 
 /**
  * „Nein heißt nicht weg."
@@ -19,7 +20,7 @@ const RETURNS = EVENTS.filter(event => event.trigger.requiresRefusedEventIds?.le
 function drawState(overrides: Partial<EventDrawState> = {}): EventDrawState {
   return {
     month: 60,
-    metrics: { ...BASELINE_METRICS },
+    metrics: { ...BASELINE_METRICS, ...BASELINE_SITUATION },
     cooldowns: {},
     streaks: {},
     firedOnce: [],

@@ -4,6 +4,7 @@ import { EVENTS } from '../../app/content/events'
 import { BASELINE_METRICS, BASELINE_STOCKS } from '../../app/simulation/baseline'
 import { applyMeasures, costThisMonth, eligibleEvents, rampFactor } from '../../app/simulation/events'
 import { advanceMonths, applyPolicy, campaignFor, createInitialState, forecastsForEvent, migrateState, negotiate, resolveDecision, snapshotOf } from '../../app/simulation/model'
+import { BASELINE_SITUATION } from '../../app/simulation/situation'
 
 describe('event library', () => {
   /*
@@ -124,6 +125,7 @@ describe('event library', () => {
       'fin-housing-sell', // Verwaltungsentgelt an den Fonds, solange er beteiligt ist
       'soc-language-schools', // zwanzig Stellen an den Schulen
       'saf-response-comply', // achtzehn Stellen auf der Wache, die das Urteil verlangt
+      'lage-arrivals-capacity', // Plätze und Kurse in vier Quartieren, mit Personal
     ])
     const unexpected = EVENTS.flatMap(event => event.options)
       .filter(option => option.monthlyCost > 0 && option.costMonths === undefined && !forever.has(option.id))
@@ -249,7 +251,7 @@ describe('modal arbitration', () => {
 function drawState(): EventDrawState {
   return {
     month: 12,
-    metrics: BASELINE_METRICS,
+    metrics: { ...BASELINE_METRICS, ...BASELINE_SITUATION },
     firedOnce: [],
     choices: [],
     cooldowns: {},

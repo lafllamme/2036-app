@@ -15,7 +15,9 @@ import type { CampaignGoalDefinition } from '../core/contracts'
  * gemessenen Spanne: anspruchsvoll, erreichbar, und nur mit Absicht zu schaffen.
  *
  * `tests/unit/goals.test.ts` misst dasselbe bei jedem Lauf nach und schlägt an, wenn ein Ziel
- * unmöglich oder geschenkt wird — Inhalt verschiebt die Spannen, und das soll auffallen.
+ * unmöglich oder geschenkt wird — Inhalt verschiebt die Spannen, und das soll auffallen. Zuletzt tat
+ * es das, als die Lage dazukam: Zuwanderungsdruck hebt die Wohnungslosigkeit, eine Rezession drückt
+ * den Betriebsbestand, und zwei Schwellen von vorher waren damit nicht mehr zu halten.
  */
 export const CAMPAIGN_GOALS: CampaignGoalDefinition[] = [
   {
@@ -46,10 +48,10 @@ export const CAMPAIGN_GOALS: CampaignGoalDefinition[] = [
     name: 'Ein Dach über dem Kopf',
     metric: 'homelessPeople',
     direction: 'below',
-    threshold: 900,
+    threshold: 1200,
     unit: ' Menschen',
     decimals: 0,
-    promise: 'Weniger als 900 Menschen sind ohne Wohnung. In einer Stadt, die nichts tut, werden es fast zweitausend.',
+    promise: 'Weniger als 1.200 Menschen sind ohne Wohnung. In einer Stadt, die nichts tut, werden es über dreitausend.',
   },
   {
     id: 'work',
@@ -57,10 +59,10 @@ export const CAMPAIGN_GOALS: CampaignGoalDefinition[] = [
     name: 'Arbeit in der Stadt',
     metric: 'employment',
     direction: 'above',
-    threshold: 75,
+    threshold: 74,
     unit: ' %',
     decimals: 1,
-    promise: 'Die Beschäftigungsquote liegt über 75 %.',
+    promise: 'Die Beschäftigungsquote liegt über 74 % – in einer Rezession kaum zu halten.',
   },
   {
     id: 'firms',
@@ -68,10 +70,10 @@ export const CAMPAIGN_GOALS: CampaignGoalDefinition[] = [
     name: 'Ein Standort, der trägt',
     metric: 'businessStock',
     direction: 'above',
-    threshold: 7000,
+    threshold: 6800,
     unit: ' Betriebe',
     decimals: 0,
-    promise: 'Mindestens 7.000 Betriebe sind in Lindenhafen ansässig.',
+    promise: 'Mindestens 6.800 Betriebe sind in Lindenhafen ansässig – bei schlechter Konjunktur deutlich schwerer.',
   },
   {
     id: 'balanced-books',

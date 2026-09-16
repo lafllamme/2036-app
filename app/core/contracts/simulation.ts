@@ -6,6 +6,7 @@
  */
 
 import type { SimulationState } from '../../simulation/model'
+import type { SituationState } from '../../simulation/situation'
 import type { DistrictId } from './city'
 import type { MotionPreparationView, PartyVote, PendingDecision, VoteForecast, VoteResult } from './events'
 import type { CausalEdge, CityMetrics, HealthScores, MetricId, PerceptionState } from './metrics'
@@ -64,6 +65,8 @@ export interface SimulationSnapshot {
   goalIds: CampaignGoalId[]
   /** Wer den Vorsitz hat. */
   leader: CampaignLeader | null
+  /** Die Lage: die Welt über der Stadt, vier Indizes um 100. */
+  situation: SituationState
   /** Wie weit jedes davon heute steht. Berechnet, nie gespeichert. */
   goals: CampaignGoalProgress[]
   pendingDecisions: PendingDecision[]

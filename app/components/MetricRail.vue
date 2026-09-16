@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import { useSound } from '~/composables/useSound'
 import { getGoal } from '~/content/goals'
 import { formatClock } from '~/core/daylight'
+import { situationReading } from '~/simulation/situation'
 import { useGameStore } from '~/stores/game'
 import { formatNumber } from '~/utils/labels'
 
@@ -93,6 +94,22 @@ const headline = computed(() => {
     // sie sieht eine fallende Rücklage aus, als käme nichts herein, während 26 Mio. € im Monat kommen.
     { label: 'Monatssaldo', value: `${m.monthlyBalance >= 0 ? '+' : '−'}${formatNumber(Math.abs(m.monthlyBalance), 1)} Mio. €`, trend: trend('monthlyBalance', 1), since: sinceStart('monthlyBalance', 1, ' Mio. €') },
   ]
+})
+
+/**
+ * Die Lage in Worten.
+ *
+ * Ein Index von 134 sagt niemandem etwas; „teuer" schon. Die Zahl steht trotzdem dahinter, damit die
+ * Richtung ablesbar bleibt — und eingefärbt wird nur, was von der Normallage abweicht.
+ */
+const situation = computed(() => {
+  const state = snapshot.value?.situation
+  if (!state)
+    return []
+  return situationReading(state).map(entry => ({
+    ...entry,
+    tone: entry.value > 118 || entry.value < 84 ? 'off-normal' : '',
+  }))
 })
 
 /**
@@ -256,6 +273,20 @@ const perception = computed(() => snapshot.value?.perception)
           <i :style="{ width: `${row[1]}%` }" />
         </div>
         <b>{{ row[1].toFixed(0) }}</b>
+      </div>
+    </div>
+
+    <!--
+      Die Welt über der Stadt. Vier Zahlen, die niemand hier beantwortet — aber die erklären, warum
+      derselbe Beschluss in diesem Jahrzehnt etwas anderes kostet als im letzten.
+    -->
+    <div v-if="situation.length > 0" class="goal-block">
+      <div class="health-title">
+        <span>Die Lage</span>
+      </div>
+      <div v-for="entry in situation" :key="entry.label" class="goal-row" :class="entry.tone">
+        <span>{{ entry.label }}</span>
+        <b>{{ entry.word }}</b>
       </div>
     </div>
 

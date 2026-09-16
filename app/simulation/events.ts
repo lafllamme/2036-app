@@ -7,11 +7,13 @@ import type {
   EventOption,
   MetricId,
   PolicyEffect,
+  SituationKey,
   StockId,
 } from '../core/contracts'
 
 import type { RandomStream } from '../core/rng'
 import type { CityStocks } from './baseline'
+import type { SituationState } from './situation'
 import { EVENTS } from '../content/events'
 
 /**
@@ -121,7 +123,14 @@ export function applyMeasures(
 
 export interface EventDrawState {
   month: number
-  metrics: CityMetrics
+  /**
+   * Die Stadt und die Welt in einer Ansicht.
+   *
+   * Eine Bedingung fragt immer dasselbe — „ist diese Zahl über der Schwelle" —, und ob die Zahl aus
+   * Lindenhafen kommt oder von draußen, ändert daran nichts. Zusammengeführt wird erst hier, damit
+   * der Zustand die beiden weiter getrennt hält.
+   */
+  metrics: ReadableFigures
   cooldowns: Record<string, number>
   streaks: Record<string, number>
   firedOnce: string[]
@@ -139,7 +148,10 @@ export interface EventDrawState {
   coalitionSeats: number
 }
 
-function conditionHolds(metrics: CityMetrics, metric: MetricId, operator: string, value: number): boolean {
+/** Alles, worauf ein Trigger schauen darf: die Kennzahlen der Stadt und die vier der Lage. */
+export type ReadableFigures = CityMetrics & SituationState
+
+function conditionHolds(metrics: ReadableFigures, metric: MetricId | SituationKey, operator: string, value: number): boolean {
   const current = metrics[metric]
   if (operator === '<')
     return current < value
@@ -151,7 +163,7 @@ function conditionHolds(metrics: CityMetrics, metric: MetricId, operator: string
 }
 
 /** How far past its threshold the city is, which is what makes a pressing problem recur. */
-function exceedance(metrics: CityMetrics, event: EventDefinition): number {
+function exceedance(metrics: ReadableFigures, event: EventDefinition): number {
   if (event.trigger.conditions.length === 0)
     return 1
   let total = 0

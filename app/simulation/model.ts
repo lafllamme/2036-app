@@ -26,6 +26,7 @@ import type { VoteContext } from './council'
 import type { Defeat, EdgeState } from './election'
 import type { Support } from './electorate'
 import type { ActiveMeasure, EventDrawState } from './events'
+import type { SituationState } from './situation'
 import { getEvent } from '../content/events'
 import { getGoal, goalIsMet } from '../content/goals'
 import { getBackground } from '../content/leaders'
@@ -54,6 +55,7 @@ import {
   measureFromOption,
   updateStreaks,
 } from './events'
+import { BASELINE_SITUATION, stepSituation } from './situation'
 
 export interface ActivePolicyState {
   id: string
@@ -83,6 +85,8 @@ export interface SimulationState {
   goalIds: CampaignGoalId[]
   /** Wer den Vorsitz hat. Null in Spielständen von vor Stufe 6 und in Tests. */
   leader: CampaignLeader | null
+  /** Die Welt über der Stadt. Vier Indizes um 100, die niemand hier beantwortet. */
+  situation: SituationState
   metrics: CityMetrics
   previousMetrics: CityMetrics
   /**
@@ -268,6 +272,7 @@ export function createInitialState(
     partyId,
     goalIds,
     leader,
+    situation: { ...BASELINE_SITUATION },
     metrics,
     previousMetrics: { ...metrics },
     stocks: { ...BASELINE_STOCKS },
@@ -729,6 +734,7 @@ export function migrateState(state: SimulationState): SimulationState {
     // Ein Spielstand von vor den Zielen hat keine. Er wird ohne Wertung zu Ende gespielt.
     goalIds: state.goalIds ?? [],
     leader: state.leader ?? null,
+    situation: healed(state.situation ?? { ...BASELINE_SITUATION }, BASELINE_SITUATION),
     metrics: healed(state.metrics, BASELINE_METRICS),
     stocks: healed(state.stocks, BASELINE_STOCKS),
     support: state.support ?? initialSupport(),
@@ -968,6 +974,7 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     choices: state.choices,
     goalIds: state.goalIds,
     leader: state.leader,
+    situation: state.situation,
     goals: state.goalIds.flatMap((id) => {
       const goal = getGoal(id)
       if (!goal)
@@ -1026,7 +1033,17 @@ function advanceOneMonth(state: SimulationState): SimulationState {
   }
 
   const previousHealth = healthFromState(state.metrics, state.perception)
-  const stepped = stepDynamics(workingMetrics, workingStocks, state.perception, previousHealth, measureCost, capitalPerMonth(state.leader, state.partyId))
+  // Erst die Welt, dann die Stadt: der Monat beginnt draußen.
+  const situation = stepSituation(state.situation, createRandomStream(state.seed, `situation:${month}`))
+  const stepped = stepDynamics(
+    workingMetrics,
+    workingStocks,
+    state.perception,
+    previousHealth,
+    measureCost,
+    capitalPerMonth(state.leader, state.partyId),
+    situation,
+  )
   edges.push(...stepped.edges)
 
   /*
@@ -1068,6 +1085,7 @@ function advanceOneMonth(state: SimulationState): SimulationState {
     ...state,
     month,
     previousMetrics: state.metrics,
+    situation,
     metrics: stepped.metrics,
     stocks: stepped.stocks,
     perception: stepped.perception,
@@ -1153,10 +1171,11 @@ function advanceOneMonth(state: SimulationState): SimulationState {
   }
 
   // Draw at most one new event.
-  next = { ...next, streaks: updateStreaks({ month, metrics: next.metrics, cooldowns: next.cooldowns, streaks: next.streaks, firedOnce: next.firedOnce, choices: next.choices, openDecisions: next.pending.length, activeMeasureSources: next.measures.map(measure => measure.sourceId), coalitionSeats: seatsOfCoalition(next) }) }
+  next = { ...next, streaks: updateStreaks({ month, metrics: { ...next.metrics, ...next.situation }, cooldowns: next.cooldowns, streaks: next.streaks, firedOnce: next.firedOnce, choices: next.choices, openDecisions: next.pending.length, activeMeasureSources: next.measures.map(measure => measure.sourceId), coalitionSeats: seatsOfCoalition(next) }) }
   const drawState: EventDrawState = {
     month,
-    metrics: next.metrics,
+    // Stadt und Welt in einer Ansicht, damit eine Bedingung auf beide schauen kann.
+    metrics: { ...next.metrics, ...next.situation },
     cooldowns: next.cooldowns,
     streaks: next.streaks,
     firedOnce: next.firedOnce,

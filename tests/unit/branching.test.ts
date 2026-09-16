@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { EVENTS, getEvent } from '../../app/content/events'
 import { BASELINE_METRICS } from '../../app/simulation/baseline'
 import { eligibleEvents } from '../../app/simulation/events'
+import { BASELINE_SITUATION } from '../../app/simulation/situation'
 
 /**
  * The doors: what a decision makes impossible.
@@ -16,7 +17,7 @@ import { eligibleEvents } from '../../app/simulation/events'
 function drawState(overrides: Partial<EventDrawState> = {}): EventDrawState {
   return {
     month: 40,
-    metrics: BASELINE_METRICS,
+    metrics: { ...BASELINE_METRICS, ...BASELINE_SITUATION },
     firedOnce: [],
     choices: [],
     cooldowns: {},
@@ -115,7 +116,7 @@ describe('the doors in the event library', () => {
   it('lets the Kesselbrink site be a park or a data centre, and never both', () => {
     const park = 'env-green-offensive'
     const centre = 'eco-datacenter'
-    const thin = { ...BASELINE_METRICS, greenSpacePerCapita: 18 }
+    const thin = { ...BASELINE_METRICS, ...BASELINE_SITUATION, greenSpacePerCapita: 18 }
 
     const open = drawState({ month: 40, metrics: thin })
     expect(canAppear(park, open) && canAppear(centre, open), 'both are on offer while the site is free').toBe(true)

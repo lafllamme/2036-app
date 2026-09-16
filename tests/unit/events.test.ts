@@ -6,13 +6,24 @@ import { applyMeasures, costThisMonth, eligibleEvents, rampFactor } from '../../
 import { advanceMonths, applyPolicy, campaignFor, createInitialState, forecastsForEvent, migrateState, negotiate, resolveDecision, snapshotOf } from '../../app/simulation/model'
 
 describe('event library', () => {
-  it('uses unique ids and gives every decision a default', () => {
+  /*
+   * Die Formregel, von der Inhaltsseite her geprüft.
+   *
+   * Eine Weggabelung braucht einen Weg, den die Verwaltung nimmt, wenn niemand entscheidet. Eine
+   * Vorlage braucht das Gegenteil: keinen Ersatzbeschluss, sondern einen Preis für das Nein. Solange
+   * beides dieselbe Form hatte, musste jede Haltungsfrage eine Nichts-tun-Karte mitschleppen.
+   */
+  it('gives a Weggabelung a default and a Vorlage a price for refusing', () => {
     expect(new Set(EVENTS.map(event => event.id)).size).toBe(EVENTS.length)
     for (const event of EVENTS) {
       expect(new Set(event.options.map(option => option.id)).size).toBe(event.options.length)
-      if (event.options.length > 0) {
-        expect(event.defaultOptionId).toBeDefined()
+      if (event.options.length > 1) {
+        expect(event.defaultOptionId, `${event.id}: Weggabelung ohne Weg für den Fall, dass niemand entscheidet`).toBeDefined()
         expect(event.options.some(option => option.id === event.defaultOptionId)).toBe(true)
+        expect(event.refusedEffects, `${event.id}: eine Weggabelung wird nicht abgelehnt, sie wird gewählt`).toBeUndefined()
+      }
+      if (event.options.length === 1) {
+        expect(event.defaultOptionId, `${event.id}: eine Vorlage hat keinen Ersatzbeschluss`).toBeUndefined()
       }
     }
   })

@@ -66,7 +66,7 @@ describe('the crises', () => {
    */
   it('says what happens when the council does not answer', () => {
     for (const crisis of CRISES) {
-      if (crisis.options.length === 0)
+      if (crisis.options.length < 2)
         continue
       const fallback = crisis.options.find(option => option.id === crisis.defaultOptionId)
       expect(fallback, `${named(crisis)}: defaultOptionId names no option of its own`).toBeDefined()

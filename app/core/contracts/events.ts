@@ -103,8 +103,21 @@ export interface EventDefinition {
   briefing: string
   urgency: NewsItem['urgency']
   trigger: EventTrigger
+  /** What the situation does to the city the moment it arrives, whatever the council then decides. */
   immediateEffects: PolicyEffect[]
+  /**
+   * Was der Stadt widerfährt, wenn die Vorlage **abgelehnt** wird.
+   *
+   * Das Gegenstück zu `immediateEffects`, und die Voraussetzung dafür, dass „Dagegen" überhaupt eine
+   * Antwort sein kann. Vorher steckten diese Folgen in einer Option — „Schließen", „Durchlaufen
+   * lassen", „Aufschieben" —, und solange sie dort standen, war jede Vorlage gezwungen, eine
+   * Nichts-tun-Karte mitzuführen. Genau das machte aus jeder Haltungsfrage ein Menü.
+   *
+   * Nichtstun ist damit eine Entscheidung mit Preis statt eines Auswegs.
+   */
+  refusedEffects?: PolicyEffect[]
   options: EventOption[]
+  /** Nur für Weggabelungen: welchen Weg die Verwaltung nimmt, wenn niemand entscheidet. */
   defaultOptionId?: string
   expiresInMonths: number
   sourceIds: string[]

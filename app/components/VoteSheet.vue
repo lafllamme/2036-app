@@ -153,6 +153,16 @@ const tabledOption = computed(() => {
   return openDecision.value?.definition.options.find(option => option.id === id) ?? null
 })
 
+/**
+ * Die Formregel: **die Zahl der Optionen bestimmt die Form.**
+ *
+ * Eine Vorlage — ein konkreter Vorschlag — bekommt Dafür · Enthalten · Dagegen. Eine Weggabelung
+ * bekommt Karten zum Auswählen. Vorher hing das daran, *wer* gefragt hatte: eine fremde Vorlage
+ * hieß Ja/Nein, eine eigene hieß Optionen wählen, eine Krise wieder Optionen. Das war nicht zu
+ * lernen, weil es nichts zu lernen gab.
+ */
+const isVorlage = computed(() => Boolean(tabledOption.value) || openDecision.value?.definition.options.length === 1)
+
 const VOTE_LABELS: Record<PartyVote, string> = { yes: 'Dafür stimmen', abstain: 'Enthalten', no: 'Dagegen stimmen' }
 
 function vote(choice: PartyVote): void {
@@ -304,8 +314,18 @@ function negotiationHint(partyId: PartyId): string {
           </div>
         </div>
 
-        <!-- Somebody else's motion: no campaign, no wording, just the seats. -->
-        <div v-if="tabledBy" class="vote-actions vote-actions--own">
+        <!-- Eine Vorlage: ein Vorschlag liegt vor, und du beziehst Haltung. -->
+        <div v-if="isVorlage" class="vote-actions vote-actions--own">
+          <!-- Auf der eigenen Tagesordnung bleibt die Kampagne ein Hebel; fremde Anträge kann man nicht bewerben. -->
+          <button
+            v-if="!tabledBy"
+            type="button"
+            class="quiet-button vote-actions__campaign"
+            :disabled="capital < 18 || openDecision.prepared.campaignedOptionIds.includes(option.id)"
+            @click="startCampaign(option.id)"
+          >
+            {{ openDecision.prepared.campaignedOptionIds.includes(option.id) ? 'Kampagne läuft' : 'Kampagne · 18' }}
+          </button>
           <button type="button" class="quiet-button" @click="vote('no')">
             {{ VOTE_LABELS.no }}
           </button>

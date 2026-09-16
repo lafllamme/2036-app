@@ -211,8 +211,17 @@ Jede Stufe ist für sich spielbar.
    *fremden* Vorlage bleibt die eigene Stimme gewürfelt, denn dort ist sie genau die Frage.
    Dass eine Partei überhaupt Vorlagen einbringen kann, die ihr fremd sind, bleibt — das ist
    Stufe 3.
-2. **Die Form-Regel.** Ereignisse mit einer Option rendern Dafür/Enthalten/Dagegen; die 29
-   vorhandenen werden inhaltlich neu geschnitten, zwei Drittel zu Vorlagen.
+2. **Die Form-Regel.** *Erledigt.* Die Form hing daran, *wer* gefragt hatte — fremd hieß Ja/Nein,
+   eigen hieß Optionen wählen. Jetzt entscheidet die Vorlage selbst: eine Option heißt Dafür ·
+   Enthalten · Dagegen, mehrere heißen Weggabelung. Der Umbau brauchte einen neuen Ort im Schema:
+   **`refusedEffects`**, das Gegenstück zu `immediateEffects`. Solange die Folgen des Nichtstuns in
+   einer Option steckten — „Schließen", „Durchlaufen lassen", „Aufschieben" —, musste jede
+   Haltungsfrage eine Nichts-tun-Karte mitschleppen, und genau das machte aus ihr ein Menü.
+   Zwölf Ereignisse sind damit Vorlagen geworden, dreizehn bleiben Weggabelungen: acht davon, weil
+   die Verzweigung an ihren Optionen hängt, fünf, weil sie wirklich verschiedene Richtungen
+   anbieten (Konsolidieren gegen Gebühren erhöhen, Beton gegen Stadtgesellschaft). Dazu fiel ein
+   Wächter auf, der `tabler()` alle Ein-Options-Ereignisse überspringen ließ — mit der Formregel
+   hätte er der Opposition ein Drittel der Tagesordnung genommen; ihr Anteil liegt jetzt bei 25 %.
 3. **Parteiprogramme.** Vier eigene je Partei, zwei gemeinsame. Der größte Hebel für Wiederspielbarkeit.
 4. **Drei Ziele.** Katalog, Auswahlbildschirm, HUD-Zeile, Wertung im Bericht.
 5. **Abgelehnt kehrt zurück.** Ein Trigger-Feld, dazu Folge-Ereignisse für die wichtigsten Ablehnungen.

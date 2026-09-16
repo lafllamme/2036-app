@@ -74,7 +74,11 @@ watch(() => openMotions.value.length, (now, before) => {
         <h2>{{ item.definition.title }}</h2>
         <p>{{ item.definition.briefing }}</p>
         <button type="button" class="primary" @click="game.openDecisionSheet(item.entry.eventId)">
-          {{ item.definition.options.length }} Optionen prüfen
+          <!-- Die Formregel bis in die Beschriftung: zu einer Vorlage nimmt man Stellung,
+               eine Weggabelung prüft man. „1 Optionen prüfen“ war beides nicht. -->
+          {{ item.entry.tabledOptionId || item.definition.options.length === 1
+            ? 'Stellung nehmen'
+            : `${item.definition.options.length} Wege prüfen` }}
         </button>
       </article>
     </template>

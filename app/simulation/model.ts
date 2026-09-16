@@ -313,6 +313,12 @@ export function forecastsForEvent(state: SimulationState, eventId: string): Reco
 }
 
 /**
+ * Option ids that stand for something that happened rather than something the council resolved:
+ * the shock a situation deals on arrival, and the price of having refused it.
+ */
+const INCIDENT_OPTION_IDS = new Set(['sofort', 'abgelehnt'])
+
+/**
  * Put a decision into effect, and write down that the city took this road.
  *
  * The choice is recorded here rather than where the vote is counted, because this is the one place
@@ -327,7 +333,7 @@ function adoptMeasure(state: SimulationState, sourceId: string, option: EventOpt
     ...state,
     metrics,
     choices: state.choices.includes(choice) ? state.choices : [...state.choices, choice],
-    measures: [...state.measures, measureFromOption(sourceId, option, category, state.month, option.id === 'sofort' ? 'incident' : 'decision')],
+    measures: [...state.measures, measureFromOption(sourceId, option, category, state.month, INCIDENT_OPTION_IDS.has(option.id) ? 'incident' : 'decision')],
   }
 }
 
@@ -358,7 +364,14 @@ const TABLING_CONVICTION = 0.55
  * option is the one they want. Nobody tables something they would then vote against.
  */
 function tabler(state: SimulationState, event: EventDefinition, stream: RandomStream): { partyId: PartyId, optionId: string } | null {
-  if (event.options.length < 2 || event.kind === 'incident' || event.kind === 'external')
+  /*
+   * Ein Vorfall wird nicht beantragt, er passiert. Alles andere schon — auch und gerade eine
+   * Vorlage mit einer einzigen Option: das ist genau die Form, in der eine Fraktion etwas
+   * einbringt. Der Wächter stand hier auf `options.length < 2`, aus der Zeit, als eine Vorlage
+   * nichts zum Auswählen hatte; mit der Formregel hätte er der Opposition ein Drittel der
+   * Tagesordnung weggenommen.
+   */
+  if (event.options.length === 0 || event.kind === 'incident' || event.kind === 'external')
     return null
 
   const outside = PARTIES.filter(party =>
@@ -395,18 +408,41 @@ function tabler(state: SimulationState, event: EventDefinition, stream: RandomSt
  * what every other party has always brought: their seats, and which way they go. Their group is the
  * one party in the chamber whose vote is decided rather than rolled.
  */
-export function voteOnMotion(state: SimulationState, eventId: string, vote: PartyVote): { state: SimulationState, result: VoteResult | null } {
+/**
+ * Die Formregel: **die Zahl der Optionen bestimmt die Form.**
+ *
+ * Eine Vorlage ist ein konkreter Vorschlag, und darauf gibt es genau drei Antworten — dafür,
+ * enthalten, dagegen. Eine Weggabelung sind zwei oder drei echte Wege, und dort wählt man einen.
+ *
+ * Vorher wechselte die Form danach, *wer* gefragt hatte: eine fremde Vorlage hieß Ja/Nein, eine
+ * eigene hieß Optionen wählen, eine Krise wieder Optionen. Das war nicht zu lernen, weil es nichts
+ * zu lernen gab. Jetzt sagt die Vorlage selbst, welche Form sie hat, und der Satz gilt überall.
+ *
+ * Returns the one option on the agenda when this is a Vorlage, otherwise `null`.
+ */
+export function motionOnTheAgenda(state: SimulationState, eventId: string): string | null {
   const pending = state.pending.find(entry => entry.eventId === eventId)
-  if (!pending?.tabledBy || !pending.tabledOptionId)
-    return { state, result: null }
-  return decide(state, eventId, pending.tabledOptionId, vote)
+  if (!pending)
+    return null
+  if (pending.tabledOptionId)
+    return pending.tabledOptionId
+  const options = getEvent(eventId)?.options ?? []
+  return options.length === 1 ? options[0]!.id : null
 }
 
-/** Resolve one of the player's own motions by putting one option to the council. */
+/** Take a position on a Vorlage: dafür, enthalten oder dagegen. */
+export function voteOnMotion(state: SimulationState, eventId: string, vote: PartyVote): { state: SimulationState, result: VoteResult | null } {
+  const optionId = motionOnTheAgenda(state, eventId)
+  if (!optionId)
+    return { state, result: null }
+  return decide(state, eventId, optionId, vote)
+}
+
+/** Take one road at a Weggabelung. Choosing it is tabling it, and tabling it is your yes. */
 export function resolveDecision(state: SimulationState, eventId: string, optionId: string): { state: SimulationState, result: VoteResult | null } {
-  const pending = state.pending.find(entry => entry.eventId === eventId)
-  // A motion somebody else tabled is not the player's to word. `voteOnMotion` is the way in.
-  if (pending?.tabledBy)
+  // Auf eine Vorlage antwortet man mit einer Haltung, nicht mit einer Auswahl. `voteOnMotion` ist
+  // der Weg hinein — auch dann, wenn die Vorlage aus der Verwaltung und nicht aus einer Fraktion kam.
+  if (motionOnTheAgenda(state, eventId))
     return { state, result: null }
   // Wer einbringt, stimmt zu, und die eigene Fraktion folgt.
   return decide(state, eventId, optionId, 'yes')
@@ -476,6 +512,29 @@ function decide(state: SimulationState, eventId: string, optionId: string, playe
       urgency: 'breaking',
       headline: `STADTRAT: „${option.label}“ mit ${result.noSeats}:${result.yesSeats} abgelehnt`,
     })
+    /*
+     * Was eine Ablehnung kostet.
+     *
+     * Solange es diesen Ort nicht gab, musste jede Vorlage eine Nichts-tun-Karte mitführen, damit
+     * die Folgen des Nichtstuns irgendwo stehen konnten — „Schließen", „Durchlaufen lassen",
+     * „Aufschieben". Genau das machte aus jeder Haltungsfrage ein Menü und verhinderte die Formregel.
+     *
+     * Als Vorfall verbucht, nicht als Maßnahme: die Stadt hat nichts beschlossen, ihr ist etwas
+     * widerfahren. Deshalb steht es auch nicht unter „Laufende Maßnahmen".
+     */
+    if (event.refusedEffects?.length) {
+      next = adoptMeasure(next, eventId, {
+        id: 'abgelehnt',
+        label: event.title,
+        rationale: event.briefing,
+        oneOffCost: 0,
+        monthlyCost: 0,
+        axes: {},
+        salience: {},
+        effects: event.refusedEffects,
+        sourceIds: event.sourceIds,
+      }, event.category)
+    }
   }
 
   return { state: next, result }
@@ -870,7 +929,7 @@ function advanceOneMonth(state: SimulationState): SimulationState {
      * The first version applied the event's `defaultOptionId` here, so ignoring the CDU's motion
      * quietly adopted an option the CDU had not tabled and nobody had voted on.
      */
-    if (entry.tabledBy && entry.tabledOptionId) {
+    if (motionOnTheAgenda(next, entry.eventId)) {
       next = pushNews(next, {
         id: `abstained-${entry.eventId}-${month}`,
         month,
@@ -882,7 +941,7 @@ function advanceOneMonth(state: SimulationState): SimulationState {
       continue
     }
 
-    // The player's own motion: no decision means the administration's own fallback applies.
+    // Eine Weggabelung ohne Beschluss: die Verwaltung nimmt ihren eigenen Weg.
     const fallback = event?.options.find(option => option.id === event.defaultOptionId)
     next = { ...next, pending: next.pending.filter(open => open.eventId !== entry.eventId) }
     if (event && fallback) {

@@ -105,6 +105,24 @@ interface EventOption {
 
 `IndicatorEffect` reuses the existing `PolicyEffect` shape (`metric`, `delayMonths`, `rampMonths`, `min`, `expected`, `max`, `confidence`) widened to the full indicator set.
 
+### Die Formregel: die Zahl der Optionen bestimmt die Form
+
+| | Was der Spieler sieht | Was das Schema verlangt |
+| --- | --- | --- |
+| **Vorlage** — eine Option | Dafür · Enthalten · Dagegen | kein `defaultOptionId`; `refusedEffects` trägt den Preis des Nein |
+| **Weggabelung** — mehrere | Karten, du wählst einen Weg | `defaultOptionId`, den die Verwaltung ohne Beschluss nimmt |
+
+Enforced in `tests/unit/events.test.ts`. The rule needed `refusedEffects` to exist at all: the cost of
+doing nothing used to live in an option — „Schließen", „Durchlaufen lassen", „Aufschieben" — and while
+it did, every question of position had to carry a do-nothing card, which is what turned all of them
+into menus. Now a refusal is recorded as an incident (`eventId:abgelehnt`), not as a measure: the city
+did not resolve anything, something happened to it.
+
+A foreign motion is a Vorlage by construction — the proposer tabled one option — so the same form
+covers it without a second code path. `tabler()` may table a Vorlage too; the guard that skipped
+single-option events was written before this rule and would have cost the opposition a third of the
+agenda.
+
 ### An option's `effects` may only name capacity
 
 An option buys a **stock**; the dynamics turn it into an outcome. Writing an outcome directly does not

@@ -15,3 +15,6 @@ test-results
 .data
 .nitro
 .cache
+
+# Werkzeugspuren, kein Projektcode
+.impeccable

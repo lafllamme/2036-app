@@ -23,18 +23,31 @@ import { merge, paint } from './handBuilt'
  * schmaler als ein Pixel ist, flimmert, statt zu zeichnen. Die Masten tragen die Linie allein.
  */
 
-/** Maße einer Kraftwerksanlage, wie man sie aus zwei Kilometern liest. */
-const COOLING_HEIGHT = 118
-const COOLING_FOOT = 43
-const COOLING_WAIST = 26
-const COOLING_LIP = 31
-const STACK_HEIGHT = 162
-const STACK_RADIUS = 6.5
+/**
+ * Maße einer Kraftwerksanlage, wie man sie aus zwei Kilometern liest.
+ *
+ * Erst waren die Kühltürme 118 m hoch und das Werk 170 m breit. Danebengestellt war das kleiner als
+ * ein Dorf, und aus der Stadt blieb ein Punkt am Horizont. Ein Kraftwerksblock dieser Bauart nimmt in
+ * Wirklichkeit einen halben Quadratkilometer ein — also nimmt er ihn hier auch: Türme auf 152 m, ein
+ * Schornstein auf 198 m, und das Gelände spannt über gut vierhundert Meter.
+ */
+const COOLING_HEIGHT = 152
+const COOLING_FOOT = 58
+const COOLING_WAIST = 35
+const COOLING_LIP = 42
+const STACK_HEIGHT = 198
+const STACK_RADIUS = 8.5
 
-/** Wo die Anlage stehen darf: außerhalb der Stadt, aber gut innerhalb der Sichtweite. */
-const SITE_INNER = 2_100
-const SITE_OUTER = 3_400
-const CLEAR_OF_BUILDINGS = 260
+/**
+ * Wo die Anlagen stehen dürfen, und wie viele es sind.
+ *
+ * Zwei, und zwar einander gegenüber. Ein einzelner Fixpunkt sagt dem Auge nur „dort" — zwei sagen
+ * ihm „dort und dort", und dazwischen liegt eine Achse, an der sich die ganze Karte aufziehen lässt.
+ */
+const SITE_COUNT = 2
+const SITE_INNER = 2_400
+const SITE_OUTER = 3_800
+const CLEAR_OF_BUILDINGS = 340
 
 /** Die Trasse: Abstand der Masten und wie hoch sie sind. */
 const PYLON_SPAN = 340
@@ -42,7 +55,7 @@ const PYLON_HEIGHT = 46
 const PYLON_COUNT = 26
 
 export interface PowerPlant {
-  works: THREE.Mesh
+  works: THREE.InstancedMesh
   pylons: THREE.InstancedMesh
 }
 
@@ -50,17 +63,33 @@ export function addPowerPlant(scene: THREE.Scene, blueprint: CityBlueprint): Pow
   const rng = createRandomStream(blueprint.definition.seed, 'powerplant')
   const near = buildingProximity(blueprint)
 
-  const site = findSite(rng, blueprint, near)
-  if (!site)
+  const sites: { x: number, z: number, facing: number }[] = []
+  for (let index = 0; index < SITE_COUNT; index += 1) {
+    // Das zweite Werk gegenüber dem ersten, mit etwas Spiel, damit es keine gespiegelte Karte wird.
+    const opposite = sites[0] ? Math.atan2(sites[0].z, sites[0].x) + Math.PI + rng.between(-0.7, 0.7) : null
+    const site = findSite(rng, blueprint, near, opposite)
+    if (site)
+      sites.push(site)
+  }
+  if (sites.length === 0)
     return null
 
-  const skin = (): THREE.MeshStandardMaterial => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.74, metalness: 0.05 })
-
-  const works = new THREE.Mesh(plant(), skin())
-  works.position.set(site.x, blueprint.relief.height(site.x, site.z), site.z)
-  works.rotation.y = site.facing
   /*
-   * Kein Schatten, aus demselben Grund wie beim Windrad: ein Bauwerk von hundertsechzig Metern zieht
+   * Beidseitig. Ein Kühlturm ist oben **offen** — das ist keine Nachlässigkeit, sondern was ein
+   * Kühlturm ist —, und eine einseitige Schale zeigt von schräg oben ihre weggeschnittene Rückwand:
+   * im Bild ein gebogenes Blech statt eines Bauwerks. Die Kästen daneben sind geschlossen und kostet
+   * es nichts, weil ihre Rückseiten ohnehin von ihren eigenen Vorderseiten verdeckt werden.
+   */
+  const skin = (double: boolean): THREE.MeshStandardMaterial => new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.74,
+    metalness: 0.05,
+    side: double ? THREE.DoubleSide : THREE.FrontSide,
+  })
+
+  const works = new THREE.InstancedMesh(plant(), skin(true), sites.length)
+  /*
+   * Kein Schatten, aus demselben Grund wie beim Windrad: ein Bauwerk von zweihundert Metern zieht
    * die Schattenkarte über die halbe Karte auf und nimmt der Stadt die Auflösung, in der ihre
    * eigenen Schatten stecken.
    */
@@ -68,43 +97,56 @@ export function addPowerPlant(scene: THREE.Scene, blueprint: CityBlueprint): Pow
   works.receiveShadow = false
   scene.add(works)
 
-  const pylons = new THREE.InstancedMesh(pylon(), skin(), PYLON_COUNT)
+  const pylons = new THREE.InstancedMesh(pylon(), skin(false), PYLON_COUNT * sites.length)
   pylons.castShadow = false
   pylons.receiveShadow = false
   scene.add(pylons)
 
-  /*
-   * Die Trasse läuft **an der Stadt vorbei**, nicht in sie hinein.
-   *
-   * Der erste Versuch schickte sie vom Werk aus geradewegs zur Stadtmitte, und das ist gleich zweimal
-   * falsch: eine 380-kV-Leitung wird um eine Altstadt herumgeführt und nicht über sie hinweg, und
-   * gemessen standen von sechsundzwanzig Masten nur zehn, weil die anderen in Häusern landeten und
-   * verworfen wurden. Jetzt läuft sie tangential — quer zur Richtung, in der das Werk von der Stadt
-   * aus liegt —, also über die ganze Länge durch offenes Land, und zwar in beide Richtungen vom Werk
-   * weg. Gerade, weil eine Hochspannungsleitung gerade läuft; das ist aus der Ferne genau das, woran
-   * man sie erkennt.
-   */
   const matrix = new THREE.Matrix4()
   const position = new THREE.Vector3()
   const quaternion = new THREE.Quaternion()
   const scale = new THREE.Vector3(1, 1, 1)
-  const run = Math.atan2(site.z, site.x) + Math.PI / 2
-  const half = Math.ceil(PYLON_COUNT / 2)
   let standing = 0
-  for (let step = -half; step <= half && standing < PYLON_COUNT; step += 1) {
-    if (step === 0)
-      continue
-    const x = site.x + Math.cos(run) * step * PYLON_SPAN
-    const z = site.z + Math.sin(run) * step * PYLON_SPAN
-    const ground = blueprint.relief.height(x, z)
-    // Nicht ins Wasser und nicht in ein Dorf; eine Lücke in der Reihe ist richtiger als ein Mast im Hof.
-    if (ground < WATER_LEVEL + 0.5 || near(x, z, 70))
-      continue
-    quaternion.setFromAxisAngle(AXIS_Y, run)
-    matrix.compose(position.set(x, ground, z), quaternion, scale)
-    pylons.setMatrixAt(standing, matrix)
-    standing += 1
-  }
+
+  sites.forEach((site, index) => {
+    quaternion.setFromAxisAngle(AXIS_Y, site.facing)
+    matrix.compose(position.set(site.x, blueprint.relief.height(site.x, site.z), site.z), quaternion, scale)
+    works.setMatrixAt(index, matrix)
+
+    /*
+     * Die Trasse läuft **an der Stadt vorbei**, nicht in sie hinein.
+     *
+     * Der erste Versuch schickte sie vom Werk aus geradewegs zur Stadtmitte, und das ist gleich
+     * zweimal falsch: eine 380-kV-Leitung wird um eine Altstadt herumgeführt und nicht über sie
+     * hinweg, und gemessen standen von sechsundzwanzig Masten nur zehn, weil die anderen in Häusern
+     * landeten und verworfen wurden. Jetzt läuft sie tangential — quer zur Richtung, in der das Werk
+     * von der Stadt aus liegt —, also über die ganze Länge durch offenes Land, und zwar in beide
+     * Richtungen vom Werk weg. Gerade, weil eine Hochspannungsleitung gerade läuft; das ist aus der
+     * Ferne genau das, woran man sie erkennt.
+     */
+    const run = Math.atan2(site.z, site.x) + Math.PI / 2
+    const half = Math.ceil(PYLON_COUNT / 2)
+    let placed = 0
+    for (let step = -half; step <= half && placed < PYLON_COUNT; step += 1) {
+      if (step === 0)
+        continue
+      const x = site.x + Math.cos(run) * step * PYLON_SPAN
+      const z = site.z + Math.sin(run) * step * PYLON_SPAN
+      const ground = blueprint.relief.height(x, z)
+      // Nicht ins Wasser und nicht in ein Dorf; eine Lücke ist richtiger als ein Mast im Hof.
+      if (ground < WATER_LEVEL + 0.5 || near(x, z, 70))
+        continue
+      quaternion.setFromAxisAngle(AXIS_Y, run)
+      matrix.compose(position.set(x, ground, z), quaternion, scale)
+      pylons.setMatrixAt(standing, matrix)
+      placed += 1
+      standing += 1
+    }
+  })
+
+  works.count = sites.length
+  works.instanceMatrix.needsUpdate = true
+  works.computeBoundingSphere()
   pylons.count = standing
   pylons.instanceMatrix.needsUpdate = true
   pylons.computeBoundingSphere()
@@ -117,9 +159,19 @@ function findSite(
   rng: ReturnType<typeof createRandomStream>,
   blueprint: CityBlueprint,
   near: (x: number, z: number, radius: number) => boolean,
+  toward: number | null,
 ): { x: number, z: number, facing: number } | null {
-  for (let attempt = 0; attempt < 90; attempt += 1) {
-    const bearing = rng.next() * Math.PI * 2
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    /*
+     * „Gegenüber" wird mit jedem Fehlversuch großzügiger ausgelegt.
+     *
+     * Eng gefasst (±0,25 rad) hat der zweite Standort gemessen **keinen** von neunzig Versuchen
+     * gefunden: in diesem Keil lagen Dörfer und Wasser. Ein zweites Werk, das dann gar nicht steht,
+     * ist schlechter als eines, das dreißig Grad neben der Ideallinie steht — also wird der Keil
+     * über die Versuche hinweg auf ±1,5 rad aufgemacht, statt aufzugeben.
+     */
+    const spread = 0.25 + (attempt / 120) * 1.3
+    const bearing = toward === null ? rng.next() * Math.PI * 2 : toward + rng.between(-spread, spread)
     const away = SITE_INNER + rng.next() * (SITE_OUTER - SITE_INNER)
     const x = Math.cos(bearing) * away
     const z = Math.sin(bearing) * away
@@ -193,9 +245,9 @@ export function coolingTower(): THREE.BufferGeometry {
 function plant(): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = []
 
-  for (const offset of [-52, 52]) {
+  for (const offset of [-74, 74]) {
     const shell = coolingTower()
-    shell.translate(offset, 0, -34)
+    shell.translate(offset, 0, -48)
     parts.push(shell)
   }
 
@@ -204,33 +256,61 @@ function plant(): THREE.BufferGeometry {
    * das Einzige, was einem Betrachter aus drei Kilometern sagt, wie hoch das Ding ist. Ein weißes
    * Rohr ohne Maßstab könnte zwanzig Meter hoch sein.
    */
-  const bands = 7
+  const bands = 9
   for (let band = 0; band < bands; band += 1) {
     const height = STACK_HEIGHT / bands
     const low = band * height
     const taper = (radius: number, at: number): number => radius * (1 - 0.35 * (at / STACK_HEIGHT))
     const segment = new THREE.CylinderGeometry(taper(STACK_RADIUS, low + height), taper(STACK_RADIUS, low), height, 12, 1, true)
-    segment.translate(0, low + height / 2, 46)
+    segment.translate(0, low + height / 2, 62)
     parts.push(paint(segment, band % 2 === 0 ? '#ded9d2' : '#8d4038'))
   }
 
-  // Die Maschinenhalle, das Kesselhaus dahinter und das Schaltfeld daneben.
-  const hall = new THREE.BoxGeometry(96, 27, 38)
-  hall.translate(0, 13.5, 22)
+  // Die Maschinenhalle, das Kesselhaus dahinter und ein zweiter Block daneben.
+  const hall = new THREE.BoxGeometry(148, 34, 52)
+  hall.translate(0, 17, 30)
   parts.push(paint(hall, '#7d8288'))
 
-  const boiler = new THREE.BoxGeometry(34, 54, 30)
-  boiler.translate(-26, 27, 46)
+  const boiler = new THREE.BoxGeometry(46, 74, 42)
+  boiler.translate(-38, 37, 62)
   parts.push(paint(boiler, '#6d7278'))
 
-  const yard = new THREE.BoxGeometry(60, 7, 26)
-  yard.translate(58, 3.5, 12)
+  const annex = new THREE.BoxGeometry(38, 46, 34)
+  annex.translate(46, 23, 62)
+  parts.push(paint(annex, '#6d7278'))
+
+  /*
+   * Und dann das, was ein Kraftwerk auf der Karte wirklich groß macht: das **Gelände**. Türme und
+   * Schornstein geben die Höhe, aber ein Werk, das nur aus ihnen besteht, steht wie hingestellt. Was
+   * es einwachsen lässt, sind Tanks, Silos, Hallen und Halden über vierhundert Meter Breite.
+   */
+  for (const [at, radius, height] of [[128, 15, 22], [166, 15, 22], [204, 13, 18]] as const) {
+    const tank = new THREE.CylinderGeometry(radius, radius, height, 10)
+    tank.translate(at, height / 2, 12)
+    parts.push(paint(tank, '#9aa0a3'))
+  }
+
+  for (const [at, height] of [[-150, 44], [-186, 44]] as const) {
+    const silo = new THREE.CylinderGeometry(11, 11, height, 10)
+    silo.translate(at, height / 2, 48)
+    parts.push(paint(silo, '#b0aca4'))
+  }
+
+  const yard = new THREE.BoxGeometry(96, 9, 40)
+  yard.translate(96, 4.5, -34)
   parts.push(paint(yard, '#5d6268'))
 
-  // Und der Brennstoffberg: eine flache Halde, die sagt, womit hier geheizt wird.
-  const heap = new THREE.ConeGeometry(26, 13, 7)
-  heap.translate(-74, 6.5, 6)
-  parts.push(paint(heap, '#4a453f'))
+  const store = new THREE.BoxGeometry(74, 19, 36)
+  store.translate(-118, 9.5, -22)
+  parts.push(paint(store, '#6a6f74'))
+
+  // Die Brennstoffhalde: lang statt rund, weil sie von einer Bandanlage aufgeschüttet wird.
+  for (const at of [-96, -62]) {
+    const heap = new THREE.ConeGeometry(30, 17, 7)
+    heap.scale(1, 1, 2.1)
+    heap.translate(at, 8.5, -76)
+    parts.push(paint(heap, '#4a453f'))
+  }
 
   return merge(parts)
 }

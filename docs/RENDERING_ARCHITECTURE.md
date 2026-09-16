@@ -462,12 +462,16 @@ ein Ding dreißig bis zweihundert Meter hoch sein. Davon stand dort nichts.
 | Ding | Höhe | Dreiecke je Stück | Anzahl | Draws |
 |---|---|---|---|---|
 | Windrad (`structures/windFarm.ts`) | 166 m bis Blattspitze | 76 | 58 | 2 |
-| Kühlturm (`structures/powerPlant.ts`) | 118 m | ~200 | 2 | — |
-| Schornstein mit Warnringen | 162 m | ~170 | 1 | — |
-| Kraftwerk gesamt, ein Mesh | | ~800 | 1 | 1 |
-| Hochspannungsmast | 46 m | 44 | 22 | 1 |
+| Kühlturm (`structures/powerPlant.ts`) | 152 m | ~200 | 4 | — |
+| Schornstein mit Warnringen | 198 m | ~220 | 2 | — |
+| Kraftwerk gesamt, instanziert | 400 m breit | ~1.500 | 2 | 1 |
+| Hochspannungsmast | 46 m | 44 | 46 | 1 |
 
 Vier Draws für den ganzen Horizont. Zum Vergleich: die Stadt zeichnet 130.
+
+Zwei Werke, nicht eines: ein einzelner Fixpunkt sagt dem Auge nur „dort", zwei sagen ihm „dort und
+dort", und dazwischen liegt eine Achse, an der sich die Karte aufziehen lässt. Sie stehen als zwei
+Instanzen **eines** Meshes, kosten also zusammen einen Draw.
 
 Drei Regeln stecken darin, und alle drei sind gemessen.
 
@@ -495,7 +499,12 @@ zu sehen. Am Modell ist es eine Bounding-Box in einer Millisekunde: `tests/unit/
 prüft jetzt Reichweite in der Rotorebene, Flachheit entlang der Achse und den Winkelabstand der drei
 Blätter über die Resultierende der verdreifachten Winkel.
 
-Der zweite: die Instanzmatrizen eines `InstancedMesh` stehen beim ersten Bild auf **Null**. three
+Ein dritter, sichtbarer: ein Kühlturm ist oben **offen**, und eine einseitig gezeichnete Schale zeigt
+von schräg oben ihre weggeschnittene Rückwand — im Bild ein gebogenes Blech statt eines Bauwerks. Was
+innen hohl ist, braucht `DoubleSide`; die geschlossenen Kästen daneben kostet das nichts, weil ihre
+Rückseiten ohnehin hinter ihren eigenen Vorderseiten liegen.
+
+Der vierte: die Instanzmatrizen eines `InstancedMesh` stehen beim ersten Bild auf **Null**. three
 berechnet daraus eine Hüllkugel im Ursprung und schneidet den ganzen Park danach überall weg, wo die
 Kartenmitte nicht im Bild ist. Was erst nach dem ersten Frame gefüllt wird, braucht entweder
 `frustumCulled = false` oder ein `computeBoundingSphere()` **nach** dem Füllen.

@@ -5,6 +5,7 @@ import * as THREE from 'three/webgpu'
 import { paint } from '../picking'
 import { updateProtest } from './life/protest'
 import { updateRoughSleeping } from './life/roughSleeping'
+import { fitShopfronts } from './structures/shopfronts'
 
 /**
  * The city reacting to the simulation.
@@ -24,6 +25,14 @@ const BLIGHT_EPSILON = 0.02
 export class CityState {
   /** How busy the roads are, and how lit the city is after dark. */
   trafficFactor = 1
+  /**
+   * Der zuletzt gezeichnete Einzelhandelsbestand, als Anteil seines Ausgangswertes.
+   *
+   * Beginnt bei −1 und nicht bei 1, damit der erste Schnappschuss die Schilder **immer** einmal
+   * setzt: gebaut werden sie grau, und ohne diesen ersten Durchgang bliebe eine Stadt, in der nichts
+   * passiert ist, eine Stadt ohne einen einzigen offenen Laden.
+   */
+  private vitality = -1
   nightLife = 0.67
   /**
    * What share of the housing stock is lived in, 0 … 1.
@@ -125,6 +134,20 @@ export class CityState {
 
     this.applyBlight(city.blight)
     this.applyGreenery(city.greenery)
+    /*
+     * Und wer noch offen hat.
+     *
+     * Der Einzelhandelsbestand gegen seinen Ausgangswert — 1 heißt, es steht so viel wie am Anfang
+     * der Amtszeit. Fällt er, gehen sichtbar Schilder aus. Nur bei Änderung, weil das einmal im
+     * Monat kommt und zwölftausend Farben je Bild zu setzen sinnlos wäre.
+     */
+    const vitality = snapshot.baselineMetrics.businessStock > 0
+      ? snapshot.metrics.businessStock / snapshot.baselineMetrics.businessStock
+      : 1
+    if (Math.abs(vitality - this.vitality) > 0.001) {
+      this.vitality = vitality
+      fitShopfronts(this.visuals.shopfronts, this.blueprint.definition.seed, vitality)
+    }
     /*
      * And who the housing market has left outside. One number, one prefix of the doorways — the
      * most direct line in the game between a council decision and something the player can see.

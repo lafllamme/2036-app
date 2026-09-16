@@ -34,8 +34,18 @@ export interface Placement {
   colour?: THREE.Color
 }
 
-export interface TiledSet {
+export interface TiledSet<P extends Placement = Placement> {
   meshes: InstancedMesh[]
+  /**
+   * Was in welcher Kachel gelandet ist, in der Reihenfolge der Instanzen und deckungsgleich mit
+   * `meshes`.
+   *
+   * Zurückgegeben, weil der Aufrufer sonst raten muss. Die Ladenschilder müssen von einer Instanz
+   * zurück auf ihr Haus kommen, um sie umfärben zu können — und die Kachelrechnung dafür ein zweites
+   * Mal nachzubauen wäre eine stille Kopplung, die beim nächsten Ändern der Kachelgröße bricht,
+   * ohne dass etwas rot wird.
+   */
+  buckets: P[][]
   /** How many instances the whole set holds, for whatever has to report or thin it. */
   count: number
 }
@@ -46,15 +56,15 @@ export interface TiledSet {
  * `placements` is consumed in order; each keeps its own matrix, so nothing here needs to know what
  * is being placed or how it was worked out.
  */
-export function addTiled(
+export function addTiled<P extends Placement>(
   scene: THREE.Scene,
   geometry: THREE.BufferGeometry,
   material: THREE.Material,
-  placements: Placement[],
+  placements: P[],
   configure?: (mesh: InstancedMesh) => void,
   tile = TILE,
-): TiledSet {
-  const tiles = new Map<string, Placement[]>()
+): TiledSet<P> {
+  const tiles = new Map<string, P[]>()
   const at = new Matrix4()
 
   for (const placement of placements) {
@@ -69,6 +79,7 @@ export function addTiled(
   }
 
   const meshes: InstancedMesh[] = []
+  const buckets: P[][] = []
   for (const bucket of tiles.values()) {
     const mesh = new InstancedMesh(geometry, material, bucket.length)
     bucket.forEach((placement, index) => {
@@ -81,7 +92,8 @@ export function addTiled(
     configure?.(mesh)
     scene.add(mesh)
     meshes.push(mesh)
+    buckets.push(bucket)
   }
 
-  return { meshes, count: placements.length }
+  return { meshes, buckets, count: placements.length }
 }

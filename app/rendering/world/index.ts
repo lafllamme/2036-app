@@ -11,6 +11,7 @@ import type { StreetLights } from './streets/streetLights'
 import type { TrafficSignals } from './streets/trafficLights'
 import type { CityBuildings } from './structures/buildings'
 import type { PowerPlant } from './structures/powerPlant'
+import type { Shopfronts } from './structures/shopfronts'
 import type { WindFarm } from './structures/windFarm'
 import type { Meadow } from './terrain/meadow'
 import type { CityTrees } from './terrain/trees'
@@ -34,6 +35,7 @@ import { createBuildings } from './structures/buildings'
 import { createConstructionSites } from './structures/construction'
 import { createGrowth } from './structures/growth'
 import { addPowerPlant } from './structures/powerPlant'
+import { addShopfronts } from './structures/shopfronts'
 import { addWindFarms } from './structures/windFarm'
 import { addGround } from './terrain/ground'
 import { addMeadow } from './terrain/meadow'
@@ -81,6 +83,8 @@ export interface WorldVisuals extends CityBuildings, CityTrees {
   windFarm: WindFarm | null
   /** Das Heizkraftwerk und seine Trasse: das eine Bauwerk, von dem es nur eines gibt. */
   powerPlant: PowerPlant | null
+  /** Die Schilder über den Ladentüren. Ihre Farbe folgt dem Einzelhandelsbestand. */
+  shopfronts: Shopfronts
   /**
    * People outside the town hall when the city has had enough. Three draws while they are there and
    * none at all when they are not, which is most of a well-run decade.
@@ -101,8 +105,10 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
   const paved = addRoads(scene, blueprint, network)
   const signals = addTrafficLights(scene, network, blueprint.relief, models)
 
+  const buildings = createBuildings(scene, blueprint)
+
   return {
-    ...createBuildings(scene, blueprint),
+    ...buildings,
     ...addTrees(scene, blueprint, models),
     agents: createAgents(scene, blueprint, models, network, signals.plan),
     growth: createGrowth(scene, blueprint, models),
@@ -121,6 +127,7 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
     meadow: addMeadow(scene, blueprint, models),
     windFarm: addWindFarms(scene, blueprint),
     powerPlant: addPowerPlant(scene, blueprint),
+    shopfronts: addShopfronts(scene, buildings.shopSeats, blueprint.definition.seed),
     protest: addProtest(scene, blueprint, models),
     precipitation: addPrecipitation(scene),
     surfaces: trackSurfaces(paved, soft),

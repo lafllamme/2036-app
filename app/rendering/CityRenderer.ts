@@ -393,6 +393,7 @@ export class CityRenderer {
       agents: [...world.agents.cars.meshes, ...world.agents.pedestrians.meshes],
       parked: [...world.parkedCars.proxy, ...world.parkedCars.detail],
       furniture: [world.streetFurniture],
+      shopfronts: world.shopfronts.meshes,
       lights: [world.streetLights.heads, world.streetLights.pools],
       horizon: [
         ...(world.windFarm ? [world.windFarm.towers, world.windFarm.rotors] : []),

@@ -318,9 +318,31 @@ export interface CityBuildings {
    * füllt seinen Kasten fast aus.
    */
   buildingBoxes: Map<THREE.Mesh, THREE.Box3[]>
+  /** Ein möglicher Ladenplatz je Haus mit Straßenfront. Siehe `ShopSeat`. */
+  shopSeats: (ShopSeat & { record: BuildingRecord })[]
   buildingColors: Map<THREE.Mesh, THREE.Color[]>
   /** The two materials the whole city is drawn with: its walls and its roofs. */
   buildingMaterials: THREE.MeshStandardMaterial[]
+}
+
+/**
+ * Wo an einem Haus ein Ladenschild hängen könnte.
+ *
+ * Fällt beim Bauen der Haustür an, weil dort ohnehin ausgerechnet wird, wo die Straßenwand ist und
+ * wohin sie zeigt. Ob dort wirklich ein Laden ist, entscheidet `world/tenancy.ts` — und das kann
+ * sich über die Amtszeit ändern, also ist das Schild eine Instanz und keine Kachelgeometrie.
+ */
+export interface ShopSeat {
+  x: number
+  z: number
+  /** Nach außen, weg von der Fassade. */
+  nx: number
+  nz: number
+  /** Längs der Wand. */
+  tx: number
+  tz: number
+  /** Unterkante des Schilds. */
+  y: number
 }
 
 interface Tile {
@@ -358,10 +380,13 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
    */
   const hall = findTownHall(blueprint.buildings)
 
+  /** Wo an einem Haus ein Ladenschild hängen könnte. Fällt beim Bauen der Haustür an. */
+  const shopSeats: (ShopSeat & { record: BuildingRecord })[] = []
+
   for (const building of blueprint.buildings) {
     const tile = tiles[tileOf(building.x, building.z)]
     if (tile)
-      extrude(tile, building, rng, relief, building === hall)
+      extrude(tile, building, rng, relief, shopSeats, building === hall)
   }
 
   const wallMaterial = new THREE.MeshStandardMaterial({
@@ -450,7 +475,7 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
     buildingBoxes.set(mesh, boxesOf(geometry, tile.ranges))
   }
 
-  return { buildingMeshes, buildingRecords, buildingRanges, buildingOfTriangle, buildingBoxes, buildingColors, buildingMaterials: [wallMaterial, roofMaterial] }
+  return { buildingMeshes, buildingRecords, buildingRanges, buildingOfTriangle, buildingBoxes, shopSeats, buildingColors, buildingMaterials: [wallMaterial, roofMaterial] }
 }
 
 /** Je Gebäude der Kasten um seine Ecken, aus dem Bereich, den es in der Kachel belegt. */
@@ -584,7 +609,7 @@ function tileOf(x: number, z: number): number {
  * and lifted. It is not what a roof is, but at every distance the camera can reach it is what one
  * looks like, and it costs two triangles an edge instead of a hip-and-valley solver.
  */
-function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number }, relief: Relief, landmarked = false): void {
+function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number }, relief: Relief, shopSeats: (ShopSeat & { record: BuildingRecord })[], landmarked = false): void {
   const ring = building.footprint
   const corners = ring.length / 2
   if (corners < 3)
@@ -742,7 +767,9 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
    * Wo der unter einem halben Meter liegt, steht keine Treppe — da ist eine Schwelle, und die ist im
    * Sockel schon drin.
    */
-  entrance(tile, ring, street, corners, floor, relief, rng)
+  const seat = entrance(tile, ring, street, corners, floor, relief, rng)
+  if (seat)
+    shopSeats.push({ record: building, ...seat })
 
   // ---- roof ----
   const capHeight = ground + building.height
@@ -1090,7 +1117,7 @@ function entrance(
   floor: number,
   relief: Relief,
   rng: { next: () => number },
-): void {
+): ShopSeat | null {
   const j = (street + 1) % corners
   const ax = ring[street * 2]!
   const az = ring[street * 2 + 1]!
@@ -1098,7 +1125,7 @@ function entrance(
   const bz = ring[j * 2 + 1]!
   const span = Math.hypot(bx - ax, bz - az)
   if (span < STOOP_CLEARANCE)
-    return
+    return null
 
   // Die Mitte der Straßenwand, und die Richtung, in die sie zeigt.
   const mx = (ax + bx) / 2
@@ -1162,6 +1189,16 @@ function entrance(
   }
   panel(DOOR_WIDTH / 2 + 0.16, DOOR_HEIGHT + 0.18, DOOR_PROUD * 0.5, DOOR_FRAME)
   panel(DOOR_WIDTH / 2, DOOR_HEIGHT, DOOR_PROUD, DOOR_LEAF)
+
+  /*
+   * Und der Platz für ein Schild, gleich über dem Türsturz.
+   *
+   * Zurückgegeben statt hier gebaut: was im Erdgeschoss ist, entscheidet die Simulation und kann
+   * sich über die Jahre ändern — ein Schild muss also eine Instanz sein, die man umfärben kann, und
+   * keine Geometrie, die in der Kachel festbackt. Hier fällt nur der Ort an, und der fällt ohnehin
+   * an: Mitte der Straßenwand, Außenrichtung, Höhe über dem Boden davor.
+   */
+  return { x: mx, z: mz, nx, nz, tx, tz, y: floor + DOOR_HEIGHT + 0.42 }
 }
 
 /**

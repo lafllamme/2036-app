@@ -100,7 +100,17 @@ export class WalkAbout {
     this.state.pitch = 0
     this.state.active = true
 
-    this.camera.position.set(target.x, this.relief.height(target.x, target.z) + EYE, target.z)
+    /*
+     * Und zwar auf einen Platz, auf dem man **stehen** kann.
+     *
+     * Der Blickpunkt der Karte liegt oft mitten auf einem Haus — man schaut ja auf die Stadt, nicht
+     * auf die Lücken darin. Dort abgesetzt steckte man in der Fassade: die Wände sind von innen
+     * weggeschnitten, also sah man das Gelände von unten, und weil ringsum alles blockiert war, ging
+     * es auch nicht mehr weiter. Gemeldet als „bin stuck und sieht so komisch aus", und genau so
+     * sah es aus.
+     */
+    const free = this.freeSpot(target.x, target.z)
+    this.camera.position.set(free.x, this.relief.height(free.x, free.z) + EYE, free.z)
     this.velocity.set(0, 0, 0)
     this.held.clear()
     this.aim()
@@ -151,16 +161,47 @@ export class WalkAbout {
     const nextX = this.camera.position.x + this.velocity.x * delta
     const nextZ = this.camera.position.z + this.velocity.z * delta
     /*
+     * Wände halten nur auf, solange man **draußen** steht.
+     *
+     * Wer aus irgendeinem Grund doch einmal in einer Fassade landet — ein Haus, das die Stadt
+     * nachträglich baut, ein Kasten, der nicht ganz passt —, muss wieder herauslaufen können. Eine
+     * Kollision, die auch von innen greift, ist kein Schutz, sondern eine Falle: sie hält genau den
+     * fest, dem sie helfen sollte.
+     */
+    const inside = this.blocked(this.camera.position.x, this.camera.position.z)
+    /*
      * Achsenweise geprüft, nicht als ein Schritt. Wer schräg gegen eine Wand läuft, soll an ihr
      * entlanggleiten und nicht kleben — und das ist der ganze Unterschied zwischen den beiden.
      */
-    if (!this.blocked(nextX, this.camera.position.z))
+    if (inside || !this.blocked(nextX, this.camera.position.z))
       this.camera.position.x = nextX
-    if (!this.blocked(this.camera.position.x, nextZ))
+    if (inside || !this.blocked(this.camera.position.x, nextZ))
       this.camera.position.z = nextZ
 
     this.camera.position.y = this.relief.height(this.camera.position.x, this.camera.position.z) + EYE
     this.aim()
+  }
+
+  /**
+   * Der nächste Platz, auf dem man stehen kann.
+   *
+   * Spirale nach außen in Zwei-Meter-Ringen. Vierzig Meter reichen, um aus jedem Haus in Lindenhafen
+   * auf die Straße zu kommen; findet sie nichts, wird der gewünschte Punkt genommen, und die Regel
+   * „von innen hält keine Wand" bringt einen dann selbst hinaus.
+   */
+  private freeSpot(x: number, z: number): { x: number, z: number } {
+    if (!this.blocked(x, z))
+      return { x, z }
+    for (let reach = 2; reach <= 40; reach += 2) {
+      for (let step = 0; step < 12; step += 1) {
+        const bearing = (step / 12) * Math.PI * 2
+        const spotX = x + Math.cos(bearing) * reach
+        const spotZ = z + Math.sin(bearing) * reach
+        if (!this.blocked(spotX, spotZ))
+          return { x: spotX, z: spotZ }
+      }
+    }
+    return { x, z }
   }
 
   /**

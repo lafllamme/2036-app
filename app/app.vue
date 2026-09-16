@@ -33,6 +33,7 @@ const {
   selectedReport,
   selectedCitizen,
   rendererStats,
+  walking,
 } = storeToRefs(game)
 
 /*
@@ -181,7 +182,13 @@ function restart(): void {
           Himmels, in der ohnehin nichts steht. Beides ist Auskunft und keine Bedienung.
         -->
         <div class="hints" aria-hidden="true">
-          <p><b>Links</b> verschieben · <b>Rechts</b> drehen · <b>Rad</b> zoomen · <b>Rechtsklick</b> anfliegen</p>
+          <!-- Die Steuerung, die gerade gilt — nicht die, die es sonst gäbe. -->
+          <p v-if="walking">
+            <b>WASD</b> gehen · <b>Shift</b> laufen · <b>Maus</b> umsehen · <b>Knopf</b> zurück zur Karte
+          </p>
+          <p v-else>
+            <b>Links</b> verschieben · <b>Rechts</b> drehen · <b>Rad</b> zoomen · <b>Rechtsklick</b> anfliegen
+          </p>
           <p v-if="rendererStats" class="render-badge">
             {{ rendererStats.backend }} · {{ rendererStats.fps }} FPS · {{ rendererStats.drawCalls }} Draws ·
             {{ (rendererStats.triangles / 1000).toFixed(0) }}k Dreiecke · {{ rendererStats.resolution.toFixed(2) }}× ·

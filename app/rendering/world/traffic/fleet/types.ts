@@ -9,6 +9,7 @@
 
 import type * as THREE from 'three/webgpu'
 import type { CityModel } from '../../../cityModels'
+import type { Errands } from '../../life/errands'
 import type { EdgeIndex, RoadNetwork } from '../../streets/roadNetwork'
 import type { SignalPlan } from '../../streets/signalPlan'
 import type { Incident } from '../dispatch'
@@ -161,6 +162,15 @@ export interface Fleet {
   all: Traveller[]
   /** Which stretches this fleet is allowed on. */
   allowed: Uint8Array
+  /**
+   * Die Adressen, zu denen die Leute dieser Flotte gehen können, oder nichts.
+   *
+   * Nur die Menge hat welche; Autos fahren weiter, wohin sie wollen. Von außen gesetzt, weil die
+   * Ziele aus den Ladenzeilen kommen und die zur Stadt gehören, nicht zur Flotte.
+   */
+  errands: Errands | null
+  /** Die Stunde des Tages, damit ein Gang zur Tageszeit passt. Von außen je Bild gesetzt. */
+  hour: number
   obeysSignals: boolean
   /** Where the middle of this fleet's lane is, on a street of a given width. */
   laneOf: (width: number) => number
@@ -243,6 +253,16 @@ export interface Traveller {
   service: Service
   /** The call it is on, if any. Nothing else sets `responding`. */
   callout: Incident | null
+  /**
+   * Wohin diese Person gerade unterwegs ist, wenn sie etwas vorhat.
+   *
+   * Der Unterschied zwischen einer Menge und Passanten. Ohne ein Ziel wird an jeder Kreuzung
+   * gewürfelt, und das ergibt Verkehr, aber niemanden, der irgendwohin geht. Mit einem Ziel läuft
+   * dieselbe gierige Wahl, die die Einsatzfahrzeuge schon benutzen. Siehe `life/errands.ts`.
+   */
+  errand: { x: number, z: number } | null
+  /** Sekunden, die diese Person noch an einer Tür steht. Über null heißt: sie geht gerade nicht. */
+  dwell: number
   /** On a call right now — faster, through the lights, beacon lit. */
   responding: boolean
   /** Its own phase in the walk, so a crowd does not step in time. */

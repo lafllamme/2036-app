@@ -8,6 +8,7 @@ import type { CityPressure, Service } from './incidents'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../../core/rng'
 import { COMMON_VEHICLES, CREW_IDS, EMERGENCY_VEHICLES } from '../../cityModels'
+import { pickErrand } from '../life/errands'
 import { CYCLE_SPREAD, cycleLane, DRIVING_SPREAD, drivingLane, PAVEMENT_SPREAD, pavementLane } from '../streets/lanes'
 import { sampleEdge } from '../streets/roadNetwork'
 import { bicycleGeometry, bicycleMaterial } from './bicycle'
@@ -231,6 +232,38 @@ function policeModels(models: CityModels): CityModel[] {
  * day, nothing at night, and an hour of slope at each end so the crowd does not all start walking
  * again between two frames.
  */
+/**
+ * Wie viele Leute je Bild ein neues Ziel bekommen.
+ *
+ * Bei vierhundert Gehenden und dreißig Bildern in der Sekunde bekommt jede Person etwa alle zwanzig
+ * Sekunden die Gelegenheit — und braucht sie auch nur, wenn sie gerade nichts vorhat. Der Aufwand je
+ * Bild ist damit fest und klein, egal wie groß die Menge wird.
+ */
+const ERRANDS_PER_FRAME = 3
+
+/** Wohin `sampleEdge` schreibt. Ein Objekt je Vergabe wäre ein Objekt je Vergabe. */
+const WHERE = { x: 0, y: 0, z: 0, ux: 0, uz: 0 }
+
+/** Ein paar der Planlosen bekommen ein Ziel. Siehe `life/errands.ts`. */
+function assignErrands(fleet: Fleet, streets: Streets): void {
+  const errands = fleet.errands
+  if (!errands)
+    return
+
+  let given = 0
+  for (let tries = 0; tries < ERRANDS_PER_FRAME * 8 && given < ERRANDS_PER_FRAME; tries += 1) {
+    const traveller = fleet.all[Math.floor(Math.random() * fleet.all.length)]
+    if (!traveller || traveller.errand || traveller.dwell > 0)
+      continue
+    const edge = streets.network.edges[traveller.edge]
+    if (!edge)
+      continue
+    sampleEdge(edge, traveller.along, WHERE)
+    traveller.errand = pickErrand(errands, WHERE.x, WHERE.z, fleet.hour, traveller.rng())
+    given += 1
+  }
+}
+
 function workingHours(hourOfDay: number): number {
   if (hourOfDay <= 7 || hourOfDay >= 19)
     return 0
@@ -489,6 +522,16 @@ export function updateAgents(
    * morning nobody is standing about, because nobody is out at all.
    */
   agents.pedestrians.idle = idleness * workingHours(hourOfDay)
+  /*
+   * Und wer nichts vorhat, bekommt etwas vor.
+   *
+   * Nur ein paar je Bild, nicht alle: eine Menge, die geschlossen ein neues Ziel bekommt, läuft
+   * geschlossen dorthin — und das sieht schlimmer aus als der Zufallslauf, den es ersetzt. Gestaffelt
+   * vergeben heißt, dass immer ein Teil unterwegs, ein Teil an einer Tür und ein Teil ohne Plan ist,
+   * und das ist, wie ein Gehweg aussieht.
+   */
+  agents.pedestrians.hour = hourOfDay
+  assignErrands(agents.pedestrians, streets)
   drive(agents.pedestrians, streets, delta, elapsed, cameraDistance > WALKER_RANGE ? 0 : (0.35 + busy * 0.65) * exposure, camera, focus)
   /*
    * And the patrol, whose entire number is a policy outcome. `response` runs 0.2 … 1; squared, that

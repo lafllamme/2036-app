@@ -9,11 +9,20 @@
 import type { RoadEdge, RoadNetwork } from '../../streets/roadNetwork'
 import type { Fleet, Streets, Traveller } from './types'
 import * as THREE from 'three/webgpu'
-import { bearingFrom } from '../../streets/roadNetwork'
+import { bearingFrom, sampleEdge } from '../../streets/roadNetwork'
 import { isGreen } from '../../streets/signalPlan'
 import { responseSpeed } from '../incidents'
 import { order } from './crowd'
 import { ACCELERATION, BRAKING, MIN_GAP, REACTION, SHOULDER, SIDESTEP, STOP_LINE, STOP_ZONE, WALKING_FLOOR, WALKING_GAP, WALKING_NOTICE } from './types'
+
+/** Wohin `sampleEdge` schreibt. Ein Objekt je Person je Bild wäre ein Objekt je Person je Bild. */
+const WHERE = { x: 0, y: 0, z: 0, ux: 0, uz: 0 }
+
+/** Wie nah an der Tür „angekommen" heißt. Ein Gehweg ist breit, ein Ziel ist kein Punkt. */
+const ARRIVED = 9
+/** Wie lange jemand an einer Ladentür steht, in Sekunden. Kurz genug, dass es nicht wie Stau aussieht. */
+const DWELL_MIN = 4
+const DWELL_MAX = 16
 /**
  * One step of the traffic model: how fast each one may go, and where that puts it.
  *
@@ -40,6 +49,28 @@ export function advance(fleet: Fleet, streets: Streets, delta: number, elapsed: 
     // And a crew that has arrived stands at the scene rather than driving round it.
     if (traveller.callout?.arrived !== null && traveller.callout !== null)
       limit = 0
+
+    /*
+     * Wer an seiner Tür angekommen ist, steht dort — und geht danach woandershin.
+     *
+     * Das ist der ganze sichtbare Unterschied. Eine Menge, die nur läuft, ist Verkehr; jemand, der
+     * vor einem Laden stehen bleibt, ist ein Mensch mit etwas vor. Die Wartezeit läuft in Sekunden
+     * herunter und wird beim Loslaufen nicht durch ein neues Ziel ersetzt — das macht die
+     * Auffrischung in `agents.ts`, damit hier nichts über die Stadt wissen muss.
+     */
+    if (traveller.dwell > 0) {
+      traveller.dwell = Math.max(0, traveller.dwell - delta)
+      limit = 0
+    }
+    else if (traveller.errand) {
+      sampleEdge(edge, traveller.along, WHERE)
+      const gap = Math.hypot(WHERE.x - traveller.errand.x, WHERE.z - traveller.errand.z)
+      if (gap < ARRIVED) {
+        traveller.errand = null
+        traveller.dwell = DWELL_MIN + traveller.rng() * (DWELL_MAX - DWELL_MIN)
+        limit = 0
+      }
+    }
 
     /*
      * Whatever is directly in front, if it is on the same stretch going the same way — and, for a
@@ -152,6 +183,30 @@ export function turn(network: RoadNetwork, fleet: Fleet, traveller: Traveller, e
       if (!far)
         continue
       const gap = Math.hypot(far.x - traveller.callout.x, far.z - traveller.callout.z)
+      if (gap < bestGap) {
+        bestGap = gap
+        chosen = candidate
+      }
+    }
+  }
+  /*
+   * Und genauso jemand, der etwas vorhat — dasselbe Verfahren, ein anderer Anlass.
+   *
+   * Für einen Rettungswagen war die gierige Wahl eine Notlösung mit Zeitbegrenzung. Für jemanden,
+   * der zum Bäcker geht, ist sie **richtiger als ein Weg**: Menschen laufen nicht die kürzeste
+   * Strecke, sie laufen in die ungefähre Richtung und biegen ab, wenn es passt. Siehe
+   * `life/errands.ts`.
+   */
+  else if (junction && traveller.errand) {
+    let bestGap = Infinity
+    for (const candidate of junction.edges) {
+      if (candidate === traveller.edge)
+        continue
+      const next = network.edges[candidate]!
+      const far = network.nodes[next.from === node ? next.to : next.from]
+      if (!far)
+        continue
+      const gap = Math.hypot(far.x - traveller.errand.x, far.z - traveller.errand.z)
       if (gap < bestGap) {
         bestGap = gap
         chosen = candidate

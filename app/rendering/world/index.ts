@@ -22,6 +22,7 @@ import type { Railway } from './transit/railway'
 import type { Ships } from './transit/ships'
 import type { CitySurfaces } from './weatherSurfaces'
 import { addPrecipitation } from '../sky/precipitation'
+import { buildErrands } from './life/errands'
 import { addProtest } from './life/protest'
 import { addProwlers } from './life/prowlers'
 import { addRoughSleeping } from './life/roughSleeping'
@@ -106,11 +107,18 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
   const signals = addTrafficLights(scene, network, blueprint.relief, models)
 
   const buildings = createBuildings(scene, blueprint)
+  /*
+   * Die Adressen, zu denen die Leute gehen können. Sie kommen aus den Ladenzeilen, gehören also der
+   * Stadt und nicht der Flotte — die Flotte bekommt sie gereicht. Siehe `life/errands.ts`.
+   */
+  const errands = buildErrands(buildings.shopSeats, blueprint.definition.seed)
+  const agents = createAgents(scene, blueprint, models, network, signals.plan)
+  agents.pedestrians.errands = errands
 
   return {
     ...buildings,
     ...addTrees(scene, blueprint, models),
-    agents: createAgents(scene, blueprint, models, network, signals.plan),
+    agents,
     growth: createGrowth(scene, blueprint, models),
     constructionSites: createConstructionSites(scene),
     streetLights: addStreetLights(scene, blueprint, models),

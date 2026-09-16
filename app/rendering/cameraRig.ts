@@ -13,8 +13,16 @@ import * as THREE from 'three/webgpu'
 
 /** Seconds a focus flight takes. Long enough to read as travel, short enough not to be waited out. */
 const FOCUS_DURATION = 1.15
-/** Where the opening shot stands, and what it looks at. The overview button returns to exactly this. */
-const OVERVIEW_POSITION = /* @__PURE__ */ new THREE.Vector3(1_720, 1_030, 1_800)
+/**
+ * Where the opening shot stands, and what it looks at. The overview button returns to exactly this.
+ *
+ * Stand auf 1.030 Höhe bei 2.490 Grundabstand, also **22,5° Neigung** — und damit war Lindenhafen
+ * ein Teppich: die Gebäude lagen flach, die obere Bildhälfte trug nichts, und wo die Stadt den
+ * Himmel hätte treffen sollen, löste sie sich im Dunst auf. Bei 700 auf 2.320 sind es **16,8°**: die
+ * ganze Flussschleife und beide Ufer bleiben im Bild, die Häuser bekommen Höhe, und am oberen Rand
+ * steht endlich eine Geländekante gegen den Himmel. Verglichen wurden vier Stände nebeneinander.
+ */
+const OVERVIEW_POSITION = /* @__PURE__ */ new THREE.Vector3(1_600, 700, 1_680)
 const OVERVIEW_TARGET = /* @__PURE__ */ new THREE.Vector3(0, 0, 0)
 /** How far above the land the camera is kept, in metres. About the height of a first-floor window. */
 const GROUND_CLEARANCE = 6

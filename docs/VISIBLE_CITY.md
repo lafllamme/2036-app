@@ -214,16 +214,61 @@ stand zuerst in der Erdgeschosskachel — und weil die sich alle zwei Achsen wie
 dreißig Meter langer Block vier Haustüren. Tür und Freitreppe sind darum Geometrie, in der Mitte der
 längsten Wand, die als Straßenseite gilt.
 
+### Eine Wicklungsannahme, die dreimal dasselbe kaputt gemacht hat
+
+Die Freitreppe erschien als papierdünne Fahne aus der Wand. Der Lüfterkasten auf dem Flachdach war
+ein Deckel, der frei über dem Dach schwebte, mit einer einzigen Wange daran. Beide Male derselbe
+Grund, und er stand nicht dort, wo man ihn gesucht hätte.
+
+Die Reihenfolge der Ecken war **von den Wänden abgeschrieben** — und die Wände funktionieren nur,
+weil die Grundrisse aus dem Kartenmaterial im Uhrzeigersinn laufen. Die Wicklung hing also an einer
+Eigenschaft der Eingabedaten, die an keinem der beiden neuen Bauteile noch jemand im Blick hatte. Wo
+die Achsen andersherum standen, zeigte jede Fläche nach innen und wurde weggeschnitten.
+
+`facet()` in `stoop.ts` rechnet stattdessen nach: es bildet das Kreuzprodukt der eigenen Ecken,
+vergleicht es mit der Normale, die es zeichnen soll, und dreht die Reihenfolge um, wenn beide nicht
+zusammenpassen. Zwei Kreuzprodukte beim Aufbau, und die Frage stellt sich nie wieder. Treppe, Tür
+und Dachaufbau gehen jetzt alle drei durch dieselbe Stelle, und `tests/unit/stoop.test.ts` prüft sie
+für beide Händigkeiten.
+
+### Das Hochparterre, und warum vorher keine Treppe zu sehen war
+
+Der Fußboden lag bei jedem Gebäude genau `PLINTH` über dem Gehweg — **fünfunddreißig Zentimeter.**
+Darüber baut niemand eine Treppe; was herauskam, war eine Bordsteinkante, die anderthalb Meter weit
+aus der Fassade ragte.
+
+Gebaut ist es anders, und zwar aus einem Grund: ein Gründerzeithaus hat einen Keller mit Fenstern,
+die Licht brauchen. Also liegt der Kellerboden halb über dem Gehweg, der Wohnungsboden anderthalb
+Meter darüber, und **deshalb** führt eine Freitreppe hinauf.
+
+| | über dem Gehweg |
+| --- | --- |
+| Altbau | 0,95 m |
+| Öffentlicher Bau | 0,80 m |
+| Wohnbestand | 0,30 m |
+| Neubau · Gewerbe | 0,20 · 0,15 m |
+| Halle | 0 — dort fährt der Lastwagen bis ans Tor |
+
+Aus dem Höhenunterschied folgt alles andere. Bei 17 Zentimetern Steigung und 29 Auftritt — der
+Regelstufe — ragt eine hohe Treppe weiter in den Gehweg als eine niedrige, und genau das macht sie
+von oben als Treppe lesbar. Die erste Fassung hatte eine feste Tiefe von 1,6 Metern, unabhängig von
+allem.
+
 ### Die Freitreppe, und warum sie nicht die Farbe des Hauses hat
 
 Sie hatte sie: die des Sockels, also die Wandfarbe abgedunkelt. Damit stand sie vor einer Fläche
 derselben Farbe, und eine Stufenkante ist ein Millimeter Schatten — aus jedem flachen Winkel war die
 ganze Treppe schlicht nicht zu sehen. Sie war da, sie war nur unsichtbar.
 
-Eine Freitreppe ist in Wirklichkeit auch nie aus dem Material der Fassade: Beton, Naturstein,
-Granit. Ein kühles mittleres Grau steht gegen Klinker, Ocker, Salbei und Weißputz gleichermaßen, und
-die Trittfläche ist heller als die Setzstufe darunter — **das** macht eine Treppe lesbar, nicht ihre
-Form.
+Eine Freitreppe ist in Wirklichkeit auch nie aus dem Putz der Fassade — sie ist Werkstein. Welcher,
+ist aber keine Frage der ganzen Stadt: es stehen vier zur Wahl, und das Haus sucht sich seinen aus.
+Beton grau und kühl, Sandstein warm, Granit dunkel und blaustichig, und selten Ziegelstufen in
+Rotbraun. Ein einziges Betongrau über vierzehntausend Häuser wäre wieder genau das gewesen, was
+Lindenhafen zu Anfang ausgemacht hat — ein Detail, achtzigmal kopiert.
+
+Die Trittfläche ist in jedem davon deutlich heller als die Setzstufe. Die eine zeigt nach oben und
+die andere nach vorn, bekommt also Himmel statt fast nichts — **das** macht eine Treppe lesbar, nicht
+ihre Form.
 
 Sie steht dort, wo ein Höhenunterschied zu überwinden ist, und das ist überall: ein Gebäude steht auf
 dem **höchsten** Boden, den sein Umriss überdeckt, sein Fußboden liegt also mindestens `PLINTH` über
@@ -261,6 +306,19 @@ Das ist auch der physikalisch richtigere Wert: was eine Wand von unten anleuchte
 Albedo des Bodens, sondern seine *Leuchtdichte* — Gras und Asphalt, die selbst in der Sonne stehen.
 Dazu wurde die Untergrenze der Wandpaletten auf 42 % Helligkeit angehoben, unter Erhalt der Spanne
 innerhalb jeder Farbgruppe, und die Verwitterung dunkelt nicht mehr unter einen Boden ab.
+
+### Und dann war es zu kräftig
+
+Die Aufhellung hatte einen Preis, den man erst im Bild sieht: ein gesättigter Farbton wirkt mit
+steigender Helligkeit *lauter*, nicht ruhiger. Nachgemessen stand Ocker bei **53 bis 67 % Sättigung**,
+Klinker bei 42–53, Senf und Terracotta bei 52–58. Eine geputzte oder gemauerte Fassade liegt bei
+25–35. Die Grüns und Blaus waren mit 10–29 % dagegen längst ruhig.
+
+Also wird nur das obere Ende zusammengeschoben — alles über 30 % behält dreißig Prozent seines
+Überschusses. Der stärkste Ton der Stadt steht damit bei **41 % statt 67**, Salbei, Mint,
+Flaschengrün, Taubenblau und Anthrazit bleiben unangetastet. Und der Innenstadt-Akzent `#8a3f5c` —
+337°, also weinrot ins Violette — ist das, was als „Lila" aufgefallen ist; er ist einem Englischrot
+gewichen.
 
 ### Was es kostet
 

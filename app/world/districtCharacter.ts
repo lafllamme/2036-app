@@ -93,18 +93,18 @@ const ROOF = {
  * unter vielen. Die Listen unten sind darum aus Farben gebaut, mit den Neutralen als Minderheit.
  */
 const WALL = {
-  klinker: ['#bf5c43', '#bf725c', '#b2503a', '#c17f69', '#a44533'],
-  backstein: ['#b35d41', '#a24e34', '#b97457'],
-  ocker: ['#c8974a', '#d9a441', '#b8842f', '#cea45c', '#bd8c3a'],
-  senf: ['#c4aa3a', '#d3b35a', '#b39a2f'],
+  klinker: ['#ae6654', '#b47867', '#a15b4b', '#b88372', '#935144'],
+  backstein: ['#a5644f', '#925644', '#b07860'],
+  ocker: ['#b5935d', '#bc9b5e', '#a07e47', '#bc9f6e', '#a9874e'],
+  senf: ['#ae9d50', '#bfa96e', '#9d8c45'],
   salbei: ['#8aa08c', '#7d9a86', '#94a998', '#6f8a78'],
   mint: ['#9db9ad', '#8aa89c', '#b0c7bc'],
   flaschengruen: ['#628a6b', '#587e5d', '#709778'],
   taubenblau: ['#6e91a6', '#587f98', '#83a0b1', '#4c738a'],
-  altrosa: ['#c08f80', '#b8786b', '#cb9d8f', '#a86c60'],
-  terracotta: ['#c2683f', '#b35b35', '#cf7a51'],
-  sandstein: ['#d5c39a', '#c6b184', '#e0d1ab'],
-  creme: ['#e8ded0', '#dfd3c1', '#efe8dc'],
+  altrosa: ['#be9082', '#b47b6f', '#c79f93', '#a86c60'],
+  terracotta: ['#af6f52', '#9f6349', '#ba8166'],
+  sandstein: ['#cfc1a0', '#c2af88', '#daceb1'],
+  creme: ['#e7ded1', '#ded3c2', '#eee8dd'],
   weissputz: ['#f0ece4', '#e6e2d8'],
   hellgrau: ['#c2c4c0', '#b1b4b0', '#d0d2ce'],
   anthrazit: ['#747c81', '#636c73', '#868d91'],
@@ -135,7 +135,7 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
       ...WALL.creme,
     ],
     accentShare: 0.12,
-    accents: [...WALL.flaschengruen, ...WALL.taubenblau, '#8a3f5c', '#2f4858'],
+    accents: [...WALL.flaschengruen, ...WALL.taubenblau, '#7a4038', '#2f4858'],
   },
   /** Bahnhofsviertel: durchmischt, viel Durchgangsverkehr, wenig Eigentümerstolz. */
   'bahnhof': {

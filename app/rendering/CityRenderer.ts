@@ -21,6 +21,7 @@ import { createWorld } from './world/index'
 import { updateProwlers } from './world/life/prowlers'
 import { fitParkedDetail } from './world/streets/parkedCars'
 import { updateSignals } from './world/streets/trafficLights'
+import { updateWindFarms } from './world/structures/windFarm'
 import { updateMeadow } from './world/terrain/meadow'
 import { updateWater } from './world/terrain/water'
 import { updateAgents } from './world/traffic/agents'
@@ -510,6 +511,8 @@ export class CityRenderer {
       this.atmosphere.update(this.slowClock, this.rig.controls.target, distance)
       // Die Bodendecke wandert mit dem Blickpunkt; sie sät erst nach 60 m neu. Siehe `terrain/meadow.ts`.
       updateMeadow(this.world.meadow, this.blueprint, this.rig.controls.target, distance)
+      // Die Rotoren drehen nach dem Wind, den das Wetter meldet. Siehe `structures/windFarm.ts`.
+      updateWindFarms(this.world.windFarm, this.animationElapsed, this.weather.wind)
       this.world.streetFurniture.visible = distance < FURNITURE_RANGE
       // Proxies out to the parking range, the kit's own cars for the street the player is in.
       fitParkedDetail(this.world.parkedCars, this.rig.camera.position, distance < PARKING_RANGE)

@@ -285,7 +285,7 @@ export function addMeadow(scene: THREE.Scene, blueprint: CityBlueprint, models: 
 
   return {
     meshes,
-    lottery: weights.flatMap((weight, index) => Array.from({ length: weight }).fill(index)),
+    lottery: weights.flatMap((weight, index) => Array.from<number>({ length: weight }).fill(index)),
     anchor: new THREE.Vector3(Number.POSITIVE_INFINITY, 0, 0),
     seeded: false,
     hard: hardSurfaces(blueprint),

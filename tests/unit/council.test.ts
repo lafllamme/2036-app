@@ -147,11 +147,11 @@ describe('a motion somebody else tabled', () => {
    * motion is what every other party has always brought — their seats, and which way they go.
    */
   function played(party: PartyId, months: number) {
-    return advanceMonths(createInitialState(2_036, party, ['housing', 'employment', 'mobility']), months)
+    return advanceMonths(createInitialState(2_036, party, ['affordable-rent', 'work', 'reliable-transit']), months)
   }
 
   it('happens, and names both the party and the option they chose', () => {
-    let state = createInitialState(2_036, 'cdu', ['housing', 'employment', 'mobility'])
+    let state = createInitialState(2_036, 'cdu', ['affordable-rent', 'work', 'reliable-transit'])
     const tabled: { by: PartyId, option: string }[] = []
     for (let month = 0; month < 131; month += 1) {
       const before = state.pending.map(entry => entry.eventId)
@@ -175,7 +175,7 @@ describe('a motion somebody else tabled', () => {
    */
   it('has the opposition table something within the first year, whoever the player is', () => {
     for (const party of ['spd', 'cdu', 'gruene', 'linke', 'fdp', 'afd'] as PartyId[]) {
-      let state = createInitialState(2_036, party, ['housing', 'employment', 'mobility'])
+      let state = createInitialState(2_036, party, ['affordable-rent', 'work', 'reliable-transit'])
       let first = -1
       for (let month = 0; month < 24 && first < 0; month += 1) {
         const before = state.pending.map(entry => entry.eventId)
@@ -199,7 +199,7 @@ describe('a motion somebody else tabled', () => {
     let foreign = 0
     let own = 0
     for (const party of ['spd', 'cdu', 'gruene', 'linke'] as PartyId[]) {
-      let state = createInitialState(2_036, party, ['housing', 'employment', 'mobility'])
+      let state = createInitialState(2_036, party, ['affordable-rent', 'work', 'reliable-transit'])
       for (let month = 0; month < 131; month += 1) {
         const before = state.pending.map(entry => entry.eventId)
         state = advanceMonths(state, 1)
@@ -225,7 +225,7 @@ describe('a motion somebody else tabled', () => {
    * nobody had voted on. A chamber votes on what is on the agenda.
    */
   it('votes on an ignored foreign motion anyway, with the player abstaining', () => {
-    let state = createInitialState(2_036, 'gruene', ['housing', 'employment', 'mobility'])
+    let state = createInitialState(2_036, 'gruene', ['affordable-rent', 'work', 'reliable-transit'])
     let tabled: { eventId: string, optionId: string, expires: number } | null = null
     for (let month = 0; month < 40 && !tabled; month += 1) {
       state = advanceMonths(state, 1)
@@ -249,7 +249,7 @@ describe('a motion somebody else tabled', () => {
   })
 
   it('is never tabled by the player or by anybody in their coalition', () => {
-    let state = createInitialState(2_036, 'spd', ['housing', 'employment', 'mobility'])
+    let state = createInitialState(2_036, 'spd', ['affordable-rent', 'work', 'reliable-transit'])
     for (let month = 0; month < 131; month += 1) {
       const coalition = state.coalitionPartyIds
       state = advanceMonths(state, 1)

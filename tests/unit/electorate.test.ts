@@ -154,7 +154,7 @@ describe('a campaign saved before the electorate existed', () => {
   })
 
   it('keeps everything the save did have', () => {
-    const before = createInitialState(2036, 'gruene', ['climate'])
+    const before = createInitialState(2036, 'gruene', ['green-city'])
     const after = migrateState(before)
     expect(after.support).toEqual(before.support)
     expect(after.month).toBe(before.month)

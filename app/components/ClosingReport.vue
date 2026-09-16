@@ -39,8 +39,14 @@ const report = computed(() =>
 const years = computed(() => Math.floor((report.value?.months ?? 0) / 12))
 
 /** A share of the value it started at, with the sign it actually moved in. */
+/** Wie weit sich eine Zeile der Bilanz bewegt hat, in Prozent ihres Ausgangswerts. */
 function share(value: number): string {
   return `${value > 0 ? '+' : '−'}${formatNumber(Math.abs(value) * 100, 1)} %`
+}
+
+/** Eine Zielzahl mit der Genauigkeit, die das Ziel selbst nennt. */
+function number(value: number, decimals: number): string {
+  return formatNumber(value, decimals)
 }
 
 function seats(partyId: string): number {
@@ -155,13 +161,15 @@ onKeyStroke('Escape', () => {
             </ul>
           </section>
 
-          <section v-if="report.promises.length">
-            <h3>Worauf du angetreten bist</h3>
+          <section v-if="report.goals.length">
+            <h3>Worauf du angetreten bist — {{ report.goals.filter(goal => goal.met).length }} von {{ report.goals.length }}</h3>
             <ul class="promises">
-              <li v-for="promise in report.promises" :key="promise.id" :class="promise.kept ? 'good' : 'bad'">
-                <b>{{ promise.name }}</b>
-                <span>{{ promise.kept ? 'gehalten' : 'nicht gehalten' }}</span>
-                <i>{{ share(promise.score) }}</i>
+              <li v-for="goal in report.goals" :key="goal.id" :class="goal.met ? 'good' : 'bad'">
+                <b>{{ goal.name }}</b>
+                <!-- Die Schwelle und der erreichte Wert, dazu der Startwert: „unter 900" sagt nichts,
+                     solange man nicht weiß, dass es bei 480 losging. -->
+                <span>{{ goal.direction === 'above' ? 'über' : 'unter' }} {{ number(goal.threshold, goal.decimals) }}{{ goal.unit }}</span>
+                <i>{{ number(goal.started, goal.decimals) }} → {{ number(goal.value, goal.decimals) }}</i>
               </li>
             </ul>
           </section>

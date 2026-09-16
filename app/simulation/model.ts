@@ -1,5 +1,6 @@
 import type {
   ActiveMeasureView,
+  CampaignGoalId,
   CampaignPriorityId,
   CausalEdge,
   CityMetrics,
@@ -25,6 +26,7 @@ import type { Defeat, EdgeState } from './election'
 import type { Support } from './electorate'
 import type { ActiveMeasure, EventDrawState } from './events'
 import { getEvent } from '../content/events'
+import { getGoal, goalIsMet } from '../content/goals'
 import { getParty, mapParties, PARTIES } from '../content/parties'
 import { getPolicy, mayTable } from '../content/policies'
 import { CAMPAIGN_LAST_MONTH } from '../core/campaign'
@@ -76,7 +78,7 @@ export interface SimulationState {
   seed: number
   month: number
   partyId: PartyId | null
-  priorityIds: CampaignPriorityId[]
+  goalIds: CampaignGoalId[]
   metrics: CityMetrics
   previousMetrics: CityMetrics
   /**
@@ -191,13 +193,13 @@ function formCoalitionWith(partyId: PartyId | null, seats: Record<PartyId, numbe
   return coalition
 }
 
-export function createInitialState(seed = 2036, partyId: PartyId | null = null, priorityIds: CampaignPriorityId[] = []): SimulationState {
+export function createInitialState(seed = 2036, partyId: PartyId | null = null, goalIds: CampaignGoalId[] = []): SimulationState {
   const metrics = { ...BASELINE_METRICS }
   return {
     seed,
     month: 0,
     partyId,
-    priorityIds,
+    goalIds,
     metrics,
     previousMetrics: { ...metrics },
     stocks: { ...BASELINE_STOCKS },
@@ -264,7 +266,16 @@ function voteContext(state: SimulationState, option: EventOption | PolicyDefinit
   // ask than one that never does, and a chamber counting money knows the difference.
   const monthly = option.monthlyCost * Math.min(24, option.costMonths ?? 24) / 24
   const own = state.partyId ? getParty(state.partyId) : null
-  const salient = mapParties(party => party.focusPriorityIds.some(priority => state.priorityIds.includes(priority)))
+  /*
+   * Welche Fraktion dieses Thema für ihres hält.
+   *
+   * Hing an den „Prioritäten" — drei weichen Schwerpunkten, die man beim Antritt wählte und die
+   * sonst nichts taten. Die Ziele haben dieselbe Aufgabe übernommen und sind dabei das, was am Ende
+   * auch gezählt wird: wer sich auf bezahlbare Mieten festlegt, findet im Rat die Fraktionen an
+   * seiner Seite, die Wohnen zu ihrem Feld erklärt haben.
+   */
+  const fields = state.goalIds.map(id => getGoal(id)?.field).filter((field): field is CampaignPriorityId => field !== undefined)
+  const salient = mapParties(party => party.focusPriorityIds.some(priority => fields.includes(priority)))
   return {
     parties: PARTIES,
     seatsByParty: state.seatsByParty,
@@ -629,6 +640,8 @@ function healed<T extends object>(values: T, baseline: T): T {
 export function migrateState(state: SimulationState): SimulationState {
   return {
     ...state,
+    // Ein Spielstand von vor den Zielen hat keine. Er wird ohne Wertung zu Ende gespielt.
+    goalIds: state.goalIds ?? [],
     metrics: healed(state.metrics, BASELINE_METRICS),
     stocks: healed(state.stocks, BASELINE_STOCKS),
     support: state.support ?? initialSupport(),
@@ -866,7 +879,14 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     activePolicyIds: state.policies.map(policy => policy.id),
     activeMeasures: measures,
     choices: state.choices,
-    priorityIds: state.priorityIds,
+    goalIds: state.goalIds,
+    goals: state.goalIds.flatMap((id) => {
+      const goal = getGoal(id)
+      if (!goal)
+        return []
+      const value = state.metrics[goal.metric as keyof CityMetrics] as number
+      return [{ id, value, met: goalIsMet(goal, value) }]
+    }),
     pendingDecisions: state.pending,
     motionPreparation: state.motionPrep,
     councilSeatsByParty: state.seatsByParty,

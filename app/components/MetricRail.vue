@@ -2,6 +2,7 @@
 import { storeToRefs } from 'pinia'
 import { computed, ref } from 'vue'
 import { useSound } from '~/composables/useSound'
+import { getGoal } from '~/content/goals'
 import { formatClock } from '~/core/daylight'
 import { useGameStore } from '~/stores/game'
 import { formatNumber } from '~/utils/labels'
@@ -93,6 +94,26 @@ const headline = computed(() => {
     { label: 'Monatssaldo', value: `${m.monthlyBalance >= 0 ? '+' : '−'}${formatNumber(Math.abs(m.monthlyBalance), 1)} Mio. €`, trend: trend('monthlyBalance', 1), since: sinceStart('monthlyBalance', 1, ' Mio. €') },
   ]
 })
+
+/**
+ * Die drei Ziele mit dem Stand von heute.
+ *
+ * Die Simulation sagt, ob ein Ziel gerade gilt; der Katalog sagt, wie man es liest. Nichts davon
+ * wird hier ausgerechnet.
+ */
+const goals = computed(() => (snapshot.value?.goals ?? []).flatMap((progress) => {
+  const goal = getGoal(progress.id)
+  if (!goal)
+    return []
+  const format = (value: number): string => formatNumber(value, goal.decimals)
+  return [{
+    id: progress.id,
+    name: goal.name,
+    met: progress.met,
+    reading: `${format(progress.value)}${goal.unit}`,
+    target: `${goal.direction === 'above' ? 'über' : 'unter'} ${format(goal.threshold)}`,
+  }]
+}))
 
 /** What is coming down, in words, because "0,42" is not a thing anybody can picture. */
 const precipitation = computed(() => {
@@ -235,6 +256,24 @@ const perception = computed(() => snapshot.value?.perception)
           <i :style="{ width: `${row[1]}%` }" />
         </div>
         <b>{{ row[1].toFixed(0) }}</b>
+      </div>
+    </div>
+
+    <!--
+      Die drei Ziele, das ganze Jahrzehnt sichtbar.
+
+      Vorher wählte man beim Antritt drei „Prioritäten" und sah sie nie wieder — eine Wertung, an die
+      man nicht erinnert wird, ist keine. Hier steht, wo die Zahl heute steht und wo sie am Ende
+      stehen muss.
+    -->
+    <div v-if="goals.length > 0" class="goal-block">
+      <div class="health-title">
+        <span>Ziele 2036</span><strong>{{ goals.filter(goal => goal.met).length }} / {{ goals.length }}</strong>
+      </div>
+      <div v-for="goal in goals" :key="goal.id" class="goal-row" :class="{ met: goal.met }">
+        <span>{{ goal.name }}</span>
+        <b>{{ goal.reading }}</b>
+        <small>{{ goal.target }}</small>
       </div>
     </div>
   </aside>

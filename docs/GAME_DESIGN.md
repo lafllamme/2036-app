@@ -73,10 +73,20 @@ Der Bildschirm mit den drei Prioritäten bekommt endlich eine Aufgabe. Statt wei
 wählst du **drei Ziele, die im Dezember 2036 gelten müssen** — jedes eine Kennzahl mit einer
 Schwelle:
 
-> Ø Angebotsmiete **unter 13,00 €/m²** · Beschäftigung **über 75 %** · Haushalt **im Plus** ·
-> Kriminalität **unter 45 / 1.000** · Stadtgrün **über 22 m²/Kopf** · Ohne Wohnung **unter 300** ·
-> Emissionen **unter 38** · Sozialbindungen **über 9.000** · ÖPNV-Pünktlichkeit **über 88 %** ·
-> Kitaplätze **über 95 % des Anspruchs**
+> Ø Angebotsmiete **unter 12,60 €/m²** · Sozialbindungen **über 7.200** · Ohne Wohnung **unter 900** ·
+> Beschäftigung **über 75 %** · Betriebe **über 7.000** · Haushalt **im Plus** ·
+> Sanierungsstau **unter 45 Mio.** · Kriminalität **unter 42 / 1.000** ·
+> Kitaplätze **über 100 % des Anspruchs** · Stadtgrün **über 24 m²/Kopf** ·
+> Emissionen **unter 44,5** · ÖPNV-Pünktlichkeit **über 90 %**
+
+Diese Schwellen sind **nachgerechnet, nicht geschätzt**. Der erste Katalog stand hier als Wunschzettel,
+und sieben seiner zehn Ziele waren nicht einmal annähernd erreichbar: „Beschäftigung über 75 %" gegen
+einen Höchstwert von 74,1, „Ohne Wohnung unter 300" gegen eine Zahl, die sich in jedem Lauf
+verdreifachte, „Sozialbindungen über 9.000" gegen einen Bestand, der von selbst um ein Viertel
+schrumpft. Die Werte oben kommen aus sechs Parteien mal acht Spielweisen, und `tests/unit/goals.test.ts`
+misst bei jedem Lauf nach: ein Ziel muss in mindestens einem dieser Jahrzehnte erfüllt und in
+mindestens einem verfehlt sein. Eine Wertung, die niemand schafft, ist keine — und eine, die jeder
+nebenher mitnimmt, auch nicht.
 
 Sie stehen das ganze Jahrzehnt im HUD, mit dem aktuellen Abstand. Der Abschlussbericht zählt sie:
 **drei von drei** ist etwas anderes als null von drei.
@@ -238,7 +248,15 @@ Jede Stufe ist für sich spielbar.
    gefordert, was sinnlos wird, sobald die Vorlagen nicht mehr allen gehören. Und **keine
    Karikatur**: jede parteieigene Vorlage wird gegen den Achsenvektor der Partei geprüft, damit das
    Programm aus dem kommt, was sie selbst vertritt, und nicht aus einem Klischee über sie.
-4. **Drei Ziele.** Katalog, Auswahlbildschirm, HUD-Zeile, Wertung im Bericht.
+4. **Drei Ziele.** *Erledigt.* Der Prioritätenbildschirm ist ein Zielbildschirm: zwölf Ziele mit
+   nachgerechneten Schwellen, drei davon wählbar, jede Karte nennt ihre Zahl. Im Lagebild steht
+   „Ziele 2036 · 0/3" mit Ist-Wert und Schwelle, das ganze Jahrzehnt sichtbar — eine Wertung, an die
+   man nicht erinnert wird, ist keine. Der Abschlussbericht zählt sie und zeigt zu jeder Zahl, wo sie
+   am ersten Tag stand: „unter 900" sagt nichts, solange man nicht weiß, dass es bei 480 losging.
+
+   Die alten „Prioritäten" sind damit weg. Ihre einzige echte Wirkung — welche Fraktion ein Thema für
+   ihres hält und deshalb eher mitgeht — haben die Ziele übernommen, über das Politikfeld, an das
+   jedes Ziel gebunden ist.
 5. **Abgelehnt kehrt zurück.** Ein Trigger-Feld, dazu Folge-Ereignisse für die wichtigsten Ablehnungen.
 6. **Startlage je Partei.** Haushalt, Beziehungen, `organization`, Namensfeld.
 7. **Die Lage.** Vier Weltgrößen, ihre Drift, ihre Schocks, und die Ereignisse, die sie auslösen.

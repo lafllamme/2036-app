@@ -68,7 +68,7 @@ describe('event library', () => {
   })
 
   it('fires events across a full campaign without leaving decisions stuck open', () => {
-    const state = advanceMonths(createInitialState(2036, 'spd', ['housing', 'employment', 'mobility']), 131)
+    const state = advanceMonths(createInitialState(2036, 'spd', ['affordable-rent', 'work', 'reliable-transit']), 131)
     expect(state.firedOnce.length).toBeGreaterThan(8)
     expect(state.measures.length).toBeGreaterThan(4)
     for (const pending of state.pending) expect(pending.expiresMonth).toBeGreaterThanOrEqual(state.month)
@@ -161,7 +161,7 @@ describe('event library', () => {
   })
 
   it('records a rejected motion as a defeat that costs trust', () => {
-    let state = createInitialState(2036, 'linke', ['housing', 'cohesion', 'climate'])
+    let state = createInitialState(2036, 'linke', ['affordable-rent', 'safe-streets', 'green-city'])
     state = advanceMonths(state, 131)
     const withDecision = { ...state, pending: [{ eventId: 'saf-burglary-series', raisedMonth: state.month, expiresMonth: state.month + 3, negotiatedPartyIds: [], campaignedOptionIds: [], tabledBy: null, tabledOptionId: null }] }
     const trustBefore = withDecision.perception.trust
@@ -178,7 +178,7 @@ describe('motion preparation', () => {
   it('lets negotiation and campaigning move a standing motion that has no pending entry', () => {
     // Regression: the three standing motions are never raised as events, so preparation used to
     // silently no-op on them and the buttons did nothing.
-    const start = createInitialState(2036, 'spd', ['housing', 'employment', 'mobility'])
+    const start = createInitialState(2036, 'spd', ['affordable-rent', 'work', 'reliable-transit'])
     const before = forecastsForEvent(start, 'housing-accelerator')['housing-accelerator']
 
     const negotiated = negotiate(start, 'housing-accelerator', 'cdu')
@@ -193,14 +193,14 @@ describe('motion preparation', () => {
   })
 
   it('charges political capital only once per party and option', () => {
-    const start = createInitialState(2036, 'spd', ['housing', 'employment', 'mobility'])
+    const start = createInitialState(2036, 'spd', ['affordable-rent', 'work', 'reliable-transit'])
     const once = negotiate(start, 'housing-accelerator', 'cdu')
     const twice = negotiate(once, 'housing-accelerator', 'cdu')
     expect(twice.metrics.politicalCapital).toBe(once.metrics.politicalCapital)
   })
 
   it('forms a minority coalition rather than admitting an incompatible partner', () => {
-    const state = createInitialState(2036, 'spd', ['housing', 'employment', 'mobility'])
+    const state = createInitialState(2036, 'spd', ['affordable-rent', 'work', 'reliable-transit'])
     const seats = state.coalitionPartyIds.reduce((sum, id) => sum + state.seatsByParty[id], 0)
 
     expect(state.coalitionPartyIds).toContain('spd')
@@ -209,7 +209,7 @@ describe('motion preparation', () => {
   })
 
   it('keeps the player from passing their own flagship motion unopposed', () => {
-    const state = createInitialState(2036, 'spd', ['housing', 'employment', 'mobility'])
+    const state = createInitialState(2036, 'spd', ['affordable-rent', 'work', 'reliable-transit'])
     const forecast = forecastsForEvent(state, 'housing-accelerator')['housing-accelerator']
     expect(forecast?.majorityProbability ?? 1).toBeLessThan(0.6)
   })

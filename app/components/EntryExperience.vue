@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { CampaignPriorityId, PartyDefinition, PartyPolicyPosition } from '~/core/contracts'
+import type { CampaignGoalDefinition, CampaignGoalId, PartyDefinition, PartyPolicyPosition } from '~/core/contracts'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted } from 'vue'
 import { useSound } from '~/composables/useSound'
 import { useSoundSettings } from '~/composables/useSoundSettings'
+import { CAMPAIGN_GOALS } from '~/content/goals'
 import {
-  CAMPAIGN_PRIORITIES,
   getParty,
   getPartyEvidence,
   PARTIES,
@@ -21,7 +21,7 @@ const {
   ready,
   rendererStats,
   selectedPartyId,
-  selectedPriorityIds,
+  selectedGoalIds,
   savedGame,
 } = storeToRefs(game)
 
@@ -54,7 +54,13 @@ const selectedParty = computed<PartyDefinition | null>(() => (
 const selectedEvidence = computed(() => (
   selectedParty.value ? getPartyEvidence(selectedParty.value.sourceIds) : []
 ))
-const selectedPriorities = computed(() => CAMPAIGN_PRIORITIES.filter(({ id }) => selectedPriorityIds.value.includes(id)))
+const selectedGoals = computed(() => CAMPAIGN_GOALS.filter(({ id }) => selectedGoalIds.value.includes(id)))
+
+/** Die Schwelle in einem Wort, damit die Karte sagt, worauf man sich einlässt. */
+function goalTarget(goal: CampaignGoalDefinition): string {
+  const value = goal.threshold.toLocaleString('de-DE', { minimumFractionDigits: goal.decimals, maximumFractionDigits: goal.decimals })
+  return `${goal.direction === 'above' ? 'über' : 'unter'} ${value}${goal.unit}`
+}
 
 const stanceLabel: Record<PartyPolicyPosition['stance'], string> = {
   support: 'Unterstützt',
@@ -65,16 +71,16 @@ const stanceLabel: Record<PartyPolicyPosition['stance'], string> = {
 const policyName = (policyId: string): string => getPolicy(policyId)?.name ?? policyId
 
 /**
- * The store silently drops a fourth priority, so without this the click has no consequence a
- * player can perceive at all. The refusal cue is the only feedback that moment has.
+ * The store silently drops a fourth goal, so without this the click has no consequence a player can
+ * perceive at all. The refusal cue is the only feedback that moment has.
  */
-function choosePriority(priorityId: CampaignPriorityId): void {
-  const chosen = selectedPriorityIds.value
-  if (chosen.length === 3 && !chosen.includes(priorityId)) {
+function chooseGoal(goalId: CampaignGoalId): void {
+  const chosen = selectedGoalIds.value
+  if (chosen.length === 3 && !chosen.includes(goalId)) {
     sound.play('entry.priorityRejected')
     return
   }
-  game.togglePriority(priorityId)
+  game.toggleGoal(goalId)
 }
 
 function moveBannerFocus(event: KeyboardEvent, index: number): void {
@@ -272,40 +278,41 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
           </button>
           <div>
             <small>03 · Mandat 2026</small><h1 id="manifesto-title">
-              Drei Prioritäten festlegen
+              Drei Ziele für das Jahrzehnt
             </h1>
           </div>
-          <span class="entry-step">{{ selectedPriorityIds.length }} / 3</span>
+          <span class="entry-step">{{ selectedGoalIds.length }} / 3</span>
         </header>
 
         <div class="manifesto-layout">
           <div class="manifesto-party" :style="{ '--party-color': selectedParty.color }">
             <span>{{ selectedParty.abbreviation }}</span>
             <strong>{{ selectedParty.name }}</strong>
-            <p>Die drei gewählten Ziele bestimmen später 40 % der Kampagnenwertung.</p>
+            <p>Diese drei Zahlen müssen im Dezember 2036 stimmen. Sonst nichts – daran wird gemessen.</p>
           </div>
-          <div class="priority-grid" aria-label="Kampagnenprioritäten">
+          <div class="priority-grid" aria-label="Ziele der Kampagne">
             <button
-              v-for="priority in CAMPAIGN_PRIORITIES"
-              :key="priority.id"
+              v-for="goal in CAMPAIGN_GOALS"
+              :key="goal.id"
               type="button"
-              :class="{ selected: selectedPriorityIds.includes(priority.id) }"
-              :aria-pressed="selectedPriorityIds.includes(priority.id)"
-              @click="choosePriority(priority.id)"
+              :class="{ selected: selectedGoalIds.includes(goal.id) }"
+              :aria-pressed="selectedGoalIds.includes(goal.id)"
+              :disabled="!selectedGoalIds.includes(goal.id) && selectedGoalIds.length === 3"
+              @click="chooseGoal(goal.id)"
             >
               <span>
-                {{ selectedPriorityIds.includes(priority.id) ? 'Ausgewählt' : 'Priorität' }}
-                <Icon :name="selectedPriorityIds.includes(priority.id) ? 'lucide:check' : 'lucide:plus'" />
+                {{ selectedGoalIds.includes(goal.id) ? 'Ausgewählt' : goalTarget(goal) }}
+                <Icon :name="selectedGoalIds.includes(goal.id) ? 'lucide:check' : 'lucide:plus'" />
               </span>
-              <strong>{{ priority.name }}</strong>
-              <small>{{ priority.description }}</small>
+              <strong>{{ goal.name }}</strong>
+              <small>{{ goal.promise }}</small>
             </button>
           </div>
         </div>
 
-        <button class="entry-primary manifesto-confirm" type="button" :disabled="selectedPriorityIds.length !== 3" @click="game.reviewCampaign">
-          {{ selectedPriorityIds.length === 3 ? 'Mandat bestätigen' : `Noch ${3 - selectedPriorityIds.length} auswählen` }}
-          <Icon v-if="selectedPriorityIds.length === 3" name="lucide:arrow-right" />
+        <button class="entry-primary manifesto-confirm" type="button" :disabled="selectedGoalIds.length !== 3" @click="game.reviewCampaign">
+          {{ selectedGoalIds.length === 3 ? 'Mandat bestätigen' : `Noch ${3 - selectedGoalIds.length} auswählen` }}
+          <Icon v-if="selectedGoalIds.length === 3" name="lucide:arrow-right" />
         </button>
       </section>
 
@@ -317,7 +324,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
           </h1>
           <p>Du führst die {{ selectedParty.abbreviation }} in einen Stadtrat ohne sichere Mehrheit. Jede Entscheidung verändert Haushalt, Koalition und sichtbare Stadtentwicklung.</p>
           <div class="intro-priorities">
-            <span v-for="priority in selectedPriorities" :key="priority.id">{{ priority.name }}</span>
+            <span v-for="goal in selectedGoals" :key="goal.id">{{ goal.name }}</span>
           </div>
           <button class="entry-primary" type="button" @click="game.enterCity">
             Lindenhafen übernehmen

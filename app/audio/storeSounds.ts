@@ -25,7 +25,7 @@ export function bindStoreSounds(bus: AudioBus): () => void {
     experienceStage,
     ready,
     rendererStats,
-    selectedPriorityIds,
+    selectedGoalIds,
     speed,
     snapshot,
     selectedBuilding,
@@ -62,7 +62,7 @@ export function bindStoreSounds(bus: AudioBus): () => void {
       bus.play('entry.cityReady')
   }))
 
-  on(watch(selectedPriorityIds, (next, previous) => {
+  on(watch(selectedGoalIds, (next, previous) => {
     if (next.length > previous.length)
       bus.play(next.length === 3 ? 'entry.prioritiesComplete' : 'entry.priorityAdded')
     else if (next.length < previous.length)

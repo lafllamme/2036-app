@@ -1,6 +1,6 @@
 import type {
   BuildingRecord,
-  CampaignPriorityId,
+  CampaignGoalId,
   EventDefinition,
   NewsItem,
   PartyId,
@@ -46,7 +46,13 @@ export const useGameStore = defineStore('game', () => {
   const lastVoteResult = shallowRef<VoteResult | null>(null)
   const forecasts = shallowRef<Record<string, VoteForecast>>({})
   const selectedPartyId = ref<PartyId | null>(null)
-  const selectedPriorityIds = ref<CampaignPriorityId[]>([])
+  /**
+   * Die drei Ziele, an denen dieses Jahrzehnt gemessen wird.
+   *
+   * Hießen „Prioritäten" und waren weiche Schwerpunkte: man wählte drei, und am Ende stand nirgends,
+   * ob man sie erreicht hatte. Jetzt sind es Schwellen, die im Dezember 2036 gelten oder nicht.
+   */
+  const selectedGoalIds = ref<CampaignGoalId[]>([])
   /*
    * The campaign runs as soon as the player enters the city. Starting paused made the clock and the
    * sky look broken: nothing moved until you found the speed buttons. A raised motion still pauses
@@ -198,7 +204,7 @@ export const useGameStore = defineStore('game', () => {
         contentVersion: 'vertical-slice-1',
         citySeed: CITY_SEED,
         partyId: selectedPartyId.value ?? undefined,
-        priorityIds: [...selectedPriorityIds.value],
+        goalIds: [...selectedGoalIds.value],
         state: data.state,
         snapshot: data.snapshot,
         savedAt: new Date().toISOString(),
@@ -378,7 +384,7 @@ export const useGameStore = defineStore('game', () => {
   function startNewCampaign(): void {
     speed.value = 0
     selectedPartyId.value = null
-    selectedPriorityIds.value = []
+    selectedGoalIds.value = []
     experienceStage.value = 'partyHall'
     /*
      * The old campaign is gone the moment the first month of the new one is saved over it, so the
@@ -398,23 +404,22 @@ export const useGameStore = defineStore('game', () => {
     experienceStage.value = 'manifesto'
   }
 
-  function togglePriority(priorityId: CampaignPriorityId): void {
-    const currentIndex = selectedPriorityIds.value.indexOf(priorityId)
-    if (currentIndex >= 0) {
-      selectedPriorityIds.value = selectedPriorityIds.value.filter(id => id !== priorityId)
+  function toggleGoal(goalId: CampaignGoalId): void {
+    if (selectedGoalIds.value.includes(goalId)) {
+      selectedGoalIds.value = selectedGoalIds.value.filter(id => id !== goalId)
       return
     }
-    if (selectedPriorityIds.value.length < 3)
-      selectedPriorityIds.value = [...selectedPriorityIds.value, priorityId]
+    if (selectedGoalIds.value.length < 3)
+      selectedGoalIds.value = [...selectedGoalIds.value, goalId]
   }
 
   function reviewCampaign(): void {
-    if (selectedPartyId.value && selectedPriorityIds.value.length === 3)
+    if (selectedPartyId.value && selectedGoalIds.value.length === 3)
       experienceStage.value = 'intro'
   }
 
   function enterCity(): void {
-    if (!selectedPartyId.value || selectedPriorityIds.value.length !== 3)
+    if (!selectedPartyId.value || selectedGoalIds.value.length !== 3)
       return
     reset()
     speed.value = 1
@@ -552,7 +557,7 @@ export const useGameStore = defineStore('game', () => {
     selectedBuilding.value = null
     selectedNews.value = null
     // Spread the priority list: a ref's value is a reactive Proxy, and structured clone rejects it.
-    send({ type: 'RESET', seed: CITY_SEED, partyId: selectedPartyId.value ?? undefined, priorityIds: [...selectedPriorityIds.value] })
+    send({ type: 'RESET', seed: CITY_SEED, partyId: selectedPartyId.value ?? undefined, goalIds: [...selectedGoalIds.value] })
   }
 
   /**
@@ -610,7 +615,7 @@ export const useGameStore = defineStore('game', () => {
         return false
       }
       selectedPartyId.value = payload.partyId ?? null
-      selectedPriorityIds.value = [...(payload.priorityIds ?? [])]
+      selectedGoalIds.value = [...(payload.goalIds ?? [])]
       accumulatedMs = 0
       monthProgress.value = 0
       selectedBuilding.value = null
@@ -641,7 +646,7 @@ export const useGameStore = defineStore('game', () => {
     rendererStats,
     experienceStage,
     selectedPartyId,
-    selectedPriorityIds,
+    selectedGoalIds,
     speed,
     overviewRequest,
     showOverview,
@@ -685,7 +690,7 @@ export const useGameStore = defineStore('game', () => {
     startNewCampaign,
     selectParty,
     confirmParty,
-    togglePriority,
+    toggleGoal,
     reviewCampaign,
     enterCity,
     showTitle,

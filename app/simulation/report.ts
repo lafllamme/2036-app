@@ -1,12 +1,13 @@
 import type {
-  CampaignPriorityId,
+  CampaignGoalId,
   CityMetrics,
   MetricId,
   PartyId,
   SimulationSnapshot,
 } from '../core/contracts'
 import { EVENTS, getEvent } from '../content/events'
-import { CAMPAIGN_PRIORITIES, PARTIES } from '../content/parties'
+import { getGoal, goalIsMet } from '../content/goals'
+import { PARTIES } from '../content/parties'
 import { initialSupport } from './electorate'
 
 /**
@@ -24,16 +25,6 @@ import { initialSupport } from './electorate'
  * works out its own verdict is a second model, and a second model is one that can disagree with the
  * first in front of the player at the worst possible moment.
  */
-
-/** What the player is scored against, and which way each has to move to count as kept. */
-const PROMISED: Record<CampaignPriorityId, { metric: MetricId, good: 1 | -1 }[]> = {
-  housing: [{ metric: 'averageRent', good: -1 }, { metric: 'socialUnits', good: 1 }, { metric: 'homelessPeople', good: -1 }],
-  employment: [{ metric: 'employment', good: 1 }, { metric: 'youthUnemployment', good: -1 }],
-  mobility: [{ metric: 'transitReliability', good: 1 }, { metric: 'transitCoverage', good: 1 }],
-  climate: [{ metric: 'emissions', good: -1 }, { metric: 'greenSpacePerCapita', good: 1 }],
-  cohesion: [{ metric: 'satisfaction', good: 1 }, { metric: 'polarisation', good: -1 }, { metric: 'integrationCapacity', good: 1 }],
-  fiscalHealth: [{ metric: 'cityBudget', good: 1 }, { metric: 'debt', good: -1 }, { metric: 'investmentBacklog', good: -1 }],
-}
 
 /** The six numbers the report opens with: what a resident would ask about first. */
 const LEDGER: { metric: MetricId, label: string, unit: string, good: 1 | -1 }[] = [
@@ -130,8 +121,27 @@ export interface ClosingReport {
   decisions: { label: string, on: string, delta: number, good: boolean }[]
   /** Where the street stood on the first day and on the last. */
   support: { partyId: PartyId, name: string, before: number, after: number, own: boolean }[]
-  /** The promises, and whether the numbers behind them moved. */
-  promises: { id: CampaignPriorityId, name: string, kept: boolean, score: number }[]
+  /**
+   * Die drei Ziele und ob sie gelten. **Die Wertung der Kampagne.**
+   *
+   * Hier standen „Versprechen": drei weiche Schwerpunkte, bewertet daran, ob ein paar zugehörige
+   * Zahlen sich irgendwie in die richtige Richtung bewegt hatten. Das war keine Wertung, sondern
+   * eine Nacherzählung — man konnte sie nicht verfehlen, weil es nichts zu verfehlen gab. Ein Ziel
+   * ist eine Schwelle, und im Dezember 2036 liegt man darüber oder darunter.
+   */
+  goals: {
+    id: CampaignGoalId
+    name: string
+    promise: string
+    /** Wo die Zahl steht, wo sie stehen musste, und wo sie am ersten Tag stand. */
+    value: number
+    threshold: number
+    started: number
+    unit: string
+    decimals: number
+    direction: 'above' | 'below'
+    met: boolean
+  }[]
   /** How many roads were taken, and how many events that closed off for good. */
   doors: { taken: number, closed: string[] }
 }
@@ -146,7 +156,7 @@ export function closingReport(snapshot: SimulationSnapshot, ownParty: PartyId | 
     ledger: LEDGER.map(line => reading(line, before, after)),
     decisions: strongest(snapshot),
     support: standing(snapshot, ownParty),
-    promises: (snapshot.priorityIds ?? []).map(id => promise(id, before, after)),
+    goals: (snapshot.goalIds ?? []).flatMap(id => scoreGoal(id, before, after)),
     doors: doors(snapshot.choices ?? []),
   }
 }
@@ -242,25 +252,29 @@ function standing(snapshot: SimulationSnapshot, ownParty: PartyId | null): Closi
 }
 
 /**
- * Whether a promise was kept, measured rather than judged.
+ * Ob das Ziel gilt. Gemessen, nicht beurteilt.
  *
- * Each priority names two or three numbers and the direction each has to move. The score is the mean
- * of what they did as a share of where they started — so a promise is kept when the numbers behind it
- * moved the right way, and not because the player says it was.
+ * Eine Schwelle und eine Zahl — mehr ist es nicht, und genau das ist der Punkt. Der Startwert steht
+ * daneben, weil „unter 900" nichts sagt, solange man nicht weiß, dass es bei 480 losging und in
+ * einer Stadt, die nichts tut, auf fast zweitausend steigt.
  */
-function promise(id: CampaignPriorityId, before: CityMetrics, after: CityMetrics): ClosingReport['promises'][number] {
-  const measures = PROMISED[id]
-  const score = measures.reduce((sum, measure) => {
-    const from = before[measure.metric]
-    const moved = after[measure.metric] - from
-    return sum + (from === 0 ? 0 : (moved / Math.abs(from)) * measure.good)
-  }, 0) / Math.max(1, measures.length)
-  return {
+function scoreGoal(id: CampaignGoalId, before: CityMetrics, after: CityMetrics): ClosingReport['goals'] {
+  const goal = getGoal(id)
+  if (!goal)
+    return []
+  const value = after[goal.metric as keyof CityMetrics] as number
+  return [{
     id,
-    name: CAMPAIGN_PRIORITIES.find(priority => priority.id === id)?.name ?? id,
-    kept: score > NOTHING_HAPPENED,
-    score,
-  }
+    name: goal.name,
+    promise: goal.promise,
+    value,
+    threshold: goal.threshold,
+    started: before[goal.metric as keyof CityMetrics] as number,
+    unit: goal.unit,
+    decimals: goal.decimals,
+    direction: goal.direction,
+    met: goalIsMet(goal, value),
+  }]
 }
 
 /**

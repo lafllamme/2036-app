@@ -12,6 +12,34 @@ export type CampaignPriorityId = 'housing' | 'employment' | 'mobility' | 'climat
 
 export type PolicyStance = 'support' | 'conditional' | 'oppose'
 
+export type CampaignGoalId
+  = | 'affordable-rent' | 'bound-stock' | 'nobody-outside'
+    | 'work' | 'firms'
+    | 'balanced-books' | 'no-backlog'
+    | 'safe-streets' | 'childcare'
+    | 'green-city' | 'lower-emissions'
+    | 'reliable-transit'
+
+/**
+ * Ein Ziel, das im Dezember 2036 gelten muss.
+ *
+ * Drei davon wählt man beim Antritt, und sie sind die Wertung der Kampagne. `field` bindet das Ziel
+ * an eines der sechs Politikfelder — daran hängt, welche Fraktionen ein Thema für ihres halten und
+ * deshalb eher mitgehen; vorher leisteten das die weichen „Prioritäten", die sonst nichts taten.
+ */
+export interface CampaignGoalDefinition {
+  id: CampaignGoalId
+  field: CampaignPriorityId
+  name: string
+  metric: string
+  direction: 'above' | 'below'
+  threshold: number
+  unit: string
+  decimals: number
+  /** Was das Versprechen im Klartext heißt, in einem Satz. */
+  promise: string
+}
+
 export interface PartyPolicyPosition {
   policyId: string
   stance: PolicyStance

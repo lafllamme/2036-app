@@ -10,7 +10,7 @@ import type { DistrictId } from './city'
 import type { MotionPreparationView, PartyVote, PendingDecision, VoteForecast, VoteResult } from './events'
 import type { CausalEdge, CityMetrics, HealthScores, MetricId, PerceptionState } from './metrics'
 import type { ActiveMeasureView } from './policies'
-import type { CampaignPriorityId, PartyId } from './politics'
+import type { CampaignGoalId, PartyId } from './politics'
 import type { CityVisualState } from './visuals'
 
 export interface NewsItem {
@@ -21,6 +21,13 @@ export interface NewsItem {
   headline: string
   districtId?: DistrictId
   policyId?: string
+}
+
+/** Ein Ziel mit dem Stand von heute: der Wert, die Schwelle, und ob es gerade gilt. */
+export interface CampaignGoalProgress {
+  id: CampaignGoalId
+  value: number
+  met: boolean
 }
 
 export interface SimulationSnapshot {
@@ -53,7 +60,10 @@ export interface SimulationSnapshot {
    */
   choices: string[]
   /** The three the player ran on. The closing report scores them against what they left behind. */
-  priorityIds: CampaignPriorityId[]
+  /** Die drei Ziele, an denen dieses Jahrzehnt gemessen wird. */
+  goalIds: CampaignGoalId[]
+  /** Wie weit jedes davon heute steht. Berechnet, nie gespeichert. */
+  goals: CampaignGoalProgress[]
   pendingDecisions: PendingDecision[]
   /** Negotiation and campaigning already paid for, keyed by motion id. */
   motionPreparation: Record<string, MotionPreparationView>
@@ -82,10 +92,10 @@ export interface SimulationSnapshot {
 }
 
 export type SimulationCommand
-  = | { type: 'INIT', seed: number, partyId?: PartyId, priorityIds?: CampaignPriorityId[] }
+  = | { type: 'INIT', seed: number, partyId?: PartyId, goalIds?: CampaignGoalId[] }
     | { type: 'ADVANCE', months: number }
     | { type: 'APPLY_POLICY', policyId: string }
-    | { type: 'RESET', seed: number, partyId?: PartyId, priorityIds?: CampaignPriorityId[] }
+    | { type: 'RESET', seed: number, partyId?: PartyId, goalIds?: CampaignGoalId[] }
     | SimulationCommandExtra
 
 export type SimulationMessage
@@ -105,4 +115,4 @@ export type SimulationCommandExtra
     | { type: 'VOTE_ON_MOTION', eventId: string, vote: PartyVote }
     | { type: 'NEGOTIATE', eventId: string, partyId: PartyId }
     | { type: 'CAMPAIGN', eventId: string, optionId: string }
-    | { type: 'SET_CAMPAIGN', partyId: PartyId, priorityIds: CampaignPriorityId[] }
+    | { type: 'SET_CAMPAIGN', partyId: PartyId, goalIds: CampaignGoalId[] }

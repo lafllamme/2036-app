@@ -900,3 +900,50 @@ button:disabled { opacity: 0.32; cursor: not-allowed; }
   .closing-ledger li { grid-template-columns: 1fr auto; }
   .closing-ledger__verdict { grid-column: 2; }
 }
+
+/*
+ * Die drei Ziele im Lagebild. Dieselbe Sprache wie der Gesundheitsblock darüber, damit es eine
+ * Fortsetzung ist und kein zweites Panel — nur die erfüllte Zeile hebt sich ab.
+ */
+.goal-block {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--hairline);
+}
+
+.goal-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0 0.5rem;
+  padding: 0.28rem 0;
+  font-size: 0.78rem;
+  color: var(--faint);
+}
+
+.goal-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goal-row b {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.goal-row small {
+  grid-column: 1 / -1;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  color: var(--faint);
+}
+
+.goal-row.met b {
+  color: var(--positive);
+}
+
+.goal-row.met span::after {
+  content: ' ✓';
+  color: var(--positive);
+}

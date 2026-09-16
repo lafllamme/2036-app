@@ -25,7 +25,7 @@ globalThis.onmessage = ({ data }: MessageEvent<SimulationCommand>) => {
     switch (data.type) {
       case 'INIT':
       case 'RESET':
-        state = createInitialState(data.seed, data.partyId ?? null, data.priorityIds ?? [])
+        state = createInitialState(data.seed, data.partyId ?? null, data.goalIds ?? [])
         publish(data.type === 'INIT' ? 'READY' : 'SNAPSHOT')
         return
       case 'ADVANCE':
@@ -87,7 +87,7 @@ globalThis.onmessage = ({ data }: MessageEvent<SimulationCommand>) => {
         post({ type: 'FORECAST', eventId: data.eventId, forecasts: forecastsForEvent(state, data.eventId) })
         return
       case 'SET_CAMPAIGN':
-        state = createInitialState(state.seed, data.partyId, data.priorityIds)
+        state = createInitialState(state.seed, data.partyId, data.goalIds)
         publish('SNAPSHOT')
     }
   }

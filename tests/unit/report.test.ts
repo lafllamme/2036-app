@@ -12,7 +12,7 @@ import { closingReport } from '../../app/simulation/report'
  */
 
 function played(months: number): SimulationSnapshot {
-  return snapshotOf(advanceMonths(createInitialState(2_036, 'spd', ['housing', 'employment', 'mobility']), months))
+  return snapshotOf(advanceMonths(createInitialState(2_036, 'spd', ['affordable-rent', 'work', 'reliable-transit']), months))
 }
 
 describe('the closing report', () => {
@@ -21,7 +21,18 @@ describe('the closing report', () => {
     expect(report.months).toBe(131)
     expect(report.ledger.length).toBe(6)
     expect(report.support.length).toBe(6)
-    expect(report.promises.map(promise => promise.id)).toEqual(['housing', 'employment', 'mobility'])
+    expect(report.goals.map(goal => goal.id)).toEqual(['affordable-rent', 'work', 'reliable-transit'])
+    /*
+     * Die Wertung ist eine Schwelle, kein Urteil: der Bericht sagt, wo die Zahl am ersten Tag
+     * stand, wo sie stehen musste und wo sie steht. Vorher stand hier ein „Versprechen", das aus dem
+     * Mittel ein paar zugehöriger Bewegungen berechnet wurde — man konnte es nicht verfehlen, weil
+     * es nichts zu verfehlen gab.
+     */
+    for (const goal of report.goals) {
+      expect(goal.met).toBe(goal.direction === 'above' ? goal.value > goal.threshold : goal.value < goal.threshold)
+      expect(goal.promise.length, `${goal.id} sagt nicht, was es verspricht`).toBeGreaterThan(20)
+      expect(Number.isFinite(goal.started)).toBe(true)
+    }
   })
 
   /*

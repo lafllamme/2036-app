@@ -47,7 +47,13 @@ describe('monthly simulation', () => {
   it('keeps normalized scores and ticker history bounded', () => {
     const state = snapshotOf(advanceMonths(createInitialState(2036), 60))
     expect(Object.values(state.health).every(score => score >= 0 && score <= 100)).toBe(true)
-    expect(state.news.length).toBeLessThanOrEqual(14)
+    /*
+     * Zwanzig statt vierzehn, seit die Meldungsschicht dazugekommen ist: der Stadtfunk trug vorher
+     * etwa eine Zeile im Monat und schwieg damit zwischen zwei Ratssitzungen minutenlang. Die Grenze
+     * ist weiterhin eine Grenze — ein Ticker, der über elf Jahre wächst, ist ein Speicherleck mit
+     * Animation.
+     */
+    expect(state.news.length).toBeLessThanOrEqual(20)
   })
 
   it('conserves domain invariants across the complete campaign', () => {

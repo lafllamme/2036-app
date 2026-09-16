@@ -42,6 +42,7 @@ import {
 
   vacancyRate,
 } from './baseline'
+import { bulletin } from './bulletin'
 import { castVote, forecastVote, supportFor } from './council'
 import { BASE_CAPITAL_PER_MONTH, clamp, healthFromState, stepDynamics } from './dynamics'
 import { defeatFromEdges, holdElection, isElectionMonth, MAJORITY, trackEdges, votedOut } from './election'
@@ -1244,7 +1245,19 @@ function advanceOneMonth(state: SimulationState): SimulationState {
   }
   next = { ...next, relationships }
 
-  const news = [...significantNews(next, month, next.metrics, state.metrics), ...next.news].slice(0, 14)
+  /*
+   * Und was der Monat sonst noch zu sagen hatte.
+   *
+   * `significantNews` meldete den Haushalt einmal im Jahr, den Wohnungsmarkt einmal im Jahr und alle
+   * drei Monate einen Quartalsbericht — also etwa eine Zeile je Monat. Bei fünf realen Minuten je
+   * Monat ist das eine Stadt, die zwölf Minuten lang schweigt. `bulletin` liest dagegen ab, was sich
+   * tatsächlich bewegt hat, und das rechnet die Simulation ohnehin jeden Monat aus.
+   */
+  const news = [
+    ...significantNews(next, month, next.metrics, state.metrics),
+    ...bulletin(month, next.metrics, state.metrics, next.situation, state.situation),
+    ...next.news,
+  ].slice(0, 20)
   return { ...next, news }
 }
 

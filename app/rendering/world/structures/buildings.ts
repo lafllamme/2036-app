@@ -1,4 +1,5 @@
 import type { BuildingRecord, BuildingType, CityBlueprint } from '../../../core/contracts'
+import type { DistrictCharacter } from '../../../world/districtCharacter'
 import type { Relief } from '../../../world/relief'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../../core/rng'
@@ -324,43 +325,59 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
  * aussehen.
  */
 /**
- * Die Häuser, die aus der Reihe tanzen.
+ * Woraus dieses Haus an diesem Ort gebaut ist.
  *
- * Eine deutsche Stadt ist gedämpft, aber sie ist nicht einfarbig: zwischen dem Putz stehen die
- * sanierten Blöcke in kräftigem Rot, Grün oder Blau, die Achtziger in Türkis, ein Kindergarten in
- * Gelb, eine Werbeagentur in Anthrazit mit oranger Brüstung. Ohne die liest sich jede Palette, so
- * breit sie auch ist, als Rauschen um einen Mittelwert.
+ * Die Farbe hing am **Gebäudetyp**, und damit an nichts, was auf der Karte zu sehen ist: ein
+ * Wohnblock in der Altstadt sah aus wie einer im Gewerbegebiet, und die Akzentquote war überall
+ * dieselbe. Streuung ohne Ortsaussage ist aber nur Rauschen — von oben blieb die Stadt grau, weil
+ * nichts davon irgendwo *hingehörte*.
  *
- * Dosiert wie in Wirklichkeit: etwa jedes achte Haus, und in der Vorstadt seltener als am Hafen, wo
- * Hallen sowieso in Firmenfarben stehen. Punktzeichen, kein Konfetti.
+ * Jetzt fragt sie zuerst das Viertel. Eine Halle und ein Klinikum behalten ihre Typpalette, weil eine
+ * Halle eine Halle ist, wo immer sie steht; alles andere bekommt die Farben seines Ortes. Und wie
+ * viele Häuser aus der Reihe tanzen, entscheidet ebenfalls der Ort: die Altstadt ist über
+ * Jahrhunderte Haus für Haus gestrichen worden und ist bunt, die Vorstadt streicht jeder selbst und
+ * ist noch bunter, und das Industriegebiet ist es nicht.
  */
-const ACCENTS = [
-  '#a8443a', // Klinkerrot, aber als Anstrich
-  '#8f3f36',
-  '#c2683f', // Terracotta
-  '#4f6f56', // Flaschengrün
-  '#6e8a5e', // Lindgrün
-  '#3f5f72', // Preußischblau
-  '#5b7f94', // Taubenblau
-  '#d9a441', // Ockergelb
-  '#c7a86b',
-  '#8a6f9c', // Flieder, selten und meistens achtziger Jahre
-  '#3a3f43', // Anthrazit
-  '#7a9aa0', // Türkis
-]
-
-const ACCENT_SHARE: Partial<Record<BuildingType, number>> = {
-  altbau: 0.14,
-  residential: 0.13,
-  modern: 0.16,
-  commercial: 0.12,
-  industrial: 0.2,
-  civic: 0.1,
+function wallColour(building: BuildingRecord, character: DistrictCharacter, rng: { next: () => number }): THREE.Color {
+  if (rng.next() < character.accentShare && character.accents.length > 0)
+    return pick(character.accents, rng)
+  const own = building.type === 'industrial' || building.type === 'civic' ? [] : character.walls
+  return pick(own.length > 0 ? own : WALL_COLOURS[building.type], rng)
 }
 
-function accent(building: BuildingRecord, rng: { next: () => number }): THREE.Color | null {
-  const share = ACCENT_SHARE[building.type] ?? 0
-  return rng.next() < share ? new THREE.Color(ACCENTS[Math.floor(rng.next() * ACCENTS.length)]!) : null
+/**
+ * Und was oben drauf liegt — **das Wichtigste von dieser Kamera aus.**
+ *
+ * Man schaut von schräg oben auf Lindenhafen und sieht vor allem Dachflächen. Die hingen am
+ * Gebäudetyp, und weil die meisten Häuser `residential` oder `modern` sind, war das ganze Bild
+ * braungrau, ganz gleich wie breit die Wandpaletten darunter wurden. Ein Viertel erkennt man von
+ * oben an seinen Dächern: rote Ziegel über der Altstadt, Bitumen und Kies über den Zeilen,
+ * Trapezblech über den Hallen.
+ */
+function roofColour(building: BuildingRecord, character: DistrictCharacter, wall: THREE.Color, rng: { next: () => number }): THREE.Color {
+  const industrial = building.type === 'industrial'
+  return separated(pick(industrial ? ROOF_COLOURS.industrial : character.roofs, rng), wall)
+}
+
+/**
+ * Ein Dach muss sich vom Putz darunter **im Hellwert** unterscheiden, nicht nur im Ton.
+ *
+ * Sonst verschmilzt das Haus: ein ockerfarbenes Dach über einer ockerfarbenen Wand ist aus dreißig
+ * Metern Höhe eine einzige Masse, ganz gleich wie sorgfältig beide Töne gewählt sind. In Wirklichkeit
+ * ist ein Dach fast immer deutlich dunkler als die Wand — Ziegel, Schiefer, Bitumen, Blech, alles
+ * davon schluckt mehr Licht als Putz. Eine Garantie statt einer Hoffnung: wo der Abstand unter
+ * fünfzehn Punkten liegt, wird das Dach so weit abgedunkelt, bis er stimmt.
+ */
+const ROOF_CONTRAST = 0.15
+
+function separated(roof: THREE.Color, wall: THREE.Color): THREE.Color {
+  const roofHsl = { h: 0, s: 0, l: 0 }
+  const wallHsl = { h: 0, s: 0, l: 0 }
+  roof.getHSL(roofHsl)
+  wall.getHSL(wallHsl)
+  if (wallHsl.l - roofHsl.l >= ROOF_CONTRAST)
+    return roof
+  return roof.clone().setHSL(roofHsl.h, roofHsl.s, Math.max(0.04, wallHsl.l - ROOF_CONTRAST))
 }
 
 /** Wohin eine Fassade zieht, wenn die Sonne jahrelang darauf steht. */
@@ -424,8 +441,8 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
    * bei `condition` 0,3 steht dreißig Prozent dunkler und halb so satt wie dasselbe Haus in Ordnung.
    */
   const keep = building.condition
-  const base = accent(building, rng) ?? pick(WALL_COLOURS[building.type], rng)
-  const wall = weathered(base, keep)
+  const character = DISTRICT_CHARACTER[building.districtId]
+  const wall = weathered(wallColour(building, character, rng), keep)
   /*
    * Der Verlauf über die Höhe.
    *
@@ -439,7 +456,7 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
   const wallFoot = wall.clone().multiplyScalar(1 - soiling * 0.34)
   const wallHead = wall.clone().lerp(SUN_BLEACH, 0.05 + (1 - keep) * 0.12)
   const plinth = wall.clone().multiplyScalar(PLINTH_SHADE)
-  const roof = pick(ROOF_COLOURS[building.type], rng)
+  const roof = roofColour(building, character, wall, rng)
   tile.records.push(building)
   tile.colours.push(wall)
 
@@ -451,7 +468,6 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
    * das ist der stärkste Unterschied, den man von dieser Kamera aus überhaupt sieht. Er kostet
    * nichts: es ist eine UV-Skala, kein zusätzliches Dreieck und kein zusätzlicher Draw.
    */
-  const character = DISTRICT_CHARACTER[building.districtId]
   const bayWidth = BAY_WIDTH * character.grain
   const storeyHeight = STOREY_HEIGHT * character.storeyRise
 
@@ -512,7 +528,7 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
    * camera can reach and costs nothing to work out.
    */
   if (corners === 4 && building.roofHeight > 0.4) {
-    gable(tile, ring, wallTop, capHeight, roof)
+    gable(tile, ring, wallTop, capHeight, roof, wallHead)
     if (landmarked)
       landmark(tile, building, capHeight, wall, roof)
     tile.ranges.push({ start, count: tile.position.length / 3 - start })
@@ -734,7 +750,7 @@ function pushSloped(tile: Tile, x: number, y: number, z: number, normal: number[
  * without having to measure an angle. The eaves reach past the long walls — across the ridge only,
  * so the gable ends stay flush with the wall below them and there is nothing to close up.
  */
-function gable(tile: Tile, ring: number[], wallTop: number, ridgeHeight: number, colour: THREE.Color): void {
+function gable(tile: Tile, ring: number[], wallTop: number, ridgeHeight: number, colour: THREE.Color, gableWall: THREE.Color): void {
   const at = (index: number): [number, number] => [ring[(index % 4) * 2]!, ring[(index % 4) * 2 + 1]!]
   const [x0, z0] = at(0)
   const [x1, z1] = at(1)
@@ -780,13 +796,22 @@ function gable(tile: Tile, ring: number[], wallTop: number, ridgeHeight: number,
   slope(a0, a1, ridge0, ridge1)
   slope(b0, b1, ridge1, ridge0)
 
-  // The two gable walls, closing the ends under the ridge.
+  /*
+   * Die beiden Giebelwände, die unter dem First schließen — **und eine Giebelwand ist eine Wand.**
+   *
+   * Sie bekamen die Dachfarbe, und damit verschmolz jedes Satteldachhaus zu einem einzigen Farbklotz
+   * von der Sohlbank bis zum First: ein grünes Haus mit grünem Dach, ein rotes mit rotem. Nichts
+   * sieht so sehr nach Computer aus, und es war der eigentliche Grund, aus dem die Häuser auch mit
+   * breiten Paletten noch komisch aussahen. Ein Klinkerbau hat ein Schieferdach, ein weißes Haus hat
+   * rote Ziegel — die Trennung zwischen Wand und Dach ist das, was ein Haus als gebautes Ding lesbar
+   * macht.
+   */
   const end = (left: number[], right: number[], apex: number[]): void => {
     const normal = faceNormal([left[0]!, wallTop, left[1]!], [right[0]!, wallTop, right[1]!], [apex[0]!, ridgeHeight, apex[1]!])
     const vertex = tile.position.length / 3
-    pushSloped(tile, left[0]!, wallTop, left[1]!, normal, colour)
-    pushSloped(tile, right[0]!, wallTop, right[1]!, normal, colour)
-    pushSloped(tile, apex[0]!, ridgeHeight, apex[1]!, normal, colour)
+    pushSloped(tile, left[0]!, wallTop, left[1]!, normal, gableWall)
+    pushSloped(tile, right[0]!, wallTop, right[1]!, normal, gableWall)
+    pushSloped(tile, apex[0]!, ridgeHeight, apex[1]!, normal, gableWall)
     tile.roofIndex.push(vertex, vertex + 2, vertex + 1)
   }
 

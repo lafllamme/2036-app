@@ -168,14 +168,15 @@ export class WalkAbout {
      * Kollision, die auch von innen greift, ist kein Schutz, sondern eine Falle: sie hält genau den
      * fest, dem sie helfen sollte.
      */
-    const inside = this.blocked(this.camera.position.x, this.camera.position.z)
+    const eye = this.camera.position.y
+    const inside = this.blocked(this.camera.position.x, this.camera.position.z, eye)
     /*
      * Achsenweise geprüft, nicht als ein Schritt. Wer schräg gegen eine Wand läuft, soll an ihr
      * entlanggleiten und nicht kleben — und das ist der ganze Unterschied zwischen den beiden.
      */
-    if (inside || !this.blocked(nextX, this.camera.position.z))
+    if (inside || !this.blocked(nextX, this.camera.position.z, eye))
       this.camera.position.x = nextX
-    if (inside || !this.blocked(this.camera.position.x, nextZ))
+    if (inside || !this.blocked(this.camera.position.x, nextZ, eye))
       this.camera.position.z = nextZ
 
     this.camera.position.y = this.relief.height(this.camera.position.x, this.camera.position.z) + EYE
@@ -190,14 +191,26 @@ export class WalkAbout {
    * „von innen hält keine Wand" bringt einen dann selbst hinaus.
    */
   private freeSpot(x: number, z: number): { x: number, z: number } {
-    if (!this.blocked(x, z))
+    /*
+     * Die Augenhöhe wird **je Punkt** aus dem Gelände gerechnet, nicht von der Kamera abgelesen.
+     *
+     * Genau daran ist der erste Versuch gescheitert, und zwar lautlos. `blocked` nahm die Höhe aus
+     * `camera.position.y` — und die stand beim Einsteigen noch achthundert Meter über der Stadt. In
+     * dieser Höhe liegt kein einziger Gebäudekasten, also war **nichts** blockiert, die Suche gab
+     * sofort den Ausgangspunkt zurück, und man landete wieder in der Fassade. Eine Prüfung, die die
+     * falsche Höhe fragt, antwortet nicht falsch, sondern immer „frei".
+     */
+    const at = (spotX: number, spotZ: number): boolean =>
+      this.blocked(spotX, spotZ, this.relief.height(spotX, spotZ) + EYE)
+
+    if (!at(x, z))
       return { x, z }
     for (let reach = 2; reach <= 40; reach += 2) {
       for (let step = 0; step < 12; step += 1) {
         const bearing = (step / 12) * Math.PI * 2
         const spotX = x + Math.cos(bearing) * reach
         const spotZ = z + Math.sin(bearing) * reach
-        if (!this.blocked(spotX, spotZ))
+        if (!at(spotX, spotZ))
           return { x: spotX, z: spotZ }
       }
     }
@@ -211,8 +224,7 @@ export class WalkAbout {
    * angelegt. Geprüft werden nur die Kacheln, deren Hüllkugel den Punkt überhaupt umfasst; das sind
    * auf der Straße eine oder zwei von sechsunddreißig.
    */
-  private blocked(x: number, z: number): boolean {
-    const eye = this.camera.position.y
+  private blocked(x: number, z: number, eye: number): boolean {
     for (const mesh of this.buildings.buildingMeshes) {
       const sphere = mesh.geometry.boundingSphere
       if (sphere && this.probe.set(x, sphere.center.y, z).distanceTo(sphere.center) > sphere.radius + SHOULDER)

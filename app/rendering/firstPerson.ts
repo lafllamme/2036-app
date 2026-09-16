@@ -1,6 +1,7 @@
 import type { Relief } from '../world/relief'
 import type { CityBuildings } from './world/structures/buildings'
 import * as THREE from 'three/webgpu'
+import { pointInside } from './world/structures/buildings'
 import { WATER_LEVEL } from './world/terrain/water'
 
 /**
@@ -30,9 +31,16 @@ import { WATER_LEVEL } from './world/terrain/water'
 
 /** Augenhöhe über dem Boden. Eine erwachsene Person, keine Kamera auf einem Stativ. */
 const EYE = 1.72
-/** Gehen und Laufen, in Metern je Sekunde. Sechs km/h und elf km/h. */
-const WALK = 1.7
-const RUN = 3.1
+/**
+ * Gehen und Laufen, in Metern je Sekunde.
+ *
+ * Erst standen hier 1,7 und 3,1 — echtes Fußgänger- und Jogging-Tempo. Gemessen an einer Stadt von
+ * drei Kilometern Kante ist das unbenutzbar: eine Straße hat sechzig Meter, und die abzulaufen
+ * dauerte fünfunddreißig Sekunden. Gemeldet als „kann mich kaum bewegen", und das war keine
+ * Übertreibung. Spiele laufen schneller als Menschen, weil eine Spielstunde keine echte Stunde ist.
+ */
+const WALK = 4.6
+const RUN = 10.5
 /** Wie schnell die Geschwindigkeit dem Willen folgt. Kein Eis, aber auch kein Schalter. */
 const EASE = 9
 /** Wie weit der Blick nach oben und unten darf. Kein Salto. */
@@ -259,14 +267,28 @@ export class WalkAbout {
       if (sphere && this.probe.set(x, sphere.center.y, z).distanceTo(sphere.center) > sphere.radius + SHOULDER)
         continue
       const boxes = this.buildings.buildingBoxes.get(mesh)
-      if (!boxes)
+      const records = this.buildings.buildingRecords.get(mesh)
+      if (!boxes || !records)
         continue
-      for (const box of boxes) {
-        if (x > box.min.x - SHOULDER && x < box.max.x + SHOULDER
-          && z > box.min.z - SHOULDER && z < box.max.z + SHOULDER
-          && eye > box.min.y && eye < box.max.y) {
-          return true
+      for (let index = 0; index < boxes.length; index += 1) {
+        const box = boxes[index]!
+        /*
+         * Der Kasten ist nur die Vorauswahl, nicht die Antwort.
+         *
+         * Er ist achsenparallel, und ein schräg zur Straße stehendes Haus hat einen Kasten, der die
+         * halbe Fahrbahn mit abdeckt. Als Hindernis genommen stand man auf offener Straße vor einer
+         * Wand, die es nicht gibt — gemeldet als „kann mich kaum bewegen". Der Kasten sortiert also
+         * nur die Häuser aus, die weit weg sind, und geprüft wird gegen den **echten Grundriss**,
+         * den derselbe Datensatz mitbringt und aus dem die Fassade gebaut wurde.
+         */
+        if (x < box.min.x - SHOULDER || x > box.max.x + SHOULDER
+          || z < box.min.z - SHOULDER || z > box.max.z + SHOULDER
+          || eye < box.min.y || eye > box.max.y) {
+          continue
         }
+        const record = records[index]
+        if (record && pointInside(x, z, record.footprint))
+          return true
       }
     }
     return false

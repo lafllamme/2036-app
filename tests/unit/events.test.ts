@@ -126,6 +126,8 @@ describe('event library', () => {
       'soc-language-schools', // zwanzig Stellen an den Schulen
       'saf-response-comply', // achtzehn Stellen auf der Wache, die das Urteil verlangt
       'lage-arrivals-capacity', // Plätze und Kurse in vier Quartieren, mit Personal
+      'saf-cctv-more', // dreißig weitere Anlagen wollen dauerhaft betrieben und gewartet werden
+      'saf-prevention-all', // sechs Quartiersbüros mit je einer Stelle
     ])
     const unexpected = EVENTS.flatMap(event => event.options)
       .filter(option => option.monthlyCost > 0 && option.costMonths === undefined && !forever.has(option.id))

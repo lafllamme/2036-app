@@ -2645,6 +2645,360 @@ export const EVENTS: EventDefinition[] = [
     expiresInMonths: 0,
     sourceIds: MODEL,
   },
+
+  /*
+   * ── Weiche Wohnungsgesellschaft: verkauft ──────────────────────────────────────────────────────
+   *
+   * Wer die Anteile abgibt, verliert das Werkzeug und behält das Problem. Was danach kommt, kommt
+   * nur auf diesem Weg — und auf dem anderen kommt anderes.
+   */
+  {
+    schemaVersion: 1,
+    id: 'hou-sold-rent-review',
+    kind: 'decision',
+    category: 'housing',
+    title: 'Der neue Eigentümer legt Modernisierungen um',
+    briefing:
+      'Achthundert der verkauften Wohnungen bekommen neue Fenster und eine Dämmung, und mit ihnen eine Mieterhöhung von elf Prozent. Rechtlich ist alles sauber. Die Stadt ist nicht mehr Eigentümerin und kann nur noch fördern oder klagen lassen.',
+    urgency: 'important',
+    trigger: { earliestMonth: 34, latestMonth: 128, conditions: [], baseWeight: 9, cooldownMonths: 30, oncePerCampaign: false, requiresChoiceIds: ['fin-housing-company:fin-housing-sell'] },
+    immediateEffects: [],
+    defaultOptionId: 'hou-sold-rent-none',
+    options: [
+      {
+        id: 'hou-sold-rent-subsidy',
+        label: 'Härtefallfonds für die Betroffenen',
+        rationale: 'Die Stadt zahlt, was sie als Eigentümerin hätte verhindern können. Teuer, und es hilft.',
+        oneOffCost: 2.2,
+        costMonths: 48, // ein Härtefallfonds läuft, bis die Modernisierung abbezahlt ist
+        monthlyCost: 0.34,
+        axes: { redistribution: 0.8, fiscalRestraint: -0.6, marketVsPublic: -0.4 },
+        salience: { redistribution: 0.9, fiscalRestraint: 0.6 },
+        effects: [effect({ target: 'homelessPeople', expected: -120, delayMonths: 3, rampMonths: 10, confidence: 'medium' })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'hou-sold-rent-none',
+        label: 'Zur Kenntnis nehmen',
+        rationale: 'Was verkauft ist, ist verkauft. Der Haushalt bleibt, wie er ist.',
+        oneOffCost: 0,
+        monthlyCost: 0,
+        axes: { marketVsPublic: 0.6, fiscalRestraint: 0.5, redistribution: -0.5 },
+        salience: { marketVsPublic: 0.8, redistribution: 0.7 },
+        effects: [effect({ target: 'homelessPeople', expected: 95, delayMonths: 4, rampMonths: 12, confidence: 'medium' })],
+        sourceIds: MODEL,
+      },
+    ],
+    expiresInMonths: 3,
+    sourceIds: MODEL,
+  },
+  {
+    schemaVersion: 1,
+    id: 'hou-sold-buyback',
+    kind: 'decision',
+    category: 'housing',
+    title: 'Das Paket steht wieder zum Verkauf',
+    briefing:
+      'Der Fonds dreht sein Portfolio und bietet der Stadt an, zurückzukaufen — zum Dreifachen dessen, was sie bekommen hat. Die Kämmerei hält es für Wucher. Das Wohnungsamt hält es für die letzte Gelegenheit.',
+    urgency: 'important',
+    trigger: { earliestMonth: 58, latestMonth: 126, conditions: [{ metric: 'averageRent', operator: '>', value: 13.4 }], baseWeight: 7, cooldownMonths: 48, oncePerCampaign: true, requiresChoiceIds: ['fin-housing-company:fin-housing-sell'] },
+    immediateEffects: [],
+    defaultOptionId: 'hou-buyback-no',
+    options: [
+      {
+        id: 'hou-buyback-yes',
+        label: 'Zurückkaufen, was verkauft wurde',
+        rationale: 'Dreifacher Preis für dieselben Wohnungen. Danach gehören sie wieder der Stadt.',
+        oneOffCost: 34,
+        monthlyCost: -0.2,
+        axes: { marketVsPublic: -0.9, redistribution: 0.7, fiscalRestraint: -0.9 },
+        salience: { marketVsPublic: 1, fiscalRestraint: 0.9 },
+        effects: [effect({ target: 'socialUnits', expected: 620, delayMonths: 6, rampMonths: 14, confidence: 'high' })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'hou-buyback-no',
+        label: 'Den Preis nicht zahlen',
+        rationale: 'Vierunddreißig Millionen für etwas, das die Stadt schon hatte. Das Geld fehlt anderswo.',
+        oneOffCost: 0,
+        monthlyCost: 0,
+        axes: { fiscalRestraint: 0.8, marketVsPublic: 0.5 },
+        salience: { fiscalRestraint: 0.9, marketVsPublic: 0.6 },
+        effects: [],
+        sourceIds: MODEL,
+      },
+    ],
+    expiresInMonths: 2,
+    sourceIds: MODEL,
+  },
+
+  /* ── Weiche Wohnungsgesellschaft: behalten ─────────────────────────────────────────────────────── */
+  {
+    schemaVersion: 1,
+    id: 'hou-kept-recapitalise',
+    kind: 'decision',
+    category: 'housing',
+    title: 'Die Gesellschaft braucht Eigenkapital',
+    briefing:
+      'Die städtische Wohnungsgesellschaft will bauen und kommt an ihre Beleihungsgrenze. Ohne Kapitalerhöhung baut sie in drei Jahren nichts mehr; mit ihr steht die Stadt für die Kredite gerade.',
+    urgency: 'important',
+    trigger: { earliestMonth: 36, latestMonth: 120, conditions: [], baseWeight: 8, cooldownMonths: 36, oncePerCampaign: false, requiresChoiceIds: ['fin-housing-company:fin-housing-keep'] },
+    immediateEffects: [],
+    defaultOptionId: 'hou-recap-thin',
+    options: [
+      {
+        id: 'hou-recap-full',
+        label: 'Kapitalerhöhung in voller Höhe',
+        rationale: 'Achtzehn Millionen Eigenkapital, und die Gesellschaft baut weiter.',
+        oneOffCost: 18,
+        monthlyCost: 0,
+        axes: { marketVsPublic: -0.9, fiscalRestraint: -0.7, redistribution: 0.6 },
+        salience: { marketVsPublic: 1, fiscalRestraint: 0.8 },
+        effects: [effect({ target: 'unitsUnderConstruction', expected: 340, delayMonths: 8, rampMonths: 18, confidence: 'high' })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'hou-recap-thin',
+        label: 'Nur eine Bürgschaft',
+        rationale: 'Kein Geld heute, aber die Stadt haftet. Die Gesellschaft baut kleiner weiter.',
+        oneOffCost: 0,
+        costMonths: 72, // eine Bürgschaft bindet, solange der Kredit läuft
+        monthlyCost: 0.22,
+        axes: { fiscalRestraint: 0.5, marketVsPublic: -0.3 },
+        salience: { fiscalRestraint: 0.7 },
+        effects: [effect({ target: 'unitsUnderConstruction', expected: 120, delayMonths: 10, rampMonths: 18, confidence: 'medium' })],
+        sourceIds: MODEL,
+      },
+    ],
+    expiresInMonths: 3,
+    sourceIds: MODEL,
+  },
+
+  /* ── Weiche Hafen: ausgebaut ───────────────────────────────────────────────────────────────────── */
+  {
+    schemaVersion: 1,
+    id: 'eco-terminal-traffic',
+    kind: 'decision',
+    category: 'mobility',
+    title: 'Die Lastwagen des Terminals fahren durchs Wohngebiet',
+    briefing:
+      'Das neue Terminal bringt achthundert Lastfahrten am Tag, und die Zufahrt führt durch den Wohnring Süd. Eine Umgehung wäre zu bauen, eine Nachtfahrsperre wäre zu beschließen, und der Hafen droht mit dem Standort.',
+    urgency: 'important',
+    trigger: { earliestMonth: 32, latestMonth: 128, conditions: [], baseWeight: 9, cooldownMonths: 30, oncePerCampaign: false, requiresChoiceIds: ['eco-harbour-expansion:eco-harbour-expand'] },
+    immediateEffects: [],
+    defaultOptionId: 'eco-terminal-nothing',
+    options: [
+      {
+        id: 'eco-terminal-bypass',
+        label: 'Umgehungsstraße bauen',
+        rationale: 'Vier Kilometer neue Trasse. Teuer, endgültig, und der Wohnring bekommt seine Nacht zurück.',
+        oneOffCost: 26,
+        costMonths: 36, // Bauzeitfinanzierung, danach ist die Straße gebaut
+        monthlyCost: 0.3,
+        axes: { growthVsPreservation: 0.5, fiscalRestraint: -0.8, climateAmbition: -0.3 },
+        salience: { growthVsPreservation: 0.8, fiscalRestraint: 0.9 },
+        effects: [effect({ target: 'transitCapacity', expected: 90, delayMonths: 18, rampMonths: 20, confidence: 'medium' })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'eco-terminal-curfew',
+        label: 'Nachtfahrsperre verhängen',
+        rationale: 'Kostet nichts und legt dem Terminal acht Stunden still. Der Hafen wird laut.',
+        oneOffCost: 0,
+        monthlyCost: 0,
+        axes: { growthVsPreservation: -0.7, marketVsPublic: -0.5, climateAmbition: 0.4 },
+        salience: { growthVsPreservation: 0.9, marketVsPublic: 0.6 },
+        effects: [effect({ target: 'businessSites', expected: -40, delayMonths: 6, rampMonths: 14, confidence: 'medium' })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'eco-terminal-nothing',
+        label: 'Es dabei belassen',
+        rationale: 'Der Verkehr bleibt, wo er ist. Die Anwohner auch, vorerst.',
+        oneOffCost: 0,
+        monthlyCost: 0,
+        axes: { growthVsPreservation: 0.6, marketVsPublic: 0.4 },
+        salience: { growthVsPreservation: 0.7 },
+        /*
+         * Nichts. Und das ist die Aussage: Polarisierung ist ein *Ergebnis* und kein Regler — eine
+         * Option, die sie direkt hochschreibt, verspricht etwas, das die Dynamik binnen Monaten
+         * zurückholt. Wer den Verkehr lässt, wo er ist, kauft schlicht keine Abhilfe, und die Stadt
+         * rechnet sich den Rest selbst aus.
+         */
+        effects: [],
+        sourceIds: MODEL,
+      },
+    ],
+    expiresInMonths: 3,
+    sourceIds: MODEL,
+  },
+
+  /* ── Weiche Hafen: Ausgleichsfläche ────────────────────────────────────────────────────────────── */
+  {
+    schemaVersion: 1,
+    id: 'eco-harbour-idle',
+    kind: 'decision',
+    category: 'economy',
+    title: 'Die Reederei geht nach Wilhelmshaven',
+    briefing:
+      'Ohne Terminal verlegt der größte Umschlagkunde seine Linie. Zweihundert Arbeitsplätze am Kai hängen daran, und die Werfthalle steht seitdem leer. Für sie gibt es zwei Angebote.',
+    urgency: 'important',
+    trigger: { earliestMonth: 34, latestMonth: 126, conditions: [], baseWeight: 8, cooldownMonths: 40, oncePerCampaign: true, requiresChoiceIds: ['eco-harbour-expansion:eco-harbour-keep'] },
+    immediateEffects: [effect({ target: 'businessSites', expected: -55, delayMonths: 2, rampMonths: 8, confidence: 'high' })],
+    defaultOptionId: 'eco-idle-wait',
+    options: [
+      {
+        id: 'eco-idle-culture',
+        label: 'Werfthalle als Kultur- und Gewerbehof',
+        rationale: 'Kleinteilig, langsam, und es bleibt in der Stadt, was sonst wegzieht.',
+        oneOffCost: 7.5,
+        costMonths: 60, // Anschubfinanzierung des Gewerbehofs, dann trägt er sich
+        monthlyCost: 0.18,
+        axes: { growthVsPreservation: -0.5, marketVsPublic: -0.6, redistribution: 0.4 },
+        salience: { growthVsPreservation: 0.8, marketVsPublic: 0.7 },
+        effects: [effect({ target: 'businessSites', expected: 85, delayMonths: 10, rampMonths: 20, confidence: 'medium' })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'eco-idle-wait',
+        label: 'Auf den nächsten Investor warten',
+        rationale: 'Die Halle kostet nichts, solange sie leer steht. Der Kai auch nicht.',
+        oneOffCost: 0,
+        monthlyCost: 0,
+        axes: { fiscalRestraint: 0.7, marketVsPublic: 0.5 },
+        salience: { fiscalRestraint: 0.8 },
+        effects: [],
+        sourceIds: MODEL,
+      },
+    ],
+    expiresInMonths: 3,
+    sourceIds: MODEL,
+  },
+
+  /* ── Weiche Sicherheit: Technik ────────────────────────────────────────────────────────────────── */
+  {
+    schemaVersion: 1,
+    id: 'saf-cctv-expansion',
+    kind: 'decision',
+    category: 'safety',
+    title: 'Die Kameras sollen auch in die Grünzüge',
+    briefing:
+      'Achtzehn Knotenpunkte sind überwacht, und die Zahlen sind besser geworden — an den Knotenpunkten. Verdrängt hat es sich in die Grünzüge und die Tiefgaragen. Der Ordnungsdienst will dreißig weitere Standorte.',
+    urgency: 'normal',
+    trigger: { earliestMonth: 26, latestMonth: 126, conditions: [{ metric: 'crimeRate', operator: '>', value: 47 }], baseWeight: 8, cooldownMonths: 34, oncePerCampaign: false, requiresChoiceIds: ['saf-burglary-series:saf-burglary-cctv'] },
+    immediateEffects: [],
+    defaultOptionId: 'saf-cctv-stop',
+    options: [
+      {
+        id: 'saf-cctv-more',
+        label: 'Dreißig weitere Standorte',
+        rationale: 'Mehr vom selben. Es wirkt, und es verschiebt sich weiter.',
+        oneOffCost: 8.4,
+        monthlyCost: 0.4,
+        axes: { securityAuthority: 0.9, opennessIntegration: -0.5, fiscalRestraint: -0.4 },
+        salience: { securityAuthority: 1, opennessIntegration: 0.7 },
+        effects: [effect({ target: 'orderServiceFte', expected: 14, delayMonths: 4, rampMonths: 12, confidence: 'medium' })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'saf-cctv-stop',
+        label: 'Bei achtzehn bleiben',
+        rationale: 'Die Anlage läuft weiter, sie wächst nur nicht. Das Geld bleibt im Haushalt.',
+        oneOffCost: 0,
+        monthlyCost: 0,
+        axes: { securityAuthority: -0.3, fiscalRestraint: 0.6 },
+        salience: { fiscalRestraint: 0.7, securityAuthority: 0.5 },
+        effects: [],
+        sourceIds: MODEL,
+      },
+    ],
+    expiresInMonths: 3,
+    sourceIds: MODEL,
+  },
+
+  /* ── Weiche Sicherheit: Sozialarbeit ───────────────────────────────────────────────────────────── */
+  {
+    schemaVersion: 1,
+    id: 'saf-prevention-scaled',
+    kind: 'decision',
+    category: 'safety',
+    title: 'Das Nachbarschaftsprogramm will in alle Viertel',
+    briefing:
+      'Im Wohnring sind die Einbrüche zurückgegangen, und die Quartiersbüros führen es auf die Nachbarschaftsarbeit zurück. Sechs weitere Viertel fragen an. Die Polizei hält den Zusammenhang für nicht belegt.',
+    urgency: 'normal',
+    trigger: { earliestMonth: 26, latestMonth: 126, conditions: [], baseWeight: 8, cooldownMonths: 34, oncePerCampaign: false, requiresChoiceIds: ['saf-burglary-series:saf-burglary-prevention'] },
+    immediateEffects: [],
+    defaultOptionId: 'saf-prevention-hold',
+    options: [
+      {
+        id: 'saf-prevention-all',
+        label: 'In alle sechs Viertel',
+        rationale: 'Sechs Quartiersbüros, sechs Stellen. Wirkt langsam und hält, wenn es wirkt.',
+        oneOffCost: 3.1,
+        monthlyCost: 0.46,
+        axes: { securityAuthority: -0.6, redistribution: 0.7, opennessIntegration: 0.6 },
+        salience: { securityAuthority: 0.8, redistribution: 0.7 },
+        effects: [effect({ target: 'integrationPlaces', expected: 210, delayMonths: 8, rampMonths: 20, confidence: 'medium' })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'saf-prevention-hold',
+        label: 'Beim Wohnring belassen',
+        rationale: 'Ein Modellversuch bleibt ein Modellversuch, bis jemand ihn auswertet.',
+        oneOffCost: 0,
+        monthlyCost: 0,
+        axes: { fiscalRestraint: 0.6 },
+        salience: { fiscalRestraint: 0.7 },
+        effects: [],
+        sourceIds: MODEL,
+      },
+    ],
+    expiresInMonths: 3,
+    sourceIds: MODEL,
+  },
+
+  /* ── Weiche Verkehr: Radachse gebaut ───────────────────────────────────────────────────────────── */
+  {
+    schemaVersion: 1,
+    id: 'mob-bike-network',
+    kind: 'decision',
+    category: 'mobility',
+    title: 'Aus der Achse soll ein Netz werden',
+    briefing:
+      'Die Radachse wird genutzt, deutlich mehr als prognostiziert, und sie endet an beiden Enden im Nichts. Das Tiefbauamt legt einen Netzplan vor: neun Kilometer, vier Kreuzungsumbauten, und an drei Stellen geht es nur über Fahrspuren.',
+    urgency: 'normal',
+    trigger: { earliestMonth: 30, latestMonth: 124, conditions: [], baseWeight: 8, cooldownMonths: 36, oncePerCampaign: true, requiresChoiceIds: ['mob-bike-axis:mob-bike-full'] },
+    immediateEffects: [],
+    defaultOptionId: 'mob-network-partial',
+    options: [
+      {
+        id: 'mob-network-full',
+        label: 'Das ganze Netz, auch über die Fahrspuren',
+        rationale: 'Neun Kilometer am Stück. Drei Hauptstraßen verlieren je eine Spur.',
+        oneOffCost: 14.5,
+        costMonths: 30, // Bauzeit, danach unterhält der Tiefbau sie aus dem Bestand
+        monthlyCost: 0.24,
+        axes: { climateAmbition: 0.9, growthVsPreservation: -0.4, marketVsPublic: -0.4 },
+        salience: { climateAmbition: 1, growthVsPreservation: 0.7 },
+        effects: [effect({ target: 'transitCapacity', expected: 260, delayMonths: 10, rampMonths: 22, confidence: 'medium' })],
+        sourceIds: MODEL,
+      },
+      {
+        id: 'mob-network-partial',
+        label: 'Nur, wo keine Fahrspur wegfällt',
+        rationale: 'Fünf von neun Kilometern, und die Lücken bleiben da, wo es eng wird.',
+        oneOffCost: 6.2,
+        costMonths: 24, // dasselbe, kürzer
+        monthlyCost: 0.12,
+        axes: { climateAmbition: 0.4, fiscalRestraint: 0.3 },
+        salience: { climateAmbition: 0.7, fiscalRestraint: 0.5 },
+        effects: [effect({ target: 'transitCapacity', expected: 110, delayMonths: 10, rampMonths: 20, confidence: 'medium' })],
+        sourceIds: MODEL,
+      },
+    ],
+    expiresInMonths: 3,
+    sourceIds: MODEL,
+  },
 ]
 
 export function getEvent(eventId: string): EventDefinition | undefined {

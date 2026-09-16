@@ -8,7 +8,7 @@
 
 import type { EventCategory } from './events'
 import type { MetricId } from './metrics'
-import type { AxisVector } from './politics'
+import type { AxisVector, PartyId } from './politics'
 
 export interface ActiveMeasureView {
   id: string
@@ -79,8 +79,23 @@ export interface PolicyDefinition {
   id: string
   name: string
   summary: string
-  category: 'housing' | 'transport' | 'tax'
+  category: EventCategory
   jurisdiction: 'municipal'
+  /**
+   * Welche Fraktionen das einbringen würden. Fehlt das Feld, kann es jede.
+   *
+   * > **Ereignisse sind, was der Stadt passiert — für alle gleich. Eigene Vorlagen sind, was deine
+   * > Partei will — je Partei verschieden.**
+   *
+   * Eine Sturmflut fragt nicht, wer regiert. Ein Programm ist genau die Liste dessen, was man
+   * einbringen würde — und bis hierher bekam **jede** Partei dieselben drei Vorlagen, sodass die
+   * LINKE die Gewerbesteuersenkung einbringen konnte und die FDP den kommunalen Wohnungsbau. Nicht
+   * neutral, sondern inkohärent.
+   *
+   * Die Architekturregel bleibt unberührt: hier wird *Inhalt ausgewählt*, nicht gerechnet. Dieselbe
+   * Vorlage wirkt bei jedem identisch, sie wird nur nicht jedem angeboten.
+   */
+  partyIds?: PartyId[]
   implementationCost: number
   monthlyCost: number
   /** How many months the running cost is charged. Omitted means for good. */

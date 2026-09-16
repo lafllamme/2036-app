@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { computed, watch } from 'vue'
-import { POLICIES } from '~/content/policies'
+import { policiesFor } from '~/content/policies'
 import { useGameStore } from '~/stores/game'
 import { CATEGORY_LABELS, formatNumber, POLICY_CATEGORY_LABELS, targetLabel } from '~/utils/labels'
 
@@ -13,8 +13,9 @@ const openMotions = computed(() =>
     .map(entry => ({ entry, definition: game.decisionDefinition(entry.eventId) }))
     .filter((item): item is { entry: typeof item.entry, definition: NonNullable<typeof item.definition> } => Boolean(item.definition)))
 
+// Nur, was die eigene Fraktion auch einbringen würde. Siehe `policiesFor`.
 const standingMotions = computed(() =>
-  POLICIES.filter(policy => !snapshot.value?.activePolicyIds.includes(policy.id)))
+  policiesFor(game.selectedPartyId).filter(policy => !snapshot.value?.activePolicyIds.includes(policy.id)))
 
 const measures = computed(() => snapshot.value?.activeMeasures.filter(measure => measure.monthlyCost !== 0) ?? [])
 const monthlyCost = computed(() => measures.value.reduce((sum, measure) => sum + measure.monthlyCost, 0))

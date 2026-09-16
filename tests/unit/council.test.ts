@@ -107,12 +107,25 @@ describe('a motion of your own', () => {
   })
 
   it('counts those seats when the chamber actually votes', () => {
+    // Die gemeinsame Konsolidierungsvorlage: die LINKE kann sie einbringen und mag sie nicht.
+    // Genau deshalb ist sie der Prüfstein — wer einbringt, stimmt zu, auch gegen die eigene Neigung.
     const state = createInitialState(2036, 'linke', [])
-    const { result } = proposePolicy(state, 'business-tax-balance')
+    const { result } = proposePolicy(state, 'shared-consolidation')
     const own = result?.votes.find(entry => entry.partyId === 'linke')
-    // Ohne den Fix stimmte die LINKE hier zu 100 % gegen ihren eigenen Antrag.
     expect(own?.vote).toBe('yes')
     expect(result!.yesSeats).toBeGreaterThanOrEqual(own!.seats)
+  })
+
+  it('refuses to table another group\'s programme', () => {
+    // Bis hierher bekam jede Partei dieselben drei Vorlagen: die LINKE konnte die
+    // Gewerbesteuersenkung einbringen und die FDP den kommunalen Wohnungsbau.
+    const linke = createInitialState(2036, 'linke', [])
+    expect(proposePolicy(linke, 'business-tax-balance').result).toBeNull()
+    const fdp = createInitialState(2036, 'fdp', [])
+    expect(proposePolicy(fdp, 'housing-accelerator').result).toBeNull()
+    // Das eigene Programm und das gemeinsame gehen weiterhin.
+    expect(proposePolicy(fdp, 'business-tax-balance').result).not.toBeNull()
+    expect(proposePolicy(linke, 'shared-maintenance').result).not.toBeNull()
   })
 
   it('leaves a foreign motion rolled, because that vote is the question', () => {

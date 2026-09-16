@@ -222,7 +222,22 @@ Jede Stufe ist für sich spielbar.
    anbieten (Konsolidieren gegen Gebühren erhöhen, Beton gegen Stadtgesellschaft). Dazu fiel ein
    Wächter auf, der `tabler()` alle Ein-Options-Ereignisse überspringen ließ — mit der Formregel
    hätte er der Opposition ein Drittel der Tagesordnung genommen; ihr Anteil liegt jetzt bei 25 %.
-3. **Parteiprogramme.** Vier eigene je Partei, zwei gemeinsame. Der größte Hebel für Wiederspielbarkeit.
+3. **Parteiprogramme.** *Erledigt.* Vier eigene Vorlagen je Partei, dazu zwei, die jeder Rat
+   irgendwann braucht — sechsundzwanzig statt dreien für alle. Die drei bestehenden sind
+   Parteibesitz geworden: der Wohnungsbau-Turbo zur SPD, LindenTakt zu den GRÜNEN, der
+   Gewerbesteuer-Pakt zur FDP. Die Auswahl steht im Inhalt (`policiesFor`), nicht in der Simulation:
+   dieselbe Vorlage wirkt bei jedem identisch, sie wird nur nicht jedem angeboten — die
+   Architekturregel bleibt unberührt.
+
+   Gemessen im Monat 0 unterscheidet sich die Schwierigkeit jetzt wirklich: die **CDU** bringt sechs
+   von sechs durch (95–100 %), die **LINKE** zwei von sechs (3–54 %). Wessen Programm weit von der
+   Ratsmitte liegt, verliert Abstimmungen — und das wirkt zehn Jahre lang statt einmal am Anfang.
+
+   Zwei Regeln sichern das ab. `parties.test.ts` verlangt, dass jede Partei eine **belegte Haltung**
+   zu genau dem hat, was sie einbringen kann — vorher war eine Position zu *jeder* Vorlage
+   gefordert, was sinnlos wird, sobald die Vorlagen nicht mehr allen gehören. Und **keine
+   Karikatur**: jede parteieigene Vorlage wird gegen den Achsenvektor der Partei geprüft, damit das
+   Programm aus dem kommt, was sie selbst vertritt, und nicht aus einem Klischee über sie.
 4. **Drei Ziele.** Katalog, Auswahlbildschirm, HUD-Zeile, Wertung im Bericht.
 5. **Abgelehnt kehrt zurück.** Ein Trigger-Feld, dazu Folge-Ereignisse für die wichtigsten Ablehnungen.
 6. **Startlage je Partei.** Haushalt, Beziehungen, `organization`, Namensfeld.

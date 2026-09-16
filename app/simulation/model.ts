@@ -26,7 +26,7 @@ import type { Support } from './electorate'
 import type { ActiveMeasure, EventDrawState } from './events'
 import { getEvent } from '../content/events'
 import { getParty, mapParties, PARTIES } from '../content/parties'
-import { getPolicy } from '../content/policies'
+import { getPolicy, mayTable } from '../content/policies'
 import { CAMPAIGN_LAST_MONTH } from '../core/campaign'
 import { formatNumber } from '../core/format'
 import { createRandomStream } from '../core/rng'
@@ -710,7 +710,8 @@ export function applyPolicy(state: SimulationState, policyId: string): Simulatio
 /** Put one of the three standing motions to the council instead of adopting it directly. */
 export function proposePolicy(state: SimulationState, policyId: string): { state: SimulationState, result: VoteResult | null } {
   const definition = getPolicy(policyId)
-  if (!definition || state.policies.some(policy => policy.id === policyId))
+  // Keine Fraktion bringt das Programm einer anderen ein. Die Auswahl selbst steht im Inhalt.
+  if (!definition || !mayTable(state.partyId, policyId) || state.policies.some(policy => policy.id === policyId))
     return { state, result: null }
   const option = asOption(definition)
   const stream = createRandomStream(state.seed, `vote:${state.month}:${policyId}:${policyId}`)

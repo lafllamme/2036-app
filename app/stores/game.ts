@@ -458,7 +458,7 @@ export const useGameStore = defineStore('game', () => {
       schemaVersion: 1,
       id: policy.id,
       kind: 'decision',
-      category: policy.category === 'housing' ? 'housing' : policy.category === 'transport' ? 'mobility' : 'economy',
+      category: policy.category,
       title: policy.name,
       briefing: policy.summary,
       urgency: 'normal',

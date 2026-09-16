@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useSound } from '~/composables/useSound'
 import { useSoundSettings } from '~/composables/useSoundSettings'
 import { getParty } from '~/content/parties'
 import { useGameStore } from '~/stores/game'
+import { drift, handOver } from '~/utils/drift'
 import { formatNumber } from '~/utils/labels'
 
 /*
@@ -52,6 +53,41 @@ const support = computed(() => {
   return id && snapshot.value ? (snapshot.value.support[id] ?? null) : null
 })
 const hasMajority = computed(() => (snapshot.value?.coalitionSupport ?? 0) > 30)
+
+/*
+ * In welche Richtung sich der Rückhalt bewegt.
+ *
+ * Eine Prozentzahl allein sagt nicht, ob man gerade gewinnt oder verliert — und das ist die Frage,
+ * die ein Spieler an diese Zahl stellt. Verglichen wird gegen den zuletzt abgeschlossenen Monat,
+ * nicht gegen das letzte Bild: innerhalb eines Monats zittert der Wert, und ein Pfeil, der bei jedem
+ * Zittern umspringt, ist keine Auskunft.
+ */
+/*
+ * Zwei Stände, nicht einer — und genau daran ist die alte Fassung gescheitert.
+ *
+ * Sie schrieb beim Monatswechsel `previous = { ...snapshot.support }`. Wenn dieser Watcher läuft,
+ * **ist** der Schnappschuss aber schon der neue: verglichen wurde der Monat mit sich selbst, die
+ * Differenz war immer null, und der Pfeil ist in der ganzen Kampagne kein einziges Mal erschienen.
+ * Ein toter Hinweis, den niemand vermisst hat, weil nichts fehlte — es stand nur nie etwas da.
+ *
+ * Also wird der Wert beim Wechsel **weitergereicht**: was gerade galt, wird zum Vorherigen, und erst
+ * dann kommt der neue hinein.
+ */
+const settled = ref<Record<string, number> | null>(null)
+const previous = ref<Record<string, number> | null>(null)
+watch(() => snapshot.value?.month, () => {
+  const now = snapshot.value?.support
+  if (!now)
+    return
+  const next = handOver(settled.value, { ...now })
+  previous.value = next.previous
+  settled.value = next.settled
+})
+
+const direction = computed(() => {
+  const id = selectedPartyId.value
+  return id ? drift(support.value, previous.value?.[id]) : 0
+})
 
 /** Wie viele Monate die Kampagne schon gelaufen ist, als Anteil des Jahrzehnts. */
 const decade = computed(() => Math.min(100, ((snapshot.value?.month ?? 0) / 131) * 100))
@@ -193,15 +229,35 @@ function toggleDecisions(): void {
     <section v-if="snapshot" class="pod standing" aria-label="Rückhalt und Koalition">
       <div v-if="support !== null" class="row">
         <span class="cap">Rückhalt</span>
-        <span class="v">{{ formatNumber(support * 100, 1) }}<small>%</small></span>
+        <span class="v">
+          {{ formatNumber(support * 100, 1) }}<small>%</small>
+          <!--
+            Die Richtung als gezeichnete Form mit ihrem Wort daneben, nie als Zeichen und nie nur
+            als Farbe. Siehe DESIGN.md, „Icons werden gezeichnet".
+          -->
+          <template v-if="direction !== 0">
+            <svg viewBox="0 0 24 24" class="drift" :class="direction > 0 ? 'up' : 'down'" aria-hidden="true">
+              <path v-if="direction > 0" d="M12 19V5m0 0-6 6m6-6 6 6" />
+              <path v-else d="M12 5v14m0 0 6-6m-6 6-6-6" />
+            </svg>
+            <em>{{ direction > 0 ? 'steigt' : 'fällt' }}</em>
+          </template>
+        </span>
       </div>
       <div class="row">
-        <span class="cap">
-          Koalition
-          <b v-if="!hasMajority" class="warn">ohne Mehrheit</b>
-        </span>
+        <span class="cap">Koalition</span>
         <span class="v">{{ snapshot.coalitionSupport }}<small>von 60</small></span>
       </div>
+      <!--
+        Die fehlende Mehrheit auf eigener Zeile.
+
+        Im Label hinter „Koalition" gehängt brach sie den Körper auf schmalen Fenstern auf drei
+        Zeilen um — gemessen bei 1.200 px. Als eigene Zeile über die volle Breite steht sie bei jeder
+        Breite ruhig, und sie ist ohnehin eine Aussage über die Lage und keine über das Wort daneben.
+      -->
+      <p v-if="!hasMajority" class="warn">
+        ohne Mehrheit
+      </p>
       <!--
         Das Jahrzehnt als Rinne unter den beiden Zahlen: elf Jahre sind der Rahmen, in dem beide
         gelten, und es kostet vier Pixel, das zu sagen.
@@ -310,7 +366,15 @@ function toggleDecisions(): void {
  * Körper der Reihe nach, die am wenigsten gebraucht werden.
  */
 .deck > .pod { flex: 0 1 auto; min-width: 0; pointer-events: auto; }
-.deck > .controls { flex: none; }
+/*
+ * Zwei Körper geben nicht nach: die Bedienung rechts, und die Identität links.
+ *
+ * Wenn alle vier gleichmäßig schrumpfen, trifft es zuerst den einzigen, der Fließtext enthält — und
+ * das Ergebnis war „Lindenh…" neben einem „M…" für die Amtsinhaberin. Ein abgeschnittener Stadtname
+ * ist keine Stadt. Der Druck geht jetzt auf den Stand und die Zeit, die beide aus Zahlen bestehen
+ * und dafür feste Plätze haben; was die Identität abgibt, gibt sie in Stufen ab (siehe unten).
+ */
+.deck > .identity, .deck > .controls { flex: none; }
 
 /* --- Wer du bist --------------------------------------------------------- */
 
@@ -336,15 +400,42 @@ function toggleDecisions(): void {
 
 /* --- Wie du stehst ------------------------------------------------------- */
 
-.standing { display: grid; align-content: center; gap: 10px; width: 268px; flex: none; height: 96px; padding: 0 24px; }
-.row { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; }
+/*
+ * Schmaler werden statt verschwinden.
+ *
+ * Der Körper war 268 px breit und fest, und unter 1620 px Fensterbreite wurde er ausgeblendet — also
+ * auf so gut wie jedem Laptop. Damit waren Rückhalt, Mehrheit und der Stand im Jahrzehnt im
+ * normalen Spiel **nie zu sehen**, und das sind die drei Zahlen, um die das ganze Spiel geht. Jetzt
+ * ist er so breit wie sein Inhalt, gibt unter Druck zuerst die Rinne und dann die Beschriftungen
+ * ab, und geht erst, wenn das Fenster wirklich schmal ist.
+ */
+/*
+ * Die Mindestbreite steht als `.deck > .standing`, nicht als `.standing`.
+ *
+ * `.deck > .pod` setzt `min-width: 0`, damit überhaupt etwas nachgeben kann — und schlägt mit seiner
+ * höheren Spezifität jede Mindestbreite, die nur an der Klasse hängt. Gemessen quetschte sich der
+ * Körper dadurch auf 116 px, und „Koalition ohne Mehrheit" brach auf drei Zeilen um.
+ */
+.standing { display: grid; align-content: center; gap: 9px; height: 96px; padding: 0 20px; }
+.deck > .standing { min-width: 172px; }
+.row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
 .cap { color: var(--ink-3); font-size: 11.5px; }
-.cap .warn { color: var(--negative); font-weight: 400; }
+.warn { margin: -3px 0 0; color: var(--negative); font-size: 11.5px; white-space: nowrap; }
 .v {
   display: flex; align-items: baseline; gap: 7px;
   font-family: var(--mono); font-size: 17px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em;
+  /* „26" und „von 60" sind eine Angabe. Umgebrochen liest man zwei. */
+  white-space: nowrap;
 }
 .v small { color: var(--ink-3); font-size: 12px; }
+.v .drift { width: 13px; height: 13px; flex: none; align-self: center; stroke-width: 2.4; }
+.v .drift.up { color: var(--positive); }
+.v .drift.down { color: var(--negative); }
+/* Das Wort gehört dazu, steht aber nur für Vorlesewerkzeuge da: der Pfeil sagt es dem Auge. */
+.v em {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
 
 .decade { position: relative; height: 3px; margin-top: 2px; overflow: hidden; }
 .decade i { position: absolute; inset: 0 auto 0 0; background: rgba(244, 242, 236, 0.5); border-radius: 999px; }
@@ -399,17 +490,55 @@ function toggleDecisions(): void {
 .advance.is-skipping { animation: skipping-pulse 1.1s ease-in-out infinite; }
 @keyframes skipping-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.66; } }
 
-/* Der Reihe nach: erst der Stand, dann das Wetterwort, dann das Datum. Die Uhr geht nie. */
-@media (max-width: 1620px) {
-  .standing { display: none; }
+/*
+ * Die Reihenfolge, in der etwas weicht — und was nie weicht.
+ *
+ * Zuerst gehen Ausschmückungen: die Rinne unter den beiden Zahlen, das Wetterwort, der Name der
+ * Amtsinhaberin. Dann erst geht ein ganzer Körper. **Die beiden Knöpfe in der Identität bleiben
+ * immer**: sie waren unter 1320 px ausgeblendet, und weil es sonst nirgends im laufenden Spiel einen
+ * Weg zu Einstellungen oder zum Speichern gibt, war beides auf einem schmalen Fenster schlicht nicht
+ * erreichbar. Die Uhr geht nie.
+ */
+@media (max-width: 1480px) {
+  /* Erst die Luft zwischen den Körpern und in der Bedienung, dann erst Inhalt. */
+  .deck { gap: 10px; }
+  .controls { gap: 10px; padding: 0 14px; }
+  .deck > .standing { min-width: 158px; }
+  .standing { padding: 0 16px; }
+  .standing .decade { display: none; }
+  .when { gap: 16px; padding: 0 22px; }
+  .when .clock { font-size: 40px; }
+  .identity { gap: 13px; padding: 0 14px 0 18px; }
+  .identity .wordmark { font-size: 28px; }
+  /* Der Name der Amtsinhaberin geht vor dem Namen der Stadt: „Lindenh…" ist keine Stadt. */
+  .identity .who .lead { display: none; }
 }
-@media (max-width: 1320px) {
-  .when { gap: 16px; padding: 0 20px; }
-  .when .clock { font-size: 38px; }
-  .identity .session { display: none; }
-}
-@media (max-width: 1140px) {
+@media (max-width: 1280px) {
+  /*
+   * Ab hier gibt auch die Bedienung nach — vorher wurde sie nie kleiner, und der Rest des Decks
+   * musste ihre 508 px allein tragen: gemessen blieben dem Stand 157 px, „26 von 60" brach um und
+   * das Wort neben der Uhr wurde beschnitten. Kleinere Knöpfe sind besser als abgeschnittene Zahlen.
+   */
+  .controls { gap: 8px; padding: 0 12px; }
+  .controls .round { width: 40px; height: 40px; }
+  .controls .round :deep(svg), .controls .round svg { width: 17px; height: 17px; }
+  .segs button { min-width: 36px; height: 34px; }
+  .controls .divider { margin: 0 2px; }
+  .deck > .standing { min-width: 146px; }
   .when .r .wx .word { display: none; }
   .when .r .date { font-size: 12px; }
+  .standing .cap { font-size: 11px; }
+  .standing .v { font-size: 15px; }
+  .identity .who { display: none; }
+}
+/*
+ * Unter 1180 px geht der Stand — nicht, weil er unwichtig wäre, sondern weil ab hier sonst die Uhr
+ * und das Datum beschnitten würden, und die Uhr geht nie.
+ */
+@media (max-width: 1180px) {
+  .standing { display: none; }
+}
+@media (max-width: 1080px) {
+  .when .clock { font-size: 34px; }
 }
 </style>

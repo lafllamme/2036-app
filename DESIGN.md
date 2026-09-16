@@ -66,8 +66,17 @@ aus verschachtelten Kästen.
 
 **Kein Körper spannt sich von Kante zu Kante.** Eine durchgehende Leiste liest wie eine Symbolleiste
 im Browser und nimmt dem Bild eine ganze Kante. Jeder Körper ist so breit wie sein Inhalt, mit Luft
-dazwischen — und keiner darf aus dem Bild laufen: was nicht passt, schrumpft, und was dann immer noch
-nicht passt, verschwindet in einer festen Reihenfolge (Stand, Wetterwort, Datum; die Uhr nie).
+dazwischen — und keiner darf aus dem Bild laufen.
+
+**Was weicht, weicht in dieser Reihenfolge**, und die Reihenfolge ist nicht beliebig: erst Luft
+(Abstände, Polster), dann Ausschmückung (die Rinne unter den Zahlen, das Wetterwort, der Name der
+Amtsinhaberin), dann Größe (Knöpfe und Ziffern), und **erst zuletzt ein ganzer Körper**. Nichts, was
+man drücken kann, verschwindet dabei je: Speichern und Einstellungen sind im laufenden Spiel nur an
+einer Stelle erreichbar, und ausgeblendet sind sie schlicht nicht erreichbar. Die Uhr geht nie.
+
+Der erste Entwurf blendete den Stand — Rückhalt, Mehrheit, Stand im Jahrzehnt — schon unter 1.620 px
+aus und die beiden Knöpfe unter 1.320 px, also auf so gut wie jedem Laptop. Drei Zahlen, um die das
+ganze Spiel geht, waren im normalen Spiel nie zu sehen, und zwei Funktionen gar nicht zu erreichen.
 
 **Genau eine gefüllte Aktion je Region.** Die gefüllte ist Papier auf Dunkel, vollrund. Jede andere
 ist dieselbe Pille in leise.

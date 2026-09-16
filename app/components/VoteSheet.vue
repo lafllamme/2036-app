@@ -273,7 +273,12 @@ watch(() => openDecision.value?.definition.id, () => {
 
     <div class="split">
       <section class="ways">
-        <h3>{{ singleOption ? 'Beschlussvorschlag' : `${optionList.length} Wege` }}</h3>
+        <!--
+          Die Überschrift zählt, was zur Wahl steht — sie fragt nicht, ob der Weg so heißt wie die
+          Vorlage. An `singleOption` gehängt stand über einer Vorlage mit genau einem Weg, der anders
+          heißt als sie, wörtlich „1 Wege".
+        -->
+        <h3>{{ optionList.length === 1 ? 'Beschlussvorschlag' : `${optionList.length} Wege` }}</h3>
         <button
           v-for="option in optionList"
           :key="option.id"
@@ -295,7 +300,7 @@ watch(() => openDecision.value?.definition.id, () => {
           </span>
         </button>
 
-        <p v-if="!singleOption" class="rationale">
+        <p v-if="optionList.length > 1" class="rationale">
           {{ chosen.rationale }}
         </p>
 

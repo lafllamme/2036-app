@@ -3,7 +3,7 @@ import { storeToRefs } from 'pinia'
 import { computed, watch } from 'vue'
 import { policiesFor } from '~/content/policies'
 import { useGameStore } from '~/stores/game'
-import { CATEGORY_LABELS, formatNumber, POLICY_CATEGORY_LABELS } from '~/utils/labels'
+import { CATEGORY_LABELS, effectTone, formatNumber, targetLabel } from '~/utils/labels'
 
 const game = useGameStore()
 const { snapshot, pendingDecisions, decisionsOpen } = storeToRefs(game)
@@ -91,7 +91,20 @@ watch(() => openMotions.value.length, (now, before) => {
           <!-- Eine Vorlage, die der Stadt Geld bringt, darf nicht wie eine Ausgabe aussehen. -->
           <span class="cost">{{ formatNumber(policy.implementationCost) }} Mio. €
             · {{ policy.monthlyCost < 0 ? '+' : '' }}{{ formatNumber(Math.abs(policy.monthlyCost), 1) }}/Monat</span>
-          <span class="kind">{{ POLICY_CATEGORY_LABELS[policy.category] ?? policy.category }}</span>
+          <!--
+            Woran man sie auseinanderhält.
+
+            Die Zeile trug einen Namen, einen Preis und eine Kategorie — also dreimal, *was* das ist,
+            und keinmal, *was es tut*. Zwischen vier Vorlagen wählt aber niemand nach dem Preis,
+            sondern danach, worauf sie wirken; ohne das musste man jede einzeln aufmachen, um
+            überhaupt eine Wahl treffen zu können. Der Ton kommt aus `effectTone`, das auch weiß,
+            welche Kennzahlen das Modell bewusst nicht wertet — die bleiben grau.
+          -->
+          <span class="does">
+            <b v-for="effect in policy.effects" :key="effect.target" :class="effectTone(effect.target, effect.expected)">
+              {{ effect.expected > 0 ? '+' : '−' }} {{ targetLabel(effect.target) }}
+            </b>
+          </span>
         </button>
       </section>
 
@@ -162,7 +175,18 @@ h4 { margin: 0 0 8px; color: var(--ink-3); font-family: var(--text); font-size: 
 .own .cost {
   color: var(--ink-3); font-family: var(--mono); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-.own .kind { grid-column: 1 / -1; color: var(--ink-3); font-size: 11.5px; }
+/*
+ * Was sie tut, als Zeile darunter — zusammenhängend, damit vier Vorlagen untereinander lesbar
+ * bleiben. Kein Kasten je Wirkung: das wären zwölf Kästchen in einer Liste, in der man gerade
+ * überfliegen will.
+ */
+.own .does {
+  display: flex; flex-wrap: wrap; grid-column: 1 / -1; gap: 3px 12px;
+  color: var(--ink-3); font-size: 11.5px;
+}
+.own .does b { font-weight: 400; }
+.own .does .gain { color: var(--positive); }
+.own .does .loss { color: var(--negative); }
 
 .running {
   display: flex; align-items: baseline; justify-content: space-between; gap: 12px;

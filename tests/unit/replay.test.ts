@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { EVENTS } from '../../app/content/events'
-import { advanceMonths, createInitialState } from '../../app/simulation/model'
+import { advanceMonths, createInitialState, motionOnTheAgenda, resolveDecision, voteOnMotion } from '../../app/simulation/model'
 
 /**
  * Wie verschieden zwei Durchläufe sind — und warum das gemessen und nicht geglaubt wird.
@@ -20,16 +20,41 @@ import { advanceMonths, createInitialState } from '../../app/simulation/model'
  * er ist die einzige Stelle, an der auffällt, wenn eine neue Vorlage ohne Haken hereinkommt.
  */
 
-/** Vier Parteien × drei Seeds — der stärkste Unterschied, den das Spiel überhaupt anbietet. */
+/** Vier Parteien × drei Haltungen — der stärkste Unterschied, den das Spiel überhaupt anbietet. */
 const PARTIES = ['gruene', 'cdu', 'linke', 'fdp'] as const
-const SEEDS = 3
+/**
+ * Und **entschieden wird auch**, denn sonst misst dieser Test sich selbst vorbei.
+ *
+ * Die erste Fassung ließ nur die Monate laufen und stimmte über nichts ab. Damit bleibt `choices`
+ * leer, und jede Tür zwischen zwei Entscheidungen — der ganze Mechanismus, dessen Wirkung hier
+ * gemessen werden soll — kann grundsätzlich nicht greifen. Gemessen wurde die Streuung des Würfels
+ * und nicht die der Politik.
+ *
+ * Drei Haltungen: eine Stadt, die zu allem Ja sagt, eine, die die jeweils letzte Option nimmt, und
+ * eine, die sich enthält. Das deckt beide Seiten jeder Weiche ab.
+ */
+const STANCES = ['first', 'last', 'abstain'] as const
 
 function campaigns(): Set<string>[] {
   const runs: Set<string>[] = []
   for (const party of PARTIES) {
-    for (let seed = 0; seed < SEEDS; seed += 1) {
-      let state = createInitialState(500 + seed, party, [])
-      for (let month = 0; month < 132; month += 1) state = advanceMonths(state, 1)
+    for (const stance of STANCES) {
+      let state = createInitialState(500 + STANCES.indexOf(stance), party, [])
+      for (let month = 0; month < 132; month += 1) {
+        state = advanceMonths(state, 1)
+        if (stance === 'abstain')
+          continue
+        for (const entry of [...state.pending]) {
+          if (motionOnTheAgenda(state, entry.eventId)) {
+            state = voteOnMotion(state, entry.eventId, stance === 'first' ? 'yes' : 'no').state
+            continue
+          }
+          const options = EVENTS.find(event => event.id === entry.eventId)?.options ?? []
+          const option = stance === 'first' ? options[0] : options[options.length - 1]
+          if (option)
+            state = resolveDecision(state, entry.eventId, option.id).state
+        }
+      }
       runs.push(new Set(state.firedOnce))
     }
   }
@@ -55,7 +80,7 @@ describe('wiederspielwert', () => {
     const never = EVENTS.filter(event => !union.has(event.id))
 
     writeFileSync('/tmp/replay.txt', [
-      `${runs.length} Durchläufe (${PARTIES.length} Parteien × ${SEEDS} Seeds), je 132 Monate`,
+      `${runs.length} Durchläufe (${PARTIES.length} Parteien × ${STANCES.length} Haltungen), je 132 Monate`,
       `Vorlagen im Bestand              ${EVENTS.length}`,
       `Je Durchlauf gesehen             ${Math.min(...sizes)}–${Math.max(...sizes)}`,
       `In JEDEM Durchlauf (Pflichtteil) ${core.size}`,
@@ -75,9 +100,14 @@ describe('wiederspielwert', () => {
      * für die durchgemessene Tabelle. Ein Durchlauf, in dem man seine Versprechen nicht halten
      * *kann*, ist kaputter als einer, der sich wiederholt.
      *
-     * Von hier kommt man nur mit Inhalt weiter: mehr Verzweigungen, oder Vorlagen, die sich ihren
-     * Ort und ihre Zahlen aus dem Spielstand holen statt fest geschrieben zu sein. Bis dahin hält
-     * dieser Test fest, dass es nicht wieder schlechter wird — vorher waren es 42 und 82 %.
+     * Von hier kommt man nur mit Inhalt weiter, und das ist inzwischen **dreimal unabhängig
+     * gemessen**: die Ziehungsrate von 0,80 auf 0,62 brachte 42 → 21 und 82 → 69 %; Bedingungen an
+     * 31 Vorlagen brachten wenige Punkte; acht Türen zwischen Entscheidungen brachten noch einmal
+     * einen. Acht Türen auf 78 Vorlagen bewegen eine Überschneidung von 68 % nicht — dafür müsste
+     * die Mehrheit der Vorlagen an einer Weiche hängen, und das sind zwei- bis dreihundert
+     * geschriebene Verzweigungen, keine Zahl in einer Datei.
+     *
+     * Bis dahin hält dieser Test fest, dass es nicht wieder schlechter wird.
      */
     expect(core.size).toBeLessThanOrEqual(25)
     expect(overlap).toBeLessThanOrEqual(0.72)

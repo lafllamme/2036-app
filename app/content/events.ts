@@ -695,6 +695,7 @@ export const EVENTS: EventDefinition[] = [
    */
   {
     schemaVersion: 1,
+    // Tür: Ohne Kameras klagt niemand gegen Kameras.
     id: 'saf-cctv-challenge',
     kind: 'incident',
     category: 'governance',
@@ -702,7 +703,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die Landesbeauftragte für Datenschutz hält die Videoüberwachung an achtzehn Knotenpunkten für unverhältnismäßig und fordert Rückbau. Eine Klage ist angekündigt. Die Stadt kann den Rechtsweg gehen, die Anlage auf wenige Brennpunkte zurückschneiden oder sie abbauen.',
     urgency: 'important',
-    trigger: { earliestMonth: 6, latestMonth: 120, conditions: [], baseWeight: 9, cooldownMonths: 60, oncePerCampaign: true, requiresChoiceIds: ['saf-burglary-series:saf-burglary-cctv'] },
+    trigger: { earliestMonth: 6, latestMonth: 120, blockedByChoiceIds: ['saf-burglary-series:saf-burglary-prevention'], conditions: [], baseWeight: 9, cooldownMonths: 60, oncePerCampaign: true, requiresChoiceIds: ['saf-burglary-series:saf-burglary-cctv'] },
     // The order arrives with the lawyers already on it, whatever the council decides afterwards.
     immediateEffects: [effect({ target: 'cityBudget', expected: -0.9, delayMonths: 0, rampMonths: 1 })],
     defaultOptionId: 'saf-cctv-reduce',
@@ -1309,6 +1310,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Tür: Modulbau in Eigenregie setzt einen eigenen Bauträger voraus. Ohne Gesellschaft baut die Stadt nicht selbst.
     id: 'hou-modular-housing',
     kind: 'decision',
     category: 'housing',
@@ -1316,7 +1318,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die Stadt zahlt für Hotelplätze mehr als eine eigene Wohnung kosten würde. Ein Modulbau an der Ringstraße wäre in vierzehn Monaten bezugsfertig — und würde zwanzig Jahre stehen, obwohl er als Provisorium beantragt ist.',
     urgency: 'important',
-    trigger: { earliestMonth: 12, latestMonth: 128, conditions: [{ metric: 'homelessPeople', operator: '>', value: 700 }], baseWeight: 9, cooldownMonths: 30, oncePerCampaign: false },
+    trigger: { earliestMonth: 12, latestMonth: 128, blockedByChoiceIds: ['fin-housing-company:fin-housing-sell'], conditions: [{ metric: 'homelessPeople', operator: '>', value: 700 }], baseWeight: 9, cooldownMonths: 30, oncePerCampaign: false },
     immediateEffects: [],
     refusedEffects: [effect({ target: 'cityBudget', expected: -2.4, delayMonths: 1, rampMonths: 6, confidence: 'high' })],
     options: [
@@ -1559,6 +1561,7 @@ export const EVENTS: EventDefinition[] = [
   {
     schemaVersion: 1,
     // Grünfläche 18,4–24,2 m² je Kopf.
+    // Tür: Ein Terminal an der Ostkante und ein mäandernder Fluss sind derselbe Quadratmeter. Einer von beiden.
     id: 'env-river-renaturation',
     kind: 'decision',
     category: 'environment',
@@ -1566,7 +1569,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Der begradigte Flussabschnitt hinter dem Gewerbegebiet ist ökologisch tot und bei Starkregen eine Rinne. Eine Renaturierung senkt das Hochwasserrisiko — und kostet Gewerbefläche.',
     urgency: 'normal',
-    trigger: { earliestMonth: 22, latestMonth: 120, conditions: [{ metric: 'greenSpacePerCapita', operator: '<', value: 21.5 }], baseWeight: 6, cooldownMonths: 48, oncePerCampaign: false },
+    trigger: { earliestMonth: 22, latestMonth: 120, blockedByChoiceIds: ['eco-harbour-expansion:eco-harbour-expand'], conditions: [{ metric: 'greenSpacePerCapita', operator: '<', value: 21.5 }], baseWeight: 6, cooldownMonths: 48, oncePerCampaign: false },
     immediateEffects: [],
     defaultOptionId: 'env-river-partial',
     options: [
@@ -1772,6 +1775,7 @@ export const EVENTS: EventDefinition[] = [
   {
     schemaVersion: 1,
     // Kriminalität 39,9–62,5 je 1.000.
+    // Tür: Wer auf Kameras gesetzt hat, bekommt für Beleuchtung und Nachbarschaftsarbeit keine Mehrheit mehr — das Geld ist gebunden und die Debatte entschieden.
     id: 'saf-lighting-offensive',
     kind: 'decision',
     category: 'safety',
@@ -1779,7 +1783,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die Beschwerden über unbeleuchtete Wege häufen sich, vor allem von Frauen und Älteren. LED mit Bewegungsmeldern wäre auch für die Tiere im Grünzug vertretbar — und kostet einmal viel, dann wenig.',
     urgency: 'normal',
-    trigger: { earliestMonth: 7, latestMonth: 130, conditions: [{ metric: 'crimeRate', operator: '>', value: 49 }], baseWeight: 8, cooldownMonths: 36, oncePerCampaign: false },
+    trigger: { earliestMonth: 7, latestMonth: 130, blockedByChoiceIds: ['saf-burglary-series:saf-burglary-cctv'], conditions: [{ metric: 'crimeRate', operator: '>', value: 49 }], baseWeight: 8, cooldownMonths: 36, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {
@@ -1872,6 +1876,7 @@ export const EVENTS: EventDefinition[] = [
   {
     schemaVersion: 1,
     // Jugendarbeitslosigkeit 3,8–14,6 %: ein Gründerzentrum fordert, wer keine Lehrstellen hat.
+    // Tür: Die Werfthalle steht dann nicht mehr leer, sondern im Terminal. Ein Gründerzentrum braucht sie.
     id: 'eco-startup-centre',
     kind: 'decision',
     category: 'economy',
@@ -1879,7 +1884,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die denkmalgeschützte Halle 4 steht seit neun Jahren leer. Als Gründerzentrum mit günstigen Mieten wäre sie in zwei Jahren belegt — die Sanierung kostet allerdings, bevor irgendjemand einzieht.',
     urgency: 'normal',
-    trigger: { earliestMonth: 14, latestMonth: 122, conditions: [{ metric: 'youthUnemployment', operator: '>', value: 7 }], baseWeight: 7, cooldownMonths: 44, oncePerCampaign: false },
+    trigger: { earliestMonth: 14, latestMonth: 122, blockedByChoiceIds: ['eco-harbour-expansion:eco-harbour-expand'], conditions: [{ metric: 'youthUnemployment', operator: '>', value: 7 }], baseWeight: 7, cooldownMonths: 44, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {

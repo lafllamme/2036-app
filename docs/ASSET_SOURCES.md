@@ -116,3 +116,33 @@ Der saubere Weg wäre ein Pack mit mehr Figuren. Kenney hat keins im selben Stil
 *Ultimate Modular Characters* (CC0) hat deutlich mehr, ist aber eine andere Handschrift — ein
 Wechsel wäre ein Austausch des ganzen Personals, nicht eine Ergänzung. **Das ist eine
 Gestaltungsentscheidung und keine technische**, und sie steht hier offen statt nebenbei getroffen.
+
+### Was ein zusätzliches Charaktermodell wirklich kostet
+
+Nachgemessen, bevor irgendein Pack getauscht wurde, weil die Antwort die Entscheidung trägt. Eine
+Flotte legt **eine Instanz je Modell mal Pose** an, und jede Instanz ist ein Draw:
+
+| Flotte | Instanzen |
+| --- | --- |
+| Fußgänger | **24** — 6 Modelle × 4 Posen |
+| Radfahrer | 6 |
+| Autos | 13 |
+| Busse | 3 |
+| Streife | 1 |
+| **Summe** | **47 von 146 Draws im Bild** |
+
+Ein Drittel aller Zeichenaufrufe ist bereits Menge und Verkehr. Die Zivilmodelle von sechs auf zwölf
+zu verdoppeln hieße Fußgänger 24 → 48 und Radfahrer 6 → 12: **rund dreißig Draws mehr, von 146 auf
+176.** Ein Fünftel des Budgets — für Vielfalt, die nur auf Straßenhöhe sichtbar ist, während aus der
+Überblickskamera niemand zwei Fußgänger unterscheidet.
+
+Deshalb steht der Tausch aus. Es ist keine Frage der Verfügbarkeit: Quaternius' *Ultimate Modular
+Characters* sind CC0 und über Poly Pizza als glTF zu haben — elf Figuren, davon acht stadttauglich
+(Hoodie, Casual, Worker, Punk, Business, Farmer, Beach, SWAT). Es ist eine Frage des Preises, und der
+ist an der falschen Stelle: dieselben dreißig Draws bringen an der Karte ungleich mehr als in der
+Menge.
+
+**Was den Preis senken würde**, falls die Entscheidung anders fällt: eine Pose weniger je Figur macht
+sechs Instanzen frei und bezahlt damit zwei zusätzliche Modelle zum Nulltarif — auf Kosten des
+Gangbildes. Oder ein Entfernungs-LOD, das jenseits von dreihundert Metern alle Figuren auf ein
+einziges Modell zusammenzieht; das wäre die saubere Lösung und ist eigene Arbeit.

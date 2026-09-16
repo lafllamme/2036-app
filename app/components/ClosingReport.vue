@@ -100,7 +100,7 @@ onKeyStroke('Escape', () => {
   <div v-if="report && !dismissed" class="modal-backdrop closing">
     <article
       ref="panel"
-      class="closing-report pod"
+      class="closing-report panel"
       role="dialog"
       aria-modal="true"
       aria-labelledby="closing-title"
@@ -210,10 +210,10 @@ onKeyStroke('Escape', () => {
           Vertical Slice: alle Werte sind gekennzeichnete Modellannahmen, keine reale Prognose.
         </p>
         <div class="closing-actions">
-          <button type="button" class="btn btn--ghost" @click="dismissed = true">
+          <button type="button" class="quiet-button" @click="dismissed = true">
             Stadt ansehen
           </button>
-          <button type="button" class="btn" @click="game.startNewCampaign()">
+          <button type="button" class="primary" @click="game.startNewCampaign()">
             Neue Kampagne
           </button>
         </div>
@@ -221,136 +221,3 @@ onKeyStroke('Escape', () => {
     </article>
   </div>
 </template>
-
-<style scoped>
-/*
- * Zehn Jahre auf einem Schirm. Breiter und höher als alles andere, mit Absicht: jeder andere Körper
- * im Spiel stellt eine Frage und geht aus dem Weg, und dies ist das Einzige, was gelesen werden soll.
- */
-.modal-backdrop.closing { padding: 24px; }
-
-/*
- * Der Körper rollt nicht; seine Mitte rollt. Zwei Entscheidungen am Ende eines Jahrzehnts müssen
- * erreichbar sein, ohne erst bis unten zu lesen — und ein Verlauf über den letzten Zentimeter eines
- * rollenden Bereichs kann Fußzeile nicht von Inhalt unterscheiden.
- */
-.closing-report {
-  position: relative; display: flex; flex-direction: column;
-  width: min(780px, 100%); max-height: calc(100vh - 48px);
-  padding: 30px 34px 24px; border-radius: var(--r-card);
-  /* Ein einziger gestalteter Moment: er steigt einmal herein, aus einem sichtbaren Zustand. */
-  animation: closing-rise 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-.closing-report:focus { outline: none; }
-.closing-report:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
-@keyframes closing-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-
-.closing-report > .close-button { position: absolute; top: 20px; right: 22px; }
-
-/*
- * Auf einem kurzen Fenster ist der Bericht höher als das Bild. Die Maske verläuft den letzten
- * Zentimeter, damit die Kante „da ist mehr" sagt statt „hier ist Schluss" — ein Rollbalken sagt das
- * einer Maus und sonst niemandem.
- */
-.closing-report__body {
-  flex: 1; min-height: 0; overflow-y: auto;
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent 100%);
-  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
-}
-.closing-report__body::-webkit-scrollbar { width: 6px; }
-.closing-report__body::-webkit-scrollbar-track { background: transparent; }
-.closing-report__body::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
-
-.closing-report header { flex: none; padding-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
-.closing-report header small { display: block; color: var(--ink-3); font-size: 12.5px; }
-.closing-report h2 {
-  margin: 12px 0 0; font-family: var(--display); font-size: clamp(30px, 5vw, 46px); font-weight: 700;
-  letter-spacing: -0.035em; line-height: 1.02;
-}
-/* Drei Enden, und keines davon ist eine Punktzahl. Der Ton sagt, was passiert ist, nicht wie gut. */
-.closing-report h2.voted-out, .closing-report h2.broken { color: var(--negative); }
-.because { margin: 12px 0 0; max-width: 62ch; color: var(--ink-2); font-size: 14px; line-height: 1.55; }
-
-.closing-report section { padding: 20px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
-.closing-report h3 { margin: 0 0 14px; color: var(--ink-3); font-family: var(--text); font-size: 12.5px; font-weight: 400; }
-.closing-report ul { margin: 0; padding: 0; list-style: none; }
-
-.closing-ledger li {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto 132px; gap: 14px; align-items: baseline; padding: 8px 0;
-}
-.closing-ledger li + li { border-top: 1px solid rgba(255, 255, 255, 0.06); }
-.closing-ledger__label { font-size: 13.5px; }
-.closing-ledger__values {
-  color: var(--ink-3); font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.closing-ledger__values b { color: var(--ink); font-weight: 400; }
-.closing-ledger__values i { padding: 0 6px; font-style: normal; }
-.closing-ledger__values small { font-size: 10px; }
-.closing-ledger__verdict {
-  font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap;
-}
-/* Nie Farbe allein: jedes Urteil trägt das Wort für das, was es ist. */
-.closing-ledger__verdict small { display: block; font-family: var(--text); font-size: 11px; }
-.closing-ledger__verdict.good { color: var(--positive); }
-.closing-ledger__verdict.bad { color: var(--negative); }
-.closing-ledger__verdict.flat { color: var(--ink-3); }
-
-.deeds li {
-  display: grid; grid-template-columns: 1fr auto 78px; gap: 14px; align-items: baseline;
-  padding: 7px 0; font-size: 13px;
-}
-.deeds li + li { border-top: 1px solid rgba(255, 255, 255, 0.06); }
-.deeds span { color: var(--ink-3); font-size: 12px; }
-.deeds i {
-  font-family: var(--mono); font-size: 12px; font-style: normal; font-variant-numeric: tabular-nums; text-align: right;
-}
-.deeds i.good { color: var(--positive); }
-.deeds i.bad { color: var(--negative); }
-
-.closing-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
-.closing-columns section { border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
-
-.standing li {
-  display: grid; grid-template-columns: 8px 44px 1fr 16px 1fr auto; gap: 8px; align-items: center;
-  padding: 6px 0; font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums;
-}
-/* Nie Farbe allein: die eigene Zeile ist hell *und* markiert, in der Sprache des Körpers selbst. */
-.standing li.own { padding-left: 9px; color: var(--ink); box-shadow: inset 2px 0 0 rgba(255, 255, 255, 0.22); }
-.standing li:not(.own) { color: var(--ink-3); }
-.standing i { width: 8px; height: 8px; border-radius: 50%; }
-.standing i.arrow { width: auto; height: auto; border-radius: 0; font-style: normal; }
-.standing b { color: var(--ink); font-weight: 400; }
-.standing em { color: var(--ink-3); font-size: 10px; font-style: normal; text-align: right; }
-
-.promises li {
-  display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: baseline; padding: 7px 0; font-size: 13px;
-}
-.promises li + li { border-top: 1px solid rgba(255, 255, 255, 0.06); }
-.promises span { grid-column: 1; color: var(--ink-3); font-size: 11.5px; }
-.promises i {
-  grid-row: 1 / span 2; grid-column: 2;
-  font-family: var(--mono); font-size: 12px; font-style: normal; font-variant-numeric: tabular-nums; text-align: right;
-}
-.promises li.good i, .promises li.good span { color: var(--positive); }
-.promises li.bad i, .promises li.bad span { color: var(--negative); }
-
-.roads p { margin: 0; font-size: 13.5px; line-height: 1.55; }
-.roads b { font-family: var(--mono); font-size: 16px; font-variant-numeric: tabular-nums; }
-.roads__note { margin-top: 11px !important; color: var(--ink-2); font-size: 13px; }
-.roads__list { margin-top: 9px !important; }
-/*
- * Eine Haarlinie und Abstand statt eines Aufzählungszeichens: die Struktur sagt schon „Liste", und
- * ein ✗ im Text wäre ein Icon aus Zeichen — das macht dieses System nirgends sonst.
- */
-.roads__list li { padding: 7px 0 7px 14px; border-left: 1px solid rgba(255, 255, 255, 0.08); color: var(--ink-3); font-size: 12.5px; }
-
-.closing-report footer { flex: none; padding-top: 18px; }
-.disclaimer { margin: 0 0 16px; color: var(--ink-3); font-size: 11.5px; line-height: 1.5; }
-.closing-actions { display: flex; gap: 10px; justify-content: flex-end; }
-
-@media (max-width: 720px) {
-  .closing-columns { grid-template-columns: 1fr; gap: 0; }
-  .closing-ledger li { grid-template-columns: 1fr auto; }
-  .closing-ledger__verdict { grid-column: 2; }
-}
-</style>

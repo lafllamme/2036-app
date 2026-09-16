@@ -458,6 +458,54 @@ nur mit Inhalt: mehr Verzweigungen, oder Vorlagen, die sich ihren Ort und ihre Z
 Spielstand holen statt fest geschrieben zu sein. `tests/unit/replay.test.ts` hält beides fest — den
 Stand und das Ziel.
 
+## Die Türen zwischen den Entscheidungen, nachgemessen
+
+Fünf Weichen tragen die Kampagne — Wohnungsgesellschaft, Hafen, Sicherheit, Boden, Verkehr — und
+hinter jeder steht jetzt etwas, das der andere Weg nicht bekommt:
+
+| Was dann nicht mehr kommt | Weil |
+| --- | --- |
+| `hou-modular-housing` | Modulbau in Eigenregie braucht einen eigenen Bauträger — ohne Gesellschaft baut die Stadt nicht selbst |
+| `eco-startup-centre` | Die Werfthalle steht nach dem Terminalbau nicht mehr leer |
+| `env-river-renaturation` | Terminal an der Ostkante und mäandernder Fluss sind derselbe Quadratmeter |
+| `saf-lighting-offensive` | Wer auf Kameras gesetzt hat, bekommt für Beleuchtung keine Mehrheit mehr |
+| `saf-cctv-challenge` | Ohne Kameras klagt niemand gegen Kameras |
+
+### Vier Türen, die wieder heraus mussten
+
+Eine Tür, die auf eine Entscheidung zeigt, die es nicht gibt, **schlägt nie fehl** — sie ist eine
+Bedingung, die niemals eintritt, und von außen sieht sie aus wie ein Ereignis, das man diesmal nicht
+gezogen hat. `tests/unit/doors.test.ts` rechnet deshalb jede nach und fand sofort eine erfundene
+Option (`mob-bike-axis:mob-bike-parking`; die Option heißt `mob-bike-full`).
+
+Drei weitere kippten am Inhalt und nicht an der Technik — aufgefallen sind sie, weil das Ziel
+„ausgeglichener Haushalt" danach unerreichbar war:
+
+- **Erbbaurecht nach Verkauf der Wohnungsgesellschaft.** Vergeben wird an *Genossenschaften*, also an
+  Dritte. Dass die Stadt ihre eigene Gesellschaft verkauft hat, hindert sie daran nicht.
+- **Anwohnerparken nach der Radachse.** Eine Radachse nimmt Stellplätze auf *einem* Korridor, nicht
+  das Anwohnerparken der ganzen Stadt.
+- **Milieuschutz nach Flächenverkauf.** Milieuschutz ist ein Planungsinstrument auf *privatem*
+  Bestand; die Stadt muss dafür gar nichts besitzen.
+
+### Was sie gebracht haben, und was nicht
+
+| | |
+| --- | --- |
+| Vorlagen an einer Weiche | 10 → 15 von 78 |
+| Pflichtteil | 21 → **22** |
+| Überschneidung zweier Läufe | 69 % → **68 %** |
+
+Fast nichts — und das ist das eigentliche Ergebnis. Der Messtest maß zunächst an sich selbst vorbei:
+er ließ nur die Monate laufen und stimmte über nichts ab, sodass `choices` leer blieb und keine
+einzige Tür greifen konnte. Er spielt jetzt drei Haltungen durch (zu allem Ja, zu allem Nein,
+Enthaltung) — und auch dann bewegt sich die Zahl um einen Punkt.
+
+**Damit ist es dreimal unabhängig gemessen:** die Ziehungsrate brachte 82 → 69 %, Bedingungen an 31
+Vorlagen brachten wenige Punkte, fünf Türen brachten einen. Dafür müsste die *Mehrheit* der Vorlagen
+an einer Weiche hängen, und das sind zwei- bis dreihundert geschriebene Verzweigungen — Inhalt, keine
+Zahl in einer Datei.
+
 ## „Nächstes Ereignis" statt „Nächster Monat"
 
 Der Knopf hieß „Nächster Monat" und war damit das Gegenteil dessen, wofür er da war:

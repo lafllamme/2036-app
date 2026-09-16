@@ -97,30 +97,123 @@ const PLINTH_SHADE = 0.62
 /** The low wall a flat roof stops at. */
 const PARAPET = 0.9
 
+/**
+ * Woraus die Stadt gebaut ist.
+ *
+ * Hier standen fünf Töne je Typ, die nachgemessen keine waren: `residential` spannte **3 Grad**
+ * Farbton und zwölf Punkte Helligkeit, `civic` genau **null Grad**, und modern, Gewerbe und Industrie
+ * lagen bei zwei bis acht Prozent Sättigung — also Grau, in dem eine Farbtonspanne nichts bedeutet.
+ * Fünfmal dieselbe Farbe mit fünf Namen. Das ist der Grund, aus dem sich Lindenhafen anfühlte wie ein
+ * Haus, achtzigmal kopiert.
+ *
+ * Jetzt echter Bestand statt Rauschen um einen Mittelwert. Eine norddeutsche Stadt ist gedämpft, aber
+ * nicht einfarbig: Gründerzeit steht in Ocker, Creme, Altrosa und Blassgrün neben rotem und gelbem
+ * Klinker; die Nachkriegszeilen sind weiß verputzt, sandfarben, hellgrau; die Siebziger brachten
+ * Braun und Waschbeton. Jeder Typ spannt jetzt dreißig bis vierzig Punkte Helligkeit und hat Töne mit
+ * genug Sättigung, dass man sie als Farbe sieht — und **es kostet keinen einzigen Draw**, weil die
+ * Wandfarbe eine Vertex-Farbe auf einer weißen Textur ist und immer war.
+ */
 const WALL_COLOURS: Record<BuildingType, string[]> = {
-  altbau: ['#b09480', '#c2a687', '#9c8271', '#ab8871', '#bda593'],
-  residential: ['#bdb29f', '#b2a894', '#c8bda6', '#a89f8d', '#c6bba4'],
-  modern: ['#a7b1b4', '#b8bfbd', '#98a3a7', '#c3c6c3', '#adb5b4'],
-  commercial: ['#9aa5a8', '#a9b0ae', '#8b979a', '#b2b6b1', '#9ea7a5'],
-  industrial: ['#8d928f', '#9a978c', '#808684', '#a4a094', '#878d8b'],
+  // Gründerzeit: Stuck in Ocker und Creme, Altrosa, Blassgrün — und dazwischen roter Klinker.
+  altbau: [
+    '#c9a15e',
+    '#d8c193',
+    '#b8674f',
+    '#a8896a',
+    '#8f6f52',
+    '#c0927e',
+    '#9d8a6b',
+    '#8a5b46',
+    '#d3b98f',
+    '#7e6550',
+    '#b5a077',
+    '#96785c',
+  ],
+  // Nachkriegszeilen und Siebziger: weißer Putz, Sand, Hellgrau, dazu Braun und Waschbeton.
+  residential: [
+    '#e2dacb',
+    '#cfc6b3',
+    '#b9b1a1',
+    '#a39a8b',
+    '#8d8578',
+    '#d6c9ae',
+    '#c2a98d',
+    '#9d8b74',
+    '#c8ccc6',
+    '#b0b4ad',
+    '#7f7a70',
+    '#dcd2bd',
+  ],
+  // Neubau: weiß, Anthrazit, Glasgrau, warmer Sichtbeton, dunkles Holz.
+  modern: [
+    '#eceae6',
+    '#d2d5d6',
+    '#a8adaf',
+    '#7d8386',
+    '#565b5e',
+    '#c4bdb2',
+    '#9a9186',
+    '#6e675f',
+    '#b9c2c4',
+    '#8c9599',
+  ],
+  // Gewerbe: Blaugrau, Glas, Weiß, Verkehrsgrau.
+  commercial: [
+    '#dfe2e2',
+    '#b6bfc3',
+    '#8d989d',
+    '#67727a',
+    '#4c555c',
+    '#a5aeb0',
+    '#7b8489',
+    '#c9cdca',
+  ],
+  // Industrie: Trapezblech in Grau und Blau, Rostrot, verblichenes Grün.
+  industrial: [
+    '#b7bcbb',
+    '#93999a',
+    '#6f7679',
+    '#8a5f4a',
+    '#a86f52',
+    '#6d7f79',
+    '#5a6a66',
+    '#a9a293',
+    '#828a86',
+  ],
   /*
    * Public buildings are a different stone, and noticeably so.
    *
    * They used to be a shade of the residential beige apart, which meant a hundred and forty-six
    * schools, offices and halls were indistinguishable from the flats around them — and the Rathaus
-   * read as a block of maisonettes. A warmer, lighter sandstone is what public building stock in a
-   * north German city actually is, and it is the cheapest possible way to say "this one is ours".
+   * read as a block of maisonettes. Sandstein, roter Backstein und heller Putz sind, woraus
+   * öffentlicher Bestand in einer norddeutschen Stadt wirklich besteht.
    */
-  civic: ['#d8cdaa', '#cfc4a1', '#e0d6b5', '#cabf9c', '#d3c9a8'],
+  civic: [
+    '#ded0a6',
+    '#cdbb8c',
+    '#b9a377',
+    '#a8836a',
+    '#9c5f4a',
+    '#e4dcc4',
+    '#c6b596',
+    '#8f7d63',
+  ],
 }
 
+/**
+ * Und was oben drauf liegt.
+ *
+ * Dieselbe Messung, dasselbe Ergebnis: vier Töne je Typ innerhalb weniger Prozent. Ein Dach ist aber
+ * das, was man von dieser Kamera aus überhaupt zuerst sieht — rote und dunkle Ziegel, Schiefergrau,
+ * Blech, Bitumen, und auf Flachdächern der grüne Kies.
+ */
 const ROOF_COLOURS: Record<BuildingType, string[]> = {
-  altbau: ['#6b4a41', '#7a5347', '#5f4239', '#73504a'],
-  residential: ['#6f5a4c', '#7d6454', '#634f44', '#5c5148'],
-  modern: ['#6a6f70', '#5e6364', '#757a79', '#666b6a'],
-  commercial: ['#61686a', '#6d7375', '#575d5f', '#727877'],
-  industrial: ['#6c7170', '#787b74', '#5f6463', '#82847c'],
-  civic: ['#5d6a62', '#6b7469', '#546055', '#6f7a6e'],
+  altbau: ['#8f4a38', '#a85a3f', '#6b4a41', '#4a4440', '#5f4239', '#7c5a4b', '#3f3b38', '#96543c'],
+  residential: ['#7d4f3d', '#6f5a4c', '#54504b', '#8a5b42', '#625249', '#413e3c', '#7a6653'],
+  modern: ['#4e5355', '#6a6f70', '#3b3f41', '#7d8281', '#585c5b', '#2f3335'],
+  commercial: ['#4a5052', '#61686a', '#3a4042', '#727877', '#545a5c'],
+  industrial: ['#6c7170', '#565c5c', '#7e817a', '#8a5f4a', '#455049'],
+  civic: ['#4f5a52', '#6b7469', '#3e4a43', '#7a5747', '#5d6a62', '#8a5b42'],
 }
 
 export interface CityBuildings {

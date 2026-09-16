@@ -342,3 +342,24 @@ auf nass und weiß wird zugesteuert und nicht von der letzten Messung aus weiter
 Die Pipelines von Regen und Schnee werden im `warmUp` mitkompiliert. Ohne das fiel der erste Tropfen
 einer Kampagne mitten im Spiel und kostete eine ganze Sekunde für ein Bild — im denkbar schlechtesten
 Moment, nämlich genau dann, wenn dem Spieler auffällt, dass sich der Himmel geändert hat.
+
+## Zwei FPS, die keine waren
+
+Beim Durchspielen fiel die Anzeige auf **2 FPS**, bei völlig normalen 115 Draws und 3,5 Mio.
+Dreiecken. Gesucht wurde daraufhin an den falschen Stellen: die Busflotte abgeschaltet (keine
+Änderung), der Tab geschlossen und frisch geöffnet (keine Änderung), die Node-Prozesse auf Amoklauf
+geprüft (alle im Leerlauf).
+
+Die Messung, die es entschieden hat, war der **Abstand zwischen zwei Frames**: 1008 ms, 1014 ms,
+722 ms — ein hartes Ein-Hertz-Raster mit Jitter. Das ist keine Rechenlast, das ist eine Drossel.
+`document.visibilityState` war `hidden`: der Browser hatte die Seite schlafen gelegt, weil das
+Vorschaufenster nicht sichtbar war, und `requestAnimationFrame` läuft dann einmal pro Sekunde.
+
+**Jede FPS-Messung an einem verborgenen Fenster ist wertlos.** Gültig sind nur Werte, die bei
+sichtbarem Pane genommen wurden — für diesen Stand 110 FPS bei 150 Draws, mit 41 Bussen, 151 Autos
+und 48 Rädern im Bild.
+
+Der Reflex, eine schlechte Zahl erst einmal zu glauben und dann die eigene jüngste Änderung zu
+verdächtigen, hat hier vier Schritte gekostet. Die billigere Reihenfolge steht deshalb hier: erst
+fragen, ob die Zahl überhaupt zustande kommen *kann* — Frameabstände, Sichtbarkeit, Drosselung —,
+und erst danach, woran sie liegt.

@@ -25,12 +25,23 @@ import { addTiled } from '../tiledInstances'
  * Bepflanzung ein Drittel des Bildes gekostet.
  */
 
-/** Maße eines Ladenschilds über einem Türsturz. */
-const BOARD_WIDTH = 2.3
-const BOARD_HEIGHT = 0.52
-const BOARD_DEPTH = 0.1
-/** Wie weit es von der Fassade absteht. Genug für eine eigene Schattenkante. */
-const BOARD_PROUD = 0.13
+/**
+ * Maße einer Ladenfront über einem Türsturz.
+ *
+ * Erst war es nur ein Brett von 2,3 × 0,52 m. Gebaut, gezählt — 3.483 Stück —, und auf der Straße
+ * gesucht und **nicht gefunden**: ein Brett, das flach auf der Fassade klebt, hat aus fünfzig Metern
+ * dieselbe Silhouette wie die Fassade. Was einen Laden auf Entfernung erkennbar macht, ist nicht die
+ * Beschriftung, sondern die **Markise**: eine Fläche, die vor die Wand ragt, das Licht anders nimmt
+ * als der Putz und einen Schatten auf den Gehweg wirft.
+ */
+const BOARD_WIDTH = 2.9
+const BOARD_HEIGHT = 0.46
+const BOARD_DEPTH = 0.12
+/** Wie weit das Schild von der Fassade absteht. Genug für eine eigene Schattenkante. */
+const BOARD_PROUD = 0.14
+/** Und wie weit die Markise darunter vorspringt. Ein Meter ist, was ein Gehweg verträgt. */
+const AWNING_REACH = 1.05
+const AWNING_DROP = 0.34
 
 /**
  * Die Farben, in denen Ladenschilder gestrichen werden.
@@ -154,14 +165,65 @@ export function fitShopfronts(shopfronts: Shopfronts, seed: number, vitality: nu
 }
 
 /**
- * Ein Brett über der Tür: zwölf Dreiecke.
+ * Schild und Markise: vierundzwanzig Dreiecke.
  *
- * Kein Ausleger, kein Rahmen, keine Schrift. Aus Augenhöhe auf der Straße ist ein Ladenschild ein
- * farbiges Rechteck über einer Tür, und alles darüber hinaus wäre Geometrie für eine Entfernung, in
- * der ohnehin niemand steht.
+ * Keine Schrift — auf die Entfernung, auf der man hier steht, ist eine Ladenbeschriftung ohnehin
+ * kein Wort mehr, sondern ein Fleck. Was zählt, ist die **Form**: ein Brett flach an der Wand und
+ * darunter eine schräge Fläche, die einen Meter vorspringt. Erst die bricht die Fassadenebene und
+ * macht aus einer Tür einen Laden.
+ *
+ * Beide in einer Geometrie, damit ein Laden eine Instanz bleibt und nicht zwei.
  */
 function board(): THREE.BufferGeometry {
-  const geometry = new THREE.BoxGeometry(BOARD_WIDTH, BOARD_HEIGHT, BOARD_DEPTH)
-  geometry.deleteAttribute('uv')
-  return geometry
+  const parts: THREE.BufferGeometry[] = []
+
+  const sign = new THREE.BoxGeometry(BOARD_WIDTH, BOARD_HEIGHT, BOARD_DEPTH)
+  sign.translate(0, 0, BOARD_DEPTH / 2)
+  parts.push(sign)
+
+  /*
+   * Die Markise als flacher Keil: hinten an der Wand hoch, vorn unten. Ein Kasten, dessen vordere
+   * Kante abgesenkt ist — das ist die ganze Schräge, und sie kostet keine zusätzliche Fläche.
+   */
+  const awning = new THREE.BoxGeometry(BOARD_WIDTH, 0.07, AWNING_REACH)
+  const position = awning.attributes.position as THREE.BufferAttribute
+  for (let index = 0; index < position.count; index += 1) {
+    if (position.getZ(index) > 0)
+      position.setY(index, position.getY(index) - AWNING_DROP)
+  }
+  awning.computeVertexNormals()
+  awning.translate(0, -BOARD_HEIGHT / 2 - 0.06, AWNING_REACH / 2)
+  parts.push(awning)
+
+  const merged = mergeParts(parts)
+  merged.deleteAttribute('uv')
+  return merged
+}
+
+/** Zwei Kästen zu einer Geometrie. Beide haben dieselben Attribute, also reicht das Aneinanderhängen. */
+function mergeParts(parts: THREE.BufferGeometry[]): THREE.BufferGeometry {
+  const total = parts.reduce((sum, part) => sum + (part.attributes.position?.count ?? 0), 0)
+  const position = new Float32Array(total * 3)
+  const normal = new Float32Array(total * 3)
+  const index: number[] = []
+
+  let written = 0
+  for (const part of parts) {
+    const source = part.attributes.position as THREE.BufferAttribute
+    position.set(source.array as Float32Array, written * 3)
+    normal.set((part.attributes.normal as THREE.BufferAttribute).array as Float32Array, written * 3)
+    const parent = part.getIndex()
+    if (parent) {
+      for (let at = 0; at < parent.count; at += 1)
+        index.push(parent.getX(at) + written)
+    }
+    written += source.count
+    part.dispose()
+  }
+
+  const merged = new THREE.BufferGeometry()
+  merged.setAttribute('position', new THREE.BufferAttribute(position, 3))
+  merged.setAttribute('normal', new THREE.BufferAttribute(normal, 3))
+  merged.setIndex(index)
+  return merged
 }

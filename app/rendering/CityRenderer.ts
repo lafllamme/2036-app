@@ -373,6 +373,20 @@ export class CityRenderer {
         zoom: (seconds = 12, scale?: number) => this.flight(seconds, scale, false, true),
         layers: () => Object.fromEntries(Object.entries(this.benchLayers()).map(([name, parts]) => [name, this.weigh(parts)])),
         cost: (layer: string, seconds = 12, scale?: number) => this.cost(layer, seconds, scale),
+        /*
+         * Eine Schicht allein zeigen. Die Umkehrung von `cost`, und für die Fehlersuche die
+         * wichtigere Hälfte: „kostet nichts" und „ist gar nicht da" sehen im Bild gleich aus.
+         */
+        solo: (layer: string) => {
+          const wanted = this.benchLayers()[layer] ?? []
+          const keep = new Set<THREE.Object3D>()
+          for (const part of wanted) part.traverse(object => keep.add(object))
+          this.scene.traverse((object) => {
+            if (object !== this.scene && !keep.has(object))
+              object.visible = false
+          })
+          return wanted.length
+        },
       },
     })
   }

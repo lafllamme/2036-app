@@ -125,9 +125,13 @@ watch(() => openMotions.value.length, (now, before) => {
 
 <style scoped>
 .agenda {
+  /*
+   * Höher als das Deck, aber nie bis an die Oberkante. Ein Körper hat Luft über sich; eine Wand
+   * nicht — und bis 620 px hoch las die Schublade als Wand neben der Stadt.
+   */
   position: absolute; right: 34px; bottom: 152px; z-index: 5;
   display: flex; flex-direction: column;
-  width: 392px; max-height: min(620px, calc(100% - 232px));
+  width: 392px; max-height: min(524px, calc(100% - 320px));
   padding: 24px 0 18px;
 }
 
@@ -201,7 +205,12 @@ h4 { margin: 0 0 8px; color: var(--ink-3); font-family: var(--text); font-size: 
 
 .source { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.08); color: var(--ink-3); font-size: 11px; line-height: 1.5; }
 
-@media (max-height: 900px) {
-  .agenda { max-height: calc(100% - 210px); }
-}
+/*
+ * Keine eigene Regel für niedrige Fenster mehr.
+ *
+ * Es gab eine, die dort `calc(100% - 210px)` erlaubte — also **mehr** Höhe, je enger es wird, und
+ * auf einem 900 px hohen Fenster lief die Schublade damit bis 58 px unter den Bildrand. Die
+ * Obergrenze oben macht das überflüssig: 524 px, solange sie passen, sonst was nach dem Deck übrig
+ * bleibt. Eine Regel, beide Richtungen.
+ */
 </style>

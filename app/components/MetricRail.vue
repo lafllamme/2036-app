@@ -315,9 +315,16 @@ const perception = computed(() => snapshot.value?.perception)
 
 <style scoped>
 .rail {
+  /*
+   * Höher als das Deck, aber nie bis an die Oberkante.
+   *
+   * Vorher lief die Schublade bis 620 px hoch und begann damit 58 px unter dem Bildrand — sie las
+   * als Wand neben der Stadt und nicht als dasselbe Möbel wie die Körper darunter. Ein Körper hat
+   * Luft über sich; eine Wand nicht.
+   */
   position: absolute; bottom: 152px; left: 34px; z-index: 5;
   display: flex; flex-direction: column;
-  width: 352px; max-height: min(620px, calc(100% - 232px));
+  width: 352px; max-height: min(524px, calc(100% - 320px));
   padding: 24px 0 18px;
 }
 .rail.is-wide { width: 392px; }
@@ -389,7 +396,12 @@ h3 { margin: 0; color: var(--ink-3); font-family: var(--text); font-size: 12.5px
 .reading.off-normal b { color: var(--negative); }
 .goal.met b { color: var(--positive); }
 
-@media (max-height: 900px) {
-  .rail { max-height: calc(100% - 210px); }
-}
+/*
+ * Keine eigene Regel für niedrige Fenster mehr.
+ *
+ * Es gab eine, die dort `calc(100% - 210px)` erlaubte — also **mehr** Höhe, je enger es wird, und
+ * auf einem 900 px hohen Fenster lief die Schublade damit bis 58 px unter den Bildrand. Die
+ * Obergrenze oben macht das überflüssig: 524 px, solange sie passen, sonst was nach dem Deck übrig
+ * bleibt. Eine Regel, beide Richtungen.
+ */
 </style>

@@ -150,6 +150,54 @@ Daraus fällt der Charakter von selbst:
 Viertel gewachsen ist. Und nichts davon kostet einen Draw: die Wandfarbe ist eine Vertex-Farbe auf
 einer weißen Textur, die Körnung ist eine UV-Skala. Gemessen unverändert bei 107 Draws und 119 FPS.
 
+### Farbe ist die Regel, nicht die Ausnahme
+
+Nach dem ersten Durchgang war Lindenhafen von oben immer noch weiß, grau und creme. Der Grund stand
+im Code und nicht im Auge: die Grundpaletten der Viertel waren **neutral**, und Farbe kam nur über
+`accentShare` herein — acht bis vierunddreißig Prozent der Häuser. Damit *musste* die Stadt
+überwiegend farblos bleiben; jede Verbreiterung der Akzente machte sie nur fleckig.
+
+Die Regel ist jetzt umgedreht. `WALL` ist ein benanntes Vokabular von sechzehn Tönen, und die
+Neutralen sind vier davon:
+
+| Gruppe | | |
+| --- | --- | --- |
+| **Backstein** | `klinker` · `backstein` · `terracotta` | Norddeutschland in allen Rottönen |
+| **Putz, warm** | `ocker` · `senf` · `altrosa` · `sandstein` | die Gründerzeit und was von ihr übrig ist |
+| **Sanierungswelle** | `salbei` · `mint` · `flaschengruen` | die Neunziger, an jeder Zeile zu sehen |
+| **Kontor** | `taubenblau` | Hafen, Verwaltung, alles Repräsentative |
+| **Neutrale Minderheit** | `creme` · `weissputz` · `hellgrau` · `anthrazit` · `beton` | gehören dazu, aber als *ein* Ton unter vielen |
+
+Weil die Grundlisten jetzt selbst bunt sind, sank `accentShare` überall (Innenstadt 0,12, Vorstadt
+0,14, Wohnring 0,09): ein Akzent ist wieder ein Ausreißer und nicht die einzige Quelle von Farbe.
+
+An 126 673 abgetasteten Wand- und Dachecken der gebauten Stadt gemessen:
+
+| | vorher | jetzt |
+| --- | --- | --- |
+| mittlere Sättigung | — | **0,38** |
+| Ecken unter 10 % Sättigung (grau) | die Mehrheit | **11,6 %** |
+| Ecken über 18 % Sättigung | Minderheit | **73,6 %** |
+| Ecken über 30 % Sättigung | ~0 | **55,3 %** |
+
+Die Farbtöne verteilen sich auf 30° (41 %), 0° (24 %), 120°/150° (13 %) und 210° (7 %) — warm
+dominiert, weil Dachziegel rot sind und man von schräg oben vor allem Dächer sieht.
+
+### Vier Wände, vier Töne
+
+Ein Quader in genau **einer** Farbe ist das, was eine Fläche wie eine Fläche aussehen lässt und nicht
+wie ein Gebäude. Alle vier Wände eines Hauses trugen exakt denselben Ton, und kein noch so breites
+Farbset ändert daran etwas.
+
+In Wirklichkeit unterscheiden sich die Seiten eines Hauses immer: die Südseite bleicht über Jahre
+aus, die Nordseite bleibt feucht, setzt Algen an und zieht ins Grüngraue. Genau das macht
+`ORIENTATION_TINT` — ±8,5 % Helligkeit über die Normale, dazu ein halbes Grad Farbton ins Kühle auf
+der Schattenseite und ins Warme auf der Sonnenseite. **Kosten: null.** Die Vertex-Farbe wird ohnehin
+je Wandfläche geschrieben; es ist kein Dreieck und kein Draw mehr.
+
+Zusammen mit dem Verlauf über die Höhe (unten schmutzig, oben ausgeblichen) trägt jede Hauswand
+damit vier verschiedene Werte statt einem. Gemessen auf Straßenhöhe: **120 FPS**.
+
 ### Was hier noch fehlt
 
 Ein Haus in Lindenhafen hat **ein** Fenster — dasselbe wie jedes andere, weil die ganze Stadt eine

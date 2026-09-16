@@ -66,8 +66,7 @@ export interface DistrictCharacter {
  * **Tiefer und satter angelegt, als sie aussehen sollen.** Eine Dachfläche liegt waagerecht und
  * fängt damit von allen Flächen eines Hauses das meiste Licht: derselbe Ton, der an einer Wand
  * richtig wirkt, bleicht oben zu Weiß aus — und genau daran lag es, dass Lindenhafen von schräg oben
- * grau blieb, obwohl die Paletten darunter längst breit waren. Ein Ziegelrot muss hier fast
- * rostbraun eingegeben werden, damit es im Bild als Rot ankommt.
+ * grau blieb, obwohl die Paletten darunter längst breit waren.
  */
 const ROOF = {
   ziegelrot: ['#8e3a22', '#7d3019', '#9c4529', '#71301c'],
@@ -81,6 +80,37 @@ const ROOF = {
   rost: ['#6e4331', '#5e3828'],
 } as const
 
+/*
+ * Und die Wände.
+ *
+ * Hier lag der Rest des Problems: die Grundpaletten waren neutral, und nur acht bis vierunddreißig
+ * Prozent der Häuser tanzten als „Akzent" aus der Reihe. Damit *musste* die Stadt überwiegend weiß,
+ * grau und creme bleiben — Farbe war die Ausnahme und nicht die Regel.
+ *
+ * Eine norddeutsche Wohnstadt ist das Gegenteil. Backstein und Klinker in allen Rottönen, Putz in
+ * Ocker und Senf, die Sanierungswelle der Neunziger in Salbei und Mint, die Kontorhäuser in
+ * Taubenblau, dazwischen Altrosa und Terracotta. Weiß und Creme gehören dazu, aber als *ein* Ton
+ * unter vielen. Die Listen unten sind darum aus Farben gebaut, mit den Neutralen als Minderheit.
+ */
+const WALL = {
+  klinker: ['#9c4a35', '#a85942', '#8d3f2e', '#b06349', '#7e3527'],
+  backstein: ['#a4553c', '#93472f', '#b2694a'],
+  ocker: ['#c8974a', '#d9a441', '#b8842f', '#cea45c', '#bd8c3a'],
+  senf: ['#c4aa3a', '#d3b35a', '#b39a2f'],
+  salbei: ['#8aa08c', '#7d9a86', '#94a998', '#6f8a78'],
+  mint: ['#9db9ad', '#8aa89c', '#b0c7bc'],
+  flaschengruen: ['#4f6f56', '#456349', '#5b7d62'],
+  taubenblau: ['#5b7f94', '#4a6b80', '#6c8fa3', '#3f5f72'],
+  altrosa: ['#c08f80', '#b8786b', '#cb9d8f', '#a86c60'],
+  terracotta: ['#c2683f', '#b35b35', '#cf7a51'],
+  sandstein: ['#d5c39a', '#c6b184', '#e0d1ab'],
+  creme: ['#e8ded0', '#dfd3c1', '#efe8dc'],
+  weissputz: ['#f0ece4', '#e6e2d8'],
+  hellgrau: ['#c2c4c0', '#b1b4b0', '#d0d2ce'],
+  anthrazit: ['#4a4f52', '#3a3f43', '#5a6063'],
+  beton: ['#b8b2a6', '#a8a196', '#c6c0b4'],
+} as const
+
 export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
   /**
    * Die gute Stube: Kontorhäuser, Geschäftslagen, alles instand — und **das bunteste Viertel**.
@@ -92,9 +122,20 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     grain: 0.86,
     storeyRise: 1.12,
     roofs: [...ROOF.ziegelrot, ...ROOF.altziegel, ...ROOF.schiefer],
-    walls: ['#e3d4b0', '#d9bd86', '#c9a15e', '#e8ded0', '#c7b394', '#b8674f', '#cf9d7c', '#a8896a', '#dcc9a4'],
-    accentShare: 0.3,
-    accents: ['#b8563f', '#8e3f33', '#d9a441', '#4f6f56', '#3f5f72', '#c2683f', '#6e8a5e', '#e0c56a'],
+    walls: [
+      ...WALL.klinker,
+      ...WALL.backstein,
+      ...WALL.ocker,
+      ...WALL.senf,
+      ...WALL.altrosa,
+      ...WALL.terracotta,
+      ...WALL.taubenblau,
+      ...WALL.flaschengruen,
+      ...WALL.sandstein,
+      ...WALL.creme,
+    ],
+    accentShare: 0.12,
+    accents: [...WALL.flaschengruen, ...WALL.taubenblau, '#8a3f5c', '#2f4858'],
   },
   /** Bahnhofsviertel: durchmischt, viel Durchgangsverkehr, wenig Eigentümerstolz. */
   'bahnhof': {
@@ -102,9 +143,18 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     grain: 0.92,
     storeyRise: 1.02,
     roofs: [...ROOF.altziegel, ...ROOF.bitumen, ...ROOF.schiefer],
-    walls: ['#c8bda6', '#b0a894', '#9d9382', '#cbb894', '#8d8578', '#bda593', '#a3907a'],
-    accentShare: 0.16,
-    accents: ['#a8443a', '#5b7f94', '#d9a441', '#3a3f43'],
+    walls: [
+      ...WALL.klinker,
+      ...WALL.ocker,
+      ...WALL.beton,
+      ...WALL.hellgrau,
+      ...WALL.altrosa,
+      ...WALL.sandstein,
+      ...WALL.creme,
+      ...WALL.anthrazit,
+    ],
+    accentShare: 0.1,
+    accents: [...WALL.terracotta, ...WALL.taubenblau, ...WALL.senf],
   },
   /** Gründerzeit: schmale Parzellen, hohe Räume, Stuck in Ocker und Altrosa, rote Ziegel oben drauf. */
   'gruenderzeit-nord': {
@@ -112,22 +162,41 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     grain: 0.74,
     storeyRise: 1.24,
     roofs: [...ROOF.altziegel, ...ROOF.ziegelrot, ...ROOF.schiefer],
-    walls: ['#d8c193', '#c9a15e', '#c0927e', '#b5a077', '#d3b98f', '#a8896a', '#9d8a6b', '#e0d2b4'],
-    accentShare: 0.24,
-    accents: ['#b8674f', '#8a5b46', '#6e8a5e', '#5b7f94', '#d9a441', '#c2683f'],
+    walls: [
+      ...WALL.ocker,
+      ...WALL.senf,
+      ...WALL.altrosa,
+      ...WALL.klinker,
+      ...WALL.salbei,
+      ...WALL.sandstein,
+      ...WALL.terracotta,
+      ...WALL.creme,
+    ],
+    accentShare: 0.12,
+    accents: [...WALL.flaschengruen, ...WALL.taubenblau, ...WALL.backstein],
   },
   /**
-   * Der Wohnring: Zeilenbau der sechziger und siebziger Jahre. **Absichtlich eintönig** — die
-   * Monotonie ist der Punkt, und sie ist erst zu sehen, wenn die Altstadt daneben bunt ist.
+   * Der Wohnring: Zeilenbau der sechziger und siebziger Jahre. **Absichtlich eintöniger** als der
+   * Rest — die Monotonie ist der Punkt, und sie ist erst zu sehen, wenn die Altstadt daneben bunt
+   * ist. Eintönig heißt hier aber nicht farblos: die Sanierungswelle hat auch diese Zeilen in Mint
+   * und Salbei gestrichen, nur eben zwei Blöcke am Stück in derselben Farbe.
    */
   'wohnring-sued': {
     upkeep: 0.44,
     grain: 1.28,
     storeyRise: 0.88,
     roofs: [...ROOF.bitumen, ...ROOF.kies, ...ROOF.dunkelziegel],
-    walls: ['#cfc6b3', '#b9b1a1', '#a39a8b', '#8d8578', '#c2b9a6', '#9b9488', '#b4ada0'],
-    accentShare: 0.08,
-    accents: ['#a86f52', '#6d7f79', '#8a8f6b'],
+    walls: [
+      ...WALL.beton,
+      ...WALL.hellgrau,
+      ...WALL.creme,
+      ...WALL.salbei,
+      ...WALL.mint,
+      ...WALL.sandstein,
+      ...WALL.ocker,
+    ],
+    accentShare: 0.09,
+    accents: [...WALL.terracotta, ...WALL.taubenblau, ...WALL.senf],
   },
   /** Universität und Klinikum: Nachkriegsbeton, Waschbeton, Flachdächer mit Kies und Grün. */
   'universitaet-klinikum': {
@@ -135,9 +204,16 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     grain: 1.16,
     storeyRise: 1.06,
     roofs: [...ROOF.kies, ...ROOF.begruent, ...ROOF.bitumen],
-    walls: ['#dcd7cc', '#c4bdb2', '#aaa79e', '#e2e0d9', '#9a9186', '#cdc6b6'],
-    accentShare: 0.12,
-    accents: ['#a8443a', '#3f5f72', '#4f6f56'],
+    walls: [
+      ...WALL.beton,
+      ...WALL.weissputz,
+      ...WALL.hellgrau,
+      ...WALL.klinker,
+      ...WALL.sandstein,
+      ...WALL.salbei,
+    ],
+    accentShare: 0.1,
+    accents: [...WALL.taubenblau, ...WALL.terracotta, ...WALL.flaschengruen],
   },
   /** Hafen und Industrie: Hallen, Silos, Trapezblech. **Das langweiligste Viertel**, und zu Recht. */
   'hafen-industrie': {
@@ -147,7 +223,7 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     roofs: [...ROOF.blech, ...ROOF.rost, ...ROOF.bitumen],
     walls: [],
     accentShare: 0.14,
-    accents: ['#8a5f4a', '#3f5f72', '#5a6a66'],
+    accents: [...WALL.taubenblau, '#7a4a38', ...WALL.flaschengruen],
   },
   /** Gewerbe Ost: Neubaugebiet auf der grünen Wiese, helles Blech, Firmenfarben am Giebel. */
   'gewerbe-ost': {
@@ -156,8 +232,8 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     storeyRise: 1.14,
     roofs: [...ROOF.blech, ...ROOF.bitumen],
     walls: [],
-    accentShare: 0.18,
-    accents: ['#a8443a', '#3f5f72', '#d9a441', '#4f6f56', '#3a3f43'],
+    accentShare: 0.2,
+    accents: [...WALL.klinker, ...WALL.taubenblau, ...WALL.senf, ...WALL.anthrazit, ...WALL.flaschengruen],
   },
   /**
    * Vorstadt West: Einfamilienhäuser, Hecken — und **die größte Streuung der Stadt**, weil hier
@@ -168,9 +244,21 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     grain: 1.05,
     storeyRise: 0.94,
     roofs: [...ROOF.ziegelrot, ...ROOF.dunkelziegel, ...ROOF.altziegel, ...ROOF.schiefer],
-    walls: ['#eae4d6', '#dcd2bd', '#d6c9ae', '#c8ccc6', '#e6e8e3', '#cbbda4', '#b9c0b4'],
-    accentShare: 0.34,
-    accents: ['#b8563f', '#d9a441', '#4f6f56', '#6e8a5e', '#5b7f94', '#3f5f72', '#c2683f', '#8a6f4a', '#a8443a'],
+    walls: [
+      ...WALL.klinker,
+      ...WALL.ocker,
+      ...WALL.salbei,
+      ...WALL.mint,
+      ...WALL.taubenblau,
+      ...WALL.altrosa,
+      ...WALL.senf,
+      ...WALL.weissputz,
+      ...WALL.creme,
+      ...WALL.sandstein,
+      ...WALL.terracotta,
+    ],
+    accentShare: 0.14,
+    accents: [...WALL.flaschengruen, ...WALL.backstein, '#3f5f72', '#8a6f4a'],
   },
 }
 

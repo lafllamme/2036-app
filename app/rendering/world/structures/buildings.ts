@@ -383,6 +383,23 @@ function separated(roof: THREE.Color, wall: THREE.Color): THREE.Color {
 /** Wohin eine Fassade zieht, wenn die Sonne jahrelang darauf steht. */
 const SUN_BLEACH = /* @__PURE__ */ new THREE.Color('#f2ece0')
 
+/** Wie weit Süd- und Nordseite eines Hauses auseinandergehen dürfen. */
+const ORIENTATION_TINT = 0.085
+
+/**
+ * Eine Wand, gealtert nach Himmelsrichtung.
+ *
+ * Positiv heißt Sonnenseite: heller und eine Spur wärmer. Negativ heißt Schattenseite: dunkler,
+ * kühler, ein Hauch Grün von dem, was auf feuchtem Putz wächst.
+ */
+function tinted(base: THREE.Color, exposure: number): THREE.Color {
+  const colour = base.clone()
+  const hsl = { h: 0, s: 0, l: 0 }
+  colour.getHSL(hsl)
+  const hue = (hsl.h + (exposure < 0 ? 0.012 : -0.006) + 1) % 1
+  return colour.setHSL(hue, hsl.s * (1 - exposure * 0.1), THREE.MathUtils.clamp(hsl.l * (1 + exposure), 0.03, 0.97))
+}
+
 function weathered(base: THREE.Color, condition: number): THREE.Color {
   const colour = base.clone()
   const hsl = { h: 0, s: 0, l: 0 }
@@ -512,11 +529,25 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
     tile.roofIndex.push(base, base + 2, base + 1, base, base + 3, base + 2)
 
     // And the wall above it, one storey of façade per storey of building, starting at the floor.
+    /*
+     * Jede Seite eines Hauses hat ihre eigene Tönung.
+     *
+     * Ein Quader in genau einer Farbe ist das, was eine Fläche wie eine Fläche aussehen lässt und
+     * nicht wie ein Gebäude — und alle vier Wände eines Hauses trugen exakt denselben Ton. In
+     * Wirklichkeit unterscheiden sie sich immer: die Südseite bleicht über Jahre aus, die Nordseite
+     * bleibt feucht, setzt Algen an und zieht ins Grüngraue. Das ist der billigste verfügbare
+     * Unterschied — die Vertex-Farbe wird ohnehin je Wandfläche geschrieben, es kostet kein Dreieck
+     * und keinen Draw.
+     */
+    const exposure = ORIENTATION_TINT * nz
+    const faceFoot = tinted(wallFoot, exposure)
+    const faceHead = tinted(wallHead, exposure)
+
     const vertex = tile.position.length / 3
-    push(tile, ax, floor, az, nx, nz, u0, 0, wallFoot)
-    push(tile, bx, floor, bz, nx, nz, u1, 0, wallFoot)
-    push(tile, bx, wallTop, bz, nx, nz, u1, vTop, wallHead)
-    push(tile, ax, wallTop, az, nx, nz, u0, vTop, wallHead)
+    push(tile, ax, floor, az, nx, nz, u0, 0, faceFoot)
+    push(tile, bx, floor, bz, nx, nz, u1, 0, faceFoot)
+    push(tile, bx, wallTop, bz, nx, nz, u1, vTop, faceHead)
+    push(tile, ax, wallTop, az, nx, nz, u0, vTop, faceHead)
     tile.wallIndex.push(vertex, vertex + 2, vertex + 1, vertex, vertex + 3, vertex + 2)
   }
 

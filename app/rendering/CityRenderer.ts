@@ -21,6 +21,7 @@ import { createWorld } from './world/index'
 import { updateProwlers } from './world/life/prowlers'
 import { fitParkedDetail } from './world/streets/parkedCars'
 import { updateSignals } from './world/streets/trafficLights'
+import { updateMeadow } from './world/terrain/meadow'
 import { updateWater } from './world/terrain/water'
 import { updateAgents } from './world/traffic/agents'
 import { updateIncidentScenes } from './world/traffic/incidentScene'
@@ -168,6 +169,7 @@ export class CityRenderer {
   private readonly onStats: CityRendererOptions['onStats']
   private readonly onIncident: CityRendererOptions['onIncident']
   /** Kept only so a call can be told which district it happened in. */
+  private readonly blueprint: CityBlueprint
   private readonly districts: CityBlueprint['definition']['districts']
   /** What was last said about each open call, so only actual changes are announced. */
   private readonly announced = new Map<number, IncidentStatus>()
@@ -196,6 +198,7 @@ export class CityRenderer {
     this.canvas = options.canvas
     this.onStats = options.onStats
     this.onIncident = options.onIncident
+    this.blueprint = options.blueprint
     this.districts = options.blueprint.definition.districts
     this.buildingCount = options.blueprint.buildings.length
 
@@ -505,6 +508,8 @@ export class CityRenderer {
         wind: this.weather.wind,
       })
       this.atmosphere.update(this.slowClock, this.rig.controls.target, distance)
+      // Die Bodendecke wandert mit dem Blickpunkt; sie sät erst nach 60 m neu. Siehe `terrain/meadow.ts`.
+      updateMeadow(this.world.meadow, this.blueprint, this.rig.controls.target, distance)
       this.world.streetFurniture.visible = distance < FURNITURE_RANGE
       // Proxies out to the parking range, the kit's own cars for the street the player is in.
       fitParkedDetail(this.world.parkedCars, this.rig.camera.position, distance < PARKING_RANGE)

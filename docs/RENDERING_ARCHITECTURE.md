@@ -413,3 +413,41 @@ liegt: das ist die Lauffläche und nie die Nabe.
 — 108 auf 45 FPS —, weil jede Materialänderung eine Shader-Neuübersetzung auslöst. Gemessen wurde die
 Kompilierung, nicht der Schatten. Was sich zur Laufzeit messen lässt, ist **Sichtbarkeit**; alles
 andere verändert die Sache, die man wiegen will.
+
+## Eine Wiese, die mit der Kamera mitwandert
+
+Aus zweitausend Metern ist die Feldflur Landschaft: Schläge, Ränder, Knicks. Aus fünfzig Metern ist
+sie **eine gefärbte Ebene**, und genau dort läuft der Spieler entlang. Bodendecke ist aber das
+Zahlreichste, was es überhaupt gibt — ein Büschel je drei Meter über das offene Land wären über eine
+Million Stück. Deshalb hat diese Schicht als einzige eine **Sichtweite** und eine feste Zahl
+Instanzen, die immer wieder neu gesetzt werden: `app/rendering/world/terrain/meadow.ts`.
+
+Drei Entscheidungen tragen das, und jede davon war erst falsch.
+
+**Die Büschel hängen am Boden, nicht an der Kamera.** Der erste Entwurf würfelte Punkte aus einem
+Zufallsstrom mit festem Keim. Derselbe Keim liefert dieselbe Folge, also stand bei jeder
+Neuverteilung dasselbe Muster wieder um den Spieler herum — die Wiese wäre mit ihm mitgelaufen wie
+ein Teppich. Jetzt sitzt jedes Büschel auf einer Zelle eines Drei-Meter-Rasters, und sein Versatz,
+seine Art, seine Drehung und seine Größe kommen aus einem **Hash der Zellnummer**. Dieselbe Zelle
+liefert immer dasselbe, ganz gleich aus welcher Richtung man sie besucht. Neu verteilt wird erst
+nach sechzig Metern Kamerawanderung, und über `COVER_RANGE * 3.2` steht gar nichts mehr.
+
+**Wo nichts wachsen darf, ist ein Raster und keine Schleife.** Gras auf der Fahrbahn und Gras im
+Wohnzimmer sind beides Fehler, die man sofort sieht, aber die Probe läuft fünftausendmal je
+Neuverteilung. Also wird einmal beim Aufbau ein Byte je acht Meter gestempelt. Zwei Messungen haben
+den Stempel geformt:
+
+- Als **Kasten** gestempelt legt eine acht Meter breite Anliegerstraße ein Drei-mal-drei-Feld um
+  sich, also vierundzwanzig Meter Sperrzone. Gemessen blieben in der Innenstadt **2.620 von 2.629**
+  Proben hängen. Geprüft wird jetzt der Zellmittelpunkt gegen den echten Radius, und Häuser bekommen
+  ihren gedrehten Grundriss statt einer Scheibe um die längere Kante.
+- Mit **fester Kantenlänge** (±2.400 m geraten) lag das Land außerhalb des Rasters, und „nicht im
+  Raster“ las als „belegt“: **2.629 von 2.629** genau dort, wo Wiese hingehört. Das Raster spannt
+  jetzt über das, was gebaut ist, und außerhalb steht nichts im Weg.
+
+**Die Arten sind nach Kosten gewichtet, nicht gleichverteilt.** Gemessen kostet `grass_leafs` 36
+Dreiecke, `grass` 132 und `grass_large` 224. Gleichverteilt lagen 600.000 Dreiecke in der Bodendecke,
+bei einem Bild von einer Million auf dem Land. Zwei Grasbüschel unterscheidet auf fünfzehn Metern
+niemand, ihre Dreieckszahl schon: 20 Teile `grass_leafs`, 5 `grass`, 2 `grass_large`, je 1 für die
+beiden Blüten. Ergebnis bei gleicher Dichte — 4.829 Büschel, **336.000 Dreiecke** statt 600.000. Die
+Blüten bleiben nebenbei der Akzent statt vierzig Prozent der Fläche.

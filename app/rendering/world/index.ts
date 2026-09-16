@@ -10,6 +10,7 @@ import type { RoadNetwork } from './streets/roadNetwork'
 import type { StreetLights } from './streets/streetLights'
 import type { TrafficSignals } from './streets/trafficLights'
 import type { CityBuildings } from './structures/buildings'
+import type { Meadow } from './terrain/meadow'
 import type { CityTrees } from './terrain/trees'
 import type { Water } from './terrain/water'
 import type { Agents } from './traffic/agents'
@@ -31,6 +32,7 @@ import { createBuildings } from './structures/buildings'
 import { createConstructionSites } from './structures/construction'
 import { createGrowth } from './structures/growth'
 import { addGround } from './terrain/ground'
+import { addMeadow } from './terrain/meadow'
 import { addTrees } from './terrain/trees'
 import { addWater } from './terrain/water'
 import { createAgents } from './traffic/agents'
@@ -69,6 +71,8 @@ export interface WorldVisuals extends CityBuildings, CityTrees {
   roughSleeping: RoughSleeping
   /** Somebody at a house at two in the morning. Counted from the burglary pressure and the hour. */
   prowlers: Prowlers
+  /** Halme und Blumen um die Kamera herum. Siehe `terrain/meadow.ts`. */
+  meadow: Meadow
   /**
    * People outside the town hall when the city has had enough. Three draws while they are there and
    * none at all when they are not, which is most of a well-run decade.
@@ -106,6 +110,7 @@ export function createWorld(scene: THREE.Scene, blueprint: CityBlueprint, models
     railway: addRailway(scene, blueprint),
     roughSleeping: addRoughSleeping(scene, blueprint, models),
     prowlers: addProwlers(scene, blueprint, models),
+    meadow: addMeadow(scene, blueprint, models),
     protest: addProtest(scene, blueprint, models),
     precipitation: addPrecipitation(scene),
     surfaces: trackSurfaces(paved, soft),

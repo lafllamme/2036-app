@@ -934,10 +934,18 @@ function visualsFrom(metrics: CityMetrics, stocks: CityStocks): CityVisualState 
      */
     originMix: clamp(metrics.internationalShare / 100, 0, 1),
     /*
-     * Against the baseline rather than against zero: a city with no emissions at all is not a city,
-     * and what the player changes is the distance from where they started.
+     * Was in der Luft hängt.
+     *
+     * Gegen den Ausgangswert gerechnet, nicht gegen null: eine Stadt ohne Emissionen ist keine, und
+     * was der Spieler ändert, ist der Abstand von dort, wo er angefangen hat.
+     *
+     * Der Nenner stand auf `emissions × 0,9` gegen einen Sockel von `× 0,7` — bei den Startwerten
+     * ergab das **0,33 Dauerdunst**, und damit sah Lindenhafen vom ersten Tag an aus wie eine Stadt
+     * im Smog. Nachgemessen bewegen sich die Emissionen über ein Jahrzehnt zwischen 43 und 51; die
+     * Spanne ist jetzt darauf gelegt, sodass eine saubere Stadt wirklich klar ist und eine dreckige
+     * den Horizont verliert. Das ist der Sinn des Signals.
      */
-    haze: clamp((metrics.emissions - BASELINE_METRICS.emissions * 0.7) / (BASELINE_METRICS.emissions * 0.9), 0, 1),
+    haze: clamp((metrics.emissions - 47.4) / 4.4, 0, 1),
     idleness: clamp(metrics.youthUnemployment / 24, 0, 1),
     /*
      * Against two thousand, which is roughly where this city's own dynamics top out under a decade

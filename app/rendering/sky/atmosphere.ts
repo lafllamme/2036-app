@@ -42,8 +42,19 @@ const DAY_AMBIENT = /* @__PURE__ */ new THREE.Color('#d8e4e7')
 const NIGHT_GROUND = 0x4A5872
 const DAY_GROUND = /* @__PURE__ */ new THREE.Color('#4a4439')
 /** How strong the ambient is at night and how much the daylight adds on top of it. */
-/** The fog the scene is built with, and the colour a dirty one tends toward. */
-const CLEAR_DENSITY = 0.00021
+/**
+ * The fog the scene is built with, and the colour a dirty one tends toward.
+ *
+ * Gemessen, nicht geschätzt: bei der alten Dichte blieben auf zweitausend Einheiten noch **13 %**
+ * eines Objekts übrig, und weil die Kamera flach über die Stadt schaut, liegt fast alles Sichtbare
+ * zwischen tausend und viertausend. Lindenhafen ertrank in Weiß — die obere Bildhälfte leer, die
+ * untere ein Teppich ohne Tiefe.
+ *
+ * Jetzt: an einem klaren Tag bleiben auf zweitausend rund 90 % übrig, bei vollem Smog unter
+ * geschlossener Decke noch knapp die Hälfte. Dunst soll Tiefe geben und die Ferne dämpfen, nicht die
+ * Mitte löschen.
+ */
+const CLEAR_DENSITY = 0.00016
 const SMOG = /* @__PURE__ */ new THREE.Color('#a89a78')
 /** What the sky goes to when it shuts: the flat slate of a North Sea low. */
 const OVERCAST_SKY = /* @__PURE__ */ new THREE.Color('#6a737c')
@@ -176,8 +187,13 @@ export class Atmosphere {
        * weather. The base density is the clear-day one the scene was built with.
        */
       scene.fog.color.copy(painted).lerp(SMOG, this.haze * 0.4)
-      // A closed sky brings the horizon in as surely as smog does, and by the same one number.
-      scene.fog.density = CLEAR_DENSITY * (1 + this.haze * 2.1 + covered * covered * 1.5)
+      /*
+       * A closed sky brings the horizon in as surely as smog does, and by the same one number — but
+       * the two used to stack to more than three times the clear density on an ordinary January
+       * morning, and the city drowned in white. An overcast day closes the distance; it does not
+       * erase the middle ground.
+       */
+      scene.fog.density = CLEAR_DENSITY * (1 + this.haze * 1.25 + covered * covered * 0.55)
     }
 
     /*

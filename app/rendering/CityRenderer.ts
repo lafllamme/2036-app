@@ -138,14 +138,20 @@ const TARGET_FPS_CEILING = 92
 /** How many one-second windows have to agree before the resolution moves. */
 const RESOLUTION_PATIENCE = 3
 /**
- * Below this the reading is not about the machine.
+ * Wann eine Messung überhaupt etwas über die Maschine sagt.
  *
  * A browser clamps `requestAnimationFrame` to one hertz for a tab it considers hidden — which
  * includes a window behind another one — and the scaler read that as a machine in trouble and gave
- * away all its resolution to a tab nobody was looking at. Anything this slow is either throttled or
- * beyond saving by a twelve-per-cent step.
+ * away all its resolution to a tab nobody was looking at.
+ *
+ * Dagegen stand hier eine FPS-Untergrenze von zwanzig, und die traf den falschen Fall: sie schloss
+ * die Regelung genau dann aus, wenn sie gebraucht wird. Gemessen lief der Renderer mit **5 FPS** und
+ * hielt trotzdem volle 1,65× — eine überforderte Maschine bekam nie Entlastung, weil sie überfordert
+ * war. Ob niemand hinsieht, weiß das Dokument selbst; die Bildrate weiß es nicht.
  */
-const RESOLUTION_FLOOR_FPS = 20
+function readingIsAboutTheMachine(): boolean {
+  return typeof document === 'undefined' || document.visibilityState === 'visible'
+}
 
 export class CityRenderer {
   private readonly canvas: HTMLCanvasElement
@@ -603,7 +609,7 @@ export class CityRenderer {
    * and that says nothing about what the machine can do.
    */
   private fitResolution(): void {
-    if (this.frameCap !== null || this.fps < RESOLUTION_FLOOR_FPS)
+    if (this.frameCap !== null || !readingIsAboutTheMachine())
       return
 
     const wants = this.fps < TARGET_FPS_FLOOR ? -1 : this.fps > TARGET_FPS_CEILING ? 1 : 0

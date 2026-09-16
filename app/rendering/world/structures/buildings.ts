@@ -2,6 +2,7 @@ import type { BuildingRecord, BuildingType, CityBlueprint } from '../../../core/
 import type { Relief } from '../../../world/relief'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../../core/rng'
+import { DISTRICT_CHARACTER } from '../../../world/districtCharacter'
 import { BAY_WIDTH, facadeTexture, STOREY_HEIGHT, windowLightTexture } from './facade'
 import { findTownHall } from './townHall'
 
@@ -315,6 +316,21 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
   return { buildingMeshes, buildingRecords, buildingRanges, buildingOfTriangle, buildingColors, buildingMaterials: [wallMaterial, roofMaterial] }
 }
 
+/**
+ * Eine Farbe, so wie sie nach Jahren ohne Pflege aussieht.
+ *
+ * Verwitterung nimmt Helligkeit **und** Sättigung: Putz kreidet aus, Anstrich bleicht, und was übrig
+ * bleibt, zieht ins Graubraune. Nur abzudunkeln ließ ein verwahrlostes Haus wie ein beschattetes
+ * aussehen.
+ */
+function weathered(base: THREE.Color, condition: number): THREE.Color {
+  const colour = base.clone()
+  const hsl = { h: 0, s: 0, l: 0 }
+  colour.getHSL(hsl)
+  const wear = 1 - THREE.MathUtils.clamp(condition, 0, 1)
+  return colour.setHSL(hsl.h, hsl.s * (1 - wear * 0.55), hsl.l * (1 - wear * 0.34))
+}
+
 function tileOf(x: number, z: number): number {
   const column = THREE.MathUtils.clamp(Math.floor(((x + CITY_EXTENT) / (CITY_EXTENT * 2)) * TILES), 0, TILES - 1)
   const row = THREE.MathUtils.clamp(Math.floor(((z + CITY_EXTENT) / (CITY_EXTENT * 2)) * TILES), 0, TILES - 1)
@@ -356,14 +372,35 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
    * façade texture is mapped from starts here, so `v` is zero at the floor and never below it.
    */
   const floor = ground + PLINTH
-  const wall = pick(WALL_COLOURS[building.type], rng).clone().multiplyScalar(0.84 + building.condition * 0.16)
+  /*
+   * Wie eine Fassade aussieht, wenn sie dreißig Jahre niemand angefasst hat.
+   *
+   * Der Bauzustand skalierte die Helligkeit um sechzehn Prozent und sonst nichts — ein verwahrlostes
+   * Haus war ein leicht dunkleres. Verwitterung ist aber vor allem ein *Verlust an Farbe*: Putz
+   * kreidet aus, Anstrich bleicht, alles zieht ins Graubraune. Also beides, und deutlich: ein Haus
+   * bei `condition` 0,3 steht dreißig Prozent dunkler und halb so satt wie dasselbe Haus in Ordnung.
+   */
+  const keep = building.condition
+  const wall = weathered(pick(WALL_COLOURS[building.type], rng), keep)
   const plinth = wall.clone().multiplyScalar(PLINTH_SHADE)
   const roof = pick(ROOF_COLOURS[building.type], rng)
   tile.records.push(building)
   tile.colours.push(wall)
 
+  /*
+   * Die Körnung des Viertels: wie schmal die Achsen stehen und wie hoch die Räume sind.
+   *
+   * Gründerzeit steht auf schmalen Parzellen mit vier Metern Raumhöhe, die Nachkriegszeile breit mit
+   * zweisechzig. Bei gleicher Gebäudehöhe hat der eine drei Fensterreihen und der andere fünf — und
+   * das ist der stärkste Unterschied, den man von dieser Kamera aus überhaupt sieht. Er kostet
+   * nichts: es ist eine UV-Skala, kein zusätzliches Dreieck und kein zusätzlicher Draw.
+   */
+  const character = DISTRICT_CHARACTER[building.districtId]
+  const bayWidth = BAY_WIDTH * character.grain
+  const storeyHeight = STOREY_HEIGHT * character.storeyRise
+
   // ---- walls ----
-  const storeys = Math.max(1, Math.round((wallTop - floor) / STOREY_HEIGHT))
+  const storeys = Math.max(1, Math.round((wallTop - floor) / storeyHeight))
   for (let i = 0; i < corners; i += 1) {
     const j = (i + 1) % corners
     const ax = ring[i * 2]!
@@ -383,7 +420,7 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
      * to run from the bottom of the buried skirt, which put the ground-floor row underground and
      * every row above it a third of a storey out.
      */
-    const bays = Math.max(1, Math.round(span / BAY_WIDTH))
+    const bays = Math.max(1, Math.round(span / bayWidth))
     const u0 = 0
     const u1 = bays
     const vTop = storeys

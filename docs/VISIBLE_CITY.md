@@ -112,6 +112,51 @@ niemandem auf und ist den Umzug nicht wert.
 nicht bedeutender. Sie machen es länger.
 
 
+## Acht Viertel, die man auseinanderhält
+
+Lindenhafen hat acht Bezirke, jedes Gebäude trägt seinen `districtId` — und trotzdem sahen sie alle
+gleich aus. Nachgemessen, bevor irgendetwas geändert wurde:
+
+| | vorher | jetzt |
+| --- | --- | --- |
+| Wandtöne je Typ | fünf Namen für **eine** Farbe — `residential` 3° Farbton, `civic` 0°, Gewerbe 2–8 % Sättigung | 8–12 Töne, 30–56 Punkte Helligkeitsspanne |
+| Bauzustand | **ein** Strom für die ganze Stadt: 0,62–0,98, im Villenviertel wie im Wohnring | je Viertel eine eigene Spanne |
+| Verwitterung | 16 % Helligkeit, sonst nichts | Helligkeit **und** Sättigung — Putz kreidet aus |
+| Fensterrhythmus | für jedes Haus in der Stadt identisch | Körnung und Geschosshöhe je Viertel |
+
+`app/world/districtCharacter.ts` hält, was ein Viertel vom anderen trennt. Drei Zahlen, alle drei
+Bauwirklichkeit und keine Wertung:
+
+| | |
+| --- | --- |
+| **`upkeep`** | wie gut der Bestand gepflegt wird. Bestimmt den Bauzustand und damit, wie stark eine Fassade nachdunkelt und ausbleicht |
+| **`grain`** | die Parzellenkörnung. Gründerzeit steht schmal, die Nachkriegszeile breit |
+| **`storeyRise`** | die Raumhöhe. Ein Altbau hat vier Meter, ein Siebziger-Riegel zweisechzig — bei gleicher Gebäudehöhe drei Fensterreihen gegen fünf |
+
+Daraus fällt der Charakter von selbst:
+
+| Viertel | `upkeep` | Körnung | Was man sieht |
+| --- | --- | --- | --- |
+| Innenstadt | 0,90 | fein | dicht, warm, instand, hohe Räume |
+| Gründerzeit Nord | 0,82 | **sehr fein** | schmale Parzellen, hohe Fenster, gepflegt |
+| Vorstadt West | 0,88 | mittel | Einfamilienhäuser, niedrige Geschosse |
+| Gewerbe Ost | 0,86 | grob | Neubau, alles unter zwanzig Jahre |
+| Universität | 0,76 | grob | Nachkriegsbeton, öffentlich unterhalten |
+| Bahnhof | 0,52 | fein | durchmischt, wenig Eigentümerstolz |
+| Hafen & Industrie | 0,48 | **sehr grob** | Hallen und Silos; gepflegt wird, was produziert |
+| **Wohnring Süd** | **0,44** | grob | Zeilenbau, breit, flach, in die Jahre gekommen |
+
+**Nichts davon liest die Simulation.** Die Politik entscheidet, was gebaut wird — nicht, wie ein
+Viertel gewachsen ist. Und nichts davon kostet einen Draw: die Wandfarbe ist eine Vertex-Farbe auf
+einer weißen Textur, die Körnung ist eine UV-Skala. Gemessen unverändert bei 107 Draws und 119 FPS.
+
+### Was hier noch fehlt
+
+Ein Haus in Lindenhafen hat **ein** Fenster — dasselbe wie jedes andere, weil die ganze Stadt eine
+128er-Kachel teilt. Und es hat keine Tür: das Erdgeschoss sieht aus wie das fünfte. Beides ist ohne
+zusätzliche Draws zu lösen — die Kachel kann mehrere Entwürfe tragen, und eine Tür ist Geometrie in
+der Gruppe, die ohnehin ohne Fassadentextur zeichnet —, und beides steht noch aus.
+
 ## Obdachlosigkeit
 
 Die einzige Wohnungs-Auswirkung, für die das Modell **gar keine Zahl** hatte — und die einzige, die

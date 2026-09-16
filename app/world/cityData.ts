@@ -1,6 +1,7 @@
 import type { AreaKind, AreaRecord, BuildingRecord, BuildingType, CityBlueprint, RoadRecord, TreeRecord } from '../core/contracts'
 import type { ReliefField } from './relief'
 import { createRandomStream } from '../core/rng'
+import { conditionRange, DISTRICT_CHARACTER } from './districtCharacter'
 import { districtAt, LINDENHAFEN } from './model/lindenhafen'
 import { buildOutskirts } from './outskirts'
 import { Relief } from './relief'
@@ -65,21 +66,32 @@ const PLANTING_CLEARANCE = 1.2
 export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
   const wear = createRandomStream(seed, 'condition')
 
-  const buildings: BuildingRecord[] = raw.buildings.map((entry, index) => ({
-    id: `b-${index.toString(36)}`,
-    districtId: districtAt(entry.x, entry.z),
-    type: entry.t,
-    x: entry.x,
-    z: entry.z,
-    width: entry.w,
-    depth: entry.d,
-    height: entry.h,
-    rotation: entry.a,
-    condition: wear.between(0.62, 0.98),
-    occupancy: wear.between(0.76, 0.99),
-    footprint: entry.p,
-    roofHeight: entry.r,
-  }))
+  const buildings: BuildingRecord[] = raw.buildings.map((entry, index) => {
+    /*
+     * Der Bauzustand kommt aus dem Viertel, nicht aus einem Topf für die ganze Stadt.
+     *
+     * Er stand auf 0,62 bis 0,98 für jedes Haus in Lindenhafen — im Villenviertel wie im Wohnring —,
+     * und damit sahen acht Bezirke aus wie einer. Siehe `districtCharacter.ts`: jedes Viertel bringt
+     * seine eigene Spanne mit, und auch das gepflegteste hat eine Ruine darin.
+     */
+    const districtId = districtAt(entry.x, entry.z)
+    const wearRange = conditionRange(DISTRICT_CHARACTER[districtId].upkeep)
+    return {
+      id: `b-${index.toString(36)}`,
+      districtId,
+      type: entry.t,
+      x: entry.x,
+      z: entry.z,
+      width: entry.w,
+      depth: entry.d,
+      height: entry.h,
+      rotation: entry.a,
+      condition: wear.between(wearRange.low, wearRange.high),
+      occupancy: wear.between(0.76, 0.99),
+      footprint: entry.p,
+      roofHeight: entry.r,
+    }
+  })
 
   const areas = railwayLand(raw.areas.map((entry, index) => ({
     id: `a-${index.toString(36)}`,

@@ -113,8 +113,32 @@ Architekturregel gilt hier wie überall. Was sich unterscheidet, ist der Mensch,
 der Partei. `tests/unit/leaders.test.ts` verlangt, dass jeder Werdegang tatsächlich etwas tut und
 dass ein Jahrzehnt auch ohne einen spielbar bleibt, weil Spielstände von vorher keinen haben.
 
-Offen bleibt die **Startlage je Partei**: Haushaltsspielraum und Verhältnis zu jeder Fraktion sind
-noch für alle sechs gleich.
+### Und wer am ersten Tag mit wem kann
+
+Alle Verhältnisse standen auf null: sechs Fraktionen, die einen gleich gut kennen, und eine
+Koalition, die sich allein aus Sitzen ergab. Ein Rat ist am Tag der Konstituierung aber schon
+sortiert. Abgeleitet wird das jetzt aus dem **Achsenabstand** — kein neuer Inhalt, keine Matrix, die
+jemand pflegen müsste, und keine Verzweigung auf eine Parteikennung; dieselbe Nähe, mit der auch das
+Wahlvolk und der Rat rechnen.
+
+|  | CDU | AfD | SPD | GRÜNE | LINKE | FDP |
+| --- | --- | --- | --- | --- | --- | --- |
+| **CDU** | — | 0,29 | 0,12 | 0,06 | −0,04 | 0,29 |
+| **SPD** | 0,12 | 0,01 | — | **0,30** | 0,28 | 0,15 |
+| **GRÜNE** | 0,06 | −0,05 | **0,30** | — | **0,31** | 0,11 |
+| **LINKE** | −0,04 | **−0,15** | 0,28 | 0,31 | — | 0,01 |
+
+Darüber liegt, was der Vorsitz persönlich mitbringt: wer aus der Gewerkschaft kommt, hat in diesem
+Raum schon gesessen.
+
+`organization` schließlich — 78 bei der CDU, 52 bei der FDP — stand seit jeher in jedem Parteiprofil
+und wurde von null Code gelesen. Ein gut aufgestellter Apparat arbeitet Vorlagen schneller ab: das
+politische Kapital wächst zwischen 0,82 und 1,23 im Monat, mal dem, was der Werdegang beisteuert.
+
+Was **nicht** je Partei verschieden ist, ist der Haushaltsspielraum beim Antritt. Das stand hier
+einmal als Plan, ergibt aber keinen Sinn: die Bücher der Stadt ändern sich nicht dadurch, dass eine
+andere Fraktion den Vorsitz übernimmt. Was sich unterscheidet, ist das politische Startkapital — und
+das trägt der Werdegang.
 
 | Woran | Woher |
 | --- | --- |

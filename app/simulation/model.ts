@@ -44,7 +44,7 @@ import {
 import { castVote, forecastVote, supportFor } from './council'
 import { BASE_CAPITAL_PER_MONTH, clamp, healthFromState, stepDynamics } from './dynamics'
 import { defeatFromEdges, holdElection, isElectionMonth, MAJORITY, trackEdges, votedOut } from './election'
-import { driftFromCity, initialSupport, shiftFromDecision } from './electorate'
+import { axisDistance, driftFromCity, initialSupport, shiftFromDecision } from './electorate'
 import {
 
   applyMeasures,
@@ -197,12 +197,46 @@ function formCoalitionWith(partyId: PartyId | null, seats: Record<PartyId, numbe
   return coalition
 }
 
-/** Das Verhältnis zu jeder anderen Fraktion am ersten Tag. */
-function relationshipsAtStart(leader: CampaignLeader | null): Partial<Record<PartyId, number>> {
-  const start = leader ? getBackground(leader.backgroundId)?.startingRelationship ?? 0 : 0
-  if (start === 0)
-    return {}
-  return Object.fromEntries(PARTIES.map(party => [party.id, start]))
+/** Wie weit die Startverhältnisse auseinandergehen dürfen. Ein Rat, kein Lager. */
+const OPENING_SPREAD = 0.45
+
+/**
+ * Wer am ersten Tag mit wem kann.
+ *
+ * Stand bei allen auf null: sechs Fraktionen, die einen gleich gut kennen, und eine Koalition, die
+ * sich nur aus Sitzen ergab. Ein Rat ist aber am Tag der Konstituierung schon sortiert — wer
+ * inhaltlich nahe steht, redet miteinander, und wer weit weg steht, hat schon im Wahlkampf
+ * übereinander geredet.
+ *
+ * Abgeleitet aus dem, was ohnehin dasteht: dem Achsenabstand. Kein neuer Inhalt, keine Matrix, die
+ * jemand pflegen müsste, und keine Verzweigung auf eine Parteikennung — nur dieselbe Nähe, die auch
+ * das Wahlvolk und der Rat benutzen. Darüber liegt, was der Vorsitz persönlich mitbringt.
+ */
+function relationshipsAtStart(partyId: PartyId | null, leader: CampaignLeader | null): Partial<Record<PartyId, number>> {
+  const fromBackground = leader ? getBackground(leader.backgroundId)?.startingRelationship ?? 0 : 0
+  const own = partyId ? getParty(partyId) : null
+  if (!own)
+    return fromBackground === 0 ? {} : Object.fromEntries(PARTIES.map(party => [party.id, fromBackground]))
+
+  return Object.fromEntries(PARTIES.filter(party => party.id !== own.id).map((party) => {
+    // Abstand 0,25 heißt „nah" und ergibt +0,45; 0,75 heißt „fern" und ergibt −0,45.
+    const closeness = 1 - 2 * axisDistance(own.axes, party.axes)
+    return [party.id, clamp(closeness * OPENING_SPREAD + fromBackground, -1, 1)]
+  }))
+}
+
+/** Der Wert, um den die sechs Apparate streuen. */
+const TYPICAL_ORGANISATION = 70
+
+/**
+ * Wie schnell politisches Kapital nachwächst, je Partei.
+ *
+ * `organization` steht seit jeher in jedem Parteiprofil — 78 bei der CDU, 52 bei der FDP — und wurde
+ * von null Code gelesen. Ein gut aufgestellter Apparat arbeitet Vorlagen schneller ab; ein dünner
+ * braucht für dasselbe länger.
+ */
+function organisationFactor(partyId: PartyId | null): number {
+  return partyId ? getParty(partyId).stats.organization / TYPICAL_ORGANISATION : 1
 }
 
 /** Was eine öffentliche Kampagne regulär kostet. */
@@ -214,8 +248,9 @@ export function campaignCost(leader: CampaignLeader | null): number {
 }
 
 /** Wie schnell politisches Kapital nachwächst. Der Grundwert steht in `dynamics`. */
-export function capitalPerMonth(leader: CampaignLeader | null): number {
-  return leader ? getBackground(leader.backgroundId)?.capitalPerMonth ?? BASE_CAPITAL_PER_MONTH : BASE_CAPITAL_PER_MONTH
+export function capitalPerMonth(leader: CampaignLeader | null, partyId: PartyId | null = null): number {
+  const fromLeader = leader ? getBackground(leader.backgroundId)?.capitalPerMonth ?? BASE_CAPITAL_PER_MONTH : BASE_CAPITAL_PER_MONTH
+  return fromLeader * organisationFactor(partyId)
 }
 
 export function createInitialState(
@@ -252,7 +287,7 @@ export function createInitialState(
      * Gewerkschaft kommt, hat in diesem Raum schon gesessen; wer aus einer Bürgerinitiative kommt,
      * hat ihn gegen sich aufgebracht.
      */
-    relationships: relationshipsAtStart(leader),
+    relationships: relationshipsAtStart(partyId, leader),
     seatsByParty: seatsFromContent(),
     coalitionPartyIds: formCoalition(partyId),
     support: initialSupport(),
@@ -980,7 +1015,7 @@ function advanceOneMonth(state: SimulationState): SimulationState {
   }
 
   const previousHealth = healthFromState(state.metrics, state.perception)
-  const stepped = stepDynamics(workingMetrics, workingStocks, state.perception, previousHealth, measureCost, capitalPerMonth(state.leader))
+  const stepped = stepDynamics(workingMetrics, workingStocks, state.perception, previousHealth, measureCost, capitalPerMonth(state.leader, state.partyId))
   edges.push(...stepped.edges)
 
   /*

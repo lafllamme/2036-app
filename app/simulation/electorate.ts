@@ -143,8 +143,13 @@ function axisCentre(partyIds: PartyId[]): Record<AxisId, number> {
   return centre
 }
 
-/** Mean per-axis distance between two positions, 0 … 1. */
-function axisDistance(a: Record<AxisId, number>, b: Record<AxisId, number>): number {
+/**
+ * Mean per-axis distance between two positions, 0 … 1.
+ *
+ * Exportiert, weil dieselbe Frage — wie weit stehen zwei Fraktionen auseinander — auch die Antwort
+ * darauf ist, wer am ersten Tag mit wem kann.
+ */
+export function axisDistance(a: Record<AxisId, number>, b: Record<AxisId, number>): number {
   const axes = Object.keys(a) as AxisId[]
   const sum = axes.reduce((total, axis) => total + Math.abs(a[axis] - b[axis]), 0)
   return clamp(sum / (axes.length * 2), 0, 1)

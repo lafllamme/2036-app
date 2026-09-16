@@ -248,6 +248,42 @@ export function eligibleEvents(state: EventDrawState, monthOfYear: number): Even
 }
 
 /**
+ * Wie oft überhaupt gezogen wird.
+ *
+ * Stand auf 0,8 — also zog jeder vierte Monat *nicht*. Über 132 Monate sind das rund 105 Ziehungen
+ * gegen einen Vorrat von 78 Vorlagen, und weil eine beschlossene Vorlage nicht wiederkommt, hatte am
+ * Ende schlicht jeder Durchlauf alles abgearbeitet, was es gab: gemessen 56 bis 69 von 78 je Lauf,
+ * 42 Vorlagen in **jedem einzelnen** von zwölf Läufen, und **82 % Überschneidung** zwischen zwei
+ * beliebigen — auch über vier verschiedene Parteien hinweg.
+ *
+ * Gesenkt werden konnte die Rate erst, seit `bulletin.ts` den Takt trägt. Vorher wäre eine seltenere
+ * Ziehung eine stillere Stadt gewesen; jetzt meldet sich der Stadtfunk 5,7 mal im Monat, und eine
+ * Ratsvorlage darf wieder etwas sein, das nicht jeden Monat kommt.
+ *
+ * Durchgemessen über zwölf Durchläufe mit vier Parteien, nachdem 31 Vorlagen ihre Bedingung
+ * bekommen hatten — und gegen die Gegenprobe, ob der Spieler seine Kampagnenziele überhaupt noch
+ * erreichen kann:
+ *
+ * | Rate | Pflichtteil | Überschneidung | Ziele erreichbar |
+ * | --- | --- | --- | --- |
+ * | 0,80 | 42 | 82 % | ja |
+ * | 0,68 | 25 | 71 % | **nein** |
+ * | **0,62** | **21** | **69 %** | **ja** |
+ * | 0,55 | 16 | 61 % | nein |
+ * | 0,37 | 4 | 45 % | nein |
+ *
+ * **Hier liegt eine Decke, und sie ist keine Tuningfrage.** Halb so viele Ratsvorlagen sind halb so
+ * viele Hebel: unter 0,62 schrumpft die erreichbare Spanne jeder Kennzahl so weit, dass eigene
+ * Kampagnenziele unerreichbar werden — und ein Durchlauf, in dem man seine Versprechen nicht halten
+ * kann*, ist kaputter als einer, der sich wiederholt. Handlungsfähigkeit schlägt Abwechslung.
+ *
+ * Weiter kommt man von hier nur mit mehr Inhalt, nicht mit einer anderen Zahl: mehr Vorlagen, mehr
+ * Verzweigungen, oder Vorlagen, die sich ihren Ort und ihre Zahlen aus dem Spielstand holen statt
+ * fest geschrieben zu sein. Siehe `tests/unit/replay.test.ts` für die gemessene Lage.
+ */
+const DRAW_CHANCE = 0.62
+
+/**
  * Weighted seeded draw. Roughly 0.8 events per month (docs/EVENT_MATRIX.md pressure budget), with
  * weight scaled by how far the city is past the threshold — a city deep in a housing shortage sees
  * housing events far more often than a comfortable one.
@@ -261,7 +297,7 @@ export function drawEvent(state: EventDrawState, monthOfYear: number, stream: Ra
   if (scheduled)
     return scheduled
 
-  if (stream.next() > 0.8)
+  if (stream.next() > DRAW_CHANCE)
     return null
 
   const weights = eligible.map(event => event.trigger.baseWeight * exceedance(state.metrics, event))

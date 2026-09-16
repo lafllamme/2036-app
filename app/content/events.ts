@@ -272,6 +272,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Zuweisungen kommen, wenn der Druck von außen steigt.
     id: 'soc-allocation',
     kind: 'decision',
     category: 'social',
@@ -279,7 +280,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die Bezirksregierung weist Lindenhafen 600 Personen zur Aufnahme zu. Die Zuweisung selbst ist nicht verhandelbar; Unterbringung, Sprachkurse und Vermittlung sind kommunale Entscheidungen.',
     urgency: 'important',
-    trigger: { earliestMonth: 7, latestMonth: 120, conditions: [], baseWeight: 8, cooldownMonths: 20, oncePerCampaign: false },
+    trigger: { earliestMonth: 7, latestMonth: 120, conditions: [{ metric: 'migrationPressure', operator: '>', value: 103 }], baseWeight: 8, cooldownMonths: 20, oncePerCampaign: false },
     immediateEffects: [],
     defaultOptionId: 'soc-allocation-central',
     expiresInMonths: 2,
@@ -502,6 +503,7 @@ export const EVENTS: EventDefinition[] = [
   // --- Economy and finance -------------------------------------------------
   {
     schemaVersion: 1,
+    // Ein Werk schließt in der Flaute, nicht im Aufschwung.
     id: 'eco-plant-closure',
     kind: 'external',
     category: 'economy',
@@ -509,7 +511,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Der größte industrielle Arbeitgeber der Stadt verlagert die Produktion. Fünfhundert Stellen und ein erheblicher Teil der Gewerbesteuer entfallen.',
     urgency: 'breaking',
-    trigger: { earliestMonth: 20, latestMonth: 104, conditions: [], baseWeight: 4, cooldownMonths: 80, oncePerCampaign: true },
+    trigger: { earliestMonth: 20, latestMonth: 104, conditions: [{ metric: 'economy', operator: '<', value: 97 }], baseWeight: 4, cooldownMonths: 80, oncePerCampaign: true },
     immediateEffects: [effect({ target: 'businessSites', expected: -340, delayMonths: 0, rampMonths: 4, confidence: 'high' })],
     expiresInMonths: 3,
     options: [{
@@ -654,13 +656,14 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Wo viel und schnell vergeben wird, wird schlecht vergeben.
     id: 'gov-procurement-scandal',
     kind: 'incident',
     category: 'governance',
     title: 'Vergabeaffäre im Rathaus',
     briefing: 'Ein Bericht des Rechnungsprüfungsamts legt Verstöße bei mehreren Auftragsvergaben offen. Das Vertrauen in die Verwaltung bricht messbar ein.',
     urgency: 'breaking',
-    trigger: { earliestMonth: 15, latestMonth: 120, conditions: [], baseWeight: 3, cooldownMonths: 70, oncePerCampaign: true },
+    trigger: { earliestMonth: 15, latestMonth: 120, conditions: [{ metric: 'investmentBacklog', operator: '>', value: 45 }], baseWeight: 3, cooldownMonths: 70, oncePerCampaign: true },
     immediateEffects: [],
     options: [],
     expiresInMonths: 0,
@@ -668,13 +671,14 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Das Land zieht dort ab, wo die Stadt selbst genug hat.
     id: 'saf-state-police',
     kind: 'external',
     category: 'safety',
     title: 'Land zieht Polizeistellen ab',
     briefing: 'Die Landespolizei verlagert 24 Stellen in den Ballungsraum. Die Stadt kann das nicht ersetzen, nur ausgleichen.',
     urgency: 'important',
-    trigger: { earliestMonth: 26, latestMonth: 110, conditions: [], baseWeight: 4, cooldownMonths: 80, oncePerCampaign: true },
+    trigger: { earliestMonth: 26, latestMonth: 110, conditions: [{ metric: 'orderServiceCapacity', operator: '>', value: 11.4 }], baseWeight: 4, cooldownMonths: 80, oncePerCampaign: true },
     immediateEffects: [effect({ target: 'orderServiceFte', expected: -18, delayMonths: 1, rampMonths: 5, confidence: 'high' })],
     options: [],
     expiresInMonths: 0,
@@ -1236,6 +1240,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Angebotsmiete 11,50–14,90 €: Zweckentfremdung ist ein Thema auf angespanntem Markt.
     id: 'hou-vacancy-levy',
     kind: 'decision',
     category: 'housing',
@@ -1243,7 +1248,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Achthundert Wohnungen stehen länger als ein Jahr leer oder laufen als Ferienwohnung. Eine Satzung mit Bußgeld und Anzeigepflicht könnte einen Teil davon zurückholen — sie braucht allerdings Leute, die kontrollieren.',
     urgency: 'normal',
-    trigger: { earliestMonth: 14, latestMonth: 126, conditions: [], baseWeight: 7, cooldownMonths: 36, oncePerCampaign: false },
+    trigger: { earliestMonth: 14, latestMonth: 126, conditions: [{ metric: 'averageRent', operator: '>', value: 13.1 }], baseWeight: 7, cooldownMonths: 36, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {
@@ -1264,6 +1269,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Erbbaurecht statt Verkauf kann sich leisten, wer nicht verkaufen muss.
     id: 'hou-leasehold',
     kind: 'decision',
     category: 'housing',
@@ -1271,7 +1277,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Drei städtische Grundstücke stehen zur Vergabe. Die Kämmerei rechnet mit elf Millionen beim Verkauf; im Erbbaurecht bliebe die Stadt Eigentümerin und könnte Belegungsbindungen auf neunzig Jahre festschreiben.',
     urgency: 'normal',
-    trigger: { earliestMonth: 16, latestMonth: 122, conditions: [], baseWeight: 6, cooldownMonths: 44, oncePerCampaign: false },
+    trigger: { earliestMonth: 16, latestMonth: 122, conditions: [{ metric: 'cityBudget', operator: '>', value: 140 }], baseWeight: 6, cooldownMonths: 44, oncePerCampaign: false },
     immediateEffects: [],
     defaultOptionId: 'hou-leasehold-sell',
     options: [
@@ -1335,6 +1341,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Studierende merken die Anspannung zuerst.
     id: 'hou-student-housing',
     kind: 'decision',
     category: 'housing',
@@ -1342,7 +1349,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die Fachhochschule wächst, ihre Studierenden verdrängen Familien aus dem Westviertel. Das Land gibt Fördermittel für ein Wohnheim, wenn die Stadt das Grundstück stellt.',
     urgency: 'normal',
-    trigger: { earliestMonth: 20, latestMonth: 120, conditions: [], baseWeight: 6, cooldownMonths: 48, oncePerCampaign: false },
+    trigger: { earliestMonth: 20, latestMonth: 120, conditions: [{ metric: 'averageRent', operator: '>', value: 12.7 }], baseWeight: 6, cooldownMonths: 48, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {
@@ -1365,6 +1372,7 @@ export const EVENTS: EventDefinition[] = [
   // --- Mobilität ------------------------------------------------------------
   {
     schemaVersion: 1,
+    // Emissionsindex 44,7–52,2.
     id: 'mob-parking-reform',
     kind: 'decision',
     category: 'mobility',
@@ -1372,7 +1380,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Ein Stellplatz im öffentlichen Raum kostet die Stadt rund zweihundert Euro im Jahr und den Anwohner dreißig. Eine Neuberechnung bringt Geld und Platz — und trifft genau die Leute, die am lautesten anrufen.',
     urgency: 'normal',
-    trigger: { earliestMonth: 18, latestMonth: 126, conditions: [], baseWeight: 7, cooldownMonths: 42, oncePerCampaign: false },
+    trigger: { earliestMonth: 18, latestMonth: 126, conditions: [{ metric: 'emissions', operator: '>', value: 46 }], baseWeight: 7, cooldownMonths: 42, oncePerCampaign: false },
     immediateEffects: [],
     defaultOptionId: 'mob-parking-moderate',
     options: [
@@ -1404,6 +1412,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Erschließung 63,8–81,7 %: nach dem Nachtbus ruft, wer abends nicht heimkommt.
     id: 'mob-night-network',
     kind: 'decision',
     category: 'mobility',
@@ -1411,7 +1420,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Nach 22 Uhr ist der Wohnring nicht mehr erreichbar. Die Verkehrsbetriebe schlagen vier Nachtlinien im Stundentakt vor, Freitag und Samstag im Halbstundentakt.',
     urgency: 'normal',
-    trigger: { earliestMonth: 10, latestMonth: 128, conditions: [], baseWeight: 7, cooldownMonths: 36, oncePerCampaign: false },
+    trigger: { earliestMonth: 10, latestMonth: 128, conditions: [{ metric: 'transitCoverage', operator: '<', value: 74 }], baseWeight: 7, cooldownMonths: 36, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {
@@ -1431,6 +1440,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Schulauslastung 93,6–100,1 %: volle Schulen heißt volle Bringzeiten.
     id: 'mob-school-streets',
     kind: 'decision',
     category: 'mobility',
@@ -1438,7 +1448,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Vor sechs Grundschulen staut sich morgens der Elternverkehr. Eine Sperrung für dreißig Minuten am Morgen ist rechtlich möglich, verlangt aber jemanden, der die Poller stellt.',
     urgency: 'normal',
-    trigger: { earliestMonth: 8, latestMonth: 130, conditions: [], baseWeight: 7, cooldownMonths: 34, oncePerCampaign: false },
+    trigger: { earliestMonth: 8, latestMonth: 130, conditions: [{ metric: 'schoolUtilisation', operator: '>', value: 96 }], baseWeight: 7, cooldownMonths: 34, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {
@@ -1459,6 +1469,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Eine Straßenbahn prüft, wem der Bus nicht mehr reicht.
     id: 'mob-tram-study',
     kind: 'decision',
     category: 'mobility',
@@ -1466,7 +1477,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Eine Trasse vom Hafen zum Wohnring wäre der größte Verkehrseingriff seit vierzig Jahren. Bevor irgendjemand darüber abstimmen kann, braucht es eine Untersuchung — und die kostet, bevor sie irgendetwas bringt.',
     urgency: 'normal',
-    trigger: { earliestMonth: 24, latestMonth: 108, conditions: [], baseWeight: 5, cooldownMonths: 54, oncePerCampaign: false },
+    trigger: { earliestMonth: 24, latestMonth: 108, conditions: [{ metric: 'transitCoverage', operator: '<', value: 72 }], baseWeight: 5, cooldownMonths: 54, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {
@@ -1489,6 +1500,7 @@ export const EVENTS: EventDefinition[] = [
   // --- Umwelt ---------------------------------------------------------------
   {
     schemaVersion: 1,
+    // Emissionsindex 44,7–52,2.
     id: 'env-solar-roofs',
     kind: 'decision',
     category: 'environment',
@@ -1496,7 +1508,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Neunzig Dächer der Stadt sind ungenutzt. Eine Eigenbetriebslösung würde sie belegen und den Strom selbst vermarkten — Investition heute, Erlös ab dem achten Jahr.',
     urgency: 'normal',
-    trigger: { earliestMonth: 6, latestMonth: 126, conditions: [], baseWeight: 8, cooldownMonths: 38, oncePerCampaign: false },
+    trigger: { earliestMonth: 6, latestMonth: 126, conditions: [{ metric: 'emissions', operator: '>', value: 46.5 }], baseWeight: 8, cooldownMonths: 38, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {
@@ -1516,6 +1528,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Fernwärme ist das teure Mittel; sie kommt, wenn das billige nicht gereicht hat.
     id: 'env-heat-north',
     kind: 'decision',
     category: 'environment',
@@ -1523,7 +1536,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Zweitausend Wohnungen im Norden heizen mit Gas aus den Siebzigern. Die Stadtwerke legen einen Ausbauplan vor: vier Kilometer Leitung, Anschlusszwang für Neubauten, Zuschüsse für den Rest.',
     urgency: 'important',
-    trigger: { earliestMonth: 12, latestMonth: 124, conditions: [], baseWeight: 7, cooldownMonths: 42, oncePerCampaign: false },
+    trigger: { earliestMonth: 12, latestMonth: 124, conditions: [{ metric: 'emissions', operator: '>', value: 47.5 }], baseWeight: 7, cooldownMonths: 42, oncePerCampaign: false },
     immediateEffects: [],
     refusedEffects: [effect({ target: 'investmentBacklog', expected: 6, delayMonths: 2, rampMonths: 10, confidence: 'low' })],
     options: [
@@ -1545,6 +1558,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Grünfläche 18,4–24,2 m² je Kopf.
     id: 'env-river-renaturation',
     kind: 'decision',
     category: 'environment',
@@ -1552,7 +1566,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Der begradigte Flussabschnitt hinter dem Gewerbegebiet ist ökologisch tot und bei Starkregen eine Rinne. Eine Renaturierung senkt das Hochwasserrisiko — und kostet Gewerbefläche.',
     urgency: 'normal',
-    trigger: { earliestMonth: 22, latestMonth: 120, conditions: [], baseWeight: 6, cooldownMonths: 48, oncePerCampaign: false },
+    trigger: { earliestMonth: 22, latestMonth: 120, conditions: [{ metric: 'greenSpacePerCapita', operator: '<', value: 21.5 }], baseWeight: 6, cooldownMonths: 48, oncePerCampaign: false },
     immediateEffects: [],
     defaultOptionId: 'env-river-partial',
     options: [
@@ -1589,6 +1603,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Eine Baumschutzsatzung fordert, wer Bäume verliert.
     id: 'env-tree-charter',
     kind: 'decision',
     category: 'environment',
@@ -1596,7 +1611,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'In fünf Jahren sind vierhundert Großbäume auf Privatgrund verschwunden, fast alle genehmigungsfrei. Eine schärfere Satzung würde das stoppen — und jedem Hausbesitzer einen Antrag abverlangen.',
     urgency: 'normal',
-    trigger: { earliestMonth: 14, latestMonth: 128, conditions: [], baseWeight: 7, cooldownMonths: 40, oncePerCampaign: false },
+    trigger: { earliestMonth: 14, latestMonth: 128, conditions: [{ metric: 'greenSpacePerCapita', operator: '<', value: 21 }], baseWeight: 7, cooldownMonths: 40, oncePerCampaign: false },
     immediateEffects: [],
     refusedEffects: [effect({ target: 'greenSpaceHectares', expected: -5, delayMonths: 4, rampMonths: 16, confidence: 'medium' })],
     options: [
@@ -1659,6 +1674,10 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Integrationskapazität 0,3–1,8: Sprach-Kitas fordert, wem die Plätze für die Sprachförderung fehlen.
+    // Ausdrücklich NICHT am internationalen Anteil: eine Zusammensetzung darf nie ein Auslöser sein
+    // — siehe `tests/unit/events.test.ts`. Gefragt wird nach der Leistung der Stadt, nicht danach,
+    // wer in ihr wohnt.
     id: 'soc-language-daycare',
     kind: 'decision',
     category: 'social',
@@ -1666,7 +1685,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'In vier Kitas sprechen über achtzig Prozent der Kinder zu Hause kein Deutsch. Zusätzliche Fachkräfte für Sprachförderung wirken nachweislich — und sind auf dem Arbeitsmarkt kaum zu bekommen.',
     urgency: 'normal',
-    trigger: { earliestMonth: 12, latestMonth: 128, conditions: [], baseWeight: 7, cooldownMonths: 36, oncePerCampaign: false },
+    trigger: { earliestMonth: 12, latestMonth: 128, conditions: [{ metric: 'integrationCapacity', operator: '<', value: 1.2 }], baseWeight: 7, cooldownMonths: 36, oncePerCampaign: false },
     immediateEffects: [],
     refusedEffects: [effect({ target: 'integrationPlaces', expected: -60, delayMonths: 4, rampMonths: 12, confidence: 'low' })],
     options: [
@@ -1721,6 +1740,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Zufriedenheit 57,3–70,5: Quartierspflege fordert, wem es nicht gut genug geht.
     id: 'soc-neighbourhood-care',
     kind: 'decision',
     category: 'social',
@@ -1728,7 +1748,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die Pflegekassen zahlen stationär, die Stadt zahlt den Rest. Ein Quartiersansatz mit Tagespflege und Wohngruppen wäre billiger und näher — wenn die Stadt in Vorleistung geht.',
     urgency: 'normal',
-    trigger: { earliestMonth: 26, latestMonth: 124, conditions: [], baseWeight: 6, cooldownMonths: 44, oncePerCampaign: false },
+    trigger: { earliestMonth: 26, latestMonth: 124, conditions: [{ metric: 'satisfaction', operator: '<', value: 65 }], baseWeight: 6, cooldownMonths: 44, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {
@@ -1751,6 +1771,7 @@ export const EVENTS: EventDefinition[] = [
   // --- Sicherheit -----------------------------------------------------------
   {
     schemaVersion: 1,
+    // Kriminalität 39,9–62,5 je 1.000.
     id: 'saf-lighting-offensive',
     kind: 'decision',
     category: 'safety',
@@ -1758,7 +1779,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die Beschwerden über unbeleuchtete Wege häufen sich, vor allem von Frauen und Älteren. LED mit Bewegungsmeldern wäre auch für die Tiere im Grünzug vertretbar — und kostet einmal viel, dann wenig.',
     urgency: 'normal',
-    trigger: { earliestMonth: 7, latestMonth: 130, conditions: [], baseWeight: 8, cooldownMonths: 36, oncePerCampaign: false },
+    trigger: { earliestMonth: 7, latestMonth: 130, conditions: [{ metric: 'crimeRate', operator: '>', value: 49 }], baseWeight: 8, cooldownMonths: 36, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {
@@ -1779,6 +1800,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Obdachlosigkeit 432–2.591: eine offene Szene hat, wer Menschen auf der Straße hat.
     id: 'saf-drug-scene',
     kind: 'decision',
     category: 'safety',
@@ -1786,7 +1808,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Rund achtzig Menschen konsumieren im Bahnhofsumfeld öffentlich. Die Geschäfte klagen, die Sozialverbände warnen vor Verdrängung. Beide Wege sind erprobt, und beide haben genau die Nachteile, die der andere nennt.',
     urgency: 'important',
-    trigger: { earliestMonth: 16, latestMonth: 126, conditions: [], baseWeight: 7, cooldownMonths: 46, oncePerCampaign: false },
+    trigger: { earliestMonth: 16, latestMonth: 126, conditions: [{ metric: 'homelessPeople', operator: '>', value: 850 }], baseWeight: 7, cooldownMonths: 46, oncePerCampaign: false },
     immediateEffects: [],
     defaultOptionId: 'saf-drug-presence',
     options: [
@@ -1818,6 +1840,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Einsatzkapazität 10,4–14,6.
     id: 'saf-fire-station',
     kind: 'decision',
     category: 'safety',
@@ -1825,7 +1848,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die Feuerwehr erreicht den Süden in zwölf statt in acht Minuten. Eine vierte Wache wäre die saubere Lösung; sie kostet so viel wie zwei Schulanbauten und bindet Personal, das es nicht gibt.',
     urgency: 'important',
-    trigger: { earliestMonth: 20, latestMonth: 122, conditions: [], baseWeight: 6, cooldownMonths: 50, oncePerCampaign: false },
+    trigger: { earliestMonth: 20, latestMonth: 122, conditions: [{ metric: 'orderServiceCapacity', operator: '<', value: 12.4 }], baseWeight: 6, cooldownMonths: 50, oncePerCampaign: false },
     immediateEffects: [],
     refusedEffects: [effect({ target: 'investmentBacklog', expected: 8, delayMonths: 3, rampMonths: 12, confidence: 'medium' })],
     options: [
@@ -1848,6 +1871,7 @@ export const EVENTS: EventDefinition[] = [
   // --- Wirtschaft und Finanzen ---------------------------------------------
   {
     schemaVersion: 1,
+    // Jugendarbeitslosigkeit 3,8–14,6 %: ein Gründerzentrum fordert, wer keine Lehrstellen hat.
     id: 'eco-startup-centre',
     kind: 'decision',
     category: 'economy',
@@ -1855,7 +1879,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die denkmalgeschützte Halle 4 steht seit neun Jahren leer. Als Gründerzentrum mit günstigen Mieten wäre sie in zwei Jahren belegt — die Sanierung kostet allerdings, bevor irgendjemand einzieht.',
     urgency: 'normal',
-    trigger: { earliestMonth: 14, latestMonth: 122, conditions: [], baseWeight: 7, cooldownMonths: 44, oncePerCampaign: false },
+    trigger: { earliestMonth: 14, latestMonth: 122, conditions: [{ metric: 'youthUnemployment', operator: '>', value: 7 }], baseWeight: 7, cooldownMonths: 44, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {
@@ -1875,6 +1899,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Betriebsbestand 4.910–6.374: der Hafen will nach Osten, wenn er ausgelastet ist.
     id: 'eco-harbour-expansion',
     kind: 'decision',
     category: 'economy',
@@ -1882,7 +1907,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Die Hafengesellschaft beantragt vierzig Hektar für ein neues Terminal. Dieselbe Fläche ist im Landschaftsplan als Ausgleich vorgesehen. Eines von beidem wird es geben.',
     urgency: 'important',
-    trigger: { earliestMonth: 28, latestMonth: 118, conditions: [], baseWeight: 6, cooldownMonths: 54, oncePerCampaign: true },
+    trigger: { earliestMonth: 28, latestMonth: 118, conditions: [{ metric: 'businessStock', operator: '>', value: 5400 }], baseWeight: 6, cooldownMonths: 54, oncePerCampaign: true },
     immediateEffects: [],
     defaultOptionId: 'eco-harbour-keep',
     options: [
@@ -1959,6 +1984,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Kassenkredite 47–631 Mio.: digitalisieren kann, wer noch Luft hat.
     id: 'fin-digital-office',
     kind: 'decision',
     category: 'finance',
@@ -1966,7 +1992,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Zweiundsiebzig Leistungen sind noch Papier. Eine Digitalisierungsoffensive bindet drei Jahre lang Geld und Personal, bevor irgendjemand etwas merkt — und die Hälfte der Projekte scheitert erfahrungsgemäß.',
     urgency: 'normal',
-    trigger: { earliestMonth: 12, latestMonth: 120, conditions: [], baseWeight: 7, cooldownMonths: 42, oncePerCampaign: false },
+    trigger: { earliestMonth: 12, latestMonth: 120, conditions: [{ metric: 'debt', operator: '<', value: 320 }], baseWeight: 7, cooldownMonths: 42, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {
@@ -1989,6 +2015,7 @@ export const EVENTS: EventDefinition[] = [
   // --- Verwaltung -----------------------------------------------------------
   {
     schemaVersion: 1,
+    // Polarisierung 38–61,8: Beteiligung fordert, wessen Stadt auseinanderdriftet.
     id: 'gov-citizen-budget',
     kind: 'decision',
     category: 'governance',
@@ -1996,7 +2023,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Zwei Millionen im Jahr, über die die Quartiere selbst entscheiden. Erfahrungen anderswo: hohe Beteiligung im ersten Jahr, danach dieselben dreißig Leute — und trotzdem mehr Vertrauen als jede Kampagne.',
     urgency: 'normal',
-    trigger: { earliestMonth: 8, latestMonth: 124, conditions: [], baseWeight: 7, cooldownMonths: 40, oncePerCampaign: false },
+    trigger: { earliestMonth: 8, latestMonth: 124, conditions: [{ metric: 'polarisation', operator: '>', value: 43 }], baseWeight: 7, cooldownMonths: 40, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {
@@ -2017,6 +2044,7 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Dieselbe Spannung, eine Stufe später.
     id: 'gov-transparency',
     kind: 'decision',
     category: 'governance',
@@ -2024,7 +2052,7 @@ export const EVENTS: EventDefinition[] = [
     briefing:
       'Verträge, Gutachten und Ratsvorlagen sollen von sich aus öffentlich werden, nicht erst auf Antrag. Die Verwaltung warnt vor Aufwand, die Presse vor dem Gegenteil.',
     urgency: 'normal',
-    trigger: { earliestMonth: 10, latestMonth: 126, conditions: [], baseWeight: 7, cooldownMonths: 38, oncePerCampaign: false },
+    trigger: { earliestMonth: 10, latestMonth: 126, conditions: [{ metric: 'polarisation', operator: '>', value: 45 }], baseWeight: 7, cooldownMonths: 38, oncePerCampaign: false },
     immediateEffects: [],
     options: [
       {
@@ -2507,13 +2535,14 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Der Schlüsselausgleich fällt der Stadt auf, die ihn braucht.
     id: 'fin-windfall-equalisation',
     kind: 'incident',
     category: 'finance',
     title: 'Schlüsselzuweisung höher als veranschlagt',
     briefing: 'Der Finanzausgleich des Landes fällt zugunsten der Stadt aus. Ein Buchungsgewinn, kein Strukturgewinn — nächstes Jahr kann es andersherum laufen.',
     urgency: 'normal',
-    trigger: { earliestMonth: 6, latestMonth: 130, conditions: [], baseWeight: 8, cooldownMonths: 20, oncePerCampaign: false },
+    trigger: { earliestMonth: 6, latestMonth: 130, conditions: [{ metric: 'debt', operator: '>', value: 140 }], baseWeight: 8, cooldownMonths: 20, oncePerCampaign: false },
     immediateEffects: [effect({ target: 'cityBudget', expected: 7, delayMonths: 0, rampMonths: 1, confidence: 'high' })],
     options: [],
     expiresInMonths: 0,
@@ -2521,13 +2550,14 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Zufriedenheit 57,3–70,5: man vermacht der Stadt etwas, die man mag.
     id: 'fin-windfall-bequest',
     kind: 'incident',
     category: 'finance',
     title: 'Vermächtnis an die Stadt',
     briefing: 'Eine Reederfamilie vererbt der Stadt Wertpapiere und ein Kontorhaus am alten Hafen, zweckgebunden an nichts.',
     urgency: 'normal',
-    trigger: { earliestMonth: 20, latestMonth: 128, conditions: [], baseWeight: 4, cooldownMonths: 60, oncePerCampaign: true },
+    trigger: { earliestMonth: 20, latestMonth: 128, conditions: [{ metric: 'satisfaction', operator: '>', value: 62 }], baseWeight: 4, cooldownMonths: 60, oncePerCampaign: true },
     immediateEffects: [effect({ target: 'cityBudget', expected: 5, delayMonths: 0, rampMonths: 1, confidence: 'high' })],
     options: [],
     expiresInMonths: 0,
@@ -2549,13 +2579,14 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Sanierungsstau 0–234,5 Mio.: Altlasten findet, wer endlich gräbt.
     id: 'fin-shock-contamination',
     kind: 'incident',
     category: 'finance',
     title: 'Altlasten unter dem Bauhof',
     briefing: 'Bei Erdarbeiten kommen Rückstände aus der Zeit der Werft zutage. Die Sanierung ist nicht aufschiebbar und nicht versichert.',
     urgency: 'important',
-    trigger: { earliestMonth: 10, latestMonth: 126, conditions: [], baseWeight: 6, cooldownMonths: 48, oncePerCampaign: false },
+    trigger: { earliestMonth: 10, latestMonth: 126, conditions: [{ metric: 'investmentBacklog', operator: '>', value: 55 }], baseWeight: 6, cooldownMonths: 48, oncePerCampaign: false },
     immediateEffects: [effect({ target: 'cityBudget', expected: -9, delayMonths: 0, rampMonths: 2, confidence: 'medium' })],
     options: [],
     expiresInMonths: 0,
@@ -2563,13 +2594,14 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Beschäftigung 68,5–73,5 %: um Eingruppierung wird gestritten, wo Personal knapp ist.
     id: 'fin-shock-payscale',
     kind: 'incident',
     category: 'finance',
     title: 'Gericht kippt die Eingruppierung',
     briefing: 'Beschäftigte der Stadt bekommen rückwirkend eine höhere Entgeltgruppe zugesprochen. Die Nachzahlung trifft den Haushalt sofort.',
     urgency: 'breaking',
-    trigger: { earliestMonth: 16, latestMonth: 128, conditions: [], baseWeight: 5, cooldownMonths: 54, oncePerCampaign: false },
+    trigger: { earliestMonth: 16, latestMonth: 128, conditions: [{ metric: 'employment', operator: '>', value: 70.5 }], baseWeight: 5, cooldownMonths: 54, oncePerCampaign: false },
     immediateEffects: [effect({ target: 'cityBudget', expected: -12, delayMonths: 0, rampMonths: 1, confidence: 'high' })],
     options: [],
     expiresInMonths: 0,
@@ -2577,13 +2609,14 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Der Kreis holt sich die Umlage dort, wo etwas zu holen ist.
     id: 'fin-shock-levy',
     kind: 'incident',
     category: 'finance',
     title: 'Kreisumlage steigt rückwirkend',
     briefing: 'Der Kreis erhöht die Umlage und stellt sie für das laufende Jahr nach. Die Stadt hat kein Mitspracherecht, nur eine Rechnung.',
     urgency: 'important',
-    trigger: { earliestMonth: 8, latestMonth: 130, conditions: [], baseWeight: 7, cooldownMonths: 26, oncePerCampaign: false },
+    trigger: { earliestMonth: 8, latestMonth: 130, conditions: [{ metric: 'cityBudget', operator: '>', value: 110 }], baseWeight: 7, cooldownMonths: 26, oncePerCampaign: false },
     immediateEffects: [effect({ target: 'cityBudget', expected: -8, delayMonths: 0, rampMonths: 1, confidence: 'high' })],
     options: [],
     expiresInMonths: 0,
@@ -2591,13 +2624,14 @@ export const EVENTS: EventDefinition[] = [
   },
   {
     schemaVersion: 1,
+    // Ein Sturm deckt ab, was ohnehin undicht war.
     id: 'fin-shock-storm',
     kind: 'incident',
     category: 'finance',
     title: 'Sturm deckt Schulen und Hallen ab',
     briefing: 'Eine Novemberböe reißt Dächer von zwei Schulen und der Sporthalle Nord. Der Eigenanteil übersteigt die Rücklage für Gebäudeschäden.',
     urgency: 'important',
-    trigger: { earliestMonth: 6, latestMonth: 130, conditions: [], baseWeight: 7, cooldownMonths: 30, oncePerCampaign: false },
+    trigger: { earliestMonth: 6, latestMonth: 130, conditions: [{ metric: 'investmentBacklog', operator: '>', value: 35 }], baseWeight: 7, cooldownMonths: 30, oncePerCampaign: false },
     immediateEffects: [
       effect({ target: 'cityBudget', expected: -6, delayMonths: 0, rampMonths: 1, confidence: 'high' }),
       effect({ target: 'investmentBacklog', expected: 4, delayMonths: 0, rampMonths: 3, confidence: 'medium' }),

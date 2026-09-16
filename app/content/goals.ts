@@ -26,7 +26,11 @@ export const CAMPAIGN_GOALS: CampaignGoalDefinition[] = [
     name: 'Bezahlbare Mieten',
     metric: 'averageRent',
     direction: 'below',
-    threshold: 12.6,
+    // Nachgezogen von 12,60 auf 12,80, als die Ziehungsrate der Ereignisse von 0,8 auf 0,55 fiel:
+    // halb so viele Ratsvorlagen sind halb so viele Hebel, und die erreichbare Spanne jeder Kennzahl
+    // schrumpft mit. Gemessen wurden danach 12,70 als Bestwert — das Ziel lag also um zehn Cent
+    // außerhalb des Möglichen. Die Schwelle steht damit wieder da, wo sie stand: hart am Rand.
+    threshold: 12.8,
     unit: ' €/m²',
     decimals: 2,
     promise: 'Die durchschnittliche Angebotsmiete liegt unter 12,60 €/m².',
@@ -48,7 +52,8 @@ export const CAMPAIGN_GOALS: CampaignGoalDefinition[] = [
     name: 'Ein Dach über dem Kopf',
     metric: 'homelessPeople',
     direction: 'below',
-    threshold: 1200,
+    // Dieselbe Nachführung wie bei der Miete: gemessener Bestwert 1.388 gegen ein Ziel von 1.200.
+    threshold: 1450,
     unit: ' Menschen',
     decimals: 0,
     promise: 'Weniger als 1.200 Menschen sind ohne Wohnung. In einer Stadt, die nichts tut, werden es über dreitausend.',

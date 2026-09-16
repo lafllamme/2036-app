@@ -1,6 +1,7 @@
 import type { CityMetrics, MetricId, PartyId } from '../../app/core/contracts'
 import { describe, expect, it } from 'vitest'
 import { EVENTS } from '../../app/content/events'
+import { CAMPAIGN_GOALS } from '../../app/content/goals'
 import { advanceMonths, createInitialState, motionOnTheAgenda, resolveDecision, voteOnMotion } from '../../app/simulation/model'
 
 /**
@@ -112,8 +113,14 @@ describe('every trigger the content writes', () => {
    * 0,6 Punkte Zufriedenheit, also der Zahl, die Wahlen entscheidet.
    */
   it('lets the player move the numbers that decide the campaign', () => {
+    /*
+     * Gegen das **echte** Ziel statt gegen eine abgeschriebene Zahl. Hier stand fest verdrahtet 75,
+     * während `CAMPAIGN_GOALS` seit längerem 74 fordert — die beiden waren auseinandergelaufen, und
+     * der Test prüfte damit eine Schwelle, die das Spiel gar nicht mehr stellt.
+     */
     const employment = span.employment!
-    expect(employment.max, 'Beschäftigung erreicht das Ziel „über 75" nie').toBeGreaterThan(75)
+    const target = CAMPAIGN_GOALS.find(goal => goal.metric === 'employment')?.threshold ?? 74
+    expect(employment.max, `Beschäftigung erreicht das Ziel „über ${target}" nie`).toBeGreaterThan(target)
     expect(employment.max - employment.min, 'Beschäftigung ist wieder eingefroren').toBeGreaterThan(4)
 
     const satisfaction = span.satisfaction!

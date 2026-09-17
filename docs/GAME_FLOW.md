@@ -529,3 +529,24 @@ Spieler an dieser Stelle tut.
 ist. Für diese Stadt ist das das falsche Land: Lindenhafens Grundriss ist Bremen, und die Bremische
 Bürgerschaft wird **vierjährig** gewählt. Also Januar 2030 und Januar 2034 — die erste früh genug,
 dass eine verlorene Wahl noch eine Antwort zulässt.
+
+
+### Und die Gegenseite arbeitet auch
+
+Ein Fenster, in dem nur einer arbeitet, ist kein Fenster, sondern eine Wartezeit mit Knöpfen. Wer eine
+Vorlage auf die Tagesordnung setzt, bekommt jetzt sofort Antwort: eine Fraktion, die weit von ihr
+entfernt steht und gut organisiert ist, **macht Front dagegen** — im Stadtfunk, im Blatt, und in der
+Prognose.
+
+Gemessen im Spiel: „Radnetz in einem Zug" stand bei **80 %**, die AfD stellte sich quer, danach
+**72 %**.
+
+**Warum das beim Einbringen passiert und nicht in der Sitzung.** Der erste Wurf ließ die Gegenseite im
+Monatswechsel arbeiten, direkt vor der Abstimmung — und damit entstünde der Gegenwind in derselben
+Sekunde wie das Ergebnis. Der Spieler sähe ihn nie und könnte nichts dagegen tun. Jetzt steht er am
+Tag nach dem Antrag im Blatt, und der Monat, den der Kalender schenkt, ist die Zeit, ihn zu
+beantworten — mit genau der Verhandlung, die direkt darunter steht.
+
+Technisch kostet das keine neue Größe in der Abstimmungsrechnung: `publicPressure` trägt schon die
+Kampagne mit 0,75, und jede Fraktion, die dagegen arbeitet, zieht 0,3 ab. Derselbe Term, in die
+andere Richtung.

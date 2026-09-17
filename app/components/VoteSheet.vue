@@ -318,6 +318,18 @@ watch(() => openDecision.value?.definition.id, () => {
           {{ chosen.rationale }}
         </p>
 
+        <!--
+          Wer dagegen arbeitet. Steht über dem Verhandeln, weil es die Antwort darauf ist: eine
+          Fraktion, die Front macht, ist genau die, mit der man reden müsste.
+        -->
+        <p v-if="openDecision.prepared.counteredBy.length > 0" class="against">
+          <b>Gegenwind</b>
+          <span v-for="id in openDecision.prepared.counteredBy" :key="id">
+            <i class="party-dot" :style="{ background: getParty(id)?.color }" />{{ getParty(id)?.abbreviation }}
+          </span>
+          <em>macht öffentlich Front dagegen</em>
+        </p>
+
         <!-- Verhandeln ist ein Hebel auf die ganze Vorlage, nicht auf einen Weg. -->
         <section v-if="!tabledBy" class="deal">
           <h3>Verhandeln · 12 Kapital je Fraktion</h3>
@@ -606,6 +618,21 @@ h3 { margin: 0 0 12px; color: var(--ink-3); font-family: var(--text); font-size:
 .party em { color: var(--ink-3); font-style: normal; }
 .party.yes em { color: var(--positive); }
 .party.no em { color: var(--negative); }
+
+/*
+ * Gegenwind sieht aus wie eine Meldung und nicht wie ein Knopf: man kann ihn nicht wegklicken,
+ * sondern nur beantworten — mit einer Verhandlung, die direkt darunter steht.
+ */
+.against {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin: 16px 0 0; padding: 9px 12px; border-radius: var(--r-inner);
+  background: rgba(214, 106, 70, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(214, 106, 70, 0.3);
+  font-size: 12.5px;
+}
+.against b { font-weight: 500; color: var(--negative); }
+.against span { display: inline-flex; align-items: center; gap: 5px; color: var(--ink); }
+.against em { font-style: normal; color: var(--ink-3); }
 
 .actions { display: flex; align-items: center; gap: 12px; margin-top: 26px; }
 .actions .spacer { flex: 1; }

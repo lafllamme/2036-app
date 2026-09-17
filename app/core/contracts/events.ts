@@ -173,6 +173,8 @@ export interface VoteResult {
 export interface MotionPreparationView {
   negotiatedPartyIds: PartyId[]
   campaignedOptionIds: string[]
+  /** Wer im Wartemonat dagegen gearbeitet hat. Siehe `MotionPreparation`. */
+  counteredBy: PartyId[]
 }
 
 export interface PartyVoteRecord {

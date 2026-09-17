@@ -50,7 +50,7 @@ import {
   vacancyRate,
 } from './baseline'
 import { bulletin } from './bulletin'
-import { castVote, forecastVote, supportFor } from './council'
+import { castVote, forecastVote, supportFor, weightedDistance } from './council'
 import { initialSpread, shift, valueIn } from './districts'
 import { BASE_CAPITAL_PER_MONTH, clamp, healthFromState, stepDynamics } from './dynamics'
 import { defeatFromEdges, holdElection, isElectionMonth, MAJORITY, trackEdges, votedOut } from './election'
@@ -76,9 +76,17 @@ export interface ActivePolicyState {
 export interface MotionPreparation {
   negotiatedPartyIds: PartyId[]
   campaignedOptionIds: string[]
+  /**
+   * Wer im Wartemonat **dagegen** gearbeitet hat.
+   *
+   * Der Sitzungskalender gibt beiden Seiten einen Monat, und bis hierher hat ihn nur eine benutzt:
+   * der Spieler verhandelte und machte Kampagne, und der Rat sah zu. Ein Fenster, in dem nur einer
+   * arbeitet, ist kein Fenster, sondern eine Wartezeit mit Knöpfen.
+   */
+  counteredBy: PartyId[]
 }
 
-const EMPTY_PREPARATION: MotionPreparation = { negotiatedPartyIds: [], campaignedOptionIds: [] }
+const EMPTY_PREPARATION: MotionPreparation = { negotiatedPartyIds: [], campaignedOptionIds: [], counteredBy: [] }
 
 function preparationFor(state: SimulationState, motionId: string): MotionPreparation {
   return state.motionPrep[motionId] ?? EMPTY_PREPARATION
@@ -427,7 +435,10 @@ function fiscalStressOf(state: SimulationState, oneOff: number, monthly: number)
   return clamp(Math.max(monthly / room, oneOff / reserve), 0, 1)
 }
 
-function voteContext(state: SimulationState, option: EventOption | PolicyDefinition, campaigned: boolean): VoteContext {
+/** Was eine Fraktion ausrichtet, die im Wartemonat gegen eine Vorlage arbeitet. */
+const COUNTER_PRESSURE = 0.3
+
+function voteContext(state: SimulationState, option: EventOption | PolicyDefinition, campaigned: boolean, counters = 0): VoteContext {
   const cost = 'oneOffCost' in option ? option.oneOffCost : option.implementationCost
   // What it actually commits the city to, over two years. A cut that ends after five is a smaller
   // ask than one that never does, and a chamber counting money knows the difference.
@@ -450,7 +461,16 @@ function voteContext(state: SimulationState, option: EventOption | PolicyDefinit
     playerPartyId: state.partyId,
     playerNegotiation: own?.stats.negotiation ?? 50,
     relationships: state.relationships,
-    publicPressure: campaigned ? 0.75 : clamp((100 - state.metrics.satisfaction) / 100, 0, 1) * 0.4,
+    /*
+     * Der öffentliche Druck — und wer ihn in die andere Richtung macht.
+     *
+     * Eine Kampagne setzt ihn auf 0,75. Jede Fraktion, die im Wartemonat dagegen gearbeitet hat,
+     * zieht 0,3 ab, und der Wert darf ins Negative laufen: dann zieht derselbe Term, der eine
+     * Kampagne trägt, die Vorlage nach unten. Symmetrisch, weil es dieselbe Sache von der anderen
+     * Seite ist — und ohne eine einzige neue Größe in der Abstimmungsrechnung.
+     */
+    publicPressure: (campaigned ? 0.75 : clamp((100 - state.metrics.satisfaction) / 100, 0, 1) * 0.4)
+      - COUNTER_PRESSURE * counters,
     fiscalStress: fiscalStressOf(state, cost, monthly),
     salientCategories: salient,
   }
@@ -477,11 +497,11 @@ function forecastFor(state: SimulationState, motionId: string, optionId: string)
   const own = ownMotion(state, motionId) ? ({ playerVote: 'yes' } as const) : {}
   const policy = getPolicy(motionId)
   if (policy && policy.id === optionId)
-    return forecastVote(asOption(policy), { ...voteContext(state, policy, campaigned), ...own })
+    return forecastVote(asOption(policy), { ...voteContext(state, policy, campaigned, preparationFor(state, motionId).counteredBy.length), ...own })
   const option = getEvent(motionId)?.options.find(candidate => candidate.id === optionId)
   if (!option)
     return null
-  return forecastVote(option, { ...voteContext(state, option, campaigned), ...own })
+  return forecastVote(option, { ...voteContext(state, option, campaigned, preparationFor(state, motionId).counteredBy.length), ...own })
 }
 
 /**
@@ -709,7 +729,25 @@ export const AGENDA_SEATS = 3
 export function tableMotion(state: SimulationState, sourceId: string, optionId: string, vote: PartyVote = 'yes'): SimulationState {
   if (state.agenda.length >= AGENDA_SEATS || state.agenda.some(item => item.sourceId === sourceId))
     return state
-  return { ...state, agenda: [...state.agenda, { sourceId, optionId, vote, tabledMonth: state.month }] }
+
+  const tabled: SimulationState = { ...state, agenda: [...state.agenda, { sourceId, optionId, vote, tabledMonth: state.month }] }
+
+  // Und wer sich sofort dagegenstellt. Siehe `counterOf` — er muss hier entstehen, nicht in der Sitzung.
+  const against = counterOf(state, sourceId, optionId)
+  if (!against)
+    return tabled
+
+  const title = getEvent(sourceId)?.title ?? getPolicy(sourceId)?.name ?? sourceId
+  return pushNews(
+    withPreparation(tabled, sourceId, { counteredBy: [...preparationFor(tabled, sourceId).counteredBy, against.id] }),
+    {
+      id: `counter-${sourceId}-${state.month}-${against.id}`,
+      month: state.month,
+      scope: 'city',
+      urgency: 'normal',
+      headline: `${against.abbreviation} macht Front gegen „${title}“`,
+    },
+  )
 }
 
 /** Und wieder herunter, solange die Sitzung nicht war. Ein Antrag ist zurückziehbar. */
@@ -742,6 +780,37 @@ export function holdSession(state: SimulationState): { state: SimulationState, r
   return { state: next, results }
 }
 
+/**
+ * Wer sich gegen einen frischen Antrag stellt.
+ *
+ * Läuft beim **Einbringen** und nicht in der Sitzung, und das ist der ganze Unterschied: entstünde der
+ * Gegenwind erst am Monatsende, entstünde er in derselben Sekunde wie die Abstimmung — der Spieler
+ * sähe ihn nie und könnte nichts dagegen tun. So steht er am Tag nach dem Antrag im Blatt, und der
+ * Monat, den der Kalender schenkt, ist die Zeit, ihn zu beantworten.
+ *
+ * Eine Fraktion stellt sich quer, wenn die Vorlage weit von ihren Achsen weg liegt, und umso eher, je
+ * besser sie organisiert ist. Die eigene Fraktion und die Koalition bleiben draußen: gegen den
+ * eigenen Antrag arbeitet niemand. Höchstens eine je Vorlage — zwei Gänge wären nicht doppelt so
+ * laut, sondern doppelt so viel Text.
+ */
+function counterOf(state: SimulationState, sourceId: string, optionId: string): PartyDefinition | null {
+  const definition = getEvent(sourceId)
+  const policy = definition ? undefined : getPolicy(sourceId)
+  const option = definition ? definition.options.find(entry => entry.id === optionId) : (policy ? asOption(policy) : undefined)
+  if (!option)
+    return null
+
+  const stream = createRandomStream(state.seed, `counter:${state.month}:${sourceId}`)
+  for (const party of PARTIES) {
+    if (party.id === state.partyId || state.coalitionPartyIds.includes(party.id))
+      continue
+    const zeal = weightedDistance(party.axes, option) * (party.stats.organization / 100)
+    if (stream.next() < zeal * 0.5)
+      return party
+  }
+  return null
+}
+
 /** Was eine laute, hauchdünn entschiedene Abstimmung an Polarisierung hinterlässt. */
 const HEAT_PER_VOTE = 1.35
 
@@ -769,7 +838,8 @@ function decide(state: SimulationState, eventId: string, optionId: string, playe
     return { state, result: null }
 
   const stream = createRandomStream(state.seed, `vote:${state.month}:${eventId}:${optionId}`)
-  const context = { ...voteContext(state, option, preparationFor(state, eventId).campaignedOptionIds.includes(optionId)), playerVote }
+  const prep = preparationFor(state, eventId)
+  const context = { ...voteContext(state, option, prep.campaignedOptionIds.includes(optionId), prep.counteredBy.length), playerVote }
   const result = castVote(option, context, stream)
 
   /*
@@ -1073,7 +1143,7 @@ export function voteOnPolicy(state: SimulationState, policyId: string): { state:
   const option = asOption(definition)
   const stream = createRandomStream(state.seed, `vote:${state.month}:${policyId}:${policyId}`)
   const campaigned = preparationFor(state, policyId).campaignedOptionIds.includes(policyId)
-  const result = castVote(option, { ...voteContext(state, definition, campaigned), playerVote: 'yes' }, stream)
+  const result = castVote(option, { ...voteContext(state, definition, campaigned, preparationFor(state, policyId).counteredBy.length), playerVote: 'yes' }, stream)
 
   const remainingPrep = withoutPreparation(state.motionPrep, policyId)
   if (!result.passed) {

@@ -742,7 +742,7 @@ export const useGameStore = defineStore('game', () => {
       return null
     // A standing motion is never raised as an event, so it has no pending entry — but it does carry
     // the same preparation, and the sheet must show it.
-    const prepared = snapshot.value?.motionPreparation[openDecisionId.value] ?? { negotiatedPartyIds: [], campaignedOptionIds: [] }
+    const prepared = snapshot.value?.motionPreparation[openDecisionId.value] ?? { negotiatedPartyIds: [], campaignedOptionIds: [], counteredBy: [] }
     const entry = pendingDecisions.value.find(decision => decision.eventId === openDecisionId.value)
       ?? { eventId: openDecisionId.value, raisedMonth: snapshot.value?.month ?? 0, expiresMonth: Number.POSITIVE_INFINITY, tabledBy: null, tabledOptionId: null, ...prepared }
     return { entry, definition, prepared }

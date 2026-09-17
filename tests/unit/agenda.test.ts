@@ -4,6 +4,7 @@ import {
   AGENDA_SEATS,
   callUrgent,
   createInitialState,
+  forecastsForEvent,
   holdSession,
   tableMotion,
   URGENCY_COST,
@@ -99,5 +100,47 @@ describe('sitzungskalender', () => {
     // 15 gegen 18 für eine Kampagne und 12 für eine Verhandlung — teuer genug, um selten zu sein.
     expect(URGENCY_COST).toBeGreaterThan(12)
     expect(URGENCY_COST).toBeLessThan(18)
+  })
+
+  /**
+   * Der Monat gehört beiden Seiten.
+   *
+   * Bis hierher hat ihn nur eine benutzt: der Spieler verhandelte und machte Kampagne, und der Rat
+   * sah zu. Ein Fenster, in dem nur einer arbeitet, ist kein Fenster, sondern eine Wartezeit mit
+   * Knöpfen.
+   *
+   * Der Gegenwind entsteht beim **Einbringen** und nicht in der Sitzung, und das ist der ganze
+   * Unterschied: am Monatsende entstünde er in derselben Sekunde wie die Abstimmung — sichtbar für
+   * niemanden und zu beantworten von niemandem.
+   */
+  it('lässt die Gegenseite sich sofort gegen einen Antrag stellen', () => {
+    let seen = 0
+    // Über acht Parteikonstellationen, damit es nicht am Würfel eines einzigen Laufs hängt.
+    for (const party of ['linke', 'gruene', 'spd', 'cdu', 'fdp', 'afd'] as const) {
+      const state = tableMotion(createInitialState(SEED, party, []), 'shared-consolidation', 'shared-consolidation')
+      if ((state.motionPrep['shared-consolidation']?.counteredBy.length ?? 0) > 0)
+        seen += 1
+    }
+    expect(seen, 'irgendwer stellt sich quer').toBeGreaterThan(0)
+  })
+
+  it('stellt die eigene Fraktion nie gegen den eigenen Antrag', () => {
+    for (const party of ['linke', 'gruene', 'spd', 'cdu', 'fdp', 'afd'] as const) {
+      const state = tableMotion(createInitialState(SEED, party, []), 'shared-maintenance', 'shared-maintenance')
+      expect(state.motionPrep['shared-maintenance']?.counteredBy ?? [], party).not.toContain(party)
+    }
+  })
+
+  /** Und der Gegenwind muss die Abstimmung wirklich kosten, sonst ist er eine Meldung. */
+  it('drückt die Aussicht der Vorlage, gegen die Front gemacht wird', () => {
+    const plain = createInitialState(SEED, 'spd', [])
+    const quiet = forecastsForEvent({ ...plain, motionPrep: {} }, 'saf-burglary-series')
+    const loud = forecastsForEvent(
+      { ...plain, motionPrep: { 'saf-burglary-series': { negotiatedPartyIds: [], campaignedOptionIds: [], counteredBy: ['cdu', 'fdp'] } } },
+      'saf-burglary-series',
+    )
+
+    const option = Object.keys(quiet)[0]!
+    expect(loud[option]!.majorityProbability).toBeLessThan(quiet[option]!.majorityProbability)
   })
 })

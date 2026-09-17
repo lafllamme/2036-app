@@ -33,6 +33,10 @@ that much of it.
 - **Run one dev server, and stop what you started.** Do not leave a second `nuxt dev` or a preview
   build listening on another port after a verification run; a WebGPU canvas on a hidden tab still
   holds the GPU. Check with `lsof -nP -iTCP -sTCP:LISTEN` and kill what is yours.
+- **This project owns port 2036 and nothing else.** `nuxt.config.ts` says so, but a launcher that
+  exports `PORT` overrides it silently — `.claude/launch.json` therefore passes `--port 2036` on the
+  command line, where nothing can override it. Port 3000 belongs to another app on this machine, and
+  a verification run that takes it is a verification run that took somebody else's server down.
 - **Rebuild only when the change needs it.** Typecheck and unit tests answer most questions; a full
   `nuxt build` plus a preview server is for verifying rendering and for nothing else.
 - **Prefer the cheapest check that settles the question.** A single test file over the whole suite, a

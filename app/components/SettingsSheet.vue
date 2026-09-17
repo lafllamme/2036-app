@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useSound } from '~/composables/useSound'
 import { useFirstSteps } from '~/composables/useFirstSteps'
+import { useSound } from '~/composables/useSound'
 import { useSoundSettings } from '~/composables/useSoundSettings'
 
 const { settingsOpen, soundEnabled, soundVolume, closeSettings, toggleSound: toggleSettingsSound } = useSoundSettings()

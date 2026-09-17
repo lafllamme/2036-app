@@ -9,6 +9,7 @@ what comes next and why in that order. The two design plans that carry the most 
 - [Testing](TESTING.md) — local workflow, CI gates, and acceptance evidence
 - [Research](RESEARCH.md)
 - [Game design](GAME_DESIGN.md)
+- [The game flow](GAME_FLOW.md) — **a proposal, not a description**: why the loop runs dry after five minutes, and the council calendar, administrative capacity and opposition motions that would fix it
 - [The living city](CITY_LIFE.md) — fire, crime, accidents, trades and origins, and the rule they all hang on
 - [Visual direction](VISUAL_DIRECTION.md)
 - [Cinematic UI/UX specification](superpowers/specs/2026-09-11-cinematic-ui-ux-direction-design.md)

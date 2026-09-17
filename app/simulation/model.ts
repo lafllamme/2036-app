@@ -6,6 +6,7 @@ import type {
   CausalEdge,
   CityMetrics,
   CityVisualState,
+  DistrictId,
   EventDefinition,
   EventOption,
   MetricId,
@@ -14,6 +15,7 @@ import type {
   PartyId,
   PartyVote,
   PendingDecision,
+  PendingSiting,
   PerceptionState,
   PolicyDefinition,
   SimulationSnapshot,
@@ -32,6 +34,7 @@ import { getGoal, goalIsMet } from '../content/goals'
 import { getBackground } from '../content/leaders'
 import { getParty, mapParties, PARTIES } from '../content/parties'
 import { getPolicy, mayTable } from '../content/policies'
+import { SITE_PROFILES } from '../content/sites'
 import { CAMPAIGN_LAST_MONTH } from '../core/campaign'
 import { formatNumber } from '../core/format'
 import { createRandomStream } from '../core/rng'
@@ -56,6 +59,7 @@ import {
   measureFromOption,
   updateStreaks,
 } from './events'
+import { costAt, needsSite, offered, paceAt, sitesFor, unrestAt } from './siting'
 import { BASELINE_SITUATION, stepSituation } from './situation'
 
 export interface ActivePolicyState {
@@ -110,6 +114,24 @@ export interface SimulationState {
   stocks: CityStocks
   perception: PerceptionState
   measures: ActiveMeasure[]
+  /**
+   * Eine beschlossene Vorlage, die noch auf ihren Standort wartet.
+   *
+   * Der Rat hat **was** entschieden, der Spieler entscheidet **wo** — und bis er das tut, ist nichts
+   * beschafft, nichts bezahlt und nichts gebaut. Deshalb steht die Vorlage hier und nicht in
+   * `measures`: eine Maßnahme in der Schwebe wäre eine, die schon wirkt und trotzdem nicht
+   * stattfindet. Null in Spielständen von vorher und immer dann, wenn nichts wartet.
+   */
+  siting: { policyId: string, decidedMonth: number } | null
+  /**
+   * Wohin jede verortete Vorlage gegangen ist.
+   *
+   * Nicht für die Rechnung — die kennt keine Bezirke —, sondern damit die Karte weiß, wo sie bauen
+   * soll: der Renderer füllt seine freien Parzellen seit jeher von der Mitte nach außen, und genau
+   * diese Reihenfolge ist jetzt eine Entscheidung. Und damit der Schlussbericht sagen kann, wo ein
+   * Jahrzehnt lang gebaut wurde.
+   */
+  sites: Partial<Record<string, DistrictId>>
   pending: PendingDecision[]
   /**
    * Negotiation and campaigning the player has already paid for, keyed by motion id. Kept apart
@@ -279,6 +301,8 @@ export function createInitialState(
     stocks: { ...BASELINE_STOCKS },
     perception: { ...BASELINE_PERCEPTION, mediaAttention: { ...BASELINE_PERCEPTION.mediaAttention } },
     measures: [],
+    siting: null,
+    sites: {},
     pending: [],
     motionPrep: {},
     cooldowns: {},
@@ -747,6 +771,9 @@ export function migrateState(state: SimulationState): SimulationState {
     defeat: state.defeat ?? null,
     relationships: state.relationships ?? {},
     motionPrep: state.motionPrep ?? {},
+    // Spielstände von vor der Standortwahl warten auf nichts.
+    siting: state.siting ?? null,
+    sites: state.sites ?? {},
     cooldowns: state.cooldowns ?? {},
     streaks: state.streaks ?? {},
     firedOnce: state.firedOnce ?? [],
@@ -794,13 +821,28 @@ export function campaignFor(state: SimulationState, motionId: string, optionId: 
 }
 
 /** Direct adoption without a vote. Used by the three legacy policies and by tests. */
-export function applyPolicy(state: SimulationState, policyId: string): SimulationState {
+/**
+ * Eine beschlossene Vorlage in Kraft setzen — oder erst fragen, wo sie hin soll.
+ *
+ * Alles, wobei etwas **steht**, bekommt einen Standort, und zwar vom Spieler. Bis er ihn nennt, ist
+ * nichts bezahlt und nichts gebaut: die Vorlage wartet in `siting`, und `chooseSite` führt sie von
+ * dort aus zu Ende. Der Rat beschließt was, der Spieler entscheidet wo.
+ *
+ * Warum das nicht in `adoptMeasure` steht, durch das sonst jeder Weg läuft: dort kommen auch der
+ * Schock eines Vorfalls und der Preis einer Ablehnung an, und keins von beiden ist etwas, für das
+ * man einen Bauplatz aussuchen würde.
+ */
+export function applyPolicy(state: SimulationState, policyId: string, districtId: DistrictId | null = null): SimulationState {
   if (state.policies.some(policy => policy.id === policyId))
     return state
   const definition = getPolicy(policyId)
   if (!definition)
     throw new Error(`Unknown policy: ${policyId}`)
-  const next = adoptMeasure(state, policyId, asOption(definition), 'governance')
+
+  if (districtId === null && needsSite(definition))
+    return { ...state, siting: { policyId, decidedMonth: state.month } }
+
+  const next = adoptMeasure(state, policyId, sitedOption(definition, districtId), 'governance')
   return pushNews(
     { ...next, policies: [...next.policies, { id: policyId, startedMonth: state.month }] },
     {
@@ -808,10 +850,52 @@ export function applyPolicy(state: SimulationState, policyId: string): Simulatio
       month: state.month,
       scope: 'city',
       urgency: 'important',
-      headline: `RATHAUS: „${definition.name}“ mit Ratsmehrheit beschlossen`,
+      headline: districtId
+        ? `RATHAUS: „${definition.name}“ beschlossen — Standort ${SITE_PROFILES[districtId].name}`
+        : `RATHAUS: „${definition.name}“ mit Ratsmehrheit beschlossen`,
+      districtId: districtId ?? undefined,
       policyId,
     },
   )
+}
+
+/**
+ * Dieselbe Vorlage, zu dem Preis und in dem Tempo, das ihr Standort verlangt.
+ *
+ * Ohne Standort unverändert — die sechzehn ortlosen Vorlagen gehen hier durch, ohne dass sich etwas
+ * an ihnen ändert. Mit Standort werden drei Dinge angefasst und sonst nichts: der Einmalpreis, die
+ * Anlaufzeit jeder Wirkung, und ein einmaliger Kratzer an der Zufriedenheit für den Widerstand vor
+ * Ort. Die Wirkungen selbst bleiben, wie sie sind — was gebaut wird, hängt nicht davon ab, wo.
+ */
+function sitedOption(definition: PolicyDefinition, districtId: DistrictId | null): EventOption {
+  const option = asOption(definition)
+  if (districtId === null)
+    return option
+  return {
+    ...option,
+    oneOffCost: costAt(option.oneOffCost, districtId),
+    effects: option.effects.map(effect => ({ ...effect, rampMonths: paceAt(effect.rampMonths, districtId) })),
+  }
+}
+
+/**
+ * Den Standort nennen und die Vorlage damit wirklich beschließen.
+ *
+ * Ein Bezirk, der nie angeboten wurde, wird abgewiesen: das Angebot ist Teil der Entscheidung, und
+ * ein Befehl, der daran vorbeigeht, wäre eine Abkürzung um genau die Wahl herum, um die es geht.
+ */
+export function chooseSite(state: SimulationState, districtId: DistrictId): SimulationState {
+  const waiting = state.siting
+  if (!waiting || !offered(waiting.policyId, state.seed, districtId))
+    return state
+
+  const bite = unrestAt(districtId)
+  const settled = applyPolicy(
+    { ...state, siting: null, metrics: { ...state.metrics, satisfaction: clamp(state.metrics.satisfaction - bite) } },
+    waiting.policyId,
+    districtId,
+  )
+  return { ...settled, sites: { ...settled.sites, [waiting.policyId]: districtId } }
 }
 
 /** Put one of the three standing motions to the council instead of adopting it directly. */
@@ -982,6 +1066,36 @@ function visualsFrom(metrics: CityMetrics, stocks: CityStocks): CityVisualState 
   }
 }
 
+/**
+ * Was gerade auf einen Standort wartet, fertig zum Anzeigen.
+ *
+ * Preis und Dauer werden hier ausgerechnet und nicht in der Oberfläche: die Oberfläche soll zeigen,
+ * was etwas kostet, und nicht ausrechnen, was etwas kostet. Sonst gibt es zwei Antworten auf
+ * dieselbe Frage, und eine davon ist irgendwann falsch.
+ */
+function sitingView(state: SimulationState): PendingSiting | null {
+  const waiting = state.siting
+  if (!waiting)
+    return null
+  const definition = getPolicy(waiting.policyId)
+  if (!definition)
+    return null
+
+  const longest = definition.effects.reduce((most, effect) => Math.max(most, effect.rampMonths), 0)
+  return {
+    policyId: waiting.policyId,
+    title: definition.name,
+    sites: sitesFor(waiting.policyId, state.seed).map(site => ({
+      districtId: site.districtId,
+      name: site.name,
+      cost: costAt(definition.implementationCost, site.districtId),
+      months: paceAt(longest, site.districtId),
+      resistance: unrestAt(site.districtId),
+      note: site.note,
+    })),
+  }
+}
+
 function buildSnapshot(state: SimulationState): SimulationSnapshot {
   const health = healthFromState(state.metrics, state.perception)
   const date = dateForMonth(state.month)
@@ -1018,6 +1132,8 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     }),
     pendingDecisions: state.pending,
     motionPreparation: state.motionPrep,
+    pendingSiting: sitingView(state),
+    sites: state.sites,
     councilSeatsByParty: state.seatsByParty,
     coalitionPartyIds: state.coalitionPartyIds,
     coalitionSupport: coalitionSeats,

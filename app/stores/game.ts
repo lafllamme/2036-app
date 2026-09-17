@@ -2,6 +2,7 @@ import type {
   BuildingRecord,
   CampaignGoalId,
   CampaignLeader,
+  DistrictId,
   EventDefinition,
   LeaderBackgroundId,
   NewsItem,
@@ -515,7 +516,8 @@ export const useGameStore = defineStore('game', () => {
   function resumeIfClear(): void {
     if (heldSpeed === 0 || speed.value !== 0)
       return
-    if (openDecisionId.value !== null || lastVoteResult.value !== null || pendingCommand.value)
+    // Ein Standort, der noch fehlt, ist eine offene Entscheidung wie jede andere.
+    if (openDecisionId.value !== null || lastVoteResult.value !== null || pendingCommand.value || snapshot.value?.pendingSiting)
       return
     if (!canAdvance.value || snapshot.value?.defeat)
       return
@@ -714,6 +716,18 @@ export const useGameStore = defineStore('game', () => {
     openDecisionId.value = null
   }
 
+  /**
+   * Wohin das Beschlossene soll.
+   *
+   * Pflicht, und deshalb hält die Uhr: eine Vorlage, die auf ihren Standort wartet, ist eine
+   * Entscheidung, die noch offen ist — und gegen eine laufende Uhr entscheidet niemand gern. Dieselbe
+   * Regel wie bei einer Vorlage auf dem Tisch, aus demselben Grund.
+   */
+  function chooseSite(districtId: DistrictId): void {
+    holdClock()
+    send({ type: 'CHOOSE_SITE', districtId })
+  }
+
   function negotiate(motionId: string, partyId: PartyId): void {
     send({ type: 'NEGOTIATE', eventId: motionId, partyId })
   }
@@ -868,6 +882,7 @@ export const useGameStore = defineStore('game', () => {
     resolveDecision,
     negotiate,
     campaignFor,
+    chooseSite,
     dismissVoteResult,
     currentDate,
     monthProgress,

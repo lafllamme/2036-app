@@ -265,3 +265,70 @@ Nicht am Gefühl. Drei Fragen, beantwortbar an einem durchgespielten Jahrzehnt:
    keine Wirkung.
 
 Alle drei lassen sich aus dem Schlussbericht ablesen, den es schon gibt.
+
+
+---
+
+## Nachtrag: die Karte als Eingabefeld
+
+Das Papier oben behandelt den **Takt** der politischen Ebene. Es fehlt darin, was beim Spielen als
+Erstes auffällt: *„man drückt Einbringen, wartet, klickt sich durch, guckt ab und an auf die Karte."*
+Die Stadt ist Ausgabe und kein Eingabefeld — man kann über sie fliegen, aber nichts an ihr
+entscheiden.
+
+### Zwei Richtungen, eine Schleife
+
+```
+Rat beschließt  →  Auftrag entsteht  →  du verortest ihn auf der Karte
+                                              ↓
+        am Ort entstehen Handlungen  ←  das Vorhaben läuft dort
+```
+
+**Push:** der Beschluss fragt die Karte *wohin damit*.
+**Pull:** du klickst einen Ort an und bekommst Handlungen — **aber nur die, die ein Beschluss
+freigeschaltet hat.**
+
+Darin steckt der Satz, den das Spiel bisher nie ausspricht:
+
+> **Auf der Karte kannst du fast nichts — bis ein Beschluss es freigeschaltet hat.**
+
+Damit hört die Gebäudekarte auf, ein Datenblatt zu sein. Heute steht dort „Wohngebäude · Zustand ·
+Auslastung"; künftig steht dort, **was man hier tun kann** — und meistens ist die Liste kurz oder
+leer. Das ist keine Schwäche, das ist die Aussage: eine Fraktion verwaltet nicht, sie beantragt.
+
+### Was davon gebaut ist: der Push
+
+Neun der sechsundzwanzig Vorlagen sind **verortbar** — alles, wobei etwas entsteht oder umgebaut
+wird. Geht eine davon durch, ist sie noch **nicht** beschlossen: sie wartet in `siting`, die Uhr
+steht, die Vorlagen-Schublade klappt zu, und die Karte fragt.
+
+| | Kosten | Bauzeit | dazu |
+|---|---|---|---|
+| Hafen & Industrie | 0,62× | 0,85× | kein Widerstand |
+| Wohnring Süd | 1,0× | 1,0× | — |
+| Innenstadt / Altstadt | 1,85× | 1,35× | Widerstand, Zufriedenheit fällt |
+
+Gemessen an einem echten Durchlauf mit dem Schwammstadt-Programm: **4,6 Mio. € und 17 Monate** im
+Hafen gegen **13,7 Mio. € und 27 Monate** in der Altstadt, und die Altstadt kostete zusätzlich zwei
+Punkte Stadtgesundheit. Das ist eine Entscheidung, bevor es eine einzige Bezirkskennzahl gibt.
+
+**Warum keine Bezirkskennzahlen:** weil eine Wahl, die nichts ändert, keine ist — und echte
+Kennzahlen je Bezirk sind der große Umbau. Geld, Zeit und Widerstand gibt es schon. Bezirkskennzahlen
+machen die Wahl später *tiefer*, nicht erst *wahr*.
+
+**Warum das Angebot gespannt und nicht gezogen wird:** drei zufällige Bezirke wären in jedem dritten
+Fall drei ähnliche — dann stehen drei Knöpfe da, die dasselbe tun. Angeboten werden deshalb immer der
+günstigste, der teuerste und einer dazwischen, der aus der Vorlage folgt.
+
+**Warum `sited` am Inhalt steht und nicht abgeleitet wird:** der erste Versuch hat es aus den
+Wirkungen abgeleitet und kam auf **19 von 26** — inklusive „Haushaltskonsolidierung". Eine Regel, die
+in sieben von sechsundzwanzig Fällen danebenliegt, ist keine Ersparnis.
+
+### Was noch fehlt
+
+1. **Die Karte baut noch nicht dort.** `snapshot.sites` sagt, wohin jede Vorlage gegangen ist; der
+   Renderer füllt seine Parzellen weiterhin von der Mitte nach außen. Das ist der nächste Schritt und
+   der sichtbarste: gewählter Bezirk → dort stehen die Kräne, dort wachsen die Häuser.
+2. **Der Pull-Teil.** Handlungen an einem Ort, freigeschaltet durch Beschlüsse.
+3. **Umbau an bestehenden Gebäuden.** Bisher ist ein Standort ein Bezirk. Ein Auftrag, der auf ein
+   einzelnes Haus zeigt — Sanierung, Umnutzung —, nutzt die 16.782, die schon stehen.

@@ -72,6 +72,10 @@ export interface SimulationSnapshot {
   pendingDecisions: PendingDecision[]
   /** Negotiation and campaigning already paid for, keyed by motion id. */
   motionPreparation: Record<string, MotionPreparationView>
+  /** Was gerade auf einen Standort wartet, oder nichts. Siehe `PendingSiting`. */
+  pendingSiting: PendingSiting | null
+  /** Wohin jede verortete Vorlage gegangen ist — damit die Karte dort baut. */
+  sites: Partial<Record<string, DistrictId>>
   councilSeatsByParty: Record<PartyId, number>
   coalitionPartyIds: PartyId[]
   coalitionSupport: number
@@ -111,8 +115,32 @@ export type SimulationMessage
     | { type: 'FORECAST', eventId: string, forecasts: Record<string, VoteForecast> }
     | { type: 'ERROR', message: string }
 
+/**
+ * Eine beschlossene Vorlage, die noch auf ihren Standort wartet — und die drei, die zur Wahl stehen.
+ *
+ * Der Rat hat entschieden, was gebaut wird. Wo, entscheidet der Spieler, und bis dahin ist nichts
+ * bezahlt und nichts gebaut. Siehe `simulation/siting.ts`.
+ */
+export interface PendingSiting {
+  policyId: string
+  title: string
+  sites: {
+    districtId: DistrictId
+    name: string
+    /** Was das Vorhaben hier kostet, in Millionen. */
+    cost: number
+    /** Und wie lange es hier dauert, in Monaten bis zur vollen Wirkung. */
+    months: number
+    /** Was es an Zufriedenheit kostet, hier zu bauen. */
+    resistance: number
+    note: string
+  }[]
+}
+
 export type SimulationCommandExtra
   = | { type: 'REQUEST_SAVE' }
+    /** Wohin die beschlossene Vorlage soll. Pflicht: ohne sie passiert nichts. */
+    | { type: 'CHOOSE_SITE', districtId: DistrictId }
     | { type: 'RESTORE', state: SimulationState }
     | { type: 'REQUEST_FORECAST', eventId: string }
     | { type: 'RESOLVE_DECISION', eventId: string, optionId: string }

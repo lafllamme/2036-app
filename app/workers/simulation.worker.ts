@@ -4,6 +4,7 @@ import {
   advanceMonths,
   applyPolicy,
   campaignFor,
+  chooseSite,
   createInitialState,
   forecastsForEvent,
   migrateState,
@@ -38,6 +39,12 @@ globalThis.onmessage = ({ data }: MessageEvent<SimulationCommand>) => {
         if (outcome.result)
           post({ type: 'VOTE_RESULT', result: outcome.result, snapshot: snapshotOf(state) })
         else publish('SNAPSHOT')
+        return
+      }
+      case 'CHOOSE_SITE': {
+        // Wohin die beschlossene Vorlage soll. Erst damit ist sie wirklich beschlossen.
+        state = chooseSite(state, data.districtId)
+        publish('SNAPSHOT')
         return
       }
       case 'RESOLVE_DECISION': {

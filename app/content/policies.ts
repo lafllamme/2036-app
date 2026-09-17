@@ -16,6 +16,8 @@ export const EVIDENCE: EvidenceReference[] = [
 export const POLICIES: PolicyDefinition[] = [
   {
     id: 'housing-accelerator',
+    // Wohnungen entstehen — und zwar in einem Bezirk.
+    sited: true,
     name: 'Wohnungsbau-Turbo',
     partyIds: ['spd'],
     summary: 'Mehr kommunaler Wohnungsbau und schnellere Genehmigungen entlasten den Markt – mit hoher Anfangsinvestition.',
@@ -37,6 +39,8 @@ export const POLICIES: PolicyDefinition[] = [
   },
   {
     id: 'transit-network',
+    // Trassen, Haltestellen, Betriebshof: das steht irgendwo.
+    sited: true,
     name: 'LindenTakt 2030',
     partyIds: ['gruene'],
     summary: 'Dichterer Takt, neue Busachsen und Vorrangschaltungen verbessern Erreichbarkeit und Luftqualität.',
@@ -74,6 +78,8 @@ export const POLICIES: PolicyDefinition[] = [
   },
   {
     id: 'cdu-commercial-land',
+    // Gewerbeflächen werden erschlossen, also wird Land erschlossen.
+    sited: true,
     name: 'Gewerbeflächen-Offensive',
     partyIds: ['cdu'],
     summary: 'Drei Bebauungspläne im Eilverfahren, Erschließung auf Vorrat. Wer ansiedeln will, soll nicht zwei Jahre warten.',
@@ -110,6 +116,8 @@ export const POLICIES: PolicyDefinition[] = [
   },
   {
     id: 'cdu-family-land',
+    // Bauland für Familien ist Land.
+    sited: true,
     name: 'Baulandmodell für Familien',
     partyIds: ['cdu'],
     summary: 'Städtische Grundstücke zum Festpreis an Familien mit Ortsbezug, mit Bauverpflichtung binnen drei Jahren.',
@@ -270,6 +278,8 @@ export const POLICIES: PolicyDefinition[] = [
   },
   {
     id: 'gruene-cycle-network',
+    // Ein Radnetz wird auf Straßen gebaut, die es gibt.
+    sited: true,
     name: 'Radnetz in einem Zug',
     partyIds: ['gruene'],
     summary: 'Zweiundzwanzig Kilometer geschützte Radwege, nicht in Abschnitten, sondern als Netz.',
@@ -288,6 +298,8 @@ export const POLICIES: PolicyDefinition[] = [
   },
   {
     id: 'gruene-heat-plan',
+    // Wärmenetze liegen in Quartieren, nicht überall.
+    sited: true,
     name: 'Kommunale Wärmeplanung umsetzen',
     partyIds: ['gruene'],
     summary: 'Quartiersnetze statt Einzelheizungen, mit Anschlussrecht und Förderung für die ersten drei Viertel.',
@@ -306,6 +318,8 @@ export const POLICIES: PolicyDefinition[] = [
   },
   {
     id: 'gruene-unsealing',
+    // Entsiegelt und begrünt wird dort, wo versiegelt ist.
+    sited: true,
     name: 'Schwammstadt-Programm',
     partyIds: ['gruene'],
     summary: 'Höfe, Parkplätze und Schulhöfe entsiegeln, Regen versickert wieder statt in die Kanäle zu schießen.',
@@ -325,6 +339,8 @@ export const POLICIES: PolicyDefinition[] = [
   },
   {
     id: 'linke-buy-back',
+    // Gekaufter Bestand steht in einem Quartier.
+    sited: true,
     name: 'Bestand zurückkaufen',
     partyIds: ['linke'],
     summary: 'Die Stadt kauft, wo Portfolios wechseln, und bindet die Mieten dauerhaft. Teuer heute, gebunden für immer.',
@@ -466,6 +482,8 @@ export const POLICIES: PolicyDefinition[] = [
   },
   {
     id: 'shared-maintenance',
+    // Saniert wird Bestand, und Bestand hat eine Adresse.
+    sited: true,
     name: 'Instandhaltungsprogramm',
     summary: 'Der Unterhalt geht dauerhaft auf Bedarf. Nichts daran ist sichtbar, bis man es zehn Jahre unterlässt.',
     category: 'finance',

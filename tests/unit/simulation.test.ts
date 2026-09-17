@@ -1,14 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { advanceMonths, applyPolicy, createInitialState, snapshotOf } from '../../app/simulation/model'
+import { advanceMonths, applyPolicy, chooseSite, createInitialState, snapshotOf } from '../../app/simulation/model'
+
+/**
+ * Bauen braucht seit der Standortwahl zwei Schritte: der Rat beschließt, der Spieler sagt wo.
+ *
+ * Diese Tests interessieren sich für die Bauleitung und nicht für den Ort, also nehmen sie immer
+ * denselben — den günstigen Hafen, damit der Standortaufschlag die Zahlen nicht mitverschiebt.
+ */
+function build(policyId: string): ReturnType<typeof createInitialState> {
+  return chooseSite(applyPolicy(createInitialState(2036), policyId), 'hafen-industrie')
+}
 
 describe('monthly simulation', () => {
   it('produces deterministic 24-month results', () => {
-    const run = () => snapshotOf(advanceMonths(applyPolicy(createInitialState(2036), 'housing-accelerator'), 24))
+    const run = () => snapshotOf(advanceMonths(build('housing-accelerator'), 24))
     expect(run()).toEqual(run())
   })
 
   it('delivers housing through a construction pipeline rather than instantly', () => {
-    const state = applyPolicy(createInitialState(2036), 'housing-accelerator')
+    const state = build('housing-accelerator')
     const afterSixMonths = snapshotOf(advanceMonths(state, 6))
     const baselineSixMonths = snapshotOf(advanceMonths(createInitialState(2036), 6))
 
@@ -21,7 +31,7 @@ describe('monthly simulation', () => {
 
   it('lets sustained housing supply push rents down against the baseline', () => {
     const baseline = snapshotOf(advanceMonths(createInitialState(2036), 60))
-    const building = snapshotOf(advanceMonths(applyPolicy(createInitialState(2036), 'housing-accelerator'), 60))
+    const building = snapshotOf(advanceMonths(build('housing-accelerator'), 60))
 
     expect(building.metrics.housingUnits).toBeGreaterThan(baseline.metrics.housingUnits)
     expect(building.metrics.averageRent).toBeLessThan(baseline.metrics.averageRent)

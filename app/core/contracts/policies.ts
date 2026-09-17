@@ -76,6 +76,15 @@ export interface EvidenceReference {
 }
 
 export interface PolicyDefinition {
+  /**
+   * Ob dabei etwas entsteht, das irgendwo **steht** — und der Rat deshalb auch sagen muss, wo.
+   *
+   * Nur Vorlagen, nach denen sich die Karte sichtbar ändert: Wohnungen, Gewerbeflächen, Radwege,
+   * Wärmenetze, sanierter Bestand. Eine Gebührensatzung und ein Sozialticket gelten in der ganzen
+   * Stadt und haben keinen Bauplatz. Warum das hier steht und nicht abgeleitet wird, erklärt
+   * `simulation/siting.ts`.
+   */
+  sited?: boolean
   id: string
   name: string
   summary: string

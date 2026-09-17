@@ -633,6 +633,8 @@ export class CityRenderer {
   setWalking(walking: boolean): void {
     if (walking === this.walk.state.active)
       return
+    // Zu Fuß zeigt der Zeiger auf nichts — er dreht den Kopf. Siehe `Picker.setPaused`.
+    this.picker.setPaused(walking)
     if (walking) {
       this.walk.enter(this.rig.controls.target)
       this.rig.handOver(true, null)

@@ -54,6 +54,8 @@ export class BuildingPicker {
   private pressed: { x: number, y: number, button: number } | null = null
   /** Wo der Zeiger zuletzt stand, solange noch kein Bild ihn ausgewertet hat. */
   private wanted: { x: number, y: number } | null = null
+  /** Solange jemand zu Fuß unterwegs ist, zeigt der Zeiger auf nichts — er dreht den Kopf. */
+  private paused = false
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -75,6 +77,25 @@ export class BuildingPicker {
     this.canvas.removeEventListener('pointerdown', this.handlePointerDown)
     this.canvas.removeEventListener('pointerup', this.handlePointerUp)
     this.canvas.removeEventListener('contextmenu', this.handleContextMenu)
+  }
+
+  /**
+   * Das Anfassen der Stadt aus- und wieder einschalten.
+   *
+   * Im Begehen-Modus ist ein Klick ins Bild kein Zeigen, sondern das Zurückholen der Mauszeigersperre
+   * — und ein Klick, der dabei noch das Haus auswählt, auf das die **Kartenkamera** vor dem Einstieg
+   * gezeigt hat, öffnet mitten im Laufen eine Gebäudekarte. Dieselbe Sperre spart nebenbei den Strahl
+   * je Bild, den zu Fuß ohnehin niemand liest.
+   */
+  setPaused(paused: boolean): void {
+    if (paused === this.paused)
+      return
+    this.paused = paused
+    this.pressed = null
+    this.wanted = null
+    this.person = null
+    this.restore()
+    this.unmarkPerson()
   }
 
   find(buildingId: string): BuildingRecord | undefined {
@@ -105,7 +126,7 @@ export class BuildingPicker {
    * bewegen, also war jede Probe darüber hinaus ohnehin verworfen.
    */
   private readonly handlePointerMove = (event: PointerEvent): void => {
-    if (this.pressed) {
+    if (this.paused || this.pressed) {
       this.wanted = null
       return
     }
@@ -119,7 +140,7 @@ export class BuildingPicker {
   /** Einmal je Bild: der Strahl, den `handlePointerMove` nur vorgemerkt hat. */
   update(): void {
     const wanted = this.wanted
-    if (!wanted)
+    if (this.paused || !wanted)
       return
     this.wanted = null
     this.pointer.x = wanted.x
@@ -239,12 +260,16 @@ export class BuildingPicker {
   }
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
+    if (this.paused)
+      return
     this.pressed = { x: event.clientX, y: event.clientY, button: event.button }
     // Was beim Drücken noch vorgemerkt war, ist mit dem Ziehen hinfällig.
     this.wanted = null
   }
 
   private readonly handlePointerUp = (event: PointerEvent): void => {
+    if (this.paused)
+      return
     const pressed = this.pressed
     this.pressed = null
     if (!pressed || pressed.button !== event.button)

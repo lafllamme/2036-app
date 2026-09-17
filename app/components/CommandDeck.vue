@@ -356,7 +356,7 @@ function toggleDecisions(): void {
         :class="{ 'is-on': walking }"
         :aria-pressed="walking"
         :aria-label="walking ? 'Begehen beenden' : 'Stadt begehen'"
-        :title="walking ? 'Begehen beenden' : 'Stadt begehen · WASD gehen, Leertaste springen, Maus schauen'"
+        :title="walking ? 'Begehen beenden' : 'Stadt begehen · WASD gehen, Shift rennen, Leertaste springen (zweimal für höher), Maus ziehen zum Umsehen'"
         @click="toggleWalking"
       >
         <svg viewBox="0 0 24 24" class="icon" aria-hidden="true">

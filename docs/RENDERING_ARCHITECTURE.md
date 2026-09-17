@@ -705,3 +705,94 @@ im eingeschwungenen Zustand: **längster Frame 5,3 und 5,0 ms, kein Ruckler** �
 Der allererste Lauf direkt nach dem Laden bleibt teuer (gemessen ein Frame von 219 ms), weil dort die
 Aufwärmrunde selbst und alles Erstmalige zusammenfallen. Das ist der Ladebildschirm, und dorthin
 gehört es.
+
+## Die Stadt zu Fuß
+
+Die Spielkamera ist eine Karte. Alles, was in `VISIBLE_CITY.md` steht — Türen, Freitreppen,
+Markisen, Ladenschilder, Grasbüschel —, ist aus ihrer Höhe bestenfalls ein Pixel. `firstPerson.ts`
+(`WalkAbout`) stellt den Spieler auf den Gehweg: derselbe Renderer, dieselbe Szene, nur eine andere
+Kamera und eine Steuerung, die `MapControls` für die Dauer ablöst.
+
+Umgeschaltet wird, nicht ergänzt — zwei Regler auf einer Kamera streiten sich jeden Frame.
+`CameraRig.handOver(walking, returnTo)` schaltet `MapControls` ab und tauscht dabei auch die
+Schnittebenen: `near` 6 m → **0,12 m**, `far` 16 000 → 4 000. Das ist keine Feinheit. Sechs Meter
+sind auf Augenhöhe alles, was unmittelbar vor einem liegt, und der Boden verschwand entsprechend
+unter den Füßen; umgekehrt wäre `near = 0,12` an der Kartenkamera eine Tiefenpufferauflösung, die
+über drei Kilometer nicht reicht.
+
+### Was es nicht gibt
+
+Keine Physikbibliothek, keine Kapsel, kein Starrkörper. Drei Dinge reichen:
+
+| | wie | kostet |
+|---|---|---|
+| auf dem Boden bleiben | `relief.height(x, z)`, nach unten auf `WATER_LEVEL` geklemmt | eine Geländeabfrage |
+| nicht durch Wände | `buildingBoxes` als Vorauswahl, `pointInside` gegen den echten Grundriss | ein bis zwei Kacheln |
+| springen | eine Zahl nach oben, jeden Frame um `GRAVITY · delta` kleiner | nichts |
+
+Der Kasten ist dabei **nur** die Vorauswahl. Er ist achsenparallel, und ein schräg zur Straße
+stehendes Haus hat einen Kasten, der die halbe Fahrbahn mit abdeckt — als Hindernis genommen stand
+man auf offener Straße vor einer Wand, die es nicht gibt. Geprüft wird gegen den Grundriss, aus dem
+die Fassade gebaut wurde.
+
+Und Wände halten nur von **außen** auf. Wer doch einmal in einer Fassade landet, muss herauslaufen
+können; eine Kollision, die auch von innen greift, ist kein Schutz, sondern eine Falle.
+
+### Die Zahlen, und woher sie kommen
+
+Vier Meldungen hintereinander, alle vier Gefühl, alle vier mit einer Größe dahinter:
+
+| Meldung | Größe | vorher | jetzt |
+|---|---|---|---|
+| „kann mich kaum bewegen" | Gehen / Rennen | 1,7 / 3,1 m/s | **6,4 / 17 m/s** |
+| „mit Shift immer noch lame" | Rennen | 10,5 m/s | **17 m/s** |
+| „fühlt sich nicht smooth an" | Anlaufzeit (`EASE`) | 110 ms | **38 ms** |
+| „Sprung ist zu low" | Sprunghöhe | 0,80 m | **1,68 m**, doppelt **2,9 m** |
+
+Der Maßstab ist nicht der Mensch, sondern die Karte: eine Straße hat sechzig Meter, von der
+Hafenkante zum Rathaus sind es achthundert. Ein realistisches Gehtempo macht daraus Wartezeit.
+
+Der **zweite Sprung** ist aus demselben Grund richtig, obwohl niemand zweimal springt: Lindenhafen
+ist auf Augenhöhe eine Stadt aus Kanten — Kaimauern, Freitreppen, Rampen, Böschungen —, und an keine
+davon kommt man mit anderthalb Metern heran. Er braucht eine **Flanke** und keinen gehaltenen
+Zustand, sonst hüpft man bei jeder Bodenberührung weiter und steigt mit dem zweiten Sprung in den
+Himmel.
+
+Im Spiel gemessen (Ableseleiste, 20 Hz abgetastet, Augenhöhe 1,72 m):
+
+| | Scheitel über dem Stand | Flugzeit |
+|---|---|---|
+| einfach | 1,58 m | 0,8 s |
+| doppelt | **2,88 m** | 1,3 s |
+
+Und Sprint durch die Innenstadt: **129 m in acht Sekunden**, ohne eine einzige Ablehnung an einer
+Wand. `tests/unit/firstPerson.test.ts` hält alle sechs Größen fest, damit die nächste Änderung sie
+nicht versehentlich zurückdreht.
+
+### Umsehen: zwei Wege, weil einer nicht reicht
+
+Die Zeigersperre ist der richtige Weg und keiner, auf den man bauen kann. Der Browser gibt sie bei
+Escape von sich aus zurück, verweigert sie eine Sekunde lang danach, und `requestPointerLock` aus
+einem Klick auf einen **Knopf der Oberfläche** heraus geht je nach Browser leer aus — und dann steht
+man im Begehen-Modus und kann sich nicht umsehen.
+
+Also beides, und beide lesen dasselbe Feld: `movementX` gibt es an jedem Mausereignis und nicht nur
+unter der Sperre. Gesperrt genügt das Schieben der Maus; sonst tut es der gedrückte Knopf, so wie auf
+der Karte auch. Ein Klick, der nicht gezogen hat, holt die Sperre zurück, und eine abgewiesene Sperre
+ist kein Fehler, sondern der andere Weg.
+
+Dazu gehört, dass `Picker` für die Dauer **stillgelegt** wird (`setPaused`). Ein Klick ins Bild ist
+zu Fuß kein Zeigen, sondern das Zurückholen der Sperre — und ohne die Sperre hätte er das Haus
+ausgewählt, auf das die Kartenkamera vor dem Einstieg gezeigt hat, und mitten im Laufen eine
+Gebäudekarte geöffnet. Nebenbei spart es den Strahl je Bild, den zu Fuß ohnehin niemand liest.
+
+### Was es kostet
+
+Sprint quer durch die Innenstadt, gemessen mit `?bench`:
+
+| | Frames | Median | p99 | längster | Ruckler |
+|---|---|---|---|---|---|
+| zu Fuß, volle Fahrt | 336 in 5 s | 3,6 ms | 9,7 ms | 10,6 ms | **0** |
+
+Davon **0,51 ms** eigene Rechnung. Der Modus zeigt dieselbe Szene aus einer anderen Höhe; er baut
+nichts dazu.

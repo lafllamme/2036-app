@@ -22,11 +22,11 @@ import { WATER_LEVEL } from './world/terrain/water'
  *
  * ## Und warum es keine Physik gibt
  *
- * Kein Schwerkraftmodell, keine Kapsel, kein Sprung. Ein Mensch auf einem Gehweg fällt nicht, und
- * was hier gebraucht wird, sind zwei Dinge: auf dem Boden bleiben und nicht durch Wände laufen. Das
- * erste ist eine Geländeabfrage, das zweite ein Test gegen die Kästen, die das Anklicken von
- * Gebäuden ohnehin schon führt (`buildingBoxes`). Beides kostet einen Bruchteil eines Frames und
- * spart eine Physikbibliothek.
+ * Keine Kapsel, kein Starrkörper, keine Bibliothek. Was hier gebraucht wird, sind drei Dinge: auf dem
+ * Boden bleiben, nicht durch Wände laufen, und springen können. Das erste ist eine Geländeabfrage,
+ * das zweite ein Test gegen die Kästen, die das Anklicken von Gebäuden ohnehin schon führt
+ * (`buildingBoxes`), und das dritte eine Zahl, die nach oben zeigt und jedes Bild kleiner wird.
+ * Zusammen kosten sie einen Bruchteil eines Frames und sparen eine Physikbibliothek.
  */
 
 /** Augenhöhe über dem Boden. Eine erwachsene Person, keine Kamera auf einem Stativ. */
@@ -38,20 +38,44 @@ const EYE = 1.72
  * drei Kilometern Kante ist das unbenutzbar: eine Straße hat sechzig Meter, und die abzulaufen
  * dauerte fünfunddreißig Sekunden. Gemeldet als „kann mich kaum bewegen", und das war keine
  * Übertreibung. Spiele laufen schneller als Menschen, weil eine Spielstunde keine echte Stunde ist.
+ *
+ * Auch 4,6 und 10,5 waren noch zu wenig — „die Geschwindigkeit mit Shift ist immer noch lame“. Der
+ * Maßstab ist nicht der Mensch, sondern die Karte: von der Hafenkante zum Rathaus sind es achthundert
+ * Meter, und die sollen im Sprint eine knappe Minute dauern und keine anderthalb.
  */
-const WALK = 4.6
-const RUN = 10.5
-/** Wie schnell die Geschwindigkeit dem Willen folgt. Kein Eis, aber auch kein Schalter. */
-const EASE = 9
+const WALK = 6.4
+const RUN = 17
+/**
+ * Wie schnell die Geschwindigkeit dem Willen folgt.
+ *
+ * Das ist der Unterschied zwischen „knackig“ und „träge“, und er sitzt nicht im Tempo. Bei 9 lag die
+ * Zeitkonstante bei 110 ms: man drückt, und eine Zehntelsekunde später geht es los — gemeldet als
+ * „fühlt sich nicht smooth an“, obwohl die Endgeschwindigkeit stimmte. Bei 26 sind es 38 ms, also
+ * knapp über vier Bilder bei 120 Hz. Immer noch gedämpft, damit ein Antritt keine Stufe ist, aber
+ * unterhalb dessen, was jemand als Verzögerung wahrnimmt.
+ */
+const EASE = 26
 /**
  * Springen: Anfangsgeschwindigkeit nach oben und die Schwerkraft, die einen wiederholt.
  *
  * Hier gibt es sonst keine Physik, und das bleibt auch so — ein Sprung ist eine Zahl, die nach oben
- * zeigt, und eine, die sie jeden Frame kleiner macht. 5,2 m/s auf eine Sprunghöhe von gut anderthalb
- * Metern, also über einen Bordstein und auf eine Freitreppe, aber nicht auf ein Dach.
+ * zeigt, und eine, die sie jeden Frame kleiner macht. Erst waren es 5,2 m/s gegen 17, also 0,8 m
+ * Sprunghöhe: das reicht über einen Bordstein und sonst nirgendwohin. Jetzt 8,4 gegen 21, das sind
+ * 1,68 m — auf eine Freitreppe, auf eine Mauer, auf einen Lieferwagen.
  */
-const JUMP = 5.2
-const GRAVITY = 17
+const JUMP = 8.4
+const GRAVITY = 21
+/**
+ * Und der zweite Sprung, in der Luft.
+ *
+ * Kein realistischer Mensch springt zweimal, und genau deshalb ist es hier richtig: Lindenhafen ist
+ * auf Augenhöhe eine Stadt aus Kanten — Kaimauern, Freitreppen, Rampen, Böschungen —, und mit einem
+ * einzigen Sprung kommt man an keine davon heran. Etwas schwächer als der erste, weil er vom Scheitel
+ * aus zählt: zusammen knapp drei Meter.
+ */
+const AIR_JUMP = 7.6
+/** Wie viele Sprünge zwischen zwei Bodenberührungen. Zwei: einer vom Boden, einer aus der Luft. */
+const JUMPS = 2
 /** Wie weit der Blick nach oben und unten darf. Kein Salto. */
 const PITCH_LIMIT = Math.PI / 2 - 0.05
 /** Wie empfindlich die Maus ist, in Radiant je Pixel. */
@@ -93,6 +117,18 @@ export class WalkAbout {
   private readonly velocity = new THREE.Vector3()
   /** Geschwindigkeit nach oben, solange jemand in der Luft ist. Null heißt: steht auf dem Boden. */
   private lift = 0
+  /** Wie viele Sprünge noch übrig sind, bis der Boden sie zurückgibt. */
+  private jumps = JUMPS
+  /**
+   * Ein Tastendruck, der noch nicht verbraucht ist.
+   *
+   * Der zweite Sprung braucht eine **Flanke** und keinen gehaltenen Zustand: aus `held.has('Space')`
+   * würde in der Luft sofort auch der zweite Sprung gezündet, und wer die Taste festhält, bliebe am
+   * Boden hüpfen wie auf einem Trampolin. Gemerkt wird also das Drücken, und das Bild verbraucht es.
+   */
+  private wantsJump = false
+  /** Ziehen mit gedrücktem Knopf, wenn die Zeigersperre nicht greift. Siehe `onPointerDown`. */
+  private drag: { id: number, x: number, y: number, travelled: number } | null = null
   private readonly step = new THREE.Vector3()
   private readonly probe = new THREE.Vector3()
   /** Der Blick der Karte, während jemand zu Fuß unterwegs ist. */
@@ -106,15 +142,19 @@ export class WalkAbout {
   ) {
     window.addEventListener('keydown', this.onKeyDown)
     window.addEventListener('keyup', this.onKeyUp)
-    this.canvas.addEventListener('mousemove', this.onMouseMove)
-    document.addEventListener('pointerlockchange', this.onLockChange)
+    this.canvas.addEventListener('pointerdown', this.onPointerDown)
+    this.canvas.addEventListener('pointermove', this.onPointerMove)
+    this.canvas.addEventListener('pointerup', this.onPointerUp)
+    this.canvas.addEventListener('pointercancel', this.onPointerUp)
   }
 
   dispose(): void {
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('keyup', this.onKeyUp)
-    this.canvas.removeEventListener('mousemove', this.onMouseMove)
-    document.removeEventListener('pointerlockchange', this.onLockChange)
+    this.canvas.removeEventListener('pointerdown', this.onPointerDown)
+    this.canvas.removeEventListener('pointermove', this.onPointerMove)
+    this.canvas.removeEventListener('pointerup', this.onPointerUp)
+    this.canvas.removeEventListener('pointercancel', this.onPointerUp)
   }
 
   /**
@@ -149,9 +189,12 @@ export class WalkAbout {
     this.camera.position.set(free.x, Math.max(this.relief.height(free.x, free.z), WATER_LEVEL) + EYE, free.z)
     this.velocity.set(0, 0, 0)
     this.lift = 0
+    this.jumps = JUMPS
+    this.wantsJump = false
+    this.drag = null
     this.held.clear()
     this.aim()
-    void this.canvas.requestPointerLock?.()
+    this.grab()
   }
 
   /** Zurück auf die Karte, und zwar auf genau den Blick, aus dem man gekommen ist. */
@@ -160,6 +203,8 @@ export class WalkAbout {
       return null
     this.state.active = false
     this.held.clear()
+    this.drag = null
+    this.wantsJump = false
     if (document.pointerLockElement === this.canvas)
       document.exitPointerLock()
     const parked = this.parked
@@ -246,24 +291,32 @@ export class WalkAbout {
     const ground = Math.max(this.relief.height(this.camera.position.x, this.camera.position.z), WATER_LEVEL)
 
     /*
-     * Und der Sprung. Steigen, fallen, aufkommen — mehr ist es nicht.
+     * Und der Sprung. Steigen, fallen, aufkommen — und einmal in der Luft noch einmal.
      *
      * Der Boden bleibt die Führung: solange niemand springt, klebt das Auge an `ground + EYE`, und
      * das ist auch der Grund, warum es keine Sprungerkennung braucht. Wer aufkommt, ist wieder auf
-     * dem Boden, und ein Hang trägt einen dabei von selbst mit.
+     * dem Boden, und ein Hang trägt einen dabei von selbst mit — dieselbe Bodenberührung gibt auch
+     * die beiden Sprünge zurück.
      */
-    if (this.lift > 0 || this.camera.position.y > ground + EYE + 0.001) {
+    const floor = ground + EYE
+    const standing = this.lift === 0 && this.camera.position.y <= floor + 0.001
+    if (standing) {
+      this.camera.position.y = floor
+      this.jumps = JUMPS
+    }
+    if (this.wantsJump && this.jumps > 0) {
+      this.lift = standing ? JUMP : AIR_JUMP
+      this.jumps -= 1
+    }
+    // Verbraucht oder nicht — ein Druck gilt für ein Bild. Sonst springt man eine Sekunde später.
+    this.wantsJump = false
+    if (this.lift !== 0 || this.camera.position.y > floor) {
       this.lift -= GRAVITY * delta
       this.camera.position.y += this.lift * delta
-      if (this.camera.position.y <= ground + EYE) {
-        this.camera.position.y = ground + EYE
+      if (this.camera.position.y <= floor) {
+        this.camera.position.y = floor
         this.lift = 0
       }
-    }
-    else {
-      this.camera.position.y = ground + EYE
-      if (this.held.has('Space'))
-        this.lift = JUMP
     }
 
     this.state.x = this.camera.position.x
@@ -358,6 +411,8 @@ export class WalkAbout {
     if (!this.state.active)
       return
     this.held.add(event.code)
+    if (event.code === 'Space' && !event.repeat)
+      this.wantsJump = true
     // Wer läuft, scrollt nicht die Seite weg.
     if (event.code.startsWith('Arrow') || event.code === 'Space')
       event.preventDefault()
@@ -367,20 +422,74 @@ export class WalkAbout {
     this.held.delete(event.code)
   }
 
-  private readonly onMouseMove = (event: MouseEvent): void => {
-    if (!this.state.active || document.pointerLockElement !== this.canvas)
+  /**
+   * Umsehen — mit gesperrtem Zeiger, und wenn der nicht zu haben ist, mit gedrücktem Knopf.
+   *
+   * Die Zeigersperre ist der eigentliche Weg, aber sie ist nichts, worauf man bauen kann: der Browser
+   * gibt sie bei Escape von sich aus zurück, verweigert sie eine Sekunde lang danach, und
+   * `requestPointerLock` aus einem Klick auf einen **Knopf der Oberfläche** heraus geht je nach
+   * Browser leer aus. Dann steht man im Begehen-Modus und kann sich nicht umsehen — genau so
+   * gemeldet: „Kamera schwenken mit Cursor klappt in dem Mode auch nicht“.
+   *
+   * Also beides, und beide lesen dasselbe: `movementX` gibt es an jedem Mausereignis und nicht nur
+   * unter der Sperre. Gesperrt bewegt schon das Schieben der Maus den Kopf; sonst tut es der
+   * gedrückte Knopf, so wie auf der Karte auch. Und ein Klick, der nicht gezogen hat, holt die
+   * Sperre zurück.
+   */
+  private readonly onPointerDown = (event: PointerEvent): void => {
+    if (!this.state.active || event.button !== 0)
       return
+    this.drag = { id: event.pointerId, x: event.clientX, y: event.clientY, travelled: 0 }
+    this.canvas.setPointerCapture?.(event.pointerId)
+  }
+
+  private readonly onPointerMove = (event: PointerEvent): void => {
+    if (!this.state.active)
+      return
+    const locked = document.pointerLockElement === this.canvas
+    const drag = this.drag?.id === event.pointerId ? this.drag : null
+    if (!locked && !drag)
+      return
+    if (drag) {
+      drag.travelled += Math.abs(event.clientX - drag.x) + Math.abs(event.clientY - drag.y)
+      drag.x = event.clientX
+      drag.y = event.clientY
+    }
     this.state.yaw -= event.movementX * LOOK
     this.state.pitch = THREE.MathUtils.clamp(this.state.pitch - event.movementY * LOOK, -PITCH_LIMIT, PITCH_LIMIT)
     this.aim()
   }
 
+  private readonly onPointerUp = (event: PointerEvent): void => {
+    const drag = this.drag
+    if (!drag || drag.id !== event.pointerId)
+      return
+    this.drag = null
+    this.canvas.releasePointerCapture?.(event.pointerId)
+    // Ein Klick, der stehen geblieben ist, war kein Schwenk, sondern die Bitte um die Sperre.
+    if (this.state.active && drag.travelled <= 4)
+      this.grab()
+  }
+
   /**
-   * Wer die Maus freigibt, hört nicht auf zu gehen.
+   * Die Zeigersperre holen, ohne daran zu scheitern.
    *
-   * Escape gibt den Zeiger frei — das nimmt der Browser einem ab und ist nicht verhandelbar. Daraus
-   * aber „Modus verlassen" zu machen, wäre falsch: man will die Maus zurück, um auf einen Knopf zu
-   * drücken, und nicht zurück auf die Karte geschleudert werden. Das Verlassen macht der Knopf.
+   * Der Aufruf wirft, wenn der Browser gerade nicht will — kurz nach einem Escape etwa —, und das
+   * darf hier nichts heißen: wer sie nicht bekommt, sieht sich eben mit gedrücktem Knopf um. Eine
+   * abgewiesene Sperre ist kein Fehler, sondern der andere Weg.
+   *
+   * Dass Escape die Sperre löst, beendet dabei **nicht** das Begehen: man will die Maus zurück, um
+   * auf einen Knopf zu drücken, und nicht auf die Karte geschleudert werden. Das Verlassen macht der
+   * Knopf.
    */
-  private readonly onLockChange = (): void => {}
+  private grab(): void {
+    try {
+      const lock = this.canvas.requestPointerLock?.() as unknown
+      if (lock instanceof Promise)
+        lock.catch(() => {})
+    }
+    catch {
+      // Kein Umsehen ohne Knopf, und das ist in Ordnung.
+    }
+  }
 }

@@ -87,8 +87,51 @@ export class CityState {
   private appliedBlight = -1
   private readonly scratch = new THREE.Color()
 
+  /**
+   * In welcher Reihenfolge die freien Parzellen bebaut werden.
+   *
+   * Bis hierher war das die Reihenfolge, in der sie entstanden sind: von der Mitte nach außen. Das
+   * ist eine vernünftige Voreinstellung und war zugleich der Grund, warum der Standortbeschluss
+   * unsichtbar blieb — der Rat entschied, **wo** gebaut wird, und gebaut wurde trotzdem in der Mitte.
+   *
+   * Die Liste zeigt auf Parzellen, nicht auf Instanzen: an Instanzplatz *i* steht die Parzelle
+   * `order[i]`. Umsortiert wird immer nur der Teil, der **noch nicht geliefert** ist — hätte eine
+   * neue Standortwahl auch den vorderen Teil berührt, wären fertige Häuser quer durch die Stadt
+   * gesprungen.
+   */
+  private order: number[]
+  /** Die Matrizen in ihrer ursprünglichen Reihenfolge, damit Umsortieren nur Kopieren ist. */
+  private readonly pristine: Float32Array
+  /** Die zuletzt umgesetzte Standortfolge, damit nicht jedes Bild sortiert wird. */
+  private sited: string[] = []
+
   constructor(private readonly blueprint: CityBlueprint, private readonly visuals: WorldVisuals) {
     this.unitsPerBuilding = 62_000 / Math.max(1, blueprint.buildings.length + blueprint.growthSlots.length)
+    this.order = blueprint.growthSlots.map((_, index) => index)
+    this.pristine = new Float32Array(visuals.growth.instanceMatrix.array)
+  }
+
+  /**
+   * Die Bauparzellen nach den beschlossenen Standorten sortieren.
+   *
+   * Läuft nur, wenn sich die Standortfolge wirklich geändert hat — das ist ein paarmal je Amtszeit
+   * und nicht je Bild. Parzellen in Bezirken, für die es einen Beschluss gibt, kommen nach vorn, in
+   * der Reihenfolge der Beschlüsse; alles andere behält seine Ordnung von der Mitte nach außen.
+   */
+  private fitSites(sites: Partial<Record<string, string>>): void {
+    const wanted = Object.values(sites).filter((id): id is string => Boolean(id))
+    if (wanted.length === this.sited.length && wanted.every((id, at) => this.sited[at] === id))
+      return
+    this.sited = wanted
+
+    const slots = this.blueprint.growthSlots
+    this.order = deliveryOrder(this.order, this.delivered, slot => slots[slot]?.districtId ?? '', wanted)
+
+    const matrix = this.visuals.growth.instanceMatrix
+    const target = matrix.array as Float32Array
+    for (let at = this.delivered; at < this.order.length; at += 1)
+      target.set(this.pristine.subarray(this.order[at]! * 16, this.order[at]! * 16 + 16), at * 16)
+    matrix.needsUpdate = true
   }
 
   apply(snapshot: SimulationSnapshot): void {
@@ -119,14 +162,17 @@ export class CityState {
     this.carTraffic = city.carTraffic
     this.transitDensity = city.transitDensity
 
-    // Delivered housing fills the free parcels the generator left, from the centre outward.
+    // Erst der Ort, dann die Menge: was beschlossen ist, bestimmt, welche Parzellen als Nächstes dran sind.
+    this.fitSites(snapshot.sites)
+
+    // Delivered housing fills the free parcels — in der Reihenfolge, die `fitSites` gesetzt hat.
     this.delivered = THREE.MathUtils.clamp(Math.round(city.completedUnitsSinceStart / this.unitsPerBuilding), 0, slots.length)
     this.visuals.growth.count = this.delivered
 
     // Cranes stand on the next parcels in line, so building is visible before buildings are.
     const sites = Math.min(city.constructionSites, this.visuals.constructionSites.children.length)
     this.visuals.constructionSites.children.forEach((site, index) => {
-      const slot = slots[(this.delivered + index) % Math.max(1, slots.length)]
+      const slot = slots[this.order[(this.delivered + index) % Math.max(1, this.order.length)] ?? 0]
       site.visible = index < sites && slot !== undefined
       if (slot)
         site.position.set(slot.x, this.blueprint.relief.height(slot.x, slot.z), slot.z)
@@ -185,4 +231,31 @@ export class CityState {
     // One material behind every species, so the whole city's greenery dries out together.
     this.visuals.treeCrowns.material.color.copy(this.scratch.copy(DRY).lerp(LUSH, THREE.MathUtils.clamp(greenery, 0, 1)))
   }
+}
+
+/**
+ * Welche Bauparzelle als Nächstes bebaut wird, nach dem, was der Rat beschlossen hat.
+ *
+ * Eigene Funktion, weil an ihr genau eine Sache hängt, die man im Bild erst nach Monaten sieht: der
+ * **gelieferte Teil darf sich nie ändern**. Sortiert man die ganze Liste um, springen fertige Häuser
+ * quer durch die Stadt, sobald ein neuer Standort beschlossen wird — und das passiert zum ersten Mal
+ * im dritten Spieljahr, wo es niemand mehr mit dieser Zeile in Verbindung bringt.
+ *
+ * Alles hinter dem gelieferten Teil wird nach den beschlossenen Bezirken vorgezogen, in der
+ * Reihenfolge der Beschlüsse. Parzellen ohne Beschluss behalten ihre ursprüngliche Ordnung — von
+ * der Mitte nach außen —, denn eine Stadt wächst von innen, solange niemand etwas anderes sagt.
+ */
+export function deliveryOrder(
+  order: number[],
+  delivered: number,
+  districtOf: (slot: number) => string,
+  sited: string[],
+): number[] {
+  const rank = (slot: number): number => {
+    const at = sited.indexOf(districtOf(slot))
+    return at === -1 ? sited.length : at
+  }
+  const head = order.slice(0, delivered)
+  const tail = order.slice(delivered).sort((a, b) => rank(a) - rank(b) || a - b)
+  return [...head, ...tail]
 }

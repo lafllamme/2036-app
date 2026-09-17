@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { POLICIES } from '../../app/content/policies'
-import { SITE_PROFILES, SITES_BY_COST } from '../../app/content/sites'
+import { BUILDABLE_BY_COST, SITE_PROFILES, SITES_BY_COST } from '../../app/content/sites'
 import { applyPolicy, chooseSite, createInitialState, snapshotOf } from '../../app/simulation/model'
 import { costAt, needsSite, offered, paceAt, sitesFor, unrestAt } from '../../app/simulation/siting'
 
@@ -20,8 +20,8 @@ describe('standortwahl', () => {
     for (const sourceId of ['housing-accelerator', 'transit-network', 'shared-maintenance', 'x']) {
       const sites = sitesFor(sourceId, SEED)
       expect(sites, sourceId).toHaveLength(3)
-      expect(sites[0]!.districtId).toBe(SITES_BY_COST[0]!.districtId)
-      expect(sites[2]!.districtId).toBe(SITES_BY_COST[SITES_BY_COST.length - 1]!.districtId)
+      expect(sites[0]!.districtId).toBe(BUILDABLE_BY_COST[0]!.districtId)
+      expect(sites[2]!.districtId).toBe(BUILDABLE_BY_COST[BUILDABLE_BY_COST.length - 1]!.districtId)
       // Von günstig nach teuer, und drei verschiedene Bezirke.
       expect(sites[0]!.cost).toBeLessThan(sites[1]!.cost)
       expect(sites[1]!.cost).toBeLessThan(sites[2]!.cost)
@@ -51,14 +51,14 @@ describe('standortwahl', () => {
   /** Die Spanne muss sich im Preis wiederfinden, sonst ist sie nur eine Beschriftung. */
   it('macht den teuren Standort spürbar teurer als den billigen', () => {
     const cheap = costAt(28, 'hafen-industrie')
-    const dear = costAt(28, 'innenstadt')
-    expect(dear).toBeGreaterThan(cheap * 2.5)
+    const dear = costAt(28, 'gruenderzeit-nord')
+    expect(dear).toBeGreaterThan(cheap * 2)
     expect(cheap).toBeLessThan(28)
   })
 
   it('rundet auf Zehntelmillionen, weil der Haushalt so gelesen wird', () => {
     expect(costAt(28, 'innenstadt')).toBe(51.8)
-    expect(Number.isInteger(costAt(28, 'innenstadt') * 10)).toBe(true)
+    expect(Number.isInteger(costAt(28, 'gruenderzeit-nord') * 10)).toBe(true)
   })
 
   it('lässt kein Vorhaben in null Monaten fertig werden', () => {
@@ -155,5 +155,27 @@ describe('standortwahl', () => {
 
     expect(dear.metrics.cityBudget).toBeLessThan(cheap.metrics.cityBudget)
     expect(dear.metrics.satisfaction).toBeLessThan(cheap.metrics.satisfaction)
+  })
+
+  /**
+   * Der Fehler, den erst das Spiel gezeigt hat: die Altstadt war die teure Wahl mit der größten
+   * Wirkung — und hat **null** freie Bauparzellen. Gewählt, bezahlt, und dann kein einziger Kran.
+   */
+  it('bietet nur Bezirke an, in denen überhaupt Platz ist', () => {
+    for (const sourceId of ['housing-accelerator', 'gruene-unsealing', 'cdu-family-land']) {
+      for (const site of sitesFor(sourceId, SEED))
+        expect(site.parcels, `${sourceId} → ${site.districtId}`).toBeGreaterThanOrEqual(5)
+    }
+    // Und die drei vollen Bezirke stehen nie im Angebot.
+    const everOffered = new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].flatMap(id => sitesFor(id, SEED).map(site => site.districtId)))
+    for (const full of ['innenstadt', 'universitaet-klinikum', 'gewerbe-ost'] as const)
+      expect(everOffered.has(full), full).toBe(false)
+  })
+
+  it('behält trotz der Auswahl eine Spanne von mehr als dem Doppelten', () => {
+    expect(BUILDABLE_BY_COST.length).toBeGreaterThanOrEqual(3)
+    const cheapest = BUILDABLE_BY_COST[0]!
+    const dearest = BUILDABLE_BY_COST[BUILDABLE_BY_COST.length - 1]!
+    expect(dearest.cost / cheapest.cost).toBeGreaterThan(2)
   })
 })

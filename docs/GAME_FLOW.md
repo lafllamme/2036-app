@@ -324,11 +324,35 @@ günstigste, der teuerste und einer dazwischen, der aus der Vorlage folgt.
 Wirkungen abgeleitet und kam auf **19 von 26** — inklusive „Haushaltskonsolidierung". Eine Regel, die
 in sieben von sechsundzwanzig Fällen danebenliegt, ist keine Ersparnis.
 
+### Und die Karte baut jetzt dort
+
+Der Renderer hat seine freien Parzellen seit jeher von der Mitte nach außen gefüllt — eine
+vernünftige Voreinstellung, und zugleich der Grund, warum der Beschluss unsichtbar blieb: der Rat
+entschied, **wo** gebaut wird, und gebaut wurde trotzdem in der Mitte. Jetzt bestimmt der gewählte
+Bezirk die Reihenfolge, und die Kräne stehen dort.
+
+Die eine Eigenschaft, an der das hängt: **der gelieferte Teil wird nie umsortiert.** Würde die ganze
+Liste neu geordnet, sprängen fertige Häuser quer durch die Stadt, sobald ein zweiter Standort
+beschlossen wird — zum ersten Mal im dritten Spieljahr, wo niemand es mehr mit dieser Reihenfolge in
+Verbindung bringt. `tests/unit/deliveryOrder.test.ts` hält genau das fest.
+
+### Was das Spielen daran gefunden hat
+
+Der erste Wurf hat den Standort frei aus allen acht Bezirken angeboten, und die Altstadt war die teure
+Wahl mit der größten Wirkung. Gewählt, bezahlt — und dann **nichts.** Kein Kran, kein Haus.
+
+Gemessen: von 87 freien Bauparzellen im ganzen Stadtgebiet liegen **42 in der Gründerzeit Nord, 23 in
+der Vorstadt West, 14 im Hafen, 7 am Bahnhof, eine im Wohnring Süd** — und **keine einzige** in der
+Altstadt, auf dem Campus und in Gewerbe Ost. Eine Altstadt ist voll; das ist ihre Eigenschaft.
+
+Angeboten werden seither nur Bezirke mit mindestens fünf freien Parzellen. Die Spanne bleibt: Hafen
+0,62 gegen Gründerzeit Nord 1,45, also mehr als das Doppelte — und der teure Standort ist
+ausgerechnet der mit der größten Reserve.
+
 ### Was noch fehlt
 
-1. **Die Karte baut noch nicht dort.** `snapshot.sites` sagt, wohin jede Vorlage gegangen ist; der
-   Renderer füllt seine Parzellen weiterhin von der Mitte nach außen. Das ist der nächste Schritt und
-   der sichtbarste: gewählter Bezirk → dort stehen die Kräne, dort wachsen die Häuser.
-2. **Der Pull-Teil.** Handlungen an einem Ort, freigeschaltet durch Beschlüsse.
-3. **Umbau an bestehenden Gebäuden.** Bisher ist ein Standort ein Bezirk. Ein Auftrag, der auf ein
+1. **Der Pull-Teil.** Handlungen an einem Ort, freigeschaltet durch Beschlüsse.
+2. **Umbau an bestehenden Gebäuden.** Bisher ist ein Standort ein Bezirk. Ein Auftrag, der auf ein
    einzelnes Haus zeigt — Sanierung, Umnutzung —, nutzt die 16.782, die schon stehen.
+3. **Bezirkskennzahlen.** Dann würde der Ort nicht nur Preis, Tempo und Widerstand ändern, sondern
+   auch die Wirkung: Wohnungsbau dort, wo die Miete am höchsten ist, hilft mehr.

@@ -41,24 +41,55 @@ export interface SiteProfile {
   resistance: number
   /** Ein Satz, der im Blatt steht. Sagt warum, nicht was. */
   note: string
+  /**
+   * Wie viele freie Bauparzellen der Bezirk überhaupt hat.
+   *
+   * Gemessen und nicht geschätzt: `findGrowthSlots` liest aus der Karte, welche Flächen unbebaut
+   * sind, und kommt auf **87 im ganzen Stadtgebiet** — 42 in der Gründerzeit Nord, 23 in der
+   * Vorstadt West, 14 im Hafen, 7 am Bahnhof, eine im Wohnring Süd und **keine einzige** in der
+   * Altstadt, auf dem Campus und in Gewerbe Ost.
+   *
+   * Das ist der Grund, warum die Zahl hier steht. Der erste Wurf hat den Standort frei aus allen acht
+   * Bezirken angeboten, und die Altstadt war die teure Wahl mit der größten Wirkung. Gewählt, bezahlt,
+   * und dann: **nichts.** Kein Kran, kein Haus, nichts — weil dort kein Quadratmeter frei ist. Eine
+   * Altstadt ist voll, das ist ihre Eigenschaft; ein Angebot, das sie trotzdem anbietet, verkauft
+   * einen Bauplatz, den es nicht gibt.
+   */
+  parcels: number
 }
 
 const NAMES = new Map(LINDENHAFEN.districts.map(district => [district.id, district.name]))
 
-function profile(districtId: DistrictId, cost: number, pace: number, resistance: number, note: string): SiteProfile {
-  return { districtId, name: NAMES.get(districtId) ?? districtId, cost, pace, resistance, note }
+function profile(districtId: DistrictId, cost: number, pace: number, resistance: number, parcels: number, note: string): SiteProfile {
+  return { districtId, name: NAMES.get(districtId) ?? districtId, cost, pace, resistance, parcels, note }
 }
+
+/**
+ * Wie viele freie Parzellen ein Bezirk mindestens haben muss, um angeboten zu werden.
+ *
+ * Der Wohnring Süd hat genau **eine**. Ein Wohnungsbauprogramm, das dort landet, liefert ein Haus
+ * und danach nichts mehr — das ist kein Standort, das ist eine Baulücke.
+ */
+const ENOUGH_LAND = 5
 
 export const SITE_PROFILES: Record<DistrictId, SiteProfile> = {
-  'hafen-industrie': profile('hafen-industrie', 0.62, 0.85, 0.08, 'Brachflächen, erschlossen, niemand wohnt daneben. Dafür liegt es weit ab.'),
-  'gewerbe-ost': profile('gewerbe-ost', 0.78, 0.9, 0.16, 'Platz und Zufahrt sind da, der Boden ist günstig.'),
-  'vorstadt-west': profile('vorstadt-west', 0.88, 0.95, 0.46, 'Flächen am Rand, gut erreichbar — und Nachbarn, die schon da sind.'),
-  'wohnring-sued': profile('wohnring-sued', 1, 1, 0.5, 'Die naheliegende Wahl: mittendrin, ohne Besonderheiten.'),
-  'universitaet-klinikum': profile('universitaet-klinikum', 1.18, 1.1, 0.28, 'Öffentliche Flächen, abgestimmte Planung, längere Wege durch die Gremien.'),
-  'bahnhof': profile('bahnhof', 1.24, 1.05, 0.58, 'Beste Anbindung der Stadt, und jeder Quadratmeter hat schon einen Eigentümer.'),
-  'gruenderzeit-nord': profile('gruenderzeit-nord', 1.45, 1.2, 0.72, 'Dichte Blockränder, kaum Lücken, und eine Nachbarschaft, die sich meldet.'),
-  'innenstadt': profile('innenstadt', 1.85, 1.35, 0.85, 'Größte Wirkung und größter Widerstand: Denkmalschutz, Anlieger, jede Woche ein Termin.'),
+  'hafen-industrie': profile('hafen-industrie', 0.62, 0.85, 0.08, 14, 'Brachflächen, erschlossen, niemand wohnt daneben. Dafür liegt es weit ab.'),
+  'gewerbe-ost': profile('gewerbe-ost', 0.78, 0.9, 0.16, 0, 'Platz und Zufahrt wären da — nur ist nichts mehr frei.'),
+  'vorstadt-west': profile('vorstadt-west', 0.88, 0.95, 0.46, 23, 'Flächen am Rand, gut erreichbar — und Nachbarn, die schon da sind.'),
+  'wohnring-sued': profile('wohnring-sued', 1, 1, 0.5, 1, 'Mittendrin, und bis auf eine Lücke vollständig bebaut.'),
+  'universitaet-klinikum': profile('universitaet-klinikum', 1.18, 1.1, 0.28, 0, 'Öffentliche Flächen, abgestimmte Planung — und kein freies Grundstück.'),
+  'bahnhof': profile('bahnhof', 1.24, 1.05, 0.58, 7, 'Beste Anbindung der Stadt, und jeder Quadratmeter hat schon einen Eigentümer.'),
+  'gruenderzeit-nord': profile('gruenderzeit-nord', 1.45, 1.2, 0.72, 42, 'Die größte Reserve der Stadt — dichte Blockränder und eine Nachbarschaft, die sich meldet.'),
+  'innenstadt': profile('innenstadt', 1.85, 1.35, 0.85, 0, 'Größte Wirkung, größter Widerstand — und kein Quadratmeter frei.'),
 }
 
-/** Alle acht, vom günstigsten Standort zum teuersten. Die Reihenfolge ist das Angebot. */
+/** Alle acht, vom günstigsten zum teuersten. */
 export const SITES_BY_COST: SiteProfile[] = Object.values(SITE_PROFILES).sort((a, b) => a.cost - b.cost)
+
+/**
+ * Und die, auf denen wirklich gebaut werden kann — das Angebot.
+ *
+ * Vier von acht: Hafen, Vorstadt West, Bahnhof, Gründerzeit Nord. Die Spanne bleibt: 0,62 gegen
+ * 1,45 ist mehr als das Doppelte, und der teure Standort ist zugleich der mit der größten Reserve.
+ */
+export const BUILDABLE_BY_COST: SiteProfile[] = SITES_BY_COST.filter(site => site.parcels >= ENOUGH_LAND)

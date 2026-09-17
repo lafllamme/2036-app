@@ -1,6 +1,6 @@
 import type { SiteProfile } from '../content/sites'
 import type { DistrictId } from '../core/contracts'
-import { SITE_PROFILES, SITES_BY_COST } from '../content/sites'
+import { BUILDABLE_BY_COST, SITE_PROFILES } from '../content/sites'
 import { createRandomStream } from '../core/rng'
 
 /**
@@ -30,9 +30,9 @@ export interface SiteOffer {
 
 /** Der günstigste, einer dazwischen, der teuerste. Immer drei, immer mit Spanne. */
 export function sitesFor(sourceId: string, seed: number): SiteProfile[] {
-  const cheapest = SITES_BY_COST[0]!
-  const dearest = SITES_BY_COST[SITES_BY_COST.length - 1]!
-  const between = SITES_BY_COST.slice(1, -1)
+  const cheapest = BUILDABLE_BY_COST[0]!
+  const dearest = BUILDABLE_BY_COST[BUILDABLE_BY_COST.length - 1]!
+  const between = BUILDABLE_BY_COST.slice(1, -1)
   const rng = createRandomStream(seed, `site:${sourceId}`)
   const middle = between[Math.min(between.length - 1, Math.floor(rng.next() * between.length))]!
   return [cheapest, middle, dearest]

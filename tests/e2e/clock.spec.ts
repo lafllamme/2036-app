@@ -4,6 +4,7 @@ import { expect, test } from '@playwright/test'
 test.describe('campaign clock', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem('2036-sound-enabled', 'false'))
+    await page.addInitScript(() => window.localStorage.setItem('2036-first-steps-done', 'true'))
     await page.goto('/?webgl')
     await expect(page.getByRole('button', { name: 'Neue Kampagne' })).toBeEnabled({ timeout: 30_000 })
     await page.getByRole('button', { name: 'Neue Kampagne' }).click()
@@ -15,6 +16,8 @@ test.describe('campaign clock', () => {
     await priorities.nth(4).click()
     await page.getByRole('button', { name: 'Mandat bestätigen' }).click()
     await page.getByRole('button', { name: 'Lindenhafen übernehmen' }).click()
+    // Das Lagebild fängt zu an, seit die Einarbeitung das Aufklappen beibringt.
+    await page.getByRole('button', { name: 'Lagebild öffnen' }).click()
     await expect(page.getByLabel('Stadtkennzahlen')).toBeVisible()
   })
 

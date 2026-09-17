@@ -368,6 +368,7 @@ function toggleDecisions(): void {
       <span class="divider" />
 
       <button
+        data-first-step="railButton"
         type="button"
         class="round"
         :class="{ 'is-on': railOpen }"
@@ -380,6 +381,7 @@ function toggleDecisions(): void {
       </button>
 
       <button
+        data-first-step="motionsButton"
         type="button"
         class="round"
         :class="{ 'is-on': decisionsOpen }"

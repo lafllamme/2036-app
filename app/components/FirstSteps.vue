@@ -28,7 +28,7 @@ import { useGameStore } from '~/stores/game'
  */
 
 const game = useGameStore()
-const { openDecisionId, lastVoteResult, selectedPartyId, experienceStage } = storeToRefs(game)
+const { openDecisionId, lastVoteResult, selectedPartyId, experienceStage, leaderName, railOpen, decisionsOpen } = storeToRefs(game)
 const coach = useFirstSteps()
 
 const box = ref<{ top: number, left: number, width: number, height: number } | null>(null)
@@ -37,9 +37,20 @@ const card = ref<HTMLElement | null>(null)
 const step = computed(() => coach.step.value)
 const position = computed(() => (coach.at.value >= 0 ? `${coach.at.value + 1} / ${FIRST_STEPS.length}` : ''))
 
-/** Das Kürzel der eigenen Fraktion in den Text, damit der erste Satz von **dir** handelt. */
+/**
+ * Das Kürzel der eigenen Fraktion und der eigene Name in den Text.
+ *
+ * Der erste Satz soll von **dir** handeln und der letzte dich verabschieden. Beides ist eine
+ * Ersetzung und keine zweite Textquelle: das Drehbuch bleibt lesbar, auch wenn man es ohne das Spiel
+ * liest.
+ */
 const label = computed(() => (selectedPartyId.value ? getParty(selectedPartyId.value)?.abbreviation ?? 'Fraktion' : 'Fraktion'))
-const title = computed(() => step.value?.title.replace('{partei}', label.value) ?? '')
+const title = computed(() => {
+  const written = (step.value?.title ?? '').replace('{partei}', label.value)
+  const person = leaderName.value.trim()
+  // Ohne Namen fällt die Anrede ganz weg, statt eine Lücke zu hinterlassen: „Viel Erfolg.“
+  return person ? written.replace('{name}', person) : written.replace(', {name}', '')
+})
 
 /*
  * Während ein Abstimmungsergebnis auf dem Schirm liegt, tritt die Einarbeitung zur Seite.
@@ -100,12 +111,16 @@ function remeasure(): void {
 watch(() => step.value?.id, remeasure, { immediate: true })
 watch(openDecisionId, remeasure)
 watch(hidden, remeasure)
+// Eine Schublade, die gerade aufgeht, ist der nächste Anker — und den gibt es vorher noch nicht.
+watch([railOpen, decisionsOpen], remeasure)
 
 /*
  * Die zwei Schritte, die auf eine Handlung warten. Was das Spiel meldet, entscheidet das Drehbuch —
  * hier wird nur nachgesehen, ob es eingetreten ist.
  */
 const world = computed(() => ({
+  railOpen: railOpen.value,
+  decisionsOpen: decisionsOpen.value,
   sheetOpen: openDecisionId.value !== null,
   voteCast: lastVoteResult.value !== null,
 }))

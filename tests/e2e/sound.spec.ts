@@ -24,6 +24,8 @@ async function events(page: Page): Promise<string[]> {
 
 test.describe('interface sound', () => {
   test.beforeEach(async ({ page }) => {
+    // Die Einarbeitung legt sich sonst über die Flächen, die dieser Test anfasst.
+    await page.addInitScript(() => window.localStorage.setItem('2036-first-steps-done', 'true'))
     await page.goto('/?webgl')
     await expect(page.getByRole('button', { name: 'Neue Kampagne' })).toBeEnabled({ timeout: 30_000 })
   })
@@ -59,6 +61,8 @@ test.describe('interface sound', () => {
 
     await page.getByRole('button', { name: 'Mandat bestätigen' }).click()
     await page.getByRole('button', { name: 'Lindenhafen übernehmen' }).click()
+    // Das Lagebild fängt zu an, seit die Einarbeitung das Aufklappen beibringt.
+    await page.getByRole('button', { name: 'Lagebild öffnen' }).click()
     await expect(page.getByLabel('Stadtkennzahlen')).toBeVisible()
     expect(await events(page)).toContain('stage.cityEntered')
   })

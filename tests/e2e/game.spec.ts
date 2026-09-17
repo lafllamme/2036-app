@@ -13,6 +13,13 @@ async function enterLindenhafen(page: import('@playwright/test').Page): Promise<
   await page.getByRole('button', { name: 'Mandat bestätigen' }).click()
   await expect(page.getByRole('heading', { name: 'Das Jahrzehnt beginnt.' })).toBeVisible()
   await page.getByRole('button', { name: 'Lindenhafen übernehmen' }).click()
+  /*
+   * Beide Schubladen fangen zu an, seit die Einarbeitung das Aufklappen beibringt. Diese Tests
+   * prüfen den Rat und die Flächen und nicht die Einarbeitung — also aufmachen wie ein Spieler, der
+   * sie kennt.
+   */
+  await page.getByRole('button', { name: 'Lagebild öffnen' }).click()
+  await page.getByRole('button', { name: 'Vorlagen öffnen' }).click()
   await expect(page.getByLabel('Stadtkennzahlen')).toBeVisible()
   /*
    * The campaign now runs from the moment the player enters the city. These tests exercise the
@@ -31,6 +38,8 @@ test.describe('2036 vertical slice', () => {
      * its timeout. `tests/e2e/sound.spec.ts` owns the audible surface.
      */
     await page.addInitScript(() => window.localStorage.setItem('2036-sound-enabled', 'false'))
+    // Und die Einarbeitung legt sich sonst über genau die Flächen, um die es hier geht.
+    await page.addInitScript(() => window.localStorage.setItem('2036-first-steps-done', 'true'))
     await page.goto('/?webgl')
     await expect(page.getByRole('button', { name: 'Neue Kampagne' })).toBeEnabled({ timeout: 30_000 })
   })
@@ -52,6 +61,8 @@ test.describe('2036 vertical slice', () => {
     await expect(page.getByRole('button', { name: 'Mandat bestätigen' })).toBeEnabled()
     await page.getByRole('button', { name: 'Mandat bestätigen' }).click()
     await page.getByRole('button', { name: 'Lindenhafen übernehmen' }).click()
+    await page.getByRole('button', { name: 'Lagebild öffnen' }).click()
+    await page.getByRole('button', { name: 'Vorlagen öffnen' }).click()
     await expect(page.getByLabel('Stadtkennzahlen')).toContainText('Einwohner')
     await expect(page.getByLabel('Ratsvorlagen und Entscheidungen')).toContainText('Wohnungsbau-Turbo')
     await expect(page.locator('.render-badge')).toContainText('WebGL')

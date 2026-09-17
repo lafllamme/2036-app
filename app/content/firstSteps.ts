@@ -2,9 +2,9 @@
  * Die ersten neunzig Sekunden.
  *
  * Bis hierher begann das Spiel so: Einstiegsfluss, „Lindenhafen übernehmen", und dann stand man vor
- * einer Stadt, zwei Schubladen und einer stehenden Uhr. Alles, was das Spiel ausmacht — dass man
- * eine **Fraktion** führt und keine Verwaltung, dass eine Vorlage eine Mehrheit braucht, die man
- * nicht hat, dass man selbst etwas einbringen kann —, stand nirgendwo. Man konnte es sich
+ * einer Stadt, zwei aufgeklappten Schubladen und einer stehenden Uhr. Alles, was das Spiel ausmacht —
+ * dass man eine **Fraktion** führt und keine Verwaltung, dass eine Vorlage eine Mehrheit braucht, die
+ * man nicht hat, dass man selbst etwas einbringen kann —, stand nirgendwo. Man konnte es sich
  * erarbeiten. Niemand tut das.
  *
  * ## Warum kein Textbildschirm
@@ -14,6 +14,14 @@
  * benutzt hat, ist eine Erfahrung. Diese Einarbeitung zeigt deshalb auf die **echten** Flächen und
  * lässt den Spieler die **echte** erste Vorlage einbringen. Es gibt keine Attrappe, keinen
  * Sonderfall im Modell und keinen Schritt, den man nachher nochmal richtig machen muss.
+ *
+ * ## Und warum die Schubladen zu anfangen
+ *
+ * Offen waren sie eine Erklärung für einen Zustand, der schon da war: man kam aus dem Einstieg und
+ * sah zwei Tabellen statt einer Stadt. Zu sind sie eine **Handlung** — der zweite und der vierte
+ * Schritt zeigen auf die runden Knöpfe im Deck und warten darauf, dass der Spieler sie drückt und
+ * sieht, wie die Schublade aufgeht. Damit ist die Bedienung mitgelernt, ohne dass ein Satz sie
+ * beschreibt, und die Stadt ist das Erste, was man sieht.
  *
  * ## Was hier steht und was nicht
  *
@@ -31,10 +39,14 @@
  */
 export type StepAnchor
   = | 'none'
+    /** Der runde Knopf im Deck, der das Lagebild aufmacht. */
+    | 'railButton'
+    /** Und der, der die Vorlagen aufmacht. */
+    | 'motionsButton'
+    /** Das Lagebild selbst. */
+    | 'rail'
     /** Die Sitzzahl in der Kopfzeile der Entscheidungen. */
     | 'seats'
-    /** Das Lagebild. */
-    | 'rail'
     /** Die Liste „Was du einbringen kannst". */
     | 'motions'
     /** Der Beschlussvorschlag im offenen Blatt. */
@@ -47,16 +59,26 @@ export type StepAnchor
 /**
  * Woran ein Schritt als erledigt gilt.
  *
- * `hand` heißt: der Spieler drückt „Weiter". Die beiden anderen warten auf eine **echte** Handlung
- * im Spiel — eine geöffnete Vorlage, eine gelaufene Abstimmung. Genau die zwei Stellen sind es, an
- * denen das Spielprinzip sitzt, und sie sind deshalb die zwei, die man selbst tut.
+ * `hand` heißt: der Spieler drückt „Weiter". Alle anderen warten auf eine **echte** Handlung im
+ * Spiel — eine aufgeklappte Schublade, eine geöffnete Vorlage, eine gelaufene Abstimmung. Vier von
+ * zehn Schritten sind so, und darin liegt der Unterschied zwischen einer Erklärung und einer
+ * Einarbeitung: wer sich nur durchklickt, hat nichts getan; wer am Ende ankommt, hat das Spiel
+ * einmal gespielt.
  */
-export type StepGate = 'hand' | 'sheetOpen' | 'voteCast'
+export type StepGate = 'hand' | 'railOpen' | 'decisionsOpen' | 'sheetOpen' | 'voteCast'
+
+/** Was das Spiel dem Drehbuch über den Spieler meldet. */
+export interface StepWorld {
+  railOpen: boolean
+  decisionsOpen: boolean
+  sheetOpen: boolean
+  voteCast: boolean
+}
 
 export interface FirstStep {
   id: string
   anchor: StepAnchor
-  /** `{partei}` wird durch das Kürzel der eigenen Fraktion ersetzt. */
+  /** `{partei}` wird durch das Kürzel der eigenen Fraktion ersetzt, `{name}` durch den eigenen. */
   title: string
   body: string
   gate: StepGate
@@ -73,17 +95,33 @@ export const FIRST_STEPS: FirstStep[] = [
     gate: 'hand',
   },
   {
-    id: 'seats',
-    anchor: 'seats',
-    title: 'Deine Sitze reichen nicht.',
-    body: 'Hier steht, wie viele der 60 Sitze hinter dir stehen. Für jede einzelne Vorlage brauchst du mehr Ja- als Nein-Stimmen — und die musst du dir jedes Mal neu holen.',
-    gate: 'hand',
+    id: 'railButton',
+    anchor: 'railButton',
+    title: 'Die Zahlen holst du dir.',
+    body: 'Der Schirm gehört der Stadt. Was du wissen willst, klappst du auf — dieser Knopf ist das Lagebild. Drück ihn.',
+    gate: 'railOpen',
+    waiting: 'Wartet auf deinen Klick',
   },
   {
     id: 'rail',
     anchor: 'rail',
     title: 'Das Lagebild ist die Rechnung.',
-    body: 'Wohnen, Arbeit, Sicherheit, Infrastruktur. Diese Zahlen bewegen sich langsam, nie von allein, und an ihnen wirst du im Dezember 2036 gemessen.',
+    body: 'Wohnen, Arbeit, Sicherheit, Infrastruktur. Diese Zahlen bewegen sich langsam, nie von allein, und an ihnen wirst du im Dezember 2036 gemessen. Dieselbe Taste macht sie wieder zu.',
+    gate: 'hand',
+  },
+  {
+    id: 'motionsButton',
+    anchor: 'motionsButton',
+    title: 'Und hier liegt die Tagesordnung.',
+    body: 'Der Knopf daneben öffnet die Entscheidungen: was der Rat auf dem Tisch hat und was du selbst einbringen könntest. Mach ihn auf.',
+    gate: 'decisionsOpen',
+    waiting: 'Wartet auf deinen Klick',
+  },
+  {
+    id: 'seats',
+    anchor: 'seats',
+    title: 'Deine Sitze reichen nicht.',
+    body: 'Hier steht, wie viele der 60 Sitze hinter dir stehen. Für jede einzelne Vorlage brauchst du mehr Ja- als Nein-Stimmen — und die musst du dir jedes Mal neu holen.',
     gate: 'hand',
   },
   {
@@ -110,17 +148,17 @@ export const FIRST_STEPS: FirstStep[] = [
     waiting: 'Wartet auf die Abstimmung',
   },
   {
-    id: 'loop',
-    anchor: 'none',
-    title: 'Das war das ganze Spiel.',
-    body: 'Einbringen, abstimmen lassen, und die Stadt verändert sich — sichtbar auf der Karte und nicht nur als Zahl. Dazu kommen Vorlagen, die andere einbringen und bei denen du nur Ja, Nein oder Enthaltung in der Hand hast, und Ereignisse, die niemand beantragt hat.',
-    gate: 'hand',
-  },
-  {
     id: 'clock',
     anchor: 'advance',
     title: 'Und dann lass die Zeit laufen.',
     body: 'Der Knopf läuft bis zum nächsten Ereignis und hält von selbst an, sobald der Rat dich braucht. Bis zur Wahl sind es 132 Monate.',
+    gate: 'hand',
+  },
+  {
+    id: 'farewell',
+    anchor: 'none',
+    title: 'Viel Erfolg, {name}.',
+    body: 'Das war das ganze Spiel: einbringen, abstimmen lassen, und die Stadt verändert sich — sichtbar auf der Karte und nicht nur als Zahl. Dazu kommen Vorlagen, die andere einbringen und bei denen du nur Ja, Nein oder Enthaltung in der Hand hast, und Ereignisse, die niemand beantragt hat. Lindenhafen gehört für elf Jahre dir.',
     gate: 'hand',
   },
 ]
@@ -128,14 +166,12 @@ export const FIRST_STEPS: FirstStep[] = [
 /**
  * Ist dieser Schritt durch das erledigt, was im Spiel gerade passiert ist?
  *
- * Reine Funktion über die zwei Zustände, die das Spiel meldet — damit das Drehbuch prüfbar ist, ohne
- * dass eine Oberfläche dafür gebaut werden muss. `hand` ist hier immer `false`: dieser Schritt endet
- * durch einen Knopf und nicht durch eine Beobachtung.
+ * Reine Funktion über das, was das Spiel meldet — damit das Drehbuch prüfbar ist, ohne dass eine
+ * Oberfläche dafür gebaut werden muss. `hand` ist hier immer `false`: dieser Schritt endet durch
+ * einen Knopf und nicht durch eine Beobachtung.
  */
-export function stepCleared(step: FirstStep, world: { sheetOpen: boolean, voteCast: boolean }): boolean {
-  if (step.gate === 'sheetOpen')
-    return world.sheetOpen
-  if (step.gate === 'voteCast')
-    return world.voteCast
-  return false
+export function stepCleared(step: FirstStep, world: StepWorld): boolean {
+  if (step.gate === 'hand')
+    return false
+  return world[step.gate]
 }

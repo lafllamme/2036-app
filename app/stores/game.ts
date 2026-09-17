@@ -175,8 +175,20 @@ export const useGameStore = defineStore('game', () => {
    */
   const walkState = shallowRef<{ x: number, z: number, ground: number, eye: number, stuck: boolean, refused: number } | null>(null)
 
-  const railOpen = ref(true)
-  const decisionsOpen = ref(true)
+  /**
+   * Beide Schubladen fangen **zu** an.
+   *
+   * Offen deckten sie zusammen ein gutes Drittel des Bildes ab, und zwar vom ersten Augenblick an:
+   * man kam aus dem Einstieg und sah zwei Tabellen statt einer Stadt. Zu heißt, dass die Stadt der
+   * erste Eindruck ist und die Zahlen das sind, was man **holt** — und die Einarbeitung zeigt genau
+   * das als Erstes, statt einen Zustand zu erklären, der schon da war.
+   *
+   * Aufgehen tun sie trotzdem von selbst, wenn der Rat eine Vorlage auf den Tisch legt: das steht in
+   * `DecisionPanel.vue` und gilt weiter. Ein zugeklappter Posteingang wäre keine Ruhe, sondern ein
+   * verpasster Termin.
+   */
+  const railOpen = ref(false)
+  const decisionsOpen = ref(false)
 
   const ready = ref(false)
   const error = ref<string | null>(null)

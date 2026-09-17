@@ -118,24 +118,171 @@ const districts = computed(() => {
   })
 })
 
-/** Über dem Schnitt warm, darunter kühl. Bei allen dreien ist „viel" das, was auffällt. */
-function tint(tilt: number, alpha: number): string {
-  return tilt >= 0
-    ? `rgba(214, 106, 70, ${(alpha * tilt).toFixed(3)})`
-    : `rgba(108, 199, 138, ${(alpha * -tilt).toFixed(3)})`
+/**
+ * Über dem Schnitt warm, darunter kühl — **und im Schnitt trotzdem eine Fläche.**
+ *
+ * Vorher war die Deckkraft `alpha × tilt`, und ein Viertel, das genau auf dem Stadtwert liegt, wurde
+ * damit vollständig durchsichtig. In der Kartenansicht fehlte deshalb ein Drittel der Flächen — nicht
+ * weil sie nicht gezeichnet wurden, sondern weil sie mit Deckkraft null gezeichnet wurden. Eine Lage,
+ * die „unauffällig" durch „nicht vorhanden" darstellt, beantwortet die Frage „welche Viertel gibt es
+ * überhaupt?" gar nicht mehr.
+ *
+ * Jetzt liegt unter allem ein Grundschleier, und der Ausschlag kommt oben drauf: jedes Viertel ist
+ * eine Fläche, und wie stark sie gefärbt ist, sagt, wie weit es vom Schnitt weg ist.
+ */
+const NEUTRAL: readonly [number, number, number] = [188, 190, 186]
+const HIGH: readonly [number, number, number] = [214, 106, 70]
+const LOW: readonly [number, number, number] = [108, 199, 138]
+
+function tint(tilt: number): string {
+  const strength = Math.min(1, Math.abs(tilt))
+  const towards = tilt >= 0 ? HIGH : LOW
+  const channel = (at: 0 | 1 | 2): number => Math.round(NEUTRAL[at] + (towards[at] - NEUTRAL[at]) * strength)
+  return `rgba(${channel(0)}, ${channel(1)}, ${channel(2)}, ${(0.13 + strength * 0.3).toFixed(3)})`
 }
 
 const shapes = ref<{ id: string, points: string, fill: string, at: { x: number, y: number } | null }[]>([])
 const point = screenPoint()
+const probe = screenPoint()
 let frame = 0
 
 /**
  * Einmal je Bild: die Stützpunkte der Grenze projizieren, ein Polygon daraus schreiben.
  *
- * Ein Viertel zählt nur, wenn **jeder** seiner Stützpunkte vor der Kamera liegt. Mit einem Punkt im
- * Rücken springt das Polygon über den halben Schirm — der Punkt hinter der Kamera projiziert
- * gespiegelt, und aus dem Umriss wird ein Papierflieger. Lieber nicht zeichnen als falsch zeichnen.
+ * Ein Punkt hinter der Kamera projiziert gespiegelt, und aus dem Umriss wird ein Papierflieger.
+ * Die erste Fassung hat deshalb jedes Viertel **weggelassen**, bei dem auch nur ein Stützpunkt im
+ * Rücken lag — mit acht Rechtecken war das selten, mit zwanzig Vierteln und einer tiefen Kamera ist
+ * es die halbe Vordergrundstadt. „Lieber nicht zeichnen als falsch zeichnen" ist richtig; „gar nicht
+ * zeichnen" war die faule Hälfte davon.
+ *
+ * Geschnitten wird stattdessen an der Kamerabene: läuft eine Kante von vorn nach hinten, wird der
+ * Durchstoßpunkt gesucht und die Kante dort abgeschnitten. Gesucht wird ihn per Intervallhalbierung
+ * über denselben Projektor — acht Schritte, und man braucht weder die Kameraposition noch ihre
+ * Blickrichtung dafür. Zwei Durchstöße je Polygon sind der Normalfall, also sechzehn zusätzliche
+ * Projektionen für ein Viertel, das sonst ganz gefehlt hätte.
  */
+const CLIP_STEPS = 8
+/**
+ * Wie groß der sichtbare Teil eines Viertels sein muss, um beschriftet zu werden, in Pixeln.
+ *
+ * Zwanzig Namen auf einem Schirm sind zu viele, und die überflüssigen sind immer dieselben: das
+ * Viertel, von dem gerade ein Zipfel am Bildrand hereinragt. Zwölftausend Pixel sind ein Fleck von
+ * 110 × 110 — darunter steht der Name über einer Fläche, die man ohnehin nicht als Fläche liest.
+ */
+const LABEL_AREA = 12_000
+/** Und wie weit vom Rand weg er stehen muss. Geklemmt wird **nicht**: siehe `labelAt`. */
+const LABEL_MARGIN = 70
+/** Was das Deck unten verdeckt. Ein Name dahinter ist kein Name. */
+const BOTTOM_DECK = 150
+
+/** Liegt dieser Weltpunkt vor der Kamera? `away === 0` heißt: dahinter — siehe `rendering/screen.ts`. */
+function ahead(projector: NonNullable<typeof project.value>, x: number, z: number): boolean {
+  projector(x, 0, z, probe)
+  return probe.onScreen || probe.away > 0
+}
+
+/**
+ * Der Punkt auf der Strecke, an dem sie die Kamerabene durchstößt — **mit Abstand davor.**
+ *
+ * Der Abstand ist der ganze Trick. Genau auf der Ebene ist die homogene Koordinate `w` null, und
+ * `x / w` läuft gegen unendlich: die erste Fassung hat bis auf die Ebene halbiert und damit weiße
+ * Striche quer über den Himmel gezogen, weil eine Polygonecke bei ±200.000 Pixeln lag. Zurückgesetzt
+ * wird deshalb ein Zwanzigstel der Strecke zur sichtbaren Seite hin — auf dem Schirm ist das
+ * unsichtbar, und `w` bleibt weit genug von null weg.
+ */
+const CLIP_BACKOFF = 0.05
+
+function crossing(projector: NonNullable<typeof project.value>, from: { x: number, z: number }, to: { x: number, z: number }): { x: number, z: number } {
+  let good = from
+  let bad = to
+  for (let step = 0; step < CLIP_STEPS; step += 1) {
+    const middle = { x: (good.x + bad.x) / 2, z: (good.z + bad.z) / 2 }
+    if (ahead(projector, middle.x, middle.z))
+      good = middle
+    else bad = middle
+  }
+  return {
+    x: good.x + (from.x - good.x) * CLIP_BACKOFF,
+    z: good.z + (from.z - good.z) * CLIP_BACKOFF,
+  }
+}
+/**
+ * Das projizierte Vieleck auf den Schirm schneiden.
+ *
+ * Für die **Beschriftung**, nicht fürs Zeichnen — das übernimmt das SVG von allein. Ohne diesen
+ * Schnitt liegt der Schwerpunkt eines Vordergrundviertels tausende Pixel unter dem Bildrand: sein
+ * sichtbarer Teil ist ein Streifen am unteren Rand, sein projizierter reicht bis ins Nirgendwo, weil
+ * die an der Kamerabene abgeschnittene Kante dorthin läuft. Gemessen: ein Viertel kam auf 44
+ * Millionen Pixel Fläche bei einem Schirm von 763.000. Von zwanzig Vierteln bekamen so vier einen
+ * Namen, und die sechzehn anderen lagen als namenlose Farbflächen da.
+ *
+ * Sutherland–Hodgman gegen das Rechteck, vier Durchgänge, einer je Kante. Zwanzig Vielecke je Bild
+ * mit je dreißig Punkten sind nichts gegen die Projektionen, die ohnehin schon laufen.
+ */
+function clipToScreen(points: { x: number, y: number }[], width: number, height: number): { x: number, y: number }[] {
+  const inside = (point: { x: number, y: number }, edge: number): boolean =>
+    [point.x >= 0, point.x <= width, point.y >= 0, point.y <= height][edge]!
+  const cut = (from: { x: number, y: number }, to: { x: number, y: number }, edge: number): { x: number, y: number } => {
+    if (edge < 2) {
+      const x = edge === 0 ? 0 : width
+      return { x, y: from.y + ((x - from.x) / (to.x - from.x)) * (to.y - from.y) }
+    }
+    const y = edge === 2 ? 0 : height
+    return { x: from.x + ((y - from.y) / (to.y - from.y)) * (to.x - from.x), y }
+  }
+
+  let out = points
+  for (let edge = 0; edge < 4 && out.length > 0; edge += 1) {
+    const input = out
+    out = []
+    for (let at = 0; at < input.length; at += 1) {
+      const previous = input[(at - 1 + input.length) % input.length]!
+      const current = input[at]!
+      if (inside(current, edge)) {
+        if (!inside(previous, edge))
+          out.push(cut(previous, current, edge))
+        out.push(current)
+      }
+      else if (inside(previous, edge)) {
+        out.push(cut(previous, current, edge))
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * Und daraus der Platz für den Namen: der Flächenschwerpunkt des sichtbaren Teils.
+ *
+ * Der Flächenschwerpunkt und nicht das Mittel der Ecken: ein Viertel, das am Bildrand angeschnitten
+ * ist, hat dort viele Stützpunkte auf kurzer Strecke, und das Eckenmittel zöge den Namen genau
+ * dorthin.
+ */
+function labelAt(screen: { x: number, y: number }[]): { x: number, y: number } | null {
+  const visible = clipToScreen(screen, window.innerWidth, window.innerHeight - BOTTOM_DECK)
+  if (visible.length < 3)
+    return null
+
+  let twice = 0
+  let x = 0
+  let y = 0
+  for (let at = 0; at < visible.length; at += 1) {
+    const from = visible[at]!
+    const to = visible[(at + 1) % visible.length]!
+    const cross = from.x * to.y - to.x * from.y
+    twice += cross
+    x += (from.x + to.x) * cross
+    y += (from.y + to.y) * cross
+  }
+  if (Math.abs(twice) / 2 < LABEL_AREA || twice === 0)
+    return null
+
+  const at = { x: x / (3 * twice), y: y / (3 * twice) }
+  // Randnah heißt halb abgeschnitten; dann lieber die Fläche allein, die hat ihre Farbe.
+  const room = at.x > LABEL_MARGIN && at.x < window.innerWidth - LABEL_MARGIN && at.y > 40
+  return room ? at : null
+}
+
 function trace(): void {
   frame = requestAnimationFrame(trace)
   const projector = project.value
@@ -147,25 +294,50 @@ function trace(): void {
 
   const next: typeof shapes.value = []
   for (const district of districts.value) {
-    const points: string[] = []
-    let visible = true
-    for (const corner of district.corners) {
-      projector(corner.x, 0, corner.z, point)
-      if (!point.onScreen && point.away === 0) {
-        visible = false
-        break
+    /*
+     * Erst schneiden, dann projizieren. Der Ring wird einmal umlaufen; wo er die Kamerabene
+     * kreuzt, kommt der Durchstoßpunkt hinein und der Punkt dahinter fällt weg.
+     */
+    const ring = district.corners
+    const visible: { x: number, z: number }[] = []
+    for (let at = 0; at < ring.length; at += 1) {
+      const previous = ring[(at - 1 + ring.length) % ring.length]!
+      const current = ring[at]!
+      const currentAhead = ahead(projector, current.x, current.z)
+      const previousAhead = ahead(projector, previous.x, previous.z)
+      if (currentAhead) {
+        if (!previousAhead)
+          visible.push(crossing(projector, current, previous))
+        visible.push(current)
       }
-      points.push(`${point.x.toFixed(1)},${point.y.toFixed(1)}`)
+      else if (previousAhead) {
+        visible.push(crossing(projector, previous, current))
+      }
     }
-    if (!visible || points.length < 3)
+    if (visible.length < 3)
       continue
 
-    projector(district.centre.x, 0, district.centre.z, point)
+    const points: string[] = []
+    const screen: { x: number, y: number }[] = []
+    for (const corner of visible) {
+      projector(corner.x, 0, corner.z, point)
+      points.push(`${point.x.toFixed(1)},${point.y.toFixed(1)}`)
+      screen.push({ x: point.x, y: point.y })
+    }
+
+    /*
+     * Der Name steht in der Mitte des **sichtbaren** Teils, nicht in der Mitte des Viertels.
+     *
+     * Er hing am Beschriftungspunkt aus der Kartendatei, und der liegt bei elf von zwanzig Vierteln
+     * außerhalb des Bildes — gezeichnet waren die Flächen dann, aber ohne Namen, und eine Fläche
+     * ohne Namen beantwortet keine Frage. Der Schwerpunkt des projizierten Vielecks liegt dagegen
+     * immer dort, wo man auch hinschaut.
+     */
     next.push({
       id: district.id,
       points: points.join(' '),
-      fill: tint(district.tilt, 0.42),
-      at: point.onScreen ? { x: point.x, y: point.y } : null,
+      fill: tint(district.tilt),
+      at: labelAt(screen),
     })
   }
   shapes.value = next
@@ -191,8 +363,9 @@ watch(showing, (now) => {
         :key="shape.id"
         :points="shape.points"
         :fill="shape.fill"
-        stroke="rgba(255, 255, 255, 0.22)"
-        stroke-width="1"
+        stroke="rgba(255, 255, 255, 0.34)"
+        stroke-width="1.2"
+        stroke-linejoin="round"
       />
     </svg>
 

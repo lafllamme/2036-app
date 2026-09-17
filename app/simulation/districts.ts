@@ -69,10 +69,31 @@ const GRADIENT: Record<DistrictType, { rent: number, burglary: number, vacancy: 
   'fringe': { rent: 0.72, burglary: 0.6, vacancy: 1.44 },
 }
 
-/** Je Kennzahl der Faktorensatz über alle Viertel, aus der Art des Viertels gezogen. */
+/**
+ * Wie stark der Pflegezustand das Gefälle noch einmal spreizt.
+ *
+ * **Ohne das ist der Archetyp zu viel des Guten.** Vier Gründerzeitviertel bekamen exakt denselben
+ * Faktor und damit auf die Kommastelle dieselbe Miete — 13,68 € in der Neustadt, in Westerfeld, in
+ * Lindentor —, und in der Kartenansicht waren drei der zwanzig Flächen unsichtbar, weil eine
+ * Abweichung von null nichts einfärbt. Zwanzig Viertel mit dreizehn verschiedenen Werten sind keine
+ * zwanzig Viertel.
+ *
+ * `upkeep` ist die Zahl, die ein Viertel als Ort von seinem Archetyp unterscheidet, und sie ist
+ * genau die richtige: gepflegter Bestand ist teurer, vernachlässigter wird häufiger aufgebrochen und
+ * steht öfter leer. Sie läuft über 0,42 bis 0,90 und spreizt damit um ±10 % um die Mitte — genug,
+ * dass Lindentor und Westerfeld auf der Karte verschiedene Viertel sind, und wenig genug, dass der
+ * Archetyp die Aussage bleibt.
+ */
+const UPKEEP_PIVOT = 0.7
+const UPKEEP_SPREAD: Record<'rent' | 'burglary' | 'vacancy', number> = { rent: 0.42, burglary: -0.55, vacancy: -0.6 }
+
+/** Je Kennzahl der Faktorensatz über alle Viertel: die Art, um den Pflegezustand gedreht. */
 function gradientOf(reading: 'rent' | 'burglary' | 'vacancy'): DistrictShare {
   return Object.fromEntries(
-    LINDENHAFEN.districts.map(district => [district.id, GRADIENT[district.type][reading]]),
+    LINDENHAFEN.districts.map(district => [
+      district.id,
+      GRADIENT[district.type][reading] * (1 + (district.upkeep - UPKEEP_PIVOT) * UPKEEP_SPREAD[reading]),
+    ]),
   ) as DistrictShare
 }
 

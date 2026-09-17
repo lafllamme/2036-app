@@ -19,7 +19,7 @@ function seat(id: string, x: number, z: number): any {
     y: 4,
     record: {
       id,
-      districtId: 'innenstadt',
+      districtId: 'altstadt',
       type: 'commercial',
       x,
       z,

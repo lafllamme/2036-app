@@ -177,7 +177,7 @@ describe('sitzungskalender', () => {
   it('bindet die Verwaltung, solange gebaut wird, und gibt sie danach frei', () => {
     const built = chooseSite(
       applyPolicy(createInitialState(SEED), 'housing-accelerator'),
-      'hafen-industrie',
+      'marschland',
     )
     expect(adminUsed(built)).toBeGreaterThan(20)
 

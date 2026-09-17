@@ -1,8 +1,8 @@
-import type { DistrictId } from '../core/contracts'
+import type { DistrictId, DistrictType } from '../core/contracts'
 import { LINDENHAFEN } from '../world/model/lindenhafen'
 
 /**
- * Dieselbe Zahl, über acht Bezirke verteilt.
+ * Dieselbe Zahl, über zwanzig Viertel verteilt.
  *
  * Bis hierher galt jede Kennzahl für ganz Lindenhafen. Eine Einbruchserie in der Gründerzeit Nord
  * hob die Einbruchsrate **der Stadt**, und Wohnungsbau im Hafen senkte die Miete **überall** — also
@@ -40,39 +40,40 @@ const TOTAL = Object.values(WEIGHT).reduce((sum, people) => sum + people, 0)
  *
  * Eine Altstadt ist teuer, ein Hafen billig, und eingebrochen wird dort, wo dicht gewohnt wird und
  * viele Fremde durchkommen. Das sind Konventionen, keine Messwerte — sie sollen plausibel sein und
- * dafür sorgen, dass die acht Bezirke von Anfang an nicht austauschbar sind.
+ * dafür sorgen, dass die Viertel von Anfang an nicht austauschbar sind.
+ *
+ * ## Warum das an der Art hängt und nicht am Namen
+ *
+ * Es waren drei Tabellen mit je acht Zeilen, von Hand geschrieben. Mit zwanzig Vierteln wären es
+ * sechzig Zahlen, von denen fünfzig aus derselben Überlegung folgen — „Gründerzeit ist teurer als
+ * eine Zeile" steht dann viermal da und kann viermal verschieden ausfallen. Hier steht es einmal je
+ * Archetyp, und ein Viertel erbt es.
+ *
+ * Die Zahlen sind Faktoren um eins und müssen es **nicht** treffen: `normalise` zieht sie auf ein
+ * gewichtetes Mittel von exakt eins, sobald die Einwohnerzahlen dazukommen. Was hier zählt, ist
+ * allein das Verhältnis untereinander.
  */
-const RENT: Record<DistrictId, number> = {
-  'innenstadt': 1.34,
-  'bahnhof': 1.12,
-  'gruenderzeit-nord': 1.06,
-  'wohnring-sued': 1,
-  'universitaet-klinikum': 1.02,
-  'vorstadt-west': 0.92,
-  'gewerbe-ost': 0.84,
-  'hafen-industrie': 0.78,
+const GRADIENT: Record<DistrictType, { rent: number, burglary: number, vacancy: number }> = {
+  'historic-core': { rent: 1.36, burglary: 1.18, vacancy: 0.8 },
+  'civic-green': { rent: 1.3, burglary: 0.68, vacancy: 0.72 },
+  'dense-residential': { rent: 1.08, burglary: 1.24, vacancy: 0.9 },
+  'regenerated-docks': { rent: 1.16, burglary: 0.8, vacancy: 1.24 },
+  'mixed-transit': { rent: 1.12, burglary: 1.34, vacancy: 1.12 },
+  'mixed-quarter': { rent: 1, burglary: 1.12, vacancy: 1.02 },
+  'mixed-fair': { rent: 0.96, burglary: 1.08, vacancy: 1.08 },
+  'residential': { rent: 1, burglary: 1, vacancy: 0.96 },
+  'civic-campus': { rent: 1.02, burglary: 0.72, vacancy: 1 },
+  'garden-suburb': { rent: 0.94, burglary: 0.76, vacancy: 0.86 },
+  'post-war-estate': { rent: 0.82, burglary: 1.06, vacancy: 1.2 },
+  'industrial': { rent: 0.76, burglary: 0.64, vacancy: 1.62 },
+  'fringe': { rent: 0.72, burglary: 0.6, vacancy: 1.44 },
 }
 
-const BURGLARY: Record<DistrictId, number> = {
-  'bahnhof': 1.32,
-  'gruenderzeit-nord': 1.24,
-  'innenstadt': 1.18,
-  'wohnring-sued': 1,
-  'gewerbe-ost': 0.88,
-  'vorstadt-west': 0.76,
-  'universitaet-klinikum': 0.72,
-  'hafen-industrie': 0.64,
-}
-
-const VACANCY: Record<DistrictId, number> = {
-  'hafen-industrie': 1.62,
-  'gewerbe-ost': 1.3,
-  'bahnhof': 1.12,
-  'universitaet-klinikum': 1,
-  'wohnring-sued': 0.96,
-  'gruenderzeit-nord': 0.9,
-  'vorstadt-west': 0.86,
-  'innenstadt': 0.8,
+/** Je Kennzahl der Faktorensatz über alle Viertel, aus der Art des Viertels gezogen. */
+function gradientOf(reading: 'rent' | 'burglary' | 'vacancy'): DistrictShare {
+  return Object.fromEntries(
+    LINDENHAFEN.districts.map(district => [district.id, GRADIENT[district.type][reading]]),
+  ) as DistrictShare
 }
 
 /** Die drei Kennzahlen, die je Bezirk gelten. Mehr wäre ein Umbau und kein Anfang. */
@@ -100,9 +101,9 @@ export function normalise(share: DistrictShare): DistrictShare {
 
 export function initialSpread(): Spread {
   return {
-    averageRent: normalise({ ...RENT }),
-    burglaryRate: normalise({ ...BURGLARY }),
-    vacantUnits: normalise({ ...VACANCY }),
+    averageRent: normalise(gradientOf('rent')),
+    burglaryRate: normalise(gradientOf('burglary')),
+    vacantUnits: normalise(gradientOf('vacancy')),
   }
 }
 

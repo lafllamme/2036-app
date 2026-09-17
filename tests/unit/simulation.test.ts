@@ -8,7 +8,7 @@ import { advanceMonths, applyPolicy, chooseSite, createInitialState, snapshotOf 
  * denselben — den günstigen Hafen, damit der Standortaufschlag die Zahlen nicht mitverschiebt.
  */
 function build(policyId: string): ReturnType<typeof createInitialState> {
-  return chooseSite(applyPolicy(createInitialState(2036), policyId), 'hafen-industrie')
+  return chooseSite(applyPolicy(createInitialState(2036), policyId), 'marschland')
 }
 
 describe('monthly simulation', () => {

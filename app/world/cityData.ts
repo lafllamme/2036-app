@@ -1,8 +1,8 @@
-import type { AreaKind, AreaRecord, BuildingRecord, BuildingType, CityBlueprint, RoadRecord, TreeRecord } from '../core/contracts'
+import type { AreaKind, AreaRecord, BuildingRecord, BuildingType, CityBlueprint, DistrictId, DistrictShape, RoadRecord, TreeRecord } from '../core/contracts'
 import type { ReliefField } from './relief'
 import { createRandomStream } from '../core/rng'
 import { conditionRange, DISTRICT_CHARACTER } from './districtCharacter'
-import { districtAt, LINDENHAFEN } from './model/lindenhafen'
+import { LINDENHAFEN } from './model/lindenhafen'
 import { buildOutskirts } from './outskirts'
 import { Relief } from './relief'
 import { roadClearance } from './roadClearance'
@@ -36,6 +36,36 @@ interface RawCity {
   areas: { p: number[], k: AreaKind }[]
   /** x, z pairs: the gaps in a low-rise street that are a garden rather than a yard. */
   gardens?: number[]
+  /** Die Viertelsumrisse: `p` das Polygon, `b` der Kasten, `c` der Beschriftungspunkt, `ha` Hektar. */
+  districts: { id: DistrictId, name: string, short: string, type: string, p: number[], b: number[], c: number[], ha: number }[]
+  /** Der Rasterindex: `size`² Zellen, ein Byte je Zelle, Base64. Siehe `districtLookup`. */
+  districtGrid: { size: number, data: string }
+}
+
+/**
+ * Aus dem Raster in der Kartendatei die Frage „in welchem Viertel liegt dieser Punkt?".
+ *
+ * Es wird rund fünfzigtausend Mal beim Laden gefragt — einmal je Gebäude — und danach bei jedem
+ * Einsatz, jedem Standort und jedem Umbau. Gegen zwanzig Polygone mit zusammen siebenhundert
+ * Stützpunkten zu prüfen wäre die falsche Antwort; ein Raster mit fünfzehn Metern Kantenlänge ist
+ * feiner als jedes Gebäude und kostet 64 kB.
+ *
+ * Der Konverter füllt es lückenlos bis in die Ecken, also gibt es im Ausschnitt keinen Punkt ohne
+ * Viertel. Wer außerhalb liegt — das Land ringsum — bekommt das Viertel des nächsten Randpunkts,
+ * und genau das ist gemeint: der Hof vor der Stadtgrenze gehört zu dem Viertel, an dem er liegt.
+ */
+function districtLookup(raw: RawCity): (x: number, z: number) => DistrictId {
+  const ids = raw.districts.map(district => district.id)
+  const size = raw.districtGrid.size
+  const bytes = Uint8Array.from(atob(raw.districtGrid.data), character => character.charCodeAt(0))
+  const cell = (raw.extent * 2) / size
+  const last = size - 1
+
+  return (x, z) => {
+    const column = Math.max(0, Math.min(last, Math.floor((x + raw.extent) / cell)))
+    const row = Math.max(0, Math.min(last, Math.floor((z + raw.extent) / cell)))
+    return ids[bytes[row * size + column]!] ?? ids[0]!
+  }
 }
 
 /** Where new housing may go: land the map says is waiting for something. */
@@ -65,6 +95,7 @@ const PLANTING_CLEARANCE = 1.2
 
 export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
   const wear = createRandomStream(seed, 'condition')
+  const districtAt = districtLookup(raw)
 
   const buildings: BuildingRecord[] = raw.buildings.map((entry, index) => {
     /*
@@ -118,7 +149,7 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
    * that leaves the extract is a gate the country network hangs off, which is what makes the two one
    * street plan rather than a pattern drawn around a city it never touches.
    */
-  const outskirts = buildOutskirts(seed, relief, mapRoads)
+  const outskirts = buildOutskirts(seed, relief, mapRoads, districtAt)
   buildings.push(...outskirts.buildings)
 
   const roads = mapRoads.concat(outskirts.roads)
@@ -132,7 +163,7 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
   return {
     definition: { ...LINDENHAFEN, seed },
     buildings,
-    growthSlots: findGrowthSlots(raw, buildings, seed),
+    growthSlots: findGrowthSlots(raw, buildings, seed, districtAt),
     roads,
     rails: raw.rails.map((entry, index): RoadRecord => ({
       id: `t-${index.toString(36)}`,
@@ -156,6 +187,14 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
     ].filter(tree => !clearance.blocked(tree.x, tree.z, PLANTING_CLEARANCE)),
     relief,
     waterway: raw.waterways[0]?.p ?? [],
+    districts: raw.districts.map((district): DistrictShape => ({
+      id: district.id,
+      polygon: district.p,
+      bounds: { minX: district.b[0]!, maxX: district.b[1]!, minZ: district.b[2]!, maxZ: district.b[3]! },
+      centre: { x: district.c[0]!, z: district.c[1]! },
+      hectares: district.ha,
+    })),
+    districtAt,
   }
 }
 
@@ -167,7 +206,7 @@ export function buildBlueprint(raw: RawCity, seed: number): CityBlueprint {
  * unbuilt — sites under construction and open grass — sampled on a coarse grid and kept clear of
  * anything already standing. Sorted from the centre outward, so the city fills in the way it grows.
  */
-function findGrowthSlots(raw: RawCity, buildings: BuildingRecord[], seed: number): BuildingRecord[] {
+function findGrowthSlots(raw: RawCity, buildings: BuildingRecord[], seed: number, districtAt: (x: number, z: number) => DistrictId): BuildingRecord[] {
   const rng = createRandomStream(seed, 'growth')
   const occupied = new Set<number>()
   const key = (x: number, z: number): number => Math.round(x / 30) * 4_000 + Math.round(z / 30)

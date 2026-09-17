@@ -113,24 +113,29 @@ niemandem auf und ist den Umzug nicht wert.
 nicht bedeutender. Sie machen es länger.
 
 
-## Acht Viertel, die man auseinanderhält
+## Zwanzig Viertel, die man auseinanderhält
 
-Lindenhafen hat acht Bezirke, jedes Gebäude trägt seinen `districtId` — und trotzdem sahen sie alle
+Lindenhafen hat zwanzig Viertel, jedes Gebäude trägt seinen `districtId` — und einmal sahen sie alle
 gleich aus. Nachgemessen, bevor irgendetwas geändert wurde:
 
 | | vorher | jetzt |
 | --- | --- | --- |
 | Wandtöne je Typ | fünf Namen für **eine** Farbe — `residential` 3° Farbton, `civic` 0°, Gewerbe 2–8 % Sättigung | 8–12 Töne, 30–56 Punkte Helligkeitsspanne |
+| Viertel | **acht Rechtecke** in einem 3 × 3-Raster über einem echten Grundriss | zwanzig echte Ortsteilgrenzen, unregelmäßig, am Fluss und an der Bahn entlang ([`CITY_DATA.md`](CITY_DATA.md)) |
 | Bauzustand | **ein** Strom für die ganze Stadt: 0,62–0,98, im Villenviertel wie im Wohnring | je Viertel eine eigene Spanne |
 | Verwitterung | 16 % Helligkeit, sonst nichts | eigenes `wear`-Attribut je Gebäude: Schmutz von unten, Sättigung raus, Dach vermoost, Oberfläche matt — und **rücknehmbar**, weil nichts davon in die Farbe eingebacken ist ([`RENDERING_ARCHITECTURE.md`](RENDERING_ARCHITECTURE.md)) |
 | Fensterrhythmus | für jedes Haus in der Stadt identisch | Körnung und Geschosshöhe je Viertel |
 
-`app/world/districtCharacter.ts` hält, was ein Viertel vom anderen trennt. Drei Zahlen, alle drei
-Bauwirklichkeit und keine Wertung:
+`app/world/districtCharacter.ts` hält, was ein Viertel vom anderen trennt — seit zwanzig Vierteln
+**je Archetyp** und nicht je Name. Zwölf Archetypen statt zwanzig Einträgen: sonst wäre es zwanzig
+Mal dieselbe Entscheidung und zwanzig Gelegenheiten, sie ein bisschen anders zu treffen, bis niemand
+mehr sagen kann, was ein Gründerzeitviertel in dieser Stadt eigentlich ausmacht.
+
+Drei Zahlen, alle drei Bauwirklichkeit und keine Wertung:
 
 | | |
 | --- | --- |
-| **`upkeep`** | wie gut der Bestand gepflegt wird. Bestimmt den Bauzustand und damit, wie stark eine Fassade verschmutzt, ausbleicht und vermoost |
+| **`upkeep`** | wie gut der Bestand gepflegt wird. Bestimmt den Bauzustand und damit, wie stark eine Fassade verschmutzt, ausbleicht und vermoost. **Steht am Viertel und nicht am Archetyp** — zwei Gründerzeitviertel sind gleich gebaut und völlig verschieden gehalten: Lindentor 0,84, Westerfeld 0,58 |
 | **`grain`** | die Parzellenkörnung. Gründerzeit steht schmal, die Nachkriegszeile breit |
 | **`storeyRise`** | die Raumhöhe. Ein Altbau hat vier Meter, ein Siebziger-Riegel zweisechzig — bei gleicher Gebäudehöhe drei Fensterreihen gegen fünf |
 

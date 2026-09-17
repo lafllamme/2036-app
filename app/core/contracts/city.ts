@@ -7,15 +7,58 @@
 
 import type { Relief } from '../../world/relief'
 
+/**
+ * Die zwanzig Viertel von Lindenhafen.
+ *
+ * Es waren acht, und sie waren acht **Rechtecke** in einem 3 × 3-Raster über einem echten
+ * Stadtgrundriss — aus der Kartenansicht sah man genau das. Sie kommen jetzt aus echten
+ * Ortsteilgrenzen, unregelmäßig, am Fluss und an der Bahn entlang; siehe `scripts/cityDistricts.mjs`
+ * und `docs/CITY_DATA.md`. Die Namen sind erfunden wie bisher.
+ */
 export type DistrictId
-  = | 'innenstadt'
-    | 'bahnhof'
-    | 'gruenderzeit-nord'
-    | 'wohnring-sued'
-    | 'universitaet-klinikum'
-    | 'hafen-industrie'
-    | 'gewerbe-ost'
-    | 'vorstadt-west'
+  = | 'altstadt'
+    | 'bahnhofsviertel'
+    | 'neustadt'
+    | 'lindentor'
+    | 'stadtgarten'
+    | 'kleinfeld'
+    | 'speicherstadt'
+    | 'marschland'
+    | 'messeviertel'
+    | 'westerfeld'
+    | 'buntenhorst'
+    | 'steinviertel'
+    | 'hohenfeld'
+    | 'hafentor'
+    | 'universitaetsviertel'
+    | 'fesenau'
+    | 'gartenstadt'
+    | 'werfthafen'
+    | 'wolterdeich'
+    | 'suedring'
+
+/**
+ * Was für ein Ort ein Viertel ist.
+ *
+ * Trägt alles, was nicht seine Lage ist: Farbpalette, Parzellenkörnung, Geschosshöhe, Dachdeckung,
+ * Wohndichte und das Gefälle bei Miete, Einbruch und Leerstand. Zwanzig Viertel von Hand
+ * durchzuschreiben wäre zwanzig Mal dieselbe Entscheidung; zwölf Archetypen sind die Entscheidung
+ * **einmal**, und jedes Viertel sagt nur noch, welcher es ist.
+ */
+export type DistrictType
+  = | 'historic-core'
+    | 'mixed-transit'
+    | 'dense-residential'
+    | 'mixed-quarter'
+    | 'mixed-fair'
+    | 'residential'
+    | 'post-war-estate'
+    | 'garden-suburb'
+    | 'civic-campus'
+    | 'civic-green'
+    | 'regenerated-docks'
+    | 'industrial'
+    | 'fringe'
 
 export type BuildingType
   = | 'altbau'
@@ -32,14 +75,35 @@ export interface Bounds2D {
   maxZ: number
 }
 
+/**
+ * Wer ein Viertel ist — **nicht, wo es liegt.**
+ *
+ * Die Trennung ist der Grund, warum diese Datei überhaupt noch synchron gelesen werden kann. Der
+ * Umriss eines Viertels ist Kartendaten und kommt mit `lindenhafen.json` über das Netz; wer es ist
+ * und wie viele darin wohnen, ist Spielinhalt und muss dem Simulationsworker in der ersten
+ * Millisekunde zur Verfügung stehen. Vorher stand beides zusammen, und es ging nur, weil der Umriss
+ * ein Rechteck war, das man hinschreiben konnte.
+ */
 export interface DistrictDefinition {
   id: DistrictId
   name: string
   shortName: string
-  type: string
+  type: DistrictType
   color: string
-  bounds: Bounds2D
   population: number
+  /** 0 … 1, wie gut der Bestand gehalten wird. Siehe `districtCharacter.ts`. */
+  upkeep: number
+}
+
+/** Und wo es liegt: aus `lindenhafen.json`, geschnitten auf den Ausschnitt. */
+export interface DistrictShape {
+  id: DistrictId
+  /** Die Grenze als x,z-Paare in Metern, gegen den Uhrzeigersinn. */
+  polygon: number[]
+  bounds: Bounds2D
+  /** Wo die Karte den Namen hinschreibt: der Punkt im Inneren mit dem größten Abstand zur Grenze. */
+  centre: { x: number, z: number }
+  hectares: number
 }
 
 export interface CityDefinition {
@@ -142,4 +206,15 @@ export interface CityBlueprint {
   relief: Relief
   /** The deep channel down the middle of the water, for anything that floats. */
   waterway: number[]
+  /** Die zwanzig Viertelsumrisse, für die Karte. */
+  districts: DistrictShape[]
+  /**
+   * In welchem Viertel ein Punkt liegt.
+   *
+   * Gefragt rund fünfzigtausend Mal beim Laden — einmal je Gebäude — und danach bei jedem Einsatz
+   * und jedem Standort. Dahinter steht kein Punkt-in-Polygon gegen zwanzig Ringe, sondern ein
+   * 256 × 256-Raster aus der Kartendatei: zwei Divisionen und ein Feldzugriff. Es ist lückenlos, also
+   * gibt es keinen Punkt im Ausschnitt ohne Viertel — und außerhalb gilt das nächstgelegene.
+   */
+  districtAt: (x: number, z: number) => DistrictId
 }

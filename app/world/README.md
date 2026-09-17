@@ -5,7 +5,9 @@ Datei hier läuft in Node und ist ohne Browser testbar.
 
 | Datei | Was |
 | --- | --- |
-| `cityData.ts` | lädt und prüft `public/city/lindenhafen.json` (aus OpenStreetMap gebaut) |
+| `cityData.ts` | lädt und prüft `public/city/lindenhafen.json` (aus OpenStreetMap gebaut), und baut daraus die Viertelszuordnung |
+| `model/lindenhafen.ts` | **wer** die zwanzig Viertel sind — Name, Art, Einwohnerzahl, Pflegezustand. Nicht, wo sie liegen: der Umriss ist Kartendatum und kommt über das Netz |
+| `districtCharacter.ts` | zwölf Archetypen: Palette, Parzellenkörnung, Geschosshöhe, Dachdeckung |
 | `relief.ts` | **die einzige Stelle, die entscheidet, wie hoch der Boden ist** — per Test erzwungen |
 | `outskirts.ts` | die Orte jenseits der Stadtgrenze, per Gabriel-Graph verbunden |
 | `citizens.ts` | wer hier wohnt: Alter, Beruf, Statur, Herkunft — aus dem Index abgeleitet |

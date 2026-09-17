@@ -63,7 +63,7 @@ describe('brennpunkte', () => {
   })
 
   it('steigt jeden Monat ohne Antwort und kippt am Ende', () => {
-    let open: Hotspot[] = [{ id: 'a', kind: 'burglary', districtId: 'gruenderzeit-nord', level: 1, openedMonth: 0, answer: null }]
+    let open: Hotspot[] = [{ id: 'a', kind: 'burglary', districtId: 'neustadt', level: 1, openedMonth: 0, answer: null }]
     const levels: number[] = []
     let tipped = 0
     for (let month = 1; month <= 6; month += 1) {
@@ -80,7 +80,7 @@ describe('brennpunkte', () => {
 
   /** Der Unterschied zwischen „ich habe etwas getan" und „ich habe es weggeklickt". */
   it('steigt nicht, solange eine Antwort läuft', () => {
-    const open: Hotspot[] = [{ id: 'a', kind: 'burglary', districtId: 'gruenderzeit-nord', level: 3, openedMonth: 0, answer: { id: 'patrols', until: 9 } }]
+    const open: Hotspot[] = [{ id: 'a', kind: 'burglary', districtId: 'neustadt', level: 3, openedMonth: 0, answer: { id: 'patrols', until: 9 } }]
     const step = stepHotspots(open, 5)
     expect(step.open[0]!.level).toBe(3)
     expect(step.tipped).toHaveLength(0)
@@ -90,7 +90,7 @@ describe('brennpunkte', () => {
   })
 
   it('beendet die Lage, wenn die Antwort den Pegel unter eins drückt', () => {
-    const open: Hotspot[] = [{ id: 'a', kind: 'burglary', districtId: 'gruenderzeit-nord', level: 2, openedMonth: 0, answer: null }]
+    const open: Hotspot[] = [{ id: 'a', kind: 'burglary', districtId: 'neustadt', level: 2, openedMonth: 0, answer: null }]
     const done = answerHotspot(open, 'a', 'patrols', 4, () => true)!
 
     expect(done.closed).toBe(true)
@@ -99,7 +99,7 @@ describe('brennpunkte', () => {
   })
 
   it('deckelt nur, wenn die Antwort zu schwach für den Pegel ist', () => {
-    const open: Hotspot[] = [{ id: 'a', kind: 'burglary', districtId: 'gruenderzeit-nord', level: 4, openedMonth: 0, answer: null }]
+    const open: Hotspot[] = [{ id: 'a', kind: 'burglary', districtId: 'neustadt', level: 4, openedMonth: 0, answer: null }]
     const done = answerHotspot(open, 'a', 'lighting', 4, () => true)!
 
     expect(done.closed).toBe(false)
@@ -112,13 +112,13 @@ describe('brennpunkte', () => {
    * Beschluss es freigeschaltet hat.
    */
   it('gibt die gesperrte Antwort erst nach dem Ratsbeschluss frei', () => {
-    const open: Hotspot[] = [{ id: 'a', kind: 'burglary', districtId: 'gruenderzeit-nord', level: 4, openedMonth: 0, answer: null }]
+    const open: Hotspot[] = [{ id: 'a', kind: 'burglary', districtId: 'neustadt', level: 4, openedMonth: 0, answer: null }]
     expect(answerHotspot(open, 'a', 'cameras', 4, () => false)).toBeNull()
     expect(answerHotspot(open, 'a', 'cameras', 4, () => true)?.closed).toBe(true)
   })
 
   it('nimmt keine zweite Antwort an, solange eine läuft', () => {
-    const open: Hotspot[] = [{ id: 'a', kind: 'burglary', districtId: 'gruenderzeit-nord', level: 3, openedMonth: 0, answer: { id: 'patrols', until: 9 } }]
+    const open: Hotspot[] = [{ id: 'a', kind: 'burglary', districtId: 'neustadt', level: 3, openedMonth: 0, answer: { id: 'patrols', until: 9 } }]
     expect(answerHotspot(open, 'a', 'lighting', 5, () => true)).toBeNull()
   })
 
@@ -156,7 +156,7 @@ describe('brennpunkte', () => {
 
   /** Und derselbe Weg einmal ganz: ausgesessen, gekippt, im Rat gelandet. */
   it('legt die ausgesessene Lage als Vorlage auf den Tisch und schickt die Rechnung', () => {
-    const opened: Hotspot = { id: 'x', kind: 'burglary', districtId: 'gruenderzeit-nord', level: TIPPING_LEVEL, openedMonth: 0, answer: null }
+    const opened: Hotspot = { id: 'x', kind: 'burglary', districtId: 'neustadt', level: TIPPING_LEVEL, openedMonth: 0, answer: null }
     const before = { ...createInitialState(2036), hotspots: [opened] }
     const after = advanceMonths(before, 1)
 

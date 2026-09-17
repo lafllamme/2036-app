@@ -1,4 +1,5 @@
-import type { DistrictId, MetricId } from '../core/contracts'
+import type { DistrictId, DistrictType, MetricId } from '../core/contracts'
+import { LINDENHAFEN } from '../world/model/lindenhafen'
 
 /**
  * Lagen: was der Stadt über Wochen zusetzt, an einem Ort, mit einer Antwort.
@@ -89,8 +90,18 @@ export interface HotspotTemplate {
   answers: HotspotAnswer[]
 }
 
-const RESIDENTIAL: DistrictId[] = ['gruenderzeit-nord', 'wohnring-sued', 'vorstadt-west', 'innenstadt']
-const BUSY: DistrictId[] = ['bahnhof', 'innenstadt', 'gewerbe-ost', 'hafen-industrie']
+/*
+ * Wo eine Lage spielt — an der Art des Viertels und nicht an einer Namensliste.
+ *
+ * Es waren zwei Listen mit vier Namen. Bei zwanzig Vierteln wäre das eine Liste, die jedes Mal
+ * nachgeführt werden muss, wenn ein Viertel dazukommt, und die genau dann vergessen wird. Eine
+ * Einbruchserie spielt dort, wo dicht gewohnt wird; ein Brand dort, wo Betrieb ist.
+ */
+const RESIDENTIAL_TYPES = new Set<DistrictType>(['dense-residential', 'residential', 'post-war-estate', 'garden-suburb', 'historic-core'])
+const BUSY_TYPES = new Set<DistrictType>(['mixed-transit', 'mixed-quarter', 'mixed-fair', 'historic-core', 'industrial', 'regenerated-docks'])
+
+const RESIDENTIAL: DistrictId[] = LINDENHAFEN.districts.filter(district => RESIDENTIAL_TYPES.has(district.type)).map(district => district.id)
+const BUSY: DistrictId[] = LINDENHAFEN.districts.filter(district => BUSY_TYPES.has(district.type)).map(district => district.id)
 
 /*
  * Eine dritte Art — Unfallhäufung an einer Kreuzung — stand hier und ist wieder raus: es gibt keine

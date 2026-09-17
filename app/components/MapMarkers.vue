@@ -5,7 +5,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { screenPoint } from '~/rendering/screen'
 import { useGameStore } from '~/stores/game'
 import { formatNumber } from '~/utils/labels'
-import { LINDENHAFEN } from '~/world/model/lindenhafen'
 
 /**
  * Was in der Stadt passiert, dort beschriftet, wo es passiert.
@@ -31,7 +30,7 @@ import { LINDENHAFEN } from '~/world/model/lindenhafen'
  */
 
 const game = useGameStore()
-const { cityReports, project, walking, experienceStage, snapshot, openDecisionId, openHotspotId } = storeToRefs(game)
+const { cityReports, project, walking, experienceStage, snapshot, openDecisionId, openHotspotId, districtShapes } = storeToRefs(game)
 
 /**
  * Die drei Standorte, zwischen denen gerade zu wählen ist.
@@ -40,14 +39,12 @@ const { cityReports, project, walking, experienceStage, snapshot, openDecisionId
  * Entscheidung hier und nicht in einem Blatt: ein Bauplatz ist ein Ort, und einen Ort wählt man,
  * indem man hinsieht und hinzeigt — nicht, indem man drei Zeilen einer Liste vergleicht.
  *
- * Die Mitte eines Bezirks als Punkt: die Bezirksgrenzen stehen im Weltmodell, und der Mittelpunkt
- * einer Fläche ist genau genug für „dort drüben“. Genauer wäre eine Präzision, die die Entscheidung
- * gar nicht hat — gewählt wird ein Stadtteil, keine Parzelle.
+ * Die Mitte eines Viertels als Punkt: seit den echten Ortsteilgrenzen ist das nicht mehr der
+ * Kastenmittelpunkt, sondern der Punkt im Inneren mit dem größten Abstand zur Grenze — bei einem
+ * L-förmigen oder um einen Park gebogenen Viertel liegt der Schwerpunkt nämlich beim Nachbarn. Genauer
+ * als „dort drüben" muss es nicht sein: gewählt wird ein Stadtteil, keine Parzelle.
  */
-const CENTRES = new Map(LINDENHAFEN.districts.map(district => [
-  district.id,
-  { x: (district.bounds.minX + district.bounds.maxX) / 2, z: (district.bounds.minZ + district.bounds.maxZ) / 2 },
-]))
+const CENTRES = computed(() => new Map(districtShapes.value.map(shape => [shape.id, shape.centre])))
 
 const siting = computed(() => (experienceStage.value === 'gameplay' && !walking.value ? snapshot.value?.pendingSiting ?? null : null))
 
@@ -62,7 +59,7 @@ const spots = computed(() => (siting.value
   ? []
   : (snapshot.value?.hotspots ?? []).map(spot => ({
       ...spot,
-      at: CENTRES.get(spot.districtId) ?? { x: 0, z: 0 },
+      at: CENTRES.value.get(spot.districtId) ?? { x: 0, z: 0 },
     }))))
 
 /**
@@ -92,7 +89,7 @@ watch(siting, (now) => {
 
 const choices = computed(() => (siting.value?.sites ?? []).map(site => ({
   ...site,
-  at: CENTRES.get(site.districtId) ?? { x: 0, z: 0 },
+  at: CENTRES.value.get(site.districtId) ?? { x: 0, z: 0 },
 })))
 
 /** Wie ein Einsatz heißt, wenn er über der Straße steht. Kurz — es ist eine Marke, keine Meldung. */

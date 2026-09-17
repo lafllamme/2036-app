@@ -939,3 +939,44 @@ Bestands, der ohnehin am schlechtesten dasteht — die Kachel hält ihre Gebäud
 sortiert vor. Damit sammelt sich Verfall dort, wo die Stadt ihn ohnehin hat (Hafen, Gewerbe Ost),
 statt gleichmäßig über acht Viertel gesprenkelt zu sein, und die Farbe gehört wieder allein dem
 Material und dem Mauszeiger.
+
+
+## Was die Stadt kostet, als sie um 80 % gewachsen ist
+
+Der Ausschnitt ist von 3 × 3 auf 4 × 4 km gegangen, die Gebäude von 16.782 auf 26.238 — und die
+Bildrate ist fast dieselbe geblieben. Das ist keine Optimierung, sondern die Eigenschaft, für die das
+Kachelraster gebaut wurde: **gezeichnet wird, was im Sichtfeld liegt, und das Sichtfeld ist nicht
+größer geworden.**
+
+Mitgewachsen ist nur das Raster selbst — 8 × 8 statt 6 × 6, damit eine Kachel wieder 1,4 km fasst und
+nicht 1,9. Die Kachelgröße ist der ganze Hebel: sie ist die Einheit des Aussortierens, und eine
+Kachel, die die halbe Stadt enthält, sortiert nichts aus.
+
+Gemessen, acht Sekunden Zoomflug bei festgenagelter Auflösung 3, je drei Durchgänge:
+
+| | Bilder | Renderzeit |
+| --- | --- | --- |
+| 3 × 3 km, 16.782 Gebäude | 764 / 752 / 760 | 2,62–2,69 ms |
+| 4 × 4 km, 26.238 Gebäude | 701 / 702 / 702 | 2,67–2,69 ms |
+
+**Sechs Prozent Bilder für 56 % mehr Häuser.** Aus der Überblickskamera sind es 354 Draw Calls und
+4,37 Millionen Dreiecke bei 91 Bildern je Sekunde.
+
+### Und woher die Dreiecke wirklich kommen
+
+`bench.layers()` über die neue Stadt, in Dreiecken, die eine Schicht **höchstens** kostet:
+
+| Schicht | Instanzen | Dreiecke |
+| --- | --- | --- |
+| geparkte Autos | 7.612 | 3.989k |
+| Bepflanzung | 34.139 | 2.159k |
+| Gebäude | 50 Kacheln | 2.155k |
+| Straßenmöblierung | 2.203 | 266k |
+| Ladenschilder | 5.710 | 137k |
+| Fußgänger und Fahrzeuge | 129 | 123k |
+
+Die Gebäude sind **nicht** der teuerste Posten und waren es nie. Die geparkten Autos stehen oben,
+weil jedes von ihnen zweimal im Speicher liegt — als Dreißig-Dreiecke-Attrappe und als Kit-Modell —
+und je Kachel genau eines von beiden gezeichnet wird; von den vier Millionen erreicht den Frame nur,
+was innerhalb von 190 Metern steht. Wer hier etwas sparen will, fängt bei der Bepflanzung an und
+nicht bei der Stadt.

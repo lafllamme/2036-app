@@ -3,6 +3,7 @@ import type {
   CampaignGoalId,
   CampaignLeader,
   DistrictId,
+  DistrictShape,
   EventDefinition,
   LeaderBackgroundId,
   NewsItem,
@@ -194,6 +195,14 @@ export const useGameStore = defineStore('game', () => {
    * allem stehen. `shallowRef`, damit Vue nicht versucht, eine Funktion reaktiv zu machen.
    */
   const project = shallowRef<((x: number, y: number, z: number, out: ScreenPoint) => ScreenPoint) | null>(null)
+  /**
+   * Die Umrisse der zwanzig Viertel, sobald die Karte da ist.
+   *
+   * Sie stehen nicht im Weltmodell, sondern in `lindenhafen.json`: ein Viertel ist seit den echten
+   * Ortsteilgrenzen ein Polygon mit dreißig bis achtzig Stützpunkten und kein Rechteck mehr, das man
+   * hinschreiben kann. `CityCanvas` reicht sie herein, wenn der Grundriss geladen ist.
+   */
+  const districtShapes = shallowRef<DistrictShape[]>([])
 
   /**
    * Beide Schubladen fangen **zu** an.
@@ -965,6 +974,7 @@ export const useGameStore = defineStore('game', () => {
     walking,
     walkState,
     project,
+    districtShapes,
     decisionsOpen,
     ready,
     error,

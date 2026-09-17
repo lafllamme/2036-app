@@ -13,6 +13,7 @@ import { useCityScore } from '../audio/cityScore'
 import { useCityMixer } from '../audio/mixer'
 import { debugFlags } from '../core/debug'
 import { CALM } from '../core/weather'
+import { DISTRICT_BY_ID } from '../world/model/lindenhafen'
 import { CameraRig } from './cameraRig'
 import { WalkAbout } from './firstPerson'
 import { FrameLog } from './frameLog'
@@ -182,7 +183,7 @@ export class CityRenderer {
   private readonly onWalk: CityRendererOptions['onWalk']
   /** Kept only so a call can be told which district it happened in. */
   private readonly blueprint: CityBlueprint
-  private readonly districts: CityBlueprint['definition']['districts']
+  private readonly districtOf: CityBlueprint['districtAt']
   /** What was last said about each open call, so only actual changes are announced. */
   private readonly announced = new Map<number, IncidentStatus>()
   private readonly buildingCount: number
@@ -216,7 +217,7 @@ export class CityRenderer {
     this.onIncident = options.onIncident
     this.onWalk = options.onWalk
     this.blueprint = options.blueprint
-    this.districts = options.blueprint.definition.districts
+    this.districtOf = options.blueprint.districtAt
     this.buildingCount = options.blueprint.buildings.length
 
     const { webgl: forceWebGL, bench } = debugFlags()
@@ -907,13 +908,15 @@ export class CityRenderer {
     return this.city.protesters * (1 - THREE.MathUtils.smoothstep(away, PROTEST_EARSHOT, PROTEST_SILENCE))
   }
 
+  /**
+   * In welchem Viertel ein Einsatz stattfindet, für die Meldung im Stadtfunk.
+   *
+   * Lief einmal über acht Rechtecke und ging seit den echten Ortsteilgrenzen nicht mehr: ein Viertel
+   * ist ein Polygon. Gefragt wird stattdessen das Raster, das der Grundriss ohnehin mitbringt — und
+   * das ist nebenbei richtiger, weil ein Kasten um ein L-förmiges Viertel den Nachbarn mitnimmt.
+   */
   private districtAt(x: number, z: number): string | null {
-    for (const district of this.districts) {
-      const { bounds } = district
-      if (x >= bounds.minX && x <= bounds.maxX && z >= bounds.minZ && z <= bounds.maxZ)
-        return district.name
-    }
-    return null
+    return DISTRICT_BY_ID.get(this.districtOf(x, z))?.name ?? null
   }
 
   /**

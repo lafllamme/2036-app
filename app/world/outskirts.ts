@@ -1,7 +1,6 @@
-import type { BuildingRecord, RoadRecord, TreeRecord } from '../core/contracts'
+import type { BuildingRecord, DistrictId, RoadRecord, TreeRecord } from '../core/contracts'
 import type { Relief } from './relief'
 import { createRandomStream } from '../core/rng'
-import { districtAt } from './model/lindenhafen'
 import { fieldAt } from './terrain'
 
 /**
@@ -41,9 +40,18 @@ import { fieldAt } from './terrain'
  *   than one continuous ribbon of houses down every road in the county.
  */
 
-/** Never inside the ground plan the map actually gave us. */
-const EXTRACT_HALF = 1_500
-/** How far the country reaches beyond that. */
+/**
+ * Never inside the ground plan the map actually gave us — und die reicht seit dem 4-km-Ausschnitt
+ * zweitausend Meter weit statt fünfzehnhundert.
+ */
+const EXTRACT_HALF = 2_000
+/**
+ * How far the country reaches beyond that.
+ *
+ * Mitgewachsen, aber nicht mitgesprungen: das Land ist ab hier 3,4 km breit statt 3,9 km. Ein
+ * Horizont, der aus der Überblickskamera ohnehin im Dunst liegt, ist die letzte Stelle, an der man
+ * Dreiecke ausgeben will, wenn die Stadt selbst gerade um 80 % gewachsen ist.
+ */
 const COUNTRY_REACH = 5_400
 
 /**
@@ -167,7 +175,7 @@ interface Place {
   gate: boolean
 }
 
-export function buildOutskirts(seed: number, relief: Relief, cityRoads: RoadRecord[]): Outskirts {
+export function buildOutskirts(seed: number, relief: Relief, cityRoads: RoadRecord[], districtAt: (x: number, z: number) => DistrictId): Outskirts {
   const rng = createRandomStream(seed, 'outskirts')
   const buildings: BuildingRecord[] = []
   const roads: RoadRecord[] = []
@@ -197,7 +205,7 @@ export function buildOutskirts(seed: number, relief: Relief, cityRoads: RoadReco
       // Country. What decides how many people and cars belong on it: see `gather` in `fleet/`.
       rural: true,
     })
-    buildAlong(path, a, b, rng, relief, buildings, trees, taken)
+    buildAlong(path, a, b, rng, relief, buildings, trees, taken, districtAt)
   }
 
   scatterWoods(rng, relief, places, trees)
@@ -394,6 +402,7 @@ function buildAlong(
   buildings: BuildingRecord[],
   trees: TreeRecord[],
   taken: Map<number, { x: number, z: number, radius: number }[]>,
+  districtAt: (x: number, z: number) => DistrictId,
 ): void {
   const total = pathLength(path)
   let travelled = 0

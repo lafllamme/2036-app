@@ -29,9 +29,15 @@ import { findTownHall } from './townHall'
  * The grid has to cover the country as well as the city now that both are built out of the same kind
  * of building, so it is wider and finer: a tile is about a kilometre and it is the unit of frustum
  * culling, which is what keeps street level down to a handful of draws.
+ *
+ * Mit dem 4-km-Ausschnitt ist es 8 × 8 statt 6 × 6 geworden. Nicht, weil die Stadt größer ist —
+ * sondern damit die **Kachel** gleich groß bleibt: 1,4 km, wie vorher. Wäre das Raster stehen
+ * geblieben, hätte jede Kachel 1,9 km gefasst, und aus der Fußgängerkamera zieht das nicht mehr
+ * hereingeschautes Material herein, als das Sichtfeld je braucht. Die Kachel ist die Einheit des
+ * Aussortierens; ihre Größe ist der ganze Hebel.
  */
-const TILES = 6
-const CITY_EXTENT = 3_400
+const TILES = 8
+const CITY_EXTENT = 5_600
 /** How far a roof draws in from the wall below it, where it has to be a truncated pyramid. */
 const ROOF_INSET = 2.4
 

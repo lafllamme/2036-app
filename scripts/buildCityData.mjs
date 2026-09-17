@@ -20,10 +20,19 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import process from 'node:process'
+import { buildDistricts } from './cityDistricts.mjs'
 
-/** The centre of the extract, and how far the city reaches from it in metres. */
+/**
+ * The centre of the extract, and how far the city reaches from it in metres.
+ *
+ * It was 1.500 — three kilometres square — and that is a small town seen from the overview camera:
+ * you could take it in without moving. Four kilometres is 1,8 times the buildings (12.579 raw ways
+ * against 22.599) and, more to the point, **twenty** real Ortsteile instead of eight painted-on
+ * rectangles. Five would have been 2,65 times, and that is an outer ring nobody visits bought with
+ * 260 MB of vertex buffers.
+ */
 const ORIGIN = { lat: 53.0758, lon: 8.8072 }
-const EXTENT = 1_500
+const EXTENT = 2_000
 /** Metres per degree at this latitude. Good to a few centimetres over three kilometres. */
 const METRES_PER_LAT = 110_574
 const METRES_PER_LON = 111_320 * Math.cos((ORIGIN.lat * Math.PI) / 180)
@@ -1010,12 +1019,14 @@ function valueNoise(x, y) {
 // ---------------------------------------------------------------------------
 
 const input = process.argv[2]
-if (!input) {
-  console.error('usage: node scripts/buildCityData.mjs <overpass.json>')
+const boundaryInput = process.argv[3]
+if (!input || !boundaryInput) {
+  console.error('usage: node scripts/buildCityData.mjs <overpass-city.json> <overpass-boundaries.json>')
   process.exit(1)
 }
 
 const raw = JSON.parse(readFileSync(input, 'utf8'))
+const { districts, grid } = buildDistricts(JSON.parse(readFileSync(boundaryInput, 'utf8')), project, EXTENT)
 const buildings = []
 const roads = []
 const areas = []
@@ -1101,9 +1112,16 @@ const { added: filled, gardens } = fillGaps(buildings, roads, areas)
 buildings.push(...filled)
 
 const city = {
-  source: 'OpenStreetMap contributors (ODbL) — Bremen, 3 × 3 km around the Altstadt',
+  source: 'OpenStreetMap contributors (ODbL) — Bremen, 4 × 4 km around the Altstadt',
   origin: ORIGIN,
   extent: EXTENT,
+  /*
+   * Die zwanzig Viertel, aus echten Ortsteilgrenzen — siehe `cityDistricts.mjs`. `grid` ist der
+   * Index, mit dem das Spiel einen Punkt einem Viertel zuordnet, ohne gegen zwanzig Polygone zu
+   * prüfen: 256 × 256 Byte, lückenlos bis in die Ecken.
+   */
+  districts,
+  districtGrid: grid,
   relief: buildRelief(areas),
   waterways: buildWaterway(areas),
   buildings,
@@ -1126,5 +1144,6 @@ const vertices = buildings.reduce((n, b) => n + b.p.length / 2, 0)
 console.log(`${buildings.length} buildings (${filled.length} filled in, ${swallowed} enclosing outlines dropped, ${vertices} vertices), ${roads.length} roads, ${rails.length} rails, ${areas.length} areas`)
 console.log(`${gardens.length / 2} gardens, ${roads.filter(r => r.b).length} road bridges, ${rails.filter(r => r.b).length} rail bridges, ${stubs} stubs dropped`)
 console.log(`waterway ${city.waterways[0]?.p.length ? city.waterways[0].p.length / 2 : 0} points`)
+console.log(`${districts.length} Viertel: ${districts.map(d => `${d.short} ${d.ha} ha`).join(', ')}`)
 console.log(`relief ${city.relief.size}² cells, ${Math.max(...city.relief.data).toFixed(1)} m at its highest`)
 console.log(`${out} — ${(readFileSync(out).length / 1024 / 1024).toFixed(2)} MB`)

@@ -42,6 +42,7 @@ onMounted(async () => {
     })
     // Die Brücke von einem Ort in der Stadt zu einem Punkt auf dem Schirm. Siehe `rendering/screen.ts`.
     game.project = (x, y, z, out) => cityRenderer!.project(x, y, z, out)
+    game.districtShapes = blueprint.districts
     cityRenderer.setFrameCap(experienceStage.value === 'gameplay' ? null : MENU_FRAME_CAP)
     if (snapshot.value)
       cityRenderer.applySnapshot(snapshot.value)
@@ -100,6 +101,7 @@ watch(weather, (reading) => {
 
 onBeforeUnmount(() => {
   game.project = null
+  game.districtShapes = []
   cityRenderer?.dispose()
 })
 </script>

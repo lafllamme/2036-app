@@ -1,4 +1,5 @@
-import type { DistrictId } from '../core/contracts'
+import type { DistrictId, DistrictType } from '../core/contracts'
+import { LINDENHAFEN } from './model/lindenhafen'
 
 /**
  * Was ein Viertel von einem anderen unterscheidet.
@@ -142,14 +143,26 @@ const WALL = {
   beton: ['#b2aea6', '#98958d', '#bfbeba'],
 } as const
 
-export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
+/**
+ * Die zwölf Archetypen, und warum nicht zwanzig Viertel.
+ *
+ * Es waren acht Viertel und acht Einträge, eins zu eins. Mit zwanzig wäre daraus zwanzig Mal
+ * dieselbe Entscheidung geworden — und zwanzig Gelegenheiten, sie ein bisschen anders zu treffen,
+ * bis niemand mehr sagen kann, was ein Gründerzeitviertel in dieser Stadt eigentlich ausmacht. Der
+ * Archetyp ist die Entscheidung **einmal**; ein Viertel sagt nur noch, welcher es ist.
+ *
+ * Herausgefallen ist dabei `upkeep`: der ist keine Eigenschaft der Art, sondern des Ortes. Zwei
+ * Gründerzeitviertel sehen gleich gebaut aus und werden völlig verschieden gehalten — Lindentor
+ * steht auf 0,84, Westerfeld auf 0,58 —, und genau das ist der Unterschied, den man seit dem
+ * `wear`-Attribut auf der Karte sieht. Er steht deshalb am Viertel in `lindenhafen.ts`.
+ */
+export const CHARACTER: Record<DistrictType, Omit<DistrictCharacter, 'upkeep'>> = {
   /**
-   * Die gute Stube: Kontorhäuser, Geschäftslagen, alles instand — und **das bunteste Viertel**.
-   * Eine Altstadt ist über Jahrhunderte Haus für Haus gestrichen worden, jedes von einem anderen
-   * Eigentümer, und genau das sieht man ihr an.
+   * Die gute Stube: Kontorhäuser, Geschäftslagen — und **das bunteste Viertel**. Eine Altstadt ist
+   * über Jahrhunderte Haus für Haus gestrichen worden, jedes von einem anderen Eigentümer, und genau
+   * das sieht man ihr an.
    */
-  'innenstadt': {
-    upkeep: 0.9,
+  'historic-core': {
     grain: 0.86,
     storeyRise: 1.12,
     roofs: [...ROOF.ziegelrot, ...ROOF.altziegel, ...ROOF.schiefer],
@@ -167,8 +180,7 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     accents: [...WALL.taubenblau, ...WALL.lehmbraun],
   },
   /** Bahnhofsviertel: durchmischt, viel Durchgangsverkehr, wenig Eigentümerstolz. */
-  'bahnhof': {
-    upkeep: 0.52,
+  'mixed-transit': {
     grain: 0.92,
     storeyRise: 1.02,
     roofs: [...ROOF.altziegel, ...ROOF.bitumen, ...ROOF.schiefer],
@@ -186,8 +198,7 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     accents: [...WALL.rotocker, ...WALL.taubenblau],
   },
   /** Gründerzeit: schmale Parzellen, hohe Räume, Stuck in Ocker und Altrosa, rote Ziegel oben drauf. */
-  'gruenderzeit-nord': {
-    upkeep: 0.82,
+  'dense-residential': {
     grain: 0.74,
     storeyRise: 1.24,
     roofs: [...ROOF.altziegel, ...ROOF.ziegelrot, ...ROOF.schiefer],
@@ -205,13 +216,75 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     accents: [...WALL.olivgruen, ...WALL.taubenblau],
   },
   /**
-   * Der Wohnring: Zeilenbau der sechziger und siebziger Jahre. **Absichtlich eintöniger** als der
-   * Rest — die Monotonie ist der Punkt, und sie ist erst zu sehen, wenn die Altstadt daneben bunt
-   * ist. Eintönig heißt hier aber nicht farblos: die Sanierungswelle hat auch diese Zeilen in Mint
-   * und Salbei gestrichen, nur eben zwei Blöcke am Stück in derselben Farbe.
+   * Wohnen über Läden: Nachkriegslücken zwischen Vorkriegshäusern, jede Ecke ein Kiosk. Der
+   * Archetyp, der **nichts entschieden hat** — und das ist seine Aussage. Die breiteste Mischung aus
+   * Dächern und Wandtönen, weil hier drei Baualter nebeneinanderstehen und keines gewonnen hat.
    */
-  'wohnring-sued': {
-    upkeep: 0.44,
+  'mixed-quarter': {
+    grain: 0.96,
+    storeyRise: 1.06,
+    roofs: [...ROOF.altziegel, ...ROOF.bitumen, ...ROOF.ziegelrot, ...ROOF.kies],
+    walls: [
+      ...WALL.klinker,
+      ...WALL.sandstein,
+      ...WALL.hellgrau,
+      ...WALL.ocker,
+      ...WALL.creme,
+      ...WALL.beton,
+      ...WALL.altrosa,
+      ...WALL.graugruen,
+    ],
+    accentShare: 0.14,
+    accents: [...WALL.rotocker, ...WALL.olivgruen, ...WALL.taubenblau],
+  },
+  /**
+   * Das Messeviertel: Hallen neben Wohnzeilen, und dazwischen Parkplatz. Der Maßstab springt hier
+   * härter als irgendwo sonst in Lindenhafen — ein Fünfzig-Meter-Dach neben einem Doppelhaus —,
+   * und dafür steht die grobe Körnung bei gleichzeitig niedrigen Geschossen.
+   */
+  'mixed-fair': {
+    grain: 1.32,
+    storeyRise: 0.96,
+    roofs: [...ROOF.blech, ...ROOF.bitumen, ...ROOF.kies, ...ROOF.dunkelziegel],
+    walls: [
+      ...WALL.hellgrau,
+      ...WALL.beton,
+      ...WALL.creme,
+      ...WALL.sandstein,
+      ...WALL.klinker,
+      ...WALL.weissputz,
+    ],
+    accentShare: 0.16,
+    accents: [...WALL.taubenblau, ...WALL.anthrazit, ...WALL.rotocker],
+  },
+  /**
+   * Die Wohnstraße: Zwischenkriegs- und frühe Nachkriegsblöcke, vier Geschosse, Satteldach, Vorgarten.
+   * Nicht die Zeile und nicht die Vorstadt — das, was zwischen beiden am häufigsten steht, und was
+   * deshalb ruhig und ohne Ausschläge aussehen muss.
+   */
+  'residential': {
+    grain: 1.02,
+    storeyRise: 0.98,
+    roofs: [...ROOF.dunkelziegel, ...ROOF.altziegel, ...ROOF.ziegelrot, ...ROOF.bitumen],
+    walls: [
+      ...WALL.creme,
+      ...WALL.sandgelb,
+      ...WALL.sandstein,
+      ...WALL.klinker,
+      ...WALL.hellgrau,
+      ...WALL.graugruen,
+      ...WALL.weissputz,
+    ],
+    accentShare: 0.11,
+    accents: [...WALL.ocker, ...WALL.altrosa, ...WALL.taubenblau],
+  },
+  /**
+   * Zeilenbau der sechziger und siebziger Jahre. **Absichtlich eintöniger** als der Rest — die
+   * Monotonie ist der Punkt, und sie ist erst zu sehen, wenn die Altstadt daneben bunt ist. Eintönig
+   * heißt hier aber nicht farblos: die Sanierungswelle hat auch diese Zeilen in Mint und Salbei
+   * gestrichen, nur eben zwei Blöcke am Stück in derselben Farbe.
+   */
+  'post-war-estate': {
     grain: 1.28,
     storeyRise: 0.88,
     roofs: [...ROOF.bitumen, ...ROOF.kies, ...ROOF.dunkelziegel],
@@ -227,50 +300,11 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     accentShare: 0.09,
     accents: [...WALL.ocker, ...WALL.taubenblau],
   },
-  /** Universität und Klinikum: Nachkriegsbeton, Waschbeton, Flachdächer mit Kies und Grün. */
-  'universitaet-klinikum': {
-    upkeep: 0.76,
-    grain: 1.16,
-    storeyRise: 1.06,
-    roofs: [...ROOF.kies, ...ROOF.begruent, ...ROOF.bitumen],
-    walls: [
-      ...WALL.beton,
-      ...WALL.weissputz,
-      ...WALL.hellgrau,
-      ...WALL.klinker,
-      ...WALL.sandstein,
-      ...WALL.graugruen,
-      ...WALL.lehmbraun,
-    ],
-    accentShare: 0.1,
-    accents: [...WALL.taubenblau, ...WALL.rotocker],
-  },
-  /** Hafen und Industrie: Hallen, Silos, Trapezblech. **Das langweiligste Viertel**, und zu Recht. */
-  'hafen-industrie': {
-    upkeep: 0.48,
-    grain: 1.45,
-    storeyRise: 1.3,
-    roofs: [...ROOF.blech, ...ROOF.rost, ...ROOF.bitumen],
-    walls: [],
-    accentShare: 0.14,
-    accents: [...WALL.taubenblau, ...WALL.lehmbraun, ...WALL.olivgruen],
-  },
-  /** Gewerbe Ost: Neubaugebiet auf der grünen Wiese, helles Blech, Firmenfarben am Giebel. */
-  'gewerbe-ost': {
-    upkeep: 0.86,
-    grain: 1.35,
-    storeyRise: 1.14,
-    roofs: [...ROOF.blech, ...ROOF.bitumen],
-    walls: [],
-    accentShare: 0.2,
-    accents: [...WALL.klinker, ...WALL.taubenblau, ...WALL.anthrazit, ...WALL.olivgruen],
-  },
   /**
-   * Vorstadt West: Einfamilienhäuser, Hecken — und **die größte Streuung der Stadt**, weil hier
-   * jeder sein eigenes Haus streicht. Rote und dunkle Ziegel, weil ein Satteldach hier die Regel ist.
+   * Einfamilienhäuser, Hecken — und **die größte Streuung der Stadt**, weil hier jeder sein eigenes
+   * Haus streicht. Rote und dunkle Ziegel, weil ein Satteldach hier die Regel ist.
    */
-  'vorstadt-west': {
-    upkeep: 0.88,
+  'garden-suburb': {
     grain: 1.05,
     storeyRise: 0.94,
     roofs: [...ROOF.ziegelrot, ...ROOF.dunkelziegel, ...ROOF.altziegel, ...ROOF.schiefer],
@@ -290,7 +324,91 @@ export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = {
     accentShare: 0.14,
     accents: [...WALL.lehmbraun, ...WALL.anthrazit],
   },
+  /** Universität und Klinikum: Nachkriegsbeton, Waschbeton, Flachdächer mit Kies und Grün. */
+  'civic-campus': {
+    grain: 1.16,
+    storeyRise: 1.06,
+    roofs: [...ROOF.kies, ...ROOF.begruent, ...ROOF.bitumen],
+    walls: [
+      ...WALL.beton,
+      ...WALL.weissputz,
+      ...WALL.hellgrau,
+      ...WALL.klinker,
+      ...WALL.sandstein,
+      ...WALL.graugruen,
+      ...WALL.lehmbraun,
+    ],
+    accentShare: 0.1,
+    accents: [...WALL.taubenblau, ...WALL.rotocker],
+  },
+  /**
+   * Der Park und was an ihm liegt: Villen an der Kante, ein Vereinsheim, eine Tribüne. Wenige
+   * Gebäude, aber die **teuersten** — wer am Park wohnt, streicht sein Haus. Hohe Räume, helle Töne,
+   * Schiefer.
+   */
+  'civic-green': {
+    grain: 0.9,
+    storeyRise: 1.18,
+    roofs: [...ROOF.schiefer, ...ROOF.ziegelrot, ...ROOF.begruent, ...ROOF.altziegel],
+    walls: [
+      ...WALL.weissputz,
+      ...WALL.creme,
+      ...WALL.sandstein,
+      ...WALL.klinker,
+      ...WALL.sandgelb,
+      ...WALL.graugruen,
+    ],
+    accentShare: 0.1,
+    accents: [...WALL.taubenblau, ...WALL.olivgruen],
+  },
+  /** Umgenutzte Hafenkante: Neubau auf Speicherfundamenten, helles Blech, Firmenfarben am Giebel. */
+  'regenerated-docks': {
+    grain: 1.35,
+    storeyRise: 1.14,
+    roofs: [...ROOF.blech, ...ROOF.bitumen],
+    walls: [],
+    accentShare: 0.2,
+    accents: [...WALL.klinker, ...WALL.taubenblau, ...WALL.anthrazit, ...WALL.olivgruen],
+  },
+  /** Hafen und Industrie: Hallen, Silos, Trapezblech. **Das langweiligste Viertel**, und zu Recht. */
+  'industrial': {
+    grain: 1.45,
+    storeyRise: 1.3,
+    roofs: [...ROOF.blech, ...ROOF.rost, ...ROOF.bitumen],
+    walls: [],
+    accentShare: 0.14,
+    accents: [...WALL.taubenblau, ...WALL.lehmbraun, ...WALL.olivgruen],
+  },
+  /**
+   * Der Rand: Marsch, Deich, ein Hof alle vierhundert Meter, eine Halle dazwischen. Was hier steht,
+   * steht allein und ist gebaut worden, um zu halten und nicht um gesehen zu werden — rotes Blech,
+   * geteerte Pappe, verwitterter Klinker, und die breitesten Achsen der ganzen Stadt.
+   */
+  'fringe': {
+    grain: 1.5,
+    storeyRise: 1.02,
+    roofs: [...ROOF.rost, ...ROOF.dunkelziegel, ...ROOF.blech, ...ROOF.altziegel],
+    walls: [
+      ...WALL.klinker,
+      ...WALL.lehmbraun,
+      ...WALL.beton,
+      ...WALL.hellgrau,
+      ...WALL.olivgruen,
+    ],
+    accentShare: 0.08,
+    accents: [...WALL.rotocker, ...WALL.anthrazit],
+  },
 }
+
+/**
+ * Und das Viertel selbst: sein Archetyp plus sein eigener Pflegezustand.
+ *
+ * Abgeleitet statt geschrieben — es gibt keine Stelle, an der jemand einem Viertel eine Palette
+ * geben könnte, die zu seiner Art nicht passt.
+ */
+export const DISTRICT_CHARACTER: Record<DistrictId, DistrictCharacter> = Object.fromEntries(
+  LINDENHAFEN.districts.map(district => [district.id, { ...CHARACTER[district.type], upkeep: district.upkeep }]),
+) as Record<DistrictId, DistrictCharacter>
 
 /** Der Bauzustand, den ein Viertel seinem Bestand mitgibt: eine Spanne, keine Zahl. */
 export function conditionRange(upkeep: number): { low: number, high: number } {

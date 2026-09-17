@@ -11,7 +11,7 @@ import { tenancyAt } from '../../app/world/tenancy'
 function building(id: string, type: BuildingType = 'commercial'): BuildingRecord {
   return {
     id,
-    districtId: 'innenstadt' as BuildingRecord['districtId'],
+    districtId: 'altstadt' as BuildingRecord['districtId'],
     type,
     x: 0,
     z: 0,

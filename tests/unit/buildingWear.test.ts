@@ -46,8 +46,8 @@ describe('bauzustand als verschleiss', () => {
       const range = conditionRange(upkeep)
       return wearOf((range.low + range.high) / 2)
     }
-    const kept = middle(DISTRICT_CHARACTER['vorstadt-west'].upkeep)
-    const neglected = middle(DISTRICT_CHARACTER['hafen-industrie'].upkeep)
+    const kept = middle(DISTRICT_CHARACTER.gartenstadt.upkeep)
+    const neglected = middle(DISTRICT_CHARACTER.marschland.upkeep)
     expect(neglected - kept).toBeGreaterThan(0.25)
   })
 })

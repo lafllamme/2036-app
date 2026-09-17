@@ -50,25 +50,25 @@ describe('standortwahl', () => {
 
   /** Die Spanne muss sich im Preis wiederfinden, sonst ist sie nur eine Beschriftung. */
   it('macht den teuren Standort spürbar teurer als den billigen', () => {
-    const cheap = costAt(28, 'hafen-industrie')
-    const dear = costAt(28, 'gruenderzeit-nord')
+    const cheap = costAt(28, 'marschland')
+    const dear = costAt(28, 'neustadt')
     expect(dear).toBeGreaterThan(cheap * 2)
     expect(cheap).toBeLessThan(28)
   })
 
   it('rundet auf Zehntelmillionen, weil der Haushalt so gelesen wird', () => {
-    expect(costAt(28, 'innenstadt')).toBe(51.8)
-    expect(Number.isInteger(costAt(28, 'gruenderzeit-nord') * 10)).toBe(true)
+    expect(costAt(28, 'altstadt')).toBe(51.8)
+    expect(Number.isInteger(costAt(28, 'neustadt') * 10)).toBe(true)
   })
 
   it('lässt kein Vorhaben in null Monaten fertig werden', () => {
     for (const site of SITES_BY_COST)
       expect(paceAt(0, site.districtId), site.districtId).toBeGreaterThanOrEqual(1)
-    expect(paceAt(10, 'innenstadt')).toBeGreaterThan(paceAt(10, 'hafen-industrie'))
+    expect(paceAt(10, 'altstadt')).toBeGreaterThan(paceAt(10, 'marschland'))
   })
 
   it('kostet Zufriedenheit dort, wo Nachbarn sind, und fast nichts im Hafen', () => {
-    expect(unrestAt('innenstadt')).toBeGreaterThan(unrestAt('hafen-industrie') * 5)
+    expect(unrestAt('altstadt')).toBeGreaterThan(unrestAt('marschland') * 5)
     // Ein Ärgernis, keine Krise: der größte Ausschlag bleibt unter drei Punkten.
     for (const site of SITES_BY_COST)
       expect(unrestAt(site.districtId), site.districtId).toBeLessThan(3)
@@ -159,16 +159,16 @@ describe('standortwahl', () => {
 
   /**
    * Der Fehler, den erst das Spiel gezeigt hat: die Altstadt war die teure Wahl mit der größten
-   * Wirkung — und hat **null** freie Bauparzellen. Gewählt, bezahlt, und dann kein einziger Kran.
+   * Wirkung — und hat **eine** freie Bauparzelle. Gewählt, bezahlt, und dann kein einziger Kran.
    */
   it('bietet nur Bezirke an, in denen überhaupt Platz ist', () => {
     for (const sourceId of ['housing-accelerator', 'gruene-unsealing', 'cdu-family-land']) {
       for (const site of sitesFor(sourceId, SEED))
         expect(site.parcels, `${sourceId} → ${site.districtId}`).toBeGreaterThanOrEqual(5)
     }
-    // Und die drei vollen Bezirke stehen nie im Angebot.
+    // Und die vollen Viertel stehen nie im Angebot — vierzehn der zwanzig haben drei Lücken oder weniger.
     const everOffered = new Set(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].flatMap(id => sitesFor(id, SEED).map(site => site.districtId)))
-    for (const full of ['innenstadt', 'universitaet-klinikum', 'gewerbe-ost'] as const)
+    for (const full of ['altstadt', 'bahnhofsviertel', 'lindentor', 'westerfeld', 'kleinfeld'] as const)
       expect(everOffered.has(full), full).toBe(false)
   })
 

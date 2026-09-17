@@ -121,12 +121,25 @@ button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; borde
  * und beim Lagebild über 690 — dieselbe Regel, und trotzdem las das eine als Körper und das andere
  * als Wand, weil sich der Übergang über das Siebenfache zog und damit verschwand. Jetzt hat jede
  * Fläche dieselbe handbreite Lichtkante, ganz gleich wie hoch sie ist.
+ *
+ * ## Und warum sie fast undurchsichtig ist
+ *
+ * Sie war zu 5,5 % durchsichtig, und das hat die Flächen **je nach Standort verschieden eingefärbt**.
+ * Unten liegt `.shell-hem`, ein 240 px hoher Saum, der die Stadt hinter dem Deck abdunkelt; die
+ * Pods an den Seiten liegen über dem rohen Bild, tagsüber also über hellem Himmel. Gerechnet ist der
+ * Unterschied `(1 − α) × (Himmel − gesäumte Stadt)` = 0,055 × ~170 ≈ **neun Helligkeitsstufen**, und
+ * dabei kippen sie zugleich ins Bläuliche. Zwei Körper mit derselben Regel sahen aus wie zwei
+ * verschiedene Materialien — gemeldet als „die Lage-Container sehen farblich anders aus als das HUD",
+ * und das war wörtlich richtig.
+ *
+ * Bei 0,99 bleibt ein Rest von 1,7 Stufen: unter der Wahrnehmungsschwelle, und die Fläche behält die
+ * Spur von Durchlässigkeit, die sie als Körper über einer Stadt und nicht als Blech lesbar macht.
  */
 .pod {
   position: relative;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.052) 0, rgba(255, 255, 255, 0) 96px),
-    linear-gradient(180deg, rgba(18, 24, 29, 0.945) 0, rgba(10, 14, 18, 0.955) 100%);
+    linear-gradient(180deg, rgba(18, 24, 29, 0.99) 0, rgba(10, 14, 18, 0.99) 100%);
   border-radius: var(--r-pod);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.11),
@@ -260,22 +273,31 @@ button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; borde
 .quiet-button i { width: 7px; height: 7px; border-radius: 50%; }
 
 /*
- * Was der Einstiegsfluss noch an Token braucht.
+ * Was der Einstiegsfluss an Token braucht — **jetzt dieselben Werte wie das Spiel.**
  *
- * `EntryExperience.vue` ist der Teil, der am besten funktioniert, und wird zuletzt umgebaut. Bis
- * dahin stehen seine zehn alten Namen hier — als Batzen-Werte, nicht als alte: das Panel ist ein
- * Körper, der Blur ist auf null, und Grau kommt aus derselben dreistufigen Skala wie überall sonst.
- * Wenn der Einstieg umzieht, fällt dieser Block ersatzlos weg.
+ * Er war der letzte Halter des alten Systems, und man sah es: acht `backdrop-filter: blur(42px)`
+ * über einer laufenden WebGPU-Canvas — genau das Milchglas, das dieses Blatt an seiner ersten Zeile
+ * abgeschafft hat —, und Flächen, die aus einem Rahmen bestanden statt aus einem Körper. Ein
+ * Bildschirm mit flachen Umrissen und einer mit beleuchteten Körpern sind zwei Programme, und der
+ * Spieler sieht beide innerhalb von zehn Sekunden.
+ *
+ * Die Blurs sind weg, und die Flächen tragen dieselbe Lichtkante und denselben Schatten wie `.pod`.
+ * Ausgelagert als zwei Token, weil sie an sieben Stellen im Einstieg gebraucht werden und ein
+ * kopierter Schattenwert an sieben Stellen sieben Gelegenheiten ist, ihn zu verlieren.
  */
 :root {
   --dim: var(--ink-2);
   --faint: var(--ink-3);
   --hairline: rgba(255, 255, 255, 0.14);
   --rule: rgba(255, 255, 255, 0.08);
-  --panel: rgba(16, 21, 25, 0.93);
-  --panel-strong: rgba(10, 14, 18, 0.96);
-  --shadow: 0 22px 48px -16px rgba(0, 0, 0, 0.82);
-  --blur: 0px;
+  /* Dieselben Werte wie der Körper von `.pod` — siehe dort, warum sie fast undurchsichtig sind. */
+  --panel: rgba(16, 21, 25, 0.99);
+  --panel-strong: rgba(10, 14, 18, 0.99);
+  /** Licht auf der Oberkante und ein Haarstrich rundum. Das, was aus einer Fläche einen Körper macht. */
+  --body-edge: inset 0 1px 0 rgba(255, 255, 255, 0.11), inset 0 0 0 1px rgba(255, 255, 255, 0.045);
+  /** Und der Schatten mit Versatz, der ihn über den Grund hebt. */
+  --body-drop: 0 22px 48px -16px rgba(0, 0, 0, 0.82), 0 4px 12px -4px rgba(0, 0, 0, 0.5);
+  --shadow: var(--body-drop);
   --r-panel: var(--r-pod);
   --r-pill: 999px;
 }

@@ -499,9 +499,21 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 }
 .entry-back:hover { border-color: var(--hairline); color: var(--ink); }
 
-/* The one filled action per screen. */
+/*
+ * The one filled action per screen.
+ *
+ * Der Abstand nach oben steht hier und nicht am Elternteil, weil der Knopf auf drei von vier
+ * Bildschirmen das **letzte Element** ist und dort direkt auf einem Raster von Karten aufsetzt. Ohne
+ * ihn klebte „Namen eintragen" an der Kachelreihe darüber, als gehöre er zur letzten Karte — und
+ * genau das ist er nicht: er schließt den Schritt ab. Achtundzwanzig Pixel sind mehr als die
+ * Innenabstände der Fläche (18) und damit als Schnitt lesbar.
+ *
+ * `:first-child` nimmt ihn zurück, wo der Knopf allein in seiner Zeile steht — auf dem Titelbild
+ * sitzt er in einer eigenen Gruppe, die ihren Abstand schon hat.
+ */
 .entry-primary {
   display: inline-flex;
+  margin-top: 28px;
   align-items: center;
   gap: 9px;
   min-height: 46px;
@@ -518,6 +530,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   cursor: pointer;
   transition: opacity 160ms ease, transform 160ms ease;
 }
+.entry-primary:first-child { margin-top: 0; }
 .entry-primary:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
 .entry-primary:disabled { opacity: 0.3; cursor: not-allowed; }
 .entry-primary :deep(svg) { width: 15px; height: 15px; }
@@ -660,11 +673,10 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   grid-template-rows: auto auto 1fr auto auto;
   gap: 12px;
   padding: 22px 18px 18px;
-  border: 1px solid var(--rule);
+  border: 0;
   border-radius: var(--r-inner);
   background: var(--panel);
-  -webkit-backdrop-filter: blur(42px) saturate(1.2);
-  backdrop-filter: blur(42px) saturate(1.2);
+  box-shadow: var(--body-edge), var(--body-drop);
   text-align: left;
   cursor: pointer;
   transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
@@ -753,10 +765,10 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   align-content: start;
   gap: 14px;
   padding: 30px 24px;
-  border: 1px solid var(--rule);
+  border: 0;
   border-radius: var(--r-panel);
   background: var(--panel);
-  -webkit-backdrop-filter: blur(42px); backdrop-filter: blur(42px);
+  box-shadow: var(--body-edge), var(--body-drop);
 }
 .profile-banner::before {
   content: '';
@@ -792,8 +804,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   padding: 28px 30px 24px;
   border-radius: var(--r-panel);
   background: var(--panel);
-  -webkit-backdrop-filter: blur(42px); backdrop-filter: blur(42px);
-  box-shadow: var(--shadow);
+  box-shadow: var(--body-edge), var(--body-drop);
 }
 .profile-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: end; }
 .profile-intro small {
@@ -891,10 +902,10 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   align-content: start;
   gap: 12px;
   padding: 26px 24px;
-  border: 1px solid var(--rule);
+  border: 0;
   border-radius: var(--r-panel);
   background: var(--panel);
-  -webkit-backdrop-filter: blur(42px); backdrop-filter: blur(42px);
+  box-shadow: var(--body-edge), var(--body-drop);
 }
 .manifesto-party::before {
   content: '';
@@ -932,10 +943,10 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   display: grid;
   gap: 8px;
   padding: 20px 96px 20px 20px;
-  border: 1px solid var(--rule);
+  border: 0;
   border-radius: var(--r-inner);
   background: var(--panel);
-  -webkit-backdrop-filter: blur(42px); backdrop-filter: blur(42px);
+  box-shadow: var(--body-edge), var(--body-drop);
 }
 
 .leader-name > span {
@@ -983,10 +994,10 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   display: grid;
   gap: 8px;
   padding: 20px;
-  border: 1px solid var(--rule);
+  border: 0;
   border-radius: var(--r-inner);
   background: var(--panel);
-  -webkit-backdrop-filter: blur(42px); backdrop-filter: blur(42px);
+  box-shadow: var(--body-edge), var(--body-drop);
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -1031,8 +1042,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   padding: 44px 46px 40px;
   border-radius: var(--r-panel);
   background: var(--panel-strong);
-  -webkit-backdrop-filter: blur(42px); backdrop-filter: blur(42px);
-  box-shadow: var(--shadow);
+  box-shadow: var(--body-edge), var(--body-drop);
 }
 .intro-card::before {
   content: '';

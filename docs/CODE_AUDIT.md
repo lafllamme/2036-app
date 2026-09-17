@@ -316,7 +316,7 @@ Belege sichtbar machen, und einmal wirklich profilen.
 
 ---
 
-# Dritter Durchgang — nach dem Weltumbau, 17. September 2026
+## Dritter Durchgang — nach dem Weltumbau, 17. September 2026
 
 Anlass: an einem Tag sind vier Ebenen dazugekommen, von denen zwei die halbe Codebasis anfassen —
 das `wear`-Attribut je Gebäude, zwanzig echte Viertel statt acht Rechtecke, die Blocksanierung, die

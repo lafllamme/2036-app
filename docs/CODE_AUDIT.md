@@ -313,3 +313,81 @@ eher ein gutes Zeichen als ein schlechtes.
 
 Die drei Dinge, die noch etwas wert sind, sind **keine Aufräumarbeiten**: das Feuer anschließen, die
 Belege sichtbar machen, und einmal wirklich profilen.
+
+---
+
+# Dritter Durchgang — nach dem Weltumbau, 17. September 2026
+
+Anlass: an einem Tag sind vier Ebenen dazugekommen, von denen zwei die halbe Codebasis anfassen —
+das `wear`-Attribut je Gebäude, zwanzig echte Viertel statt acht Rechtecke, die Blocksanierung, die
+Termine und der Wahlkampf. Ein Umbau dieser Größe hinterlässt immer dieselben drei Sorten Schaden:
+tote Oberfläche, Dokumente, die von einer Stadt erzählen, die es nicht mehr gibt, und eine Balance,
+die unbemerkt kippt.
+
+**Umfang:** 41.665 Zeilen unter `app/`, 522 Tests in 64 Dateien, Lint, Typecheck und Build grün,
+**null offene Marker** (kein TODO, FIXME, HACK oder XXX im ganzen Baum).
+
+## Die Balance hat den Umbau überlebt
+
+Die wichtigste Frage zuerst, weil sie die einzige ist, die sich nicht von selbst meldet:
+`goals.test.ts` spielt 48 Jahrzehnte durch — sechs Parteien mal acht Ressortzuschnitte — und prüft,
+dass jedes der zwölf Kampagnenziele **erreichbar** und keins **geschenkt** ist. Gemessen nach dem
+Umbau:
+
+| Ziel | beste Durchspielung | Abstand zur Schwelle | erreicht von |
+| --- | --- | --- | --- |
+| `affordable-rent` < 12,8 | **12,64** | **0,16** | **1 / 48** |
+| `green-city` > 24 | 26,97 | 2,97 | 1 / 48 |
+| `firms` > 6.800 | 7.140 | 340 | 2 / 48 |
+| `bound-stock` > 7.200 | 7.946 | 746 | 3 / 48 |
+| `nobody-outside` < 1.450 | 1.394 | 56 | 3 / 48 |
+| `balanced-books` > 0 | 3,02 | 3,02 | 3 / 48 |
+| `safe-streets` < 42 | 35,69 | 6,31 | 5 / 48 |
+| `childcare` > 100 | 101,44 | 1,44 | 4 / 48 |
+| `work` > 74 | 75,69 | 1,69 | 9 / 48 |
+| `lower-emissions` < 44,5 | 40,74 | 3,76 | 20 / 48 |
+| `reliable-transit` > 90 | 91,28 | 1,28 | 24 / 48 |
+| `no-backlog` < 45 | 0,00 | 45,00 | 27 / 48 |
+
+Alle zwölf erreichbar, keins geschenkt. Die Schneide ist unverändert `affordable-rent`: **0,16 unter
+der Schwelle, und nur eine von 48 Durchspielungen schafft es.** Wer an der Mietdynamik etwas ändert,
+misst diese Zeile nach, bevor er committet.
+
+## Was der Durchgang gefunden hat
+
+**Ereignistexte nannten Viertel, die es nicht mehr gibt.** Fünfzehn Stellen in `content/events.ts` —
+„Einbruchserie im Wohnring Süd", „14 Hektar in Gewerbe Ost", „Keller in Hafen & Industrie". Das ist
+kein Kosmetikfehler: der Spieler liest diese Sätze im Stadtfunk und sucht den Ort auf einer Karte,
+auf der es ihn nicht gibt. Zugeordnet wurde nach **Charakter** und nicht nach Himmelsrichtung — der
+Wohnring war Zeilenbau, also ist er Kleinfeld; Gewerbe Ost war Neubau auf Gewerbefläche, also ist er
+die Speicherstadt.
+
+**Und ein echter Fluss.** „Ein Orkantief hat die **Weser** aufgestaut" stand im Sturmflut-Ereignis.
+Die Geografie ist echt, die Stadt ist es nicht — der Fluss heißt jetzt keiner. Die Erwähnungen von
+Bremen und der Weser in **Kommentaren** bleiben, denn dort erklären sie die Quelle und sind wahr.
+
+**Drei tote Exporte.** `SiteOffer` in `siting.ts` wurde deklariert und **nirgends** verwendet, auch
+nicht in seiner eigenen Datei. `SPREAD_METRICS` existierte nur, um einen Typ daraus abzuleiten —
+jetzt ist es der Typ selbst. `CHARACTER` in `districtCharacter.ts` war exportiert und wird nur
+nebenan gelesen. Exportierte Oberfläche, die niemand anfasst, ist keine API, sondern eine Behauptung.
+
+**Sieben Dokumentstellen erzählten von der alten Stadt.** Die Lizenzangabe in `ASSET_SOURCES.md` nannte
+noch den 3-km-Ausschnitt — das ist die Stelle, an der es wirklich zählt, weil ODbL Namensnennung
+verlangt und die Angabe stimmen muss. Dazu die Archetypentabelle in `VISIBLE_CITY.md`, die
+Grundrisszeile in `ROADMAP.md`, „die Stadt hat acht Bezirke" in `CITY_LIFE.md` und zwei Zeilen in
+`FEATURE_MATRIX.md`.
+
+**Was bewusst stehen bleibt:** Kommentare, die von der alten Stadt im Präteritum erzählen — „Bis
+hierher hob eine Einbruchserie in der Gründerzeit Nord die Rate der ganzen Stadt". Die sind wahr
+über die Vergangenheit, und sie umzuschreiben hieße, die Begründung zu fälschen, aus der die heutige
+Lösung entstanden ist.
+
+## Was offen bleibt
+
+- **Die Einarbeitung kennt die Hälfte des Spiels nicht.** `FIRST_STEPS` führt durch Lagebild,
+  Vorlagen und Abstimmung — Termine, Blocksanierung und Wahlkampf gibt es darin nicht.
+- **Wahlversprechen.** Der Wahlkampf kann Auftritte, aber nichts, was man nach der Wahl halten muss.
+- **`vacantUnits` ist als Bilanz zweideutig.** Wohnungsbau hebt den Leerstand im Viertel (mehr
+  Wohnungen, mehr leere), Brände auch (ausgebrannt) — das eine ist eine Leistung, das andere ein
+  Schaden. Deshalb zählt die Wahlbilanz nur Miete und Einbrüche. Sauber wäre, die beiden Ursachen zu
+  trennen.

@@ -122,7 +122,7 @@ gleich aus. Nachgemessen, bevor irgendetwas geändert wurde:
 | --- | --- | --- |
 | Wandtöne je Typ | fünf Namen für **eine** Farbe — `residential` 3° Farbton, `civic` 0°, Gewerbe 2–8 % Sättigung | 8–12 Töne, 30–56 Punkte Helligkeitsspanne |
 | Viertel | **acht Rechtecke** in einem 3 × 3-Raster über einem echten Grundriss | zwanzig echte Ortsteilgrenzen, unregelmäßig, am Fluss und an der Bahn entlang ([`CITY_DATA.md`](CITY_DATA.md)) |
-| Bauzustand | **ein** Strom für die ganze Stadt: 0,62–0,98, im Villenviertel wie im Wohnring | je Viertel eine eigene Spanne |
+| Bauzustand | **ein** Strom für die ganze Stadt: 0,62–0,98, im Villenviertel wie in der Zeile | je Viertel eine eigene Spanne |
 | Verwitterung | 16 % Helligkeit, sonst nichts | eigenes `wear`-Attribut je Gebäude: Schmutz von unten, Sättigung raus, Dach vermoost, Oberfläche matt — und **rücknehmbar**, weil nichts davon in die Farbe eingebacken ist ([`RENDERING_ARCHITECTURE.md`](RENDERING_ARCHITECTURE.md)) |
 | Fensterrhythmus | für jedes Haus in der Stadt identisch | Körnung und Geschosshöhe je Viertel |
 
@@ -139,18 +139,25 @@ Drei Zahlen, alle drei Bauwirklichkeit und keine Wertung:
 | **`grain`** | die Parzellenkörnung. Gründerzeit steht schmal, die Nachkriegszeile breit |
 | **`storeyRise`** | die Raumhöhe. Ein Altbau hat vier Meter, ein Siebziger-Riegel zweisechzig — bei gleicher Gebäudehöhe drei Fensterreihen gegen fünf |
 
-Daraus fällt der Charakter von selbst:
+Daraus fällt der Charakter von selbst. Zwölf Archetypen tragen Palette, Körnung und Geschosshöhe;
+der Pflegezustand steht am Viertel, weil zwei Gründerzeitviertel gleich gebaut und völlig verschieden
+gehalten sind:
 
-| Viertel | `upkeep` | Körnung | Was man sieht |
+| Archetyp | Körnung | Was man sieht | Viertel |
 | --- | --- | --- | --- |
-| Innenstadt | 0,90 | fein | dicht, warm, instand, hohe Räume |
-| Gründerzeit Nord | 0,82 | **sehr fein** | schmale Parzellen, hohe Fenster, gepflegt |
-| Vorstadt West | 0,88 | mittel | Einfamilienhäuser, niedrige Geschosse |
-| Gewerbe Ost | 0,86 | grob | Neubau, alles unter zwanzig Jahre |
-| Universität | 0,76 | grob | Nachkriegsbeton, öffentlich unterhalten |
-| Bahnhof | 0,52 | fein | durchmischt, wenig Eigentümerstolz |
-| Hafen & Industrie | 0,48 | **sehr grob** | Hallen und Silos; gepflegt wird, was produziert |
-| **Wohnring Süd** | **0,44** | grob | Zeilenbau, breit, flach, in die Jahre gekommen |
+| `historic-core` | fein | dicht, warm, das bunteste Viertel | Altstadt (0,88) |
+| `dense-residential` | **sehr fein** | schmale Parzellen, hohe Fenster, Stuck | Lindentor (0,84) · Fesenau (0,80) · Neustadt (0,72) · Westerfeld (0,58) |
+| `mixed-quarter` | mittel | drei Baualter nebeneinander, keines hat gewonnen | Steinviertel (0,66) · Hafentor (0,56) |
+| `mixed-transit` | fein | durchmischt, wenig Eigentümerstolz | Bahnhofsviertel (0,52) |
+| `mixed-fair` | grob | Hallen neben Wohnzeilen, dazwischen Parkplatz | Messeviertel (0,70) |
+| `residential` | mittel | Vorkriegsblöcke mit Vorgarten, ruhig | Buntenhorst (0,74) · Südring (0,68) · Hohenfeld (0,62) |
+| `civic-green` | fein | Villen am Parkrand, hohe Räume, Schiefer | Stadtgarten (0,90) |
+| `garden-suburb` | mittel | Einfamilienhäuser, die größte Streuung der Stadt | Gartenstadt (0,90) |
+| `civic-campus` | grob | Nachkriegsbeton, öffentlich unterhalten | Universitätsviertel (0,78) |
+| `regenerated-docks` | grob | Neubau auf Speicherfundamenten, helles Blech | Speicherstadt (0,86) |
+| `industrial` | **sehr grob** | Hallen und Silos; gepflegt wird, was produziert | Wolterdeich (0,50) · Werfthafen (0,46) |
+| `fringe` | **sehr grob** | Marsch, Deich, ein Hof alle vierhundert Meter | Marschland (0,60) |
+| `post-war-estate` | grob | Zeilenbau, breit, flach, in die Jahre gekommen | **Kleinfeld (0,42)** |
 
 **Nichts davon liest die Simulation.** Die Politik entscheidet, was gebaut wird — nicht, wie ein
 Viertel gewachsen ist. Und nichts davon kostet einen Draw: die Wandfarbe ist eine Vertex-Farbe auf
@@ -175,7 +182,7 @@ Neutralen sind vier davon:
 | **Neutrale Minderheit** | `creme` · `weissputz` · `hellgrau` · `anthrazit` · `beton` | gehören dazu, aber als *ein* Ton unter vielen |
 
 Weil die Grundlisten jetzt selbst bunt sind, sank `accentShare` überall (Innenstadt 0,12, Vorstadt
-0,14, Wohnring 0,09): ein Akzent ist wieder ein Ausreißer und nicht die einzige Quelle von Farbe.
+0,14, Zeilenbau 0,09): ein Akzent ist wieder ein Ausreißer und nicht die einzige Quelle von Farbe.
 
 An 126 673 abgetasteten Wand- und Dachecken der gebauten Stadt gemessen:
 
@@ -341,13 +348,13 @@ nicht.
 `WALL` ist jetzt aus echten NCS-Codes gebaut, jede Gruppe trägt sie als Kommentar. Median über alle
 Töne: **16 %.** Je Viertel:
 
-| Viertel | Töne | Median |
+| Archetyp | Töne | Median |
 | --- | --- | --- |
-| Innenstadt · Gründerzeit Nord | 38 · 37 | 23 % |
-| Vorstadt West | 46 | 19 % |
-| Bahnhof · Gewerbe Ost | 35 · 14 | 14 % |
-| Wohnring Süd · Universität | 31 · 29 | 12 % |
-| Hafen & Industrie | 11 | 10 % |
+| `historic-core` · `dense-residential` | 38 · 37 | 23 % |
+| `garden-suburb` | 46 | 19 % |
+| `mixed-transit` · `regenerated-docks` | 35 · 14 | 14 % |
+| `post-war-estate` · `civic-campus` | 31 · 29 | 12 % |
+| `industrial` | 11 | 10 % |
 
 Die eine Ausnahme ist `klinker`: gebrannter Ton ist keine Kalkfarbe und darf satter sein. Er ist der
 einzige Ton der Stadt über 40 % Sättigung, und das ist richtig so.

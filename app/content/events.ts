@@ -35,9 +35,9 @@ export const EVENTS: EventDefinition[] = [
     id: 'saf-burglary-series',
     kind: 'decision',
     category: 'safety',
-    title: 'Einbruchserie im Wohnring Süd',
+    title: 'Einbruchserie in Kleinfeld',
     briefing:
-      'Seit zwei Monaten häufen sich Wohnungseinbrüche im Wohnring Süd. Die Polizei ist Landessache, die Stadt kann über Ordnungsdienst, Beleuchtung und Prävention entscheiden.',
+      'Seit zwei Monaten häufen sich Wohnungseinbrüche in Kleinfeld. Die Polizei ist Landessache, die Stadt kann über Ordnungsdienst, Beleuchtung und Prävention entscheiden.',
     urgency: 'important',
     trigger: { earliestMonth: 4, latestMonth: 120, conditions: [{ metric: 'burglaryRate', operator: '>', value: 3.0, sustainedMonths: 2 }], baseWeight: 10, cooldownMonths: 18, oncePerCampaign: false },
     immediateEffects: [],
@@ -133,7 +133,7 @@ export const EVENTS: EventDefinition[] = [
     category: 'housing',
     title: 'Investor kauft 400 Wohnungen',
     briefing:
-      'Ein überregionaler Bestandshalter übernimmt 412 Wohnungen in Gründerzeit-Nord. Die Stadt hat ein Vorkaufsrecht, aber nur acht Wochen Zeit.',
+      'Ein überregionaler Bestandshalter übernimmt 412 Wohnungen in der Neustadt. Die Stadt hat ein Vorkaufsrecht, aber nur acht Wochen Zeit.',
     urgency: 'breaking',
     trigger: { earliestMonth: 6, latestMonth: 96, conditions: [{ metric: 'vacantUnits', operator: '<', value: 3_000 }], baseWeight: 12, cooldownMonths: 40, oncePerCampaign: true, minCoalitionSeats: 28 },
     immediateEffects: [],
@@ -332,7 +332,7 @@ export const EVENTS: EventDefinition[] = [
     category: 'mobility',
     title: 'Hafenbrücke gesperrt',
     briefing:
-      'Die Prüfstatik stuft die Hafenbrücke herab. Die Sperrung trennt Gewerbe Ost vom Hafen und trifft den Wirtschaftsverkehr sofort.',
+      'Die Prüfstatik stuft die Hafenbrücke herab. Die Sperrung trennt die Speicherstadt vom Hafen und trifft den Wirtschaftsverkehr sofort.',
     urgency: 'breaking',
     trigger: { earliestMonth: 18, latestMonth: 126, conditions: [{ metric: 'investmentBacklog', operator: '>', value: 140 }], baseWeight: 30, cooldownMonths: 60, oncePerCampaign: true },
     immediateEffects: [effect({ target: 'businessSites', mode: 'level', expected: -180, delayMonths: 0, rampMonths: 2, confidence: 'high' })],
@@ -387,7 +387,7 @@ export const EVENTS: EventDefinition[] = [
     category: 'mobility',
     title: 'Radachse gegen Parkplätze',
     briefing:
-      'Die geplante Radachse durch die Innenstadt kostet 310 Stellplätze. Einzelhandel und Verkehrswende-Initiative stehen sich gegenüber.',
+      'Die geplante Radachse durch die Altstadt kostet 310 Stellplätze. Einzelhandel und Verkehrswende-Initiative stehen sich gegenüber.',
     urgency: 'normal',
     trigger: { earliestMonth: 12, latestMonth: 120, conditions: [{ metric: 'transitCoverage', operator: '>', value: 60 }], baseWeight: 6, cooldownMonths: 34, oncePerCampaign: true, minCoalitionSeats: 26 },
     immediateEffects: [],
@@ -535,7 +535,7 @@ export const EVENTS: EventDefinition[] = [
     category: 'economy',
     title: 'Rechenzentrum will sich ansiedeln',
     briefing:
-      'Ein Betreiber sucht 14 Hektar in Gewerbe Ost. Gewerbesteuer und wenige Arbeitsplätze stehen gegen Stromverbrauch, Flächenfraß und Abwärme.',
+      'Ein Betreiber sucht 14 Hektar in der Speicherstadt. Gewerbesteuer und wenige Arbeitsplätze stehen gegen Stromverbrauch, Flächenfraß und Abwärme.',
     urgency: 'normal',
     // The other half of the fork with the green offensive: the same site cannot be both.
     trigger: { earliestMonth: 24, latestMonth: 96, conditions: [], baseWeight: 5, cooldownMonths: 60, oncePerCampaign: true, minCoalitionSeats: 18, blockedByChoiceIds: ['env-green-offensive:env-green-program'] },
@@ -904,7 +904,7 @@ export const EVENTS: EventDefinition[] = [
     category: 'environment',
     title: 'Sturmflut überspült die Hafenkante',
     briefing:
-      'Ein Orkantief hat die Weser aufgestaut. Die Kaimauer der Alten Hafenkante ist an drei Stellen überspült, Keller in Hafen & Industrie stehen unter Wasser. Der Sanierungsstau an den Hochwasserschutzanlagen ist seit Jahren aktenkundig.',
+      'Ein Orkantief hat den Fluss aufgestaut. Die Kaimauer der Alten Hafenkante ist an drei Stellen überspült, Keller im Werfthafen stehen unter Wasser. Der Sanierungsstau an den Hochwasserschutzanlagen ist seit Jahren aktenkundig.',
     urgency: 'breaking',
     /*
      * Winter, and only a city that let its own defences rot. The Weser floods every year; what
@@ -1142,7 +1142,7 @@ export const EVENTS: EventDefinition[] = [
     category: 'environment',
     title: 'Hitzewelle fordert Tote',
     briefing:
-      'Neun Tage über 35 Grad. Das Gesundheitsamt meldet eine Übersterblichkeit von einhundertzwanzig Menschen, überwiegend über achtzig und überwiegend in den unbegrünten Blöcken im Wohnring. Die Stadt hat keinen Hitzeaktionsplan.',
+      'Neun Tage über 35 Grad. Das Gesundheitsamt meldet eine Übersterblichkeit von einhundertzwanzig Menschen, überwiegend über achtzig und überwiegend in den unbegrünten Blöcken von Kleinfeld. Die Stadt hat keinen Hitzeaktionsplan.',
     urgency: 'breaking',
     /*
      * Only a city that spent its green space, and only in summer. This is the sharpest consequence
@@ -1170,7 +1170,7 @@ export const EVENTS: EventDefinition[] = [
     options: [
       {
         id: 'env-heat-trees',
-        label: 'Straßenbäume und Entsiegelung im Wohnring',
+        label: 'Straßenbäume und Entsiegelung in Kleinfeld',
         rationale: 'Zweitausend Bäume und dreißig Hektar entsiegelt, dort wo die Toten waren.',
         oneOffCost: 22,
         monthlyCost: 0.4,
@@ -1420,7 +1420,7 @@ export const EVENTS: EventDefinition[] = [
     category: 'mobility',
     title: 'Nachtbusnetz für die Außenbezirke',
     briefing:
-      'Nach 22 Uhr ist der Wohnring nicht mehr erreichbar. Die Verkehrsbetriebe schlagen vier Nachtlinien im Stundentakt vor, Freitag und Samstag im Halbstundentakt.',
+      'Nach 22 Uhr ist Kleinfeld nicht mehr erreichbar. Die Verkehrsbetriebe schlagen vier Nachtlinien im Stundentakt vor, Freitag und Samstag im Halbstundentakt.',
     urgency: 'normal',
     trigger: { earliestMonth: 10, latestMonth: 128, conditions: [{ metric: 'transitCoverage', operator: '<', value: 74 }], baseWeight: 7, cooldownMonths: 36, oncePerCampaign: false },
     immediateEffects: [],
@@ -1477,7 +1477,7 @@ export const EVENTS: EventDefinition[] = [
     category: 'mobility',
     title: 'Straßenbahn: Machbarkeit prüfen',
     briefing:
-      'Eine Trasse vom Hafen zum Wohnring wäre der größte Verkehrseingriff seit vierzig Jahren. Bevor irgendjemand darüber abstimmen kann, braucht es eine Untersuchung — und die kostet, bevor sie irgendetwas bringt.',
+      'Eine Trasse vom Hafen nach Kleinfeld wäre der größte Verkehrseingriff seit vierzig Jahren. Bevor irgendjemand darüber abstimmen kann, braucht es eine Untersuchung — und die kostet, bevor sie irgendetwas bringt.',
     urgency: 'normal',
     trigger: { earliestMonth: 24, latestMonth: 108, conditions: [{ metric: 'transitCoverage', operator: '<', value: 72 }], baseWeight: 5, cooldownMonths: 54, oncePerCampaign: false },
     immediateEffects: [],
@@ -1643,7 +1643,7 @@ export const EVENTS: EventDefinition[] = [
     category: 'social',
     title: 'Die Grundschulen platzen',
     briefing:
-      'Im Wohnring fehlen acht Klassenräume zum kommenden Schuljahr. Container stehen in acht Wochen, ein Anbau in drei Jahren — und die Container bleiben erfahrungsgemäß beides.',
+      'In Kleinfeld fehlen acht Klassenräume zum kommenden Schuljahr. Container stehen in acht Wochen, ein Anbau in drei Jahren — und die Container bleiben erfahrungsgemäß beides.',
     urgency: 'important',
     trigger: { earliestMonth: 10, latestMonth: 126, conditions: [{ metric: 'schoolUtilisation', operator: '>', value: 97 }], baseWeight: 9, cooldownMonths: 32, oncePerCampaign: false },
     immediateEffects: [],
@@ -2782,7 +2782,7 @@ export const EVENTS: EventDefinition[] = [
     category: 'mobility',
     title: 'Die Lastwagen des Terminals fahren durchs Wohngebiet',
     briefing:
-      'Das neue Terminal bringt achthundert Lastfahrten am Tag, und die Zufahrt führt durch den Wohnring Süd. Eine Umgehung wäre zu bauen, eine Nachtfahrsperre wäre zu beschließen, und der Hafen droht mit dem Standort.',
+      'Das neue Terminal bringt achthundert Lastfahrten am Tag, und die Zufahrt führt durch Kleinfeld. Eine Umgehung wäre zu bauen, eine Nachtfahrsperre wäre zu beschließen, und der Hafen droht mit dem Standort.',
     urgency: 'important',
     trigger: { earliestMonth: 32, latestMonth: 128, conditions: [], baseWeight: 9, cooldownMonths: 30, oncePerCampaign: false, requiresChoiceIds: ['eco-harbour-expansion:eco-harbour-expand'] },
     immediateEffects: [],
@@ -2791,7 +2791,7 @@ export const EVENTS: EventDefinition[] = [
       {
         id: 'eco-terminal-bypass',
         label: 'Umgehungsstraße bauen',
-        rationale: 'Vier Kilometer neue Trasse. Teuer, endgültig, und der Wohnring bekommt seine Nacht zurück.',
+        rationale: 'Vier Kilometer neue Trasse. Teuer, endgültig, und Kleinfeld bekommt seine Nacht zurück.',
         oneOffCost: 26,
         costMonths: 36, // Bauzeitfinanzierung, danach ist die Straße gebaut
         monthlyCost: 0.3,
@@ -2924,7 +2924,7 @@ export const EVENTS: EventDefinition[] = [
     category: 'safety',
     title: 'Das Nachbarschaftsprogramm will in alle Viertel',
     briefing:
-      'Im Wohnring sind die Einbrüche zurückgegangen, und die Quartiersbüros führen es auf die Nachbarschaftsarbeit zurück. Sechs weitere Viertel fragen an. Die Polizei hält den Zusammenhang für nicht belegt.',
+      'In Kleinfeld sind die Einbrüche zurückgegangen, und die Quartiersbüros führen es auf die Nachbarschaftsarbeit zurück. Sechs weitere Viertel fragen an. Die Polizei hält den Zusammenhang für nicht belegt.',
     urgency: 'normal',
     trigger: { earliestMonth: 26, latestMonth: 126, conditions: [], baseWeight: 8, cooldownMonths: 34, oncePerCampaign: false, requiresChoiceIds: ['saf-burglary-series:saf-burglary-prevention'] },
     immediateEffects: [],
@@ -2943,7 +2943,7 @@ export const EVENTS: EventDefinition[] = [
       },
       {
         id: 'saf-prevention-hold',
-        label: 'Beim Wohnring belassen',
+        label: 'Bei Kleinfeld belassen',
         rationale: 'Ein Modellversuch bleibt ein Modellversuch, bis jemand ihn auswertet.',
         oneOffCost: 0,
         monthlyCost: 0,
@@ -3257,7 +3257,7 @@ export const EVENTS: EventDefinition[] = [
     category: 'mobility',
     title: 'Die Gewerbetreibenden sammeln Unterschriften',
     briefing:
-      'Der Einzelhandel in der Innenstadt führt achtzehn Prozent Umsatzrückgang auf die Parkgebühren zurück. Die Zahlen sind bestritten, die Unterschriften sind es nicht: elftausend.',
+      'Der Einzelhandel in der Altstadt führt achtzehn Prozent Umsatzrückgang auf die Parkgebühren zurück. Die Zahlen sind bestritten, die Unterschriften sind es nicht: elftausend.',
     urgency: 'important',
     trigger: { earliestMonth: 24, latestMonth: 122, conditions: [], baseWeight: 9, cooldownMonths: 32, oncePerCampaign: true, requiresChoiceIds: ['mob-parking-reform:mob-parking-full'] },
     immediateEffects: [],

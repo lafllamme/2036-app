@@ -97,9 +97,14 @@ function gradientOf(reading: 'rent' | 'burglary' | 'vacancy'): DistrictShare {
   ) as DistrictShare
 }
 
-/** Die drei Kennzahlen, die je Bezirk gelten. Mehr wäre ein Umbau und kein Anfang. */
-export const SPREAD_METRICS = ['averageRent', 'burglaryRate', 'vacantUnits'] as const
-export type SpreadMetric = typeof SPREAD_METRICS[number]
+/**
+ * Die drei Kennzahlen, die je Viertel gelten. Mehr wäre ein Umbau und kein Anfang.
+ *
+ * Stand einmal als Feld `SPREAD_METRICS` daneben, aus dem der Typ abgeleitet wurde. Gelesen hat das
+ * Feld nie jemand — nur der Typ wurde gebraucht —, und ein exportiertes Feld, das niemand liest, ist
+ * Oberfläche ohne Inhalt.
+ */
+export type SpreadMetric = 'averageRent' | 'burglaryRate' | 'vacantUnits'
 
 export type Spread = Record<SpreadMetric, DistrictShare>
 

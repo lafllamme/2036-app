@@ -10,7 +10,7 @@ import { LINDENHAFEN } from '../world/model/lindenhafen'
  * ein fehlendes Stockwerk.
  *
  * Eine Lage ist das Stockwerk darunter: **kleiner als ein Ratsbeschluss, schneller, an einem Ort, und
- * mit Mitteln zu beantworten statt mit Mehrheiten.** Eine Einbruchserie in der Gründerzeit Nord
+ * mit Mitteln zu beantworten statt mit Mehrheiten.** Eine Einbruchserie in der Neustadt
  * braucht keine Ratssitzung — sie braucht Streifen, Licht, oder jemanden, der sich um die Jugendlichen
  * kümmert. Erst die vierte Antwort, die Kameras, geht wieder in den Rat. Damit greifen die beiden
  * Ebenen ineinander, statt nebeneinanderher zu laufen.
@@ -28,7 +28,7 @@ import { LINDENHAFEN } from '../world/model/lindenhafen'
  *
  * ## Eine Dopplung, die aufgelöst gehört
  *
- * Es gibt bereits ein **Ratsereignis** namens „Einbruchserie im Wohnring Süd“ — mit der
+ * Es gibt bereits ein **Ratsereignis** namens „Einbruchserie in Kleinfeld“ — mit der
  * Videoüberwachung als Beschlussvorschlag. Beim Durchspielen standen kurz darauf beide nebeneinander,
  * und ein Spieler sähe zweimal dieselbe Sache mit zwei verschiedenen Bedienungen.
  *
@@ -80,7 +80,7 @@ export interface HotspotTemplate {
   /**
    * Die Vorlage, die eine andere Fraktion einbringt, wenn man die Lage aussitzt.
    *
-   * Damit wird aus zwei Strängen eine Kette. „Einbruchserie im Wohnring Süd“ gab es nämlich schon als
+   * Damit wird aus zwei Strängen eine Kette. „Einbruchserie in Kleinfeld“ gab es nämlich schon als
    * Ratsereignis, und beim Durchspielen standen kurz beide nebeneinander — zweimal dieselbe Sache mit
    * zwei verschiedenen Bedienungen. Jetzt kommt der Brennpunkt zuerst und ist die Verwaltungsebene;
    * wer ihn monatelang laufen lässt, bekommt ihn als **Vorlage auf den Tisch**, weil eine andere

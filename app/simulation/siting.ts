@@ -23,11 +23,6 @@ import { createRandomStream } from '../core/rng'
  * weil sie aus der Vorlagenkennung folgt, ist sie wiederholbar und nicht willkürlich.
  */
 
-export interface SiteOffer {
-  /** Von günstig nach teuer, immer drei. */
-  sites: SiteProfile[]
-}
-
 /** Der günstigste, einer dazwischen, der teuerste. Immer drei, immer mit Spanne. */
 export function sitesFor(sourceId: string, seed: number): SiteProfile[] {
   const cheapest = BUILDABLE_BY_COST[0]!

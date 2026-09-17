@@ -31,7 +31,8 @@ entry before merge; assets with unclear licenses are rejected.
 
 | Was | Quelle | Lizenz | Stand |
 | --- | --- | --- | --- |
-| Gebäudegrundrisse, Straßennetz, Gewässer, Flächennutzung | OpenStreetMap, Ausschnitt Bremen 3 × 3 km um 53.0758 N / 8.8072 O | ODbL 1.0 — Namensnennung erforderlich | 2026-09-12 |
+| Ortsteilgrenzen (`boundary=administrative`, `admin_level=11`) | OpenStreetMap, Bremen | ODbL 1.0 — Namensnennung erforderlich | 2026-09-17 |
+| Gebäudegrundrisse, Straßennetz, Gewässer, Flächennutzung | OpenStreetMap, Ausschnitt Bremen 4 × 4 km um 53.0758 N / 8.8072 O | ODbL 1.0 — Namensnennung erforderlich | 2026-09-12 |
 | Gebäudemodelle für Neubau, Bäume | Kenney City Kit (Suburban / Commercial), kenney.nl | CC0 1.0 — gemeinfrei | 2026-09-12 |
 
 Die Namensnennung für OpenStreetMap steht auf dem Titelbildschirm. Der Ausschnitt wird mit der

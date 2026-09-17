@@ -156,7 +156,7 @@ const WALL = {
  * steht auf 0,84, Westerfeld auf 0,58 —, und genau das ist der Unterschied, den man seit dem
  * `wear`-Attribut auf der Karte sieht. Er steht deshalb am Viertel in `lindenhafen.ts`.
  */
-export const CHARACTER: Record<DistrictType, Omit<DistrictCharacter, 'upkeep'>> = {
+const CHARACTER: Record<DistrictType, Omit<DistrictCharacter, 'upkeep'>> = {
   /**
    * Die gute Stube: Kontorhäuser, Geschäftslagen — und **das bunteste Viertel**. Eine Altstadt ist
    * über Jahrhunderte Haus für Haus gestrichen worden, jedes von einem anderen Eigentümer, und genau

@@ -56,11 +56,11 @@ export function chanceOf(template: HotspotTemplate, metrics: CityMetrics): numbe
 }
 
 /**
- * Was diesen Monat aufmacht — höchstens einer, und nie zweimal derselbe Bezirk.
+ * Was diesen Monat aufmacht — höchstens einer, und nie zweimal dasselbe Viertel.
  *
  * Höchstens einer, weil zwei gleichzeitige Brennpunkte in einem Monat, in dem ohnehin ein Ereignis
- * gezogen wird, aus dem Stockwerk darunter ein Gedränge machen. Und nie derselbe Bezirk, weil zwei
- * Einbruchserien in der Gründerzeit Nord dieselbe Serie sind.
+ * gezogen wird, aus dem Stockwerk darunter ein Gedränge machen. Und nie dasselbe Viertel, weil zwei
+ * Einbruchserien in der Neustadt dieselbe Serie sind.
  */
 export function openHotspot(
   open: Hotspot[],

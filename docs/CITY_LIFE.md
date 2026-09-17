@@ -163,7 +163,7 @@ Aus den letzten Sitzungen gelernt und deshalb vorher festgelegt:
 ## Der Bezirk als Wahlkreis
 
 Das Obige macht die Stadt lebendig. Damit sie auch *politisch* etwas bedeutet, fehlt ein Schritt, und
-es ist derselbe an drei Stellen: **die Kennzahlen sind stadtweit, die Stadt aber hat acht Bezirke.**
+es ist derselbe an drei Stellen: **die Kennzahlen sind stadtweit, die Stadt aber hat zwanzig Viertel.**
 
 `DistrictDefinition` hat Grenzen und Einwohnerzahl, jedes Gebäude kennt seinen Bezirk, und
 [`FEATURE_MATRIX.md`](FEATURE_MATRIX.md) nennt „district-level breakdown" schon als nächsten Schritt
@@ -176,7 +176,7 @@ gestiegenen Mieten, volle Haltestellen dort, wo die Linie gebaut wurde, Containe
 Fenster, wo die Instandhaltung gekürzt wurde. Jede Maßnahme hat Gewinner und Verlierer, und heute
 sind beide eine Zahl.
 
-**2 — Ereignisse bekommen eine Adresse.** Ein Einbruch im Wohnring-Süd ist etwas anderes als einer in
+**2 — Ereignisse bekommen eine Adresse.** Ein Einbruch in Kleinfeld ist etwas anderes als einer in
 der Innenstadt — für die Anwohner, für die Presse und für die Fraktion, die dort ihre Stimmen holt.
 Die Ereignisform aus diesem Dokument hat den Ort ohnehin schon; er muss nur einem Bezirk zugeordnet
 und in den Stadtfunk geschrieben werden.

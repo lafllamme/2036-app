@@ -885,7 +885,7 @@ Eine Kachel ist ein Mesh, ein Mesh ist ein Draw-Call, und ein Draw-Call hat **ei
 was ein einzelnes Haus von seinem Nachbarn unterscheiden soll, muss deshalb im Vertexpuffer stehen —
 das galt für die Wandfarbe und gilt jetzt auch für den Bauzustand.
 
-`condition` steht seit dem ersten Tag an jedem der 16.782 Gebäude. Zu sehen war sie auch, aber
+`condition` steht seit dem ersten Tag an jedem Gebäude der Stadt. Zu sehen war sie auch, aber
 **eingebacken**: `weathered()` hat Sättigung und Helligkeit der Wandfarbe beim Aufbau
 heruntergerechnet, der Höhenverlauf am Fuß hing ebenfalls daran. Eine Zahl, die einmal in eine Farbe
 eingeht, ist danach nicht mehr herauszuholen — und genau daran scheitert alles, was den Zustand
@@ -943,8 +943,8 @@ Monat. Siehe `simulation/renewal.ts` und `GAME_FLOW.md`.
 `blight` aus der Simulation schreibt seit demselben Schritt in dieses Attribut statt in die Farbe.
 Getroffen wird dabei nicht mehr die erste beliebige Reihe der Häuserliste, sondern der Teil des
 Bestands, der ohnehin am schlechtesten dasteht — die Kachel hält ihre Gebäude einmal nach Bauzustand
-sortiert vor. Damit sammelt sich Verfall dort, wo die Stadt ihn ohnehin hat (Hafen, Gewerbe Ost),
-statt gleichmäßig über acht Viertel gesprenkelt zu sein, und die Farbe gehört wieder allein dem
+sortiert vor. Damit sammelt sich Verfall dort, wo die Stadt ihn ohnehin hat (Werfthafen, Kleinfeld),
+statt gleichmäßig über zwanzig Viertel gesprenkelt zu sein, und die Farbe gehört wieder allein dem
 Material und dem Mauszeiger.
 
 

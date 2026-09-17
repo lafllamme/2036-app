@@ -22,7 +22,7 @@ Entscheidung dort eine Messung war und die Prioritäten sich daraus ergeben.
 
 | | |
 | --- | --- |
-| **Grundriss** | OpenStreetMap, 3 × 3 km Bremen, 17 598 Gebäude. Blockumrisse verworfen, Tunnel verworfen, Stummel verworfen. |
+| **Grundriss** | OpenStreetMap, 4 × 4 km Bremen, 26 238 Gebäude, dazu die echten Ortsteilgrenzen als zwanzig Viertel. Blockumrisse verworfen, Tunnel verworfen, Stummel verworfen. |
 | **Boden** | Eine einzige Fläche. `Relief` **ist** die Fläche, `ground.ts` lädt sie hoch — kein Gebäude steht tiefer als 40 cm im Boden, kein Belag höher. |
 | **Gebäude** | Extrudierte Grundrisse, Fassadentextur nach Geschoss und Fensterachse, Giebeldächer auf Rechtecken, Sockel an jedem Haus. |
 | **Straßen** | Fahrbahn, Mittellinie, Radfahrstreifen, Kreuzungsflächen. |

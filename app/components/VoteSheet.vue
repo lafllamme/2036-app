@@ -115,6 +115,18 @@ function risks(option: EventOption, optionId: string): string[] {
 const negotiable = computed(() => PARTIES.filter(party => party.id !== game.selectedPartyId))
 
 /**
+ * Was eine Verhandlung mit dieser Fraktion kostet — je Fraktion verschieden.
+ *
+ * Über der Reihe stand „Verhandeln · 12 Kapital je Fraktion", und das ist seit dem Verhältnis falsch:
+ * wer gerade Front gegen einen gemacht hat, ist teurer als jemand, den man schon zweimal für sich
+ * gewonnen hat. Die Zahl steht deshalb **am Knopf** und nicht in der Überschrift, denn sie ist die
+ * Auskunft, nach der man die Reihenfolge wählt.
+ */
+function costOf(partyId: PartyId): number {
+  return snapshot.value?.negotiationCosts[partyId] ?? 12
+}
+
+/**
  * A standing motion is a single option carrying the motion's own name and summary. Repeating both
  * inside the option card is pure noise, so the card drops its header in that case.
  */
@@ -220,10 +232,16 @@ function startNegotiation(partyId: PartyId): void {
 
 function negotiationHint(partyId: PartyId): string {
   const option = openDecision.value?.definition.options[0]
-  if (!option)
-    return ''
-  const party = forecastOf(option.id)?.parties.find(entry => entry.partyId === partyId)
-  return party ? `Zustimmungswert ${(party.support * 100).toFixed(0)} %` : ''
+  const party = option ? forecastOf(option.id)?.parties.find(entry => entry.partyId === partyId) : undefined
+  const support = party ? `Zustimmungswert ${(party.support * 100).toFixed(0)} % · ` : ''
+  /*
+   * Und warum es das kostet. Ohne den Satz ist der Unterschied zwischen sieben und achtzehn Kapital
+   * eine Willkür — mit ihm ist er die Erinnerung daran, was zwischen einem und dieser Fraktion
+   * vorgefallen ist.
+   */
+  const cost = costOf(partyId)
+  const why = cost > 13 ? 'zerrüttetes Verhältnis' : cost < 11 ? 'gutes Verhältnis' : 'neutrales Verhältnis'
+  return `${support}${cost} Kapital · ${why}`
 }
 /*
  * Welcher Weg gerade offen liegt.
@@ -332,7 +350,7 @@ watch(() => openDecision.value?.definition.id, () => {
 
         <!-- Verhandeln ist ein Hebel auf die ganze Vorlage, nicht auf einen Weg. -->
         <section v-if="!tabledBy" class="deal">
-          <h3>Verhandeln · 12 Kapital je Fraktion</h3>
+          <h3>Verhandeln · Preis je nach Verhältnis</h3>
           <div class="deal-row">
             <button
               v-for="party in negotiable"
@@ -341,10 +359,11 @@ watch(() => openDecision.value?.definition.id, () => {
               class="chip"
               :class="{ 'is-done': openDecision.prepared.negotiatedPartyIds.includes(party.id) }"
               :title="negotiationHint(party.id)"
-              :disabled="capital < 12 || openDecision.prepared.negotiatedPartyIds.includes(party.id)"
+              :disabled="capital < costOf(party.id) || openDecision.prepared.negotiatedPartyIds.includes(party.id)"
               @click="startNegotiation(party.id)"
             >
               <i class="party-dot" :style="{ background: party.color }" />{{ party.abbreviation }}
+              <b>{{ costOf(party.id) }}</b>
             </button>
           </div>
         </section>
@@ -566,6 +585,8 @@ h3 { margin: 0 0 12px; color: var(--ink-3); font-family: var(--text); font-size:
   transition: background 140ms ease;
 }
 .chip:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); }
+/* Der Preis am Knopf: mitlaufend, nicht betont — man liest ihn, wenn man vergleicht. */
+.chip b { font-family: var(--mono); font-weight: 400; font-size: 11px; color: var(--ink-3); }
 .chip:disabled { cursor: default; opacity: 0.45; }
 .chip.is-done { opacity: 0.85; box-shadow: inset 0 0 0 1px rgba(134, 216, 184, 0.4); }
 

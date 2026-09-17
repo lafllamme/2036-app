@@ -328,3 +328,21 @@ tausend landeten, auch wenn der Spieler gegen alles stimmte.
 Jetzt gelten zwei Maße und das strengere zählt: Laufendes gegen den Monatssaldo, Einmaliges gegen die
 Rücklage abzüglich des Schuldendienstes. Und den Term spürt **jede** Fraktion — wer gern ausgibt,
 zieht aus einer leeren Kasse andere Schlüsse als wer sparen will, aber sehen tun sie dasselbe.
+
+
+## Das Verhältnis zu einer Fraktion
+
+`relationships` läuft von −1 bis 1 je Fraktion, wird von `negotiate` um 0,45 gehoben, von
+öffentlichem Gegenwind um 0,5 gesenkt und klingt monatlich um rund 6 % ab.
+
+Gelesen wird es an zwei Stellen:
+
+| | |
+| --- | --- |
+| **Abstimmung** | verschiebt den Zustimmungswert der Fraktion, wie seit jeher |
+| **Preis einer Verhandlung** | `negotiationCost` — 12 im Neutralen, 7 bei vollem Rückhalt, 18 bei offener Feindschaft |
+
+Das Zweite ist neu und macht das Erste zu einer Ressource. Vorher war jede Verhandlung gleich teuer,
+und damit war die Reihenfolge, in der man wirbt, gleichgültig; jetzt ist sie die Entscheidung. Wer
+eine Fraktion zweimal für sich gewinnt, bekommt sie beim dritten Mal billiger — und wer sie vorher
+gegen sich aufgebracht hat, zahlt drauf.

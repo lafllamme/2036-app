@@ -632,3 +632,35 @@ Am Puffer gemessen, derselbe Block über die Bauzeit:
 
 Ein Siebtel des Verschleißes bleibt stehen (`RENEWAL_RECOVERY` 0,85): ein saniertes Gründerzeithaus
 ist ein gutes Haus und kein neues.
+
+
+## Gebaut: das Verhältnis als Preis
+
+Zwei Zeilen, und sie schließen eine Kante, die seit dem Gegenwind offen stand.
+
+**Wer Front macht, ist danach teurer.** Eine Fraktion stellte sich öffentlich gegen eine Vorlage, die
+Aussicht sank — und danach war sie genauso zu haben wie vorher. Wer sich vor die Presse stellt und
+Nein sagt, kann eine Woche später nicht für zwölf Kapital umfallen; das ist keine Verhandlung, das
+ist eine Beleidigung. Das Verhältnis fällt jetzt um 0,5, wenn jemand Front macht.
+
+**Und Verhandeln kostet, was das Verhältnis hergibt.** Es kostete zwölf, immer, bei jedem, in jeder
+Lage — die einzige Frage war, ob man sich zwölf leisten kann. Der Preis hängt jetzt am Verhältnis:
+**sieben bei vollem Rückhalt, achtzehn bei offener Feindschaft.** Damit wird `relationships` von einer
+Buchführung zu einer Ressource, und die Reihenfolge, in der man wirbt, zu einer Entscheidung — wer
+die Teuerste zuletzt lässt, zahlt am Ende mehr. Die Zahl steht am Knopf, mit dem Grund im Tooltip;
+in der Überschrift stünde sie falsch, weil sie je Fraktion verschieden ist.
+
+Es ist eine Verzögerung und kein Bann: das Verhältnis klingt monatlich ab.
+
+### Was dabei aufgefallen ist
+
+**Politisches Kapital wird nie verdient.** Es tropft mit einer festen Rate herein
+(`BASE_CAPITAL_PER_MONTH`, verschoben vom Hintergrund der Spitzenkandidatin) und wird für
+Verhandeln, Kampagne und Dringlichkeit ausgegeben. Eine Währung, die eine Stoppuhr ist, hat keine
+Entscheidung darin — man kann nur warten, bis man genug hat.
+
+Das ist der eigentliche Grund, aus dem Punkt **E — Termine zwischen den Sitzungen** in dieser Liste
+steht, und es schärft ihn: ein Termin ist nicht noch eine Entscheidung, sondern **die Stelle, an der
+Kapital entsteht**. Handelsverein, Mieterbund, Lokalpresse — man gibt eine Haltung her und bekommt
+Rückhalt dafür, und was man dem einen verspricht, macht den anderen teurer. Dieselbe Mechanik wie
+oben, nur dass man sie diesmal selbst auslöst.

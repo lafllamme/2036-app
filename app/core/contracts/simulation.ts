@@ -72,6 +72,15 @@ export interface SimulationSnapshot {
   pendingDecisions: PendingDecision[]
   /** Negotiation and campaigning already paid for, keyed by motion id. */
   motionPreparation: Record<string, MotionPreparationView>
+  /**
+   * Was eine Verhandlung mit jeder Fraktion **gerade** kostet.
+   *
+   * Es stand fest auf zwölf, in der Oberfläche sogar als Zahl im Text. Seit der Preis am Verhältnis
+   * hängt — sieben bei vollem Rückhalt, achtzehn bei offener Feindschaft —, muss er mit dem
+   * Schnappschuss kommen: die Oberfläche kennt weder das Verhältnis noch die Formel, und sie soll
+   * beides auch nicht kennen.
+   */
+  negotiationCosts: Partial<Record<PartyId, number>>
   /** Was gerade auf einen Standort wartet, oder nichts. Siehe `PendingSiting`. */
   pendingSiting: PendingSiting | null
   /**

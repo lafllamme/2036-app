@@ -769,6 +769,9 @@ export function adminLoadOf(sourceId: string): number {
   return getPolicy(sourceId)?.administrativeLoad ?? 0
 }
 
+/** Was es das Verhältnis kostet, sich öffentlich gegen eine Vorlage zu stellen. */
+const COUNTER_GRUDGE = 0.5
+
 /**
  * Etwas auf die Tagesordnung der nächsten Sitzung setzen.
  *
@@ -802,8 +805,22 @@ export function tableMotion(state: SimulationState, sourceId: string, optionId: 
     return tabled
 
   const title = getEvent(sourceId)?.title ?? getPolicy(sourceId)?.name ?? sourceId
+  /*
+   * Und es kostet etwas, sich öffentlich gegen jemanden zu stellen.
+   *
+   * Die offene Kante, die seit dem Gegenwind in den Unterlagen stand: eine Fraktion machte Front,
+   * die Aussicht der Vorlage sank — und danach war sie genauso zu haben wie vorher. Wer sich vor die
+   * Presse stellt und Nein sagt, kann eine Woche später nicht für zwölf Kapital umfallen; das ist
+   * keine Verhandlung, das ist eine Beleidigung.
+   *
+   * Das Verhältnis fällt deshalb, und weil `negotiate` seinen Preis daran bemisst, wird genau die
+   * Fraktion teurer, deren Stimme man am dringendsten braucht. Nicht dauerhaft: das Verhältnis klingt
+   * monatlich ab, also ist es eine Verzögerung und kein Bann.
+   */
+  const crossed = { ...tabled.relationships, [against.id]: clamp((tabled.relationships[against.id] ?? 0) - COUNTER_GRUDGE, -1, 1) }
+
   return pushNews(
-    withPreparation(tabled, sourceId, { counteredBy: [...preparationFor(tabled, sourceId).counteredBy, against.id] }),
+    withPreparation({ ...tabled, relationships: crossed }, sourceId, { counteredBy: [...preparationFor(tabled, sourceId).counteredBy, against.id] }),
     {
       id: `counter-${sourceId}-${state.month}-${against.id}`,
       month: state.month,
@@ -1066,6 +1083,21 @@ function seatsOfCoalition(state: SimulationState): number {
 }
 
 const NEGOTIATION_COST = 12
+/**
+ * Was eine Verhandlung mit **dieser** Fraktion kostet.
+ *
+ * Sie kostete zwölf, immer, bei jedem und in jeder Lage — und damit war die einzige Frage, ob man
+ * sich zwölf leisten kann. Eine Fraktion, die man schon zweimal für sich gewonnen hat, und eine, die
+ * gerade vor der Presse Front gegen einen gemacht hat, waren derselbe Knopf zum selben Preis.
+ *
+ * Der Preis hängt jetzt am Verhältnis, das es längst gibt: bei vollem Rückhalt sind es sieben, bei
+ * offener Feindschaft achtzehn. Damit wird `relationships` von einer Buchführung zu einer Ressource,
+ * und die Reihenfolge, in der man wirbt, zu einer Entscheidung — wer die Teuerste zuletzt lässt,
+ * zahlt am Ende mehr.
+ */
+export function negotiationCost(state: SimulationState, partyId: PartyId): number {
+  return Math.round(NEGOTIATION_COST * (1 - (state.relationships[partyId] ?? 0) * 0.45))
+}
 
 function withPreparation(state: SimulationState, motionId: string, change: Partial<MotionPreparation>): SimulationState {
   const current = preparationFor(state, motionId)
@@ -1078,12 +1110,13 @@ function withPreparation(state: SimulationState, motionId: string, change: Parti
  */
 export function negotiate(state: SimulationState, motionId: string, partyId: PartyId): SimulationState {
   const prepared = preparationFor(state, motionId)
-  if (prepared.negotiatedPartyIds.includes(partyId) || state.metrics.politicalCapital < NEGOTIATION_COST)
+  const cost = negotiationCost(state, partyId)
+  if (prepared.negotiatedPartyIds.includes(partyId) || state.metrics.politicalCapital < cost)
     return state
   const next = withPreparation(state, motionId, { negotiatedPartyIds: [...prepared.negotiatedPartyIds, partyId] })
   return {
     ...next,
-    metrics: { ...next.metrics, politicalCapital: clamp(next.metrics.politicalCapital - NEGOTIATION_COST) },
+    metrics: { ...next.metrics, politicalCapital: clamp(next.metrics.politicalCapital - cost) },
     relationships: { ...next.relationships, [partyId]: clamp((next.relationships[partyId] ?? 0) + 0.45, -1, 1) },
   }
 }
@@ -1498,6 +1531,9 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     }),
     pendingDecisions: state.pending,
     motionPreparation: state.motionPrep,
+    negotiationCosts: Object.fromEntries(
+      PARTIES.filter(party => party.id !== state.partyId).map(party => [party.id, negotiationCost(state, party.id)]),
+    ),
     pendingSiting: sitingView(state),
     pendingBlock: blockView(state),
     renewals: state.renewals.map(renewal => ({

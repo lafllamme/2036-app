@@ -83,6 +83,13 @@ export interface SimulationSnapshot {
   agenda: { sourceId: string, title: string, optionId: string, vote: PartyVote, tabledMonth: number }[]
   /** Wie viele Pätze eine Tagesordnung hat. */
   agendaSeats: number
+  /**
+   * Was die Verwaltung trägt und was davon gebunden ist.
+   *
+   * `administrativeLoad` steht seit jeher an jeder Vorlage und wurde von nichts gelesen. Jetzt
+   * entscheidet es, wie viele Vorhaben gleichzeitig laufen können — siehe `ADMIN_CAPACITY`.
+   */
+  administration: { used: number, booked: number, capacity: number }
   /** Wohin jede verortete Vorlage gegangen ist — damit die Karte dort baut. */
   sites: Partial<Record<string, DistrictId>>
   /** Was der Stadt gerade an einem Ort zusetzt. Siehe `HotspotView`. */

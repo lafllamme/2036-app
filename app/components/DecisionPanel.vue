@@ -13,11 +13,33 @@ const openMotions = computed(() =>
     .map(entry => ({ entry, definition: game.decisionDefinition(entry.eventId) }))
     .filter((item): item is { entry: typeof item.entry, definition: NonNullable<typeof item.definition> } => Boolean(item.definition)))
 
-// Nur, was die eigene Fraktion auch einbringen würde. Siehe `policiesFor`.
-const standingMotions = computed(() =>
-  policiesFor(game.selectedPartyId).filter(policy => !snapshot.value?.activePolicyIds.includes(policy.id)))
-
 const agenda = computed(() => snapshot.value?.agenda ?? [])
+
+/*
+ * Nur, was die eigene Fraktion auch einbringen würde — und was nicht schon oben steht.
+ *
+ * Ohne den zweiten Teil stand eine gerade eingebrachte Vorlage zweimal da: einmal auf der
+ * Tagesordnung und einmal gesperrt in der Liste darunter, weil sie neben sich selbst keine
+ * Verwaltung mehr findet. Das sieht aus wie ein Fehler und ist einer.
+ */
+const standingMotions = computed(() =>
+  policiesFor(game.selectedPartyId).filter(policy =>
+    !snapshot.value?.activePolicyIds.includes(policy.id)
+    && !agenda.value.some(item => item.sourceId === policy.id)))
+
+/**
+ * Was die Verwaltung trägt — und was davon frei ist.
+ *
+ * Die Zahl, die aus der Vorlagenliste eine Wahl macht: das Wohnungsbauprogramm bindet
+ * zweiundzwanzig von sechsundzwanzig Punkten, und zwei Jahre lang geht daneben fast nichts mehr.
+ */
+const admin = computed(() => snapshot.value?.administration ?? { used: 0, booked: 0, capacity: 26 })
+const adminFree = computed(() => admin.value.capacity - admin.value.used - admin.value.booked)
+
+/** Ob dieses Vorhaben überhaupt noch hineinpasst. Sonst ist der Knopf eine Falle. */
+function fits(load: number): boolean {
+  return load <= adminFree.value
+}
 
 /** Wie die eigene Haltung zu einem Punkt heißt, wenn sie neben ihm steht. */
 const STANCE = { yes: 'dafür', no: 'dagegen', abstain: 'Enthaltung' } as const
@@ -104,11 +126,21 @@ watch(() => openMotions.value.length, (now, before) => {
 
       <section v-if="standingMotions.length > 0" data-first-step="motions" class="group">
         <h4>Was du einbringen kannst</h4>
+        <!--
+          Die Verwaltung als Riegel. Ohne diese Zeile sieht ein gesperrter Knopf nach einem Fehler
+          aus; mit ihr ist er eine Auskunft über die Stadt.
+        -->
+        <p class="capacity" :class="{ 'is-tight': adminFree <= 6 }">
+          Verwaltung: {{ admin.used + admin.booked }} von {{ admin.capacity }} gebunden
+        </p>
         <button
           v-for="policy in standingMotions"
           :key="policy.id"
           type="button"
           class="own"
+          :class="{ 'is-blocked': !fits(policy.administrativeLoad) }"
+          :disabled="!fits(policy.administrativeLoad)"
+          :title="fits(policy.administrativeLoad) ? undefined : `Bindet ${policy.administrativeLoad} Punkte Verwaltung — frei sind ${adminFree}`"
           @click="game.openDecisionSheet(policy.id)"
         >
           <span class="name">{{ policy.name }}</span>
@@ -164,6 +196,11 @@ watch(() => openMotions.value.length, (now, before) => {
   font-family: var(--text); font-size: 11.5px; color: var(--ink-3);
 }
 .agenda-list .drop:hover { color: var(--negative); }
+/* Was die Verwaltung trägt, steht über der Liste — es ist die Bedingung für alles darunter. */
+.capacity { margin: 0 0 8px; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.capacity.is-tight { color: var(--negative); }
+.own.is-blocked { opacity: 0.4; cursor: default; }
+
 .agenda-list .hint { margin: 9px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-3); }
 
 .agenda {

@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ADMIN_CAPACITY,
+  adminLoadOf,
+  adminUsed,
   advanceMonths,
   AGENDA_SEATS,
+  applyPolicy,
   callUrgent,
+  chooseSite,
   createInitialState,
   forecastsForEvent,
   holdSession,
@@ -142,5 +147,55 @@ describe('sitzungskalender', () => {
 
     const option = Object.keys(quiet)[0]!
     expect(loud[option]!.majorityProbability).toBeLessThan(quiet[option]!.majorityProbability)
+  })
+
+  /**
+   * Die Verwaltung als Riegel.
+   *
+   * `administrativeLoad` steht seit jeher an jeder Vorlage — vier bis acht bei den meisten,
+   * zweiundzwanzig beim Wohnungsbau-Turbo — und wurde von **nichts** gelesen. Der Hebel war entworfen
+   * und nie verkabelt, und deshalb konnte man alles auf einmal beschließen. Sechsundzwanzig Vorlagen,
+   * von denen keine den Haushalt ernsthaft belastet, sind keine Entscheidung, sondern eine Liste.
+   */
+  it('lässt das große Vorhaben nichts Großes daneben zu', () => {
+    const start = createInitialState(SEED)
+    expect(adminUsed(start)).toBe(0)
+    expect(adminLoadOf('housing-accelerator')).toBeGreaterThan(20)
+
+    let state = tableMotion(start, 'housing-accelerator', 'housing-accelerator')
+    expect(state.agenda).toHaveLength(1)
+
+    // Das Nahverkehrsnetz bindet achtzehn; zusammen sprengen die beiden jede Verwaltung.
+    state = tableMotion(state, 'transit-network', 'transit-network')
+    expect(state.agenda, 'zwei große Vorhaben gleichzeitig').toHaveLength(1)
+
+    // Etwas Kleines passt daneben noch.
+    state = tableMotion(state, 'shared-maintenance', 'shared-maintenance')
+    expect(state.agenda.length).toBeGreaterThan(1)
+  })
+
+  it('bindet die Verwaltung, solange gebaut wird, und gibt sie danach frei', () => {
+    const built = chooseSite(
+      applyPolicy(createInitialState(SEED), 'housing-accelerator'),
+      'hafen-industrie',
+    )
+    expect(adminUsed(built)).toBeGreaterThan(20)
+
+    // Nach dem Aufbau ist es eine Zeile im Haushalt und kein Vorgang mehr.
+    expect(adminUsed(advanceMonths(built, 60))).toBe(0)
+  })
+
+  /**
+   * Die Kapazität muss zwischen den beiden großen Vorhaben liegen: groß genug, dass eins davon plus
+   * etwas Kleines geht, und klein genug, dass beide großen zusammen nicht passen. Steht sie
+   * darüber, ist der Riegel wirkungslos; darunter blockiert ein Programm die ganze Amtszeit.
+   */
+  it('liegt zwischen „eines der großen“ und „beide“', () => {
+    const big = adminLoadOf('housing-accelerator')
+    const second = adminLoadOf('transit-network')
+    const small = adminLoadOf('shared-maintenance')
+
+    expect(ADMIN_CAPACITY).toBeGreaterThanOrEqual(big + small)
+    expect(ADMIN_CAPACITY).toBeLessThan(big + second)
   })
 })

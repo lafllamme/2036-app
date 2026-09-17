@@ -717,6 +717,48 @@ export function callUrgent(state: SimulationState, sourceId: string, optionId: s
 export const AGENDA_SEATS = 3
 
 /**
+ * Wie viel die Verwaltung gleichzeitig trägt.
+ *
+ * Jede Vorlage trägt seit jeher ein Feld `administrativeLoad` — vier bis acht bei den meisten,
+ * achtzehn beim Nahverkehrsnetz, zweiundzwanzig beim Wohnungsbau-Turbo. Gelesen hat es **nichts**:
+ * der Hebel war entworfen und nie verkabelt, und deshalb konnte man alles auf einmal beschließen.
+ * Sechsundzwanzig Vorlagen, von denen keine den Haushalt ernsthaft belastet, sind keine Entscheidung,
+ * sondern eine Liste.
+ *
+ * Zweiunddreißig Punkte tragen vier bis fünf gewöhnliche Vorhaben gleichzeitig — oder eines der
+ * großen und **ein** kleines daneben. Das ist der Zielkonflikt, und er ist gemessen: der
+ * Wohnungsbau-Turbo bindet allein 22 und das Nahverkehrsnetz 18; zusammen passen sie in keine
+ * Verwaltung, die eine Stadt dieser Größe hat. Zwei Jahre lang ist dann eines von beiden dran.
+ */
+export const ADMIN_CAPACITY = 32
+
+/**
+ * Wie lange ein Vorhaben die Verwaltung bindet.
+ *
+ * So lange, wie es **aufgebaut** wird — nicht so lange, wie es läuft. Ein Bauprogramm bindet Planer,
+ * bis die Häuser stehen; danach ist es eine Zeile im Haushalt und kein Vorgang mehr. Die Zahl steht
+ * schon in der Wirkung: Verzögerung plus Anlaufzeit, die längste von allen.
+ */
+function buildMonths(policy: PolicyDefinition): number {
+  return policy.effects.reduce((most, effect) => Math.max(most, effect.delayMonths + effect.rampMonths), 0)
+}
+
+/** Was die Verwaltung gerade gebunden hat. */
+export function adminUsed(state: SimulationState): number {
+  return state.policies.reduce((sum, entry) => {
+    const policy = getPolicy(entry.id)
+    if (!policy || state.month >= entry.startedMonth + buildMonths(policy))
+      return sum
+    return sum + policy.administrativeLoad
+  }, 0)
+}
+
+/** Und was ein Vorhaben davon bräuchte. Null für alles, was kein eigenes Vorhaben ist. */
+export function adminLoadOf(sourceId: string): number {
+  return getPolicy(sourceId)?.administrativeLoad ?? 0
+}
+
+/**
  * Etwas auf die Tagesordnung der nächsten Sitzung setzen.
  *
  * Der Kern des Sitzungskalenders. Vorher hieß „einbringen“: in derselben Sekunde abstimmen — und
@@ -728,6 +770,17 @@ export const AGENDA_SEATS = 3
  */
 export function tableMotion(state: SimulationState, sourceId: string, optionId: string, vote: PartyVote = 'yes'): SimulationState {
   if (state.agenda.length >= AGENDA_SEATS || state.agenda.some(item => item.sourceId === sourceId))
+    return state
+  /*
+   * Und die Verwaltung muss es tragen können.
+   *
+   * Gezählt wird, was schon gebunden ist, plus was auf der Tagesordnung steht — sonst setzt man drei
+   * Vorhaben drauf, die einzeln passen und zusammen nicht, und die Sitzung beschließt etwas, das die
+   * Stadt nicht bauen kann.
+   */
+  const wanted = adminLoadOf(sourceId)
+  const booked = state.agenda.reduce((sum, item) => sum + adminLoadOf(item.sourceId), 0)
+  if (wanted > 0 && adminUsed(state) + booked + wanted > ADMIN_CAPACITY)
     return state
 
   const tabled: SimulationState = { ...state, agenda: [...state.agenda, { sourceId, optionId, vote, tabledMonth: state.month }] }
@@ -1377,6 +1430,11 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
       tabledMonth: item.tabledMonth,
     })),
     agendaSeats: AGENDA_SEATS,
+    administration: {
+      used: adminUsed(state),
+      booked: state.agenda.reduce((sum, item) => sum + adminLoadOf(item.sourceId), 0),
+      capacity: ADMIN_CAPACITY,
+    },
     sites: state.sites,
     districtMetrics: Object.fromEntries(LINDENHAFEN.districts.map(district => [district.id, {
       averageRent: valueIn(state.metrics.averageRent, state.spread.averageRent, district.id),

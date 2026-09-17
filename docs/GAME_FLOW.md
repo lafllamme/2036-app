@@ -550,3 +550,26 @@ beantworten — mit genau der Verhandlung, die direkt darunter steht.
 Technisch kostet das keine neue Größe in der Abstimmungsrechnung: `publicPressure` trägt schon die
 Kampagne mit 0,75, und jede Fraktion, die dagegen arbeitet, zieht 0,3 ab. Derselbe Term, in die
 andere Richtung.
+
+
+## Gebaut: die Verwaltungskapazität
+
+Teil B aus dem Papier oben, und er war der einfachste von allen — der Hebel lag seit Monaten fertig
+im Datenmodell. **`administrativeLoad` steht an jeder Vorlage und wurde von nichts gelesen.**
+
+| Vorhaben | bindet |
+|---|---|
+| Wohnungsbau-Turbo | **22** |
+| LindenTakt 2030 | **18** |
+| die meisten anderen | 4 – 8 |
+
+Die Kapazität liegt bei **32** — bewusst zwischen „eines der großen plus etwas Kleines" und „beide
+großen". Gebunden wird, solange **aufgebaut** wird, nicht solange die Maßnahme läuft: ein Bauprogramm
+bindet Planer, bis die Häuser stehen, danach ist es eine Zeile im Haushalt.
+
+Damit ist die Vorlagenliste zum ersten Mal eine Wahl. Wer das Wohnungsbauprogramm nimmt, hat zwei
+Jahre lang Platz für genau eine kleine Sache daneben — und das Nahverkehrsnetz muss warten.
+
+In der Schublade steht die Zahl über der Liste (*„Verwaltung: 18 von 32 gebunden"*), und was nicht
+mehr hineinpasst, ist gesperrt statt still wirkungslos. Ein gesperrter Knopf ohne diese Zeile sieht
+aus wie ein Fehler; mit ihr ist er eine Auskunft über die Stadt.

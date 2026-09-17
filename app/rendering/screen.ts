@@ -50,6 +50,17 @@ export interface ScreenPoint {
    * das Fächer aus der linken oberen Ecke quer über die ganze Stadt.
    */
   behind: boolean
+  /**
+   * Wie weit der Punkt **entlang der Blickrichtung** vor der Kamera liegt, in Metern.
+   *
+   * Nicht dasselbe wie `away`: das ist der Abstand in der Luftlinie und sagt nichts darüber, ob der
+   * Punkt vor oder hinter der Bildebene steht. Dies hier ist die homogene Koordinate `w`, die bei
+   * der Projektion ohnehin anfällt — negativ heißt hinter der Kamera, und **nahe null heißt Ärger**:
+   * `x / w` läuft dann gegen unendlich, und eine Fläche, deren Ecke bei 200.000 Pixeln liegt, fegt
+   * beim Ziehen über den halben Schirm. Wer eine Fläche schneidet, schneidet gegen diesen Wert und
+   * nicht gegen `behind` — siehe `NEAR_CLIP` in `DistrictOverlay.vue`.
+   */
+  depth: number
 }
 
 /**
@@ -87,6 +98,7 @@ export function project(
   const cw = clip[3]! * vx + clip[7]! * vy + clip[11]! * vz + clip[15]!
 
   out.away = Math.sqrt(vx * vx + vy * vy + vz * vz)
+  out.depth = cw
 
   if (cw <= 0) {
     // Hinter der Kamera. Die Zahlen werden trotzdem gesetzt, damit niemand auf alten Werten sitzt.
@@ -106,5 +118,5 @@ export function project(
 
 /** Ein Ergebnisobjekt, das man wiederverwendet. Siehe oben: kein Müll im Renderpfad. */
 export function screenPoint(): ScreenPoint {
-  return { x: 0, y: 0, away: 0, onScreen: false, behind: false }
+  return { x: 0, y: 0, away: 0, onScreen: false, behind: false, depth: 0 }
 }

@@ -198,22 +198,35 @@ const LABEL_MARGIN = 70
 /** Was das Deck unten verdeckt. Ein Name dahinter ist kein Name. */
 const BOTTOM_DECK = 150
 
-/** Liegt dieser Weltpunkt vor der Kamera? Siehe `behind` in `rendering/screen.ts`. */
+/**
+ * Wie weit ein Eckpunkt mindestens vor der Kamera stehen muss, um projiziert zu werden, in Metern.
+ *
+ * **Nicht null.** Gegen „hinter der Kamera" zu schneiden reicht nicht: ein Punkt einen Meter davor
+ * liegt formal vorn und projiziert trotzdem auf zweihunderttausend Pixel, weil `x / w` mit kleinem
+ * `w` explodiert. Beim Ziehen wandern die Ecken eines Vordergrundviertels genau durch diesen
+ * Bereich, und die Kante fegt jedes Bild woanders über den Schirm — als Ruckeln gemeldet, und es war
+ * keins: die Fläche war jedes Bild eine andere.
+ *
+ * Vierzig Meter sind aus der Überblickskamera weit innerhalb des Bodens und aus der Fußgängerkamera
+ * knapp außer Reichweite. Der Verlust ist ein Streifen Fläche direkt vor der Nase, den die Kamera
+ * ohnehin nicht als Fläche zeigt.
+ */
+const NEAR_CLIP = 40
+
+/** Steht dieser Weltpunkt weit genug vor der Kamera, um brauchbare Bildkoordinaten zu haben? */
 function ahead(projector: NonNullable<typeof project.value>, x: number, z: number): boolean {
   projector(x, 0, z, probe)
-  return !probe.behind
+  return probe.depth > NEAR_CLIP
 }
 
 /**
  * Der Punkt auf der Strecke, an dem sie die Kamerabene durchstößt — **mit Abstand davor.**
  *
- * Der Abstand ist der ganze Trick. Genau auf der Ebene ist die homogene Koordinate `w` null, und
- * `x / w` läuft gegen unendlich: die erste Fassung hat bis auf die Ebene halbiert und damit weiße
- * Striche quer über den Himmel gezogen, weil eine Polygonecke bei ±200.000 Pixeln lag. Zurückgesetzt
- * wird deshalb ein Zwanzigstel der Strecke zur sichtbaren Seite hin — auf dem Schirm ist das
- * unsichtbar, und `w` bleibt weit genug von null weg.
+ * Halbiert wird gegen `NEAR_CLIP` und nicht gegen die Bildebene selbst — dort ist `w` null und
+ * `x / w` unendlich. Das Zurücksetzen danach ist nur noch Sicherheitsabstand gegen die Schrittweite
+ * der Halbierung.
  */
-const CLIP_BACKOFF = 0.05
+const CLIP_BACKOFF = 0.02
 
 function crossing(projector: NonNullable<typeof project.value>, from: { x: number, z: number }, to: { x: number, z: number }): { x: number, z: number } {
   let good = from
@@ -340,13 +353,24 @@ function trace(): void {
     if (visible.length < 3)
       continue
 
-    const points: string[] = []
     const screen: { x: number, y: number }[] = []
     for (const corner of visible) {
       projector(corner.x, 0, corner.z, point)
-      points.push(`${point.x.toFixed(1)},${point.y.toFixed(1)}`)
       screen.push({ x: point.x, y: point.y })
     }
+
+    /*
+     * Und dann auf den Schirm geschnitten, bevor daraus ein Polygon wird.
+     *
+     * Das SVG würde ohnehin abschneiden — aber erst beim Zeichnen, und bis dahin stehen Zahlen wie
+     * −180.000 im Attribut. Eine Ecke, die sich je Bild um zehntausend Pixel bewegt, weil sie knapp
+     * hinter dem Rand einen Hügel hinunterrutscht, lässt die Kante im Bild zucken, obwohl sich am
+     * sichtbaren Teil nichts ändert. Nach dem Schnitt liegt jede Zahl im Rahmen.
+     */
+    const framed = clipToScreen(screen, window.innerWidth, window.innerHeight)
+    if (framed.length < 3)
+      continue
+    const points = framed.map(corner => `${corner.x.toFixed(1)},${corner.y.toFixed(1)}`)
 
     /*
      * Der Name steht in der Mitte des **sichtbaren** Teils, nicht in der Mitte des Viertels.
@@ -360,7 +384,7 @@ function trace(): void {
       id: district.id,
       points: points.join(' '),
       fill: tint(tiltOf(district.id)),
-      at: labelAt(screen),
+      at: labelAt(framed),
     })
   }
   shapes.value = next

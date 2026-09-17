@@ -987,3 +987,28 @@ weil jedes von ihnen zweimal im Speicher liegt — als Dreißig-Dreiecke-Attrapp
 und je Kachel genau eines von beiden gezeichnet wird; von den vier Millionen erreicht den Frame nur,
 was innerhalb von 190 Metern steht. Wer hier etwas sparen will, fängt bei der Bepflanzung an und
 nicht bei der Stadt.
+
+
+## Warum eine Bezirksfläche beim Ziehen zuckte
+
+Drei Fehler übereinander, alle an derselben Stelle: was mit der homogenen Koordinate `w` passiert,
+wenn ein Eckpunkt der Kamera zu nahe kommt.
+
+**`away` ist ein Abstand.** Zwei Stellen prüften auf `away === 0`, um „hinter der Kamera" zu
+erkennen — eine Bedingung, die nie zutrifft, weil eine Länge nicht negativ wird. Ein Punkt im Rücken
+projiziert auf (0, 0), und die Fläche bekam eine Ecke in der linken oberen Bildecke: Fächer quer über
+die Stadt. `ScreenPoint` trägt jetzt `behind`, gesetzt dort, wo `w ≤ 0` ohnehin schon bekannt ist.
+
+**„Vor der Kamera" reicht nicht.** Ein Eckpunkt einen Meter davor liegt formal vorn und projiziert
+trotzdem auf zweihunderttausend Pixel. Beim Ziehen wandern die Ecken eines Vordergrundviertels genau
+durch diesen Bereich, und die Kante liegt jedes Bild woanders. Geschnitten wird deshalb gegen
+**vierzig Meter Tiefe** (`depth`, ebenfalls aus `w`) und nicht gegen die Bildebene — aus der
+Überblickskamera weit innerhalb des Bodens, aus der Fußgängerkamera knapp außer Reichweite.
+
+**Und die Zahl darf den Rahmen nicht verlassen.** Das SVG schneidet ohnehin ab, aber erst beim
+Zeichnen; bis dahin steht −180.000 im Attribut, und eine Ecke, die sich je Bild um zehntausend Pixel
+bewegt, lässt die Kante zucken, obwohl sich am sichtbaren Teil nichts ändert. Das projizierte Vieleck
+wird deshalb per Sutherland–Hodgman auf den Schirm geschnitten, bevor daraus Punkte werden.
+
+Gemessen über vierzig gezogene Bilder: größte Koordinate konstant 914 bei 914 Pixeln Bildbreite,
+größte Änderung der Gesamtgeometrie zwischen zwei Bildern 5 % — und das ist die Kamerafahrt selbst.

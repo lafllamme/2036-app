@@ -167,6 +167,9 @@ const sky = computed(() => {
 const advanceLabel = computed(() => {
   if (nextAction.value === 'decide')
     return 'Vorlage öffnen'
+  // Dasselbe für den gesuchten Standort: er wartet auf den Spieler, also sagt der Knopf das auch.
+  if (nextAction.value === 'site')
+    return 'Standort wählen'
   if (!canAdvance.value)
     return 'Kampagne beendet'
   return skipping.value ? 'Anhalten' : 'Nächstes Ereignis'
@@ -337,8 +340,8 @@ function toggleDecisions(): void {
         data-first-step="advance"
         type="button"
         class="btn advance"
-        :class="{ 'is-skipping': skipping }"
-        :disabled="!canAdvance && nextAction !== 'decide'"
+        :class="{ 'is-skipping': skipping, 'is-wanted': nextAction === 'decide' || nextAction === 'site' }"
+        :disabled="!canAdvance && nextAction !== 'decide' && nextAction !== 'site'"
         @click="game.skipToEvent"
       >
         {{ advanceLabel }}
@@ -537,6 +540,34 @@ function toggleDecisions(): void {
  */
 .advance.is-skipping { animation: skipping-pulse 1.1s ease-in-out infinite; }
 @keyframes skipping-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.66; } }
+
+/*
+ * Und wenn etwas auf den Spieler wartet, klopft der Knopf an.
+ *
+ * Gemeldet war, dass Vorlagen „so dumm rumliegen“ — ein Panel, das aufgeht, ist leicht zu übersehen,
+ * wenn man gerade auf die Stadt schaut. Zwei Stoßer alle paar Sekunden sind genug, um den Blick zu
+ * holen, und selten genug, um nicht zu nerven. Wer die Vorlage öffnet, hat seine Ruhe.
+ */
+.advance.is-wanted { animation: wanted-nudge 4.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite; }
+@keyframes wanted-nudge {
+  0%, 82%, 100% { transform: translateX(0); }
+  85%, 91% { transform: translateX(-3px); }
+  88%, 94% { transform: translateX(3px); }
+}
+
+/* Die Zahl auf der Vorlagen-Taste tut dasselbe, damit auch der Weg dorthin sichtbar ist. */
+.round .badge { animation: badge-beat 2.6s ease-in-out infinite; }
+@keyframes badge-beat {
+  0%, 70%, 100% { transform: scale(1); }
+  78% { transform: scale(1.25); }
+  86% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .advance.is-skipping,
+  .advance.is-wanted,
+  .round .badge { animation: none; }
+}
 
 /*
  * Die Reihenfolge, in der etwas weicht — und was nie weicht.

@@ -368,9 +368,25 @@ export const useGameStore = defineStore('game', () => {
     // A new council motion stops the clock: the player should never miss a decision while watching.
     const known = new Set((previous?.pendingDecisions ?? []).map(entry => entry.eventId))
     const arrived = data.snapshot.pendingDecisions.find(entry => !known.has(entry.eventId))
+    /*
+     * Und ein gesuchter Standort hält sie genauso an.
+     *
+     * Das fehlte, und es hat die auffälligste Regression der letzten Runde erzeugt: eine
+     * durchgegangene Bauvorlage wartet auf ihren Ort, aber nichts hielt die Uhr an und nichts öffnete
+     * sich. Wer „Nächstes Ereignis“ drückte, sah Monate vorbeiziehen, in denen „irgendwas passiert“ —
+     * und die Entscheidung, auf die alles wartete, stand als drei Marken auf einer Karte, die man
+     * beim Zeitraffer nicht ansieht. Gemeldet als „ich kriege nicht wie vorher so eine Ansicht“, und
+     * das war wörtlich richtig.
+     */
+    const siteWanted = Boolean(data.snapshot.pendingSiting) && !previous?.pendingSiting
     if (arrived) {
       holdClock()
       openDecisionId.value = arrived.eventId
+    }
+    else if (siteWanted) {
+      holdClock()
+      // Und die Kamera dorthin, wo die Wahl steht — sonst zeigt die Karte gerade irgendeine Ecke.
+      overviewRequest.value += 1
     }
     else {
       // Nothing new to answer: if the player was only held up by their own vote, they get the clock back.
@@ -502,9 +518,16 @@ export const useGameStore = defineStore('game', () => {
    * - **Der Zeitraffer läuft.** Dann ist er die Bremse.
    * - **Sonst.** Dann läuft er bis zum nächsten Ereignis.
    */
-  const nextAction = computed<'decide' | 'halt' | 'skip'>(() => {
+  const nextAction = computed<'decide' | 'site' | 'halt' | 'skip'>(() => {
     if (pendingDecisions.value.length > 0)
       return 'decide'
+    /*
+     * Ein gesuchter Standort ist dasselbe wie eine Vorlage auf dem Tisch: etwas, das auf **dich**
+     * wartet. Der große Knopf darf darüber nicht hinwegrasen — genau das tat er, und der Zeitraffer
+     * lief dann durch Monate, in denen nichts weiterging, weil nichts weitergehen konnte.
+     */
+    if (snapshot.value?.pendingSiting)
+      return 'site'
     return skipping.value ? 'halt' : 'skip'
   })
 
@@ -520,6 +543,11 @@ export const useGameStore = defineStore('game', () => {
       const waiting = pendingDecisions.value[0]
       if (waiting)
         openDecisionSheet(waiting.eventId)
+      return
+    }
+    // Zeig mir, wo gewählt werden soll: die Gesamtansicht hat alle drei Marken im Bild.
+    if (nextAction.value === 'site') {
+      overviewRequest.value += 1
       return
     }
     if (!canAdvance.value)

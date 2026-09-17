@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useLocalStorage } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { screenPoint } from '~/rendering/screen'
@@ -71,6 +72,23 @@ const spots = computed(() => (siting.value
  * was man an einem Ort tun kann. Ein Ort hat eine Lage, und beide Wege zeigen auf dieselbe.
  */
 const open = computed(() => spots.value.find(spot => spot.id === openHotspotId.value) ?? null)
+
+/**
+ * Beim ersten Mal steht dabei, dass die Karte gemeint ist.
+ *
+ * Drei helle Kissen über der Stadt sind für den, der sie gebaut hat, offensichtlich. Für jemanden,
+ * der gerade eine Vorlage durchgebracht hat und auf ein Panel wartet, sind sie Dekoration — gemeldet
+ * als „man checkt nicht, dass man mit der Karte interagieren muss“. Also einmal ausgeschrieben, und
+ * danach nie wieder: wer es einmal getan hat, weiß es.
+ *
+ * Im `localStorage` und nicht im Spielstand, aus demselben Grund wie die Einarbeitung: es ist eine
+ * Eigenschaft des Spielers und nicht der Kampagne.
+ */
+const sitedOnce = useLocalStorage('2036-siting-seen', false)
+watch(siting, (now) => {
+  if (!now)
+    sitedOnce.value = true
+})
 
 const choices = computed(() => (siting.value?.sites ?? []).map(site => ({
   ...site,
@@ -222,6 +240,7 @@ watch(placements, () => {
     <p v-if="siting" class="ask">
       <span>Standort wählen</span>
       <b>{{ siting.title }}</b>
+      <em v-if="!sitedOnce">Klick eine der drei Marken auf der Karte — oder ein Haus in dem Bezirk.</em>
     </p>
 
     <!--
@@ -373,6 +392,13 @@ watch(placements, () => {
   font-weight: 500;
   letter-spacing: -0.012em;
   color: var(--ink);
+}
+
+/* Nur beim ersten Mal. Danach steht hier nichts mehr, und die Zeile wird wieder schmal. */
+.ask em {
+  font-style: normal;
+  font-size: 12.5px;
+  color: var(--ink-2);
 }
 
 .mark {

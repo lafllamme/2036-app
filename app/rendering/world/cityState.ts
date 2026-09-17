@@ -2,9 +2,9 @@ import type { CityBlueprint, SimulationSnapshot } from '../../core/contracts'
 import type { WorldVisuals } from './index'
 import type { CityPressure } from './traffic/incidents'
 import * as THREE from 'three/webgpu'
-import { paint } from '../picking'
 import { updateProtest } from './life/protest'
 import { updateRoughSleeping } from './life/roughSleeping'
+import { wearOf } from './structures/buildings'
 import { fitShopfronts } from './structures/shopfronts'
 
 /**
@@ -16,7 +16,6 @@ import { fitShopfronts } from './structures/shopfronts'
  * and skip the work when it has not.
  */
 
-const DERELICT = /* @__PURE__ */ new THREE.Color('#6f6f68')
 const DRY = /* @__PURE__ */ new THREE.Color('#8d8548')
 const LUSH = /* @__PURE__ */ new THREE.Color('#ffffff')
 /** A change smaller than this is not worth rewriting every instance colour in the city for. */
@@ -85,6 +84,10 @@ export class CityState {
   /** Dwellings one rendered building stands for, so the skyline scales with the real stock. */
   private readonly unitsPerBuilding: number
   private appliedBlight = -1
+  /** Der Verschleiß, wie er gerade im Puffer steht — je Gebäude, nicht je Eckpunkt. */
+  private readonly wearNow = new Map<THREE.Mesh, Float32Array>()
+  /** Die Gebäude einer Kachel, nach Bauzustand aufsteigend. Einmal sortiert, dann nur gelesen. */
+  private readonly weakest = new Map<THREE.Mesh, number[]>()
   private readonly scratch = new THREE.Color()
 
   /**
@@ -201,19 +204,64 @@ export class CityState {
     updateRoughSleeping(this.visuals.roughSleeping, city.roughSleeping)
   }
 
-  /** Vacancy above the blight threshold drains colour out of a matching share of the stock. */
+  /**
+   * Leerstand über der Schwelle lässt einen Teil des Bestands verfallen — und zwar den Teil, der
+   * ohnehin schon am schlechtesten dasteht.
+   *
+   * Zwei Dinge sind hier anders als vorher, und beide waren falsch. Es wurde die **Farbe** eines
+   * Hauses grau gezogen — dieselbe Farbe, die das Überfahren mit der Maus benutzt und die eigentlich
+   * sagt, aus was für einem Material die Wand ist —, und getroffen hat es schlicht die ersten *n*
+   * Gebäude der Kachelliste, also eine beliebige Auswahl ohne Zusammenhang mit ihrem Zustand.
+   *
+   * Jetzt schreibt es in den Verschleiß, wo es hingehört: die Farbe gehört wieder allein dem Material
+   * und dem Zeiger, und verfallen tut, was schon vorher am nächsten dran war. Damit sammelt sich der
+   * Verfall dort, wo die Stadt ihn ohnehin hat — im Hafen, in Gewerbe-Ost — statt gleichmäßig über
+   * acht Viertel gesprenkelt zu sein.
+   */
   private applyBlight(blight: number): void {
     if (Math.abs(blight - this.appliedBlight) <= BLIGHT_EPSILON)
       return
     this.appliedBlight = blight
     for (const mesh of this.visuals.buildingMeshes) {
-      const colours = this.visuals.buildingColors.get(mesh)
-      if (!colours)
+      const records = this.visuals.buildingRecords.get(mesh)
+      const ranges = this.visuals.buildingRanges.get(mesh)
+      const attribute = this.visuals.buildingWear.get(mesh)
+      if (!records || !ranges || !attribute)
         continue
-      const affected = Math.floor(colours.length * blight)
-      colours.forEach((colour, index) => {
-        paint(this.visuals, mesh, index, index < affected ? this.scratch.copy(colour).lerp(DERELICT, 0.55) : colour)
-      })
+
+      let now = this.wearNow.get(mesh)
+      if (!now) {
+        now = Float32Array.from(records, record => wearOf(record.condition))
+        this.wearNow.set(mesh, now)
+        this.weakest.set(
+          mesh,
+          records.map((_, index) => index).sort((a, b) => records[a]!.condition - records[b]!.condition),
+        )
+      }
+
+      const order = this.weakest.get(mesh) ?? []
+      const affected = Math.round(records.length * blight)
+      const buffer = attribute.array as Float32Array
+      let touched = false
+      for (let rank = 0; rank < order.length; rank += 1) {
+        const index = order[rank]!
+        const base = wearOf(records[index]!.condition)
+        // Ein aufgegebenes Haus ist aufgegeben; sein Ausgangszustand hebt es nur noch wenig davon ab.
+        const target = rank < affected ? Math.min(1, 0.68 + base * 0.32) : base
+        if (Math.abs(target - now[index]!) < 0.004)
+          continue
+        now[index] = target
+        const range = ranges[index]!
+        buffer.fill(target, range.start, range.start + range.count)
+        touched = true
+      }
+      /*
+       * Ganzer Puffer statt Teilbereichen, und das ist hier die billigere Wahl: `blight` ändert sich
+       * höchstens einmal im Monat und meistens gar nicht, und die Alternative wären hunderte
+       * Einzelbereiche pro Kachel, die der Treiber ohnehin zu einem Upload zusammenzieht.
+       */
+      if (touched)
+        attribute.needsUpdate = true
     }
   }
 

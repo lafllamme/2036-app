@@ -220,7 +220,7 @@ legible from the overview camera is whole fleets, whole stocks, whole surfaces.
 | `cycling` | how many of the 220 bicycles are out | 0 — the fleet is already in memory |
 | `carTraffic` | how many of the 620 cars are out | 0 |
 | `transitDensity` | how many of the five trains run | 0 — a shorter instance range |
-| `blight` | colour drained from a share of the stock | 0 |
+| `blight` | `wear` raised on the worst-kept share of the stock | 0 — a fill into an attribute that is already there |
 | `greenery` | how many trees stand, and how dry they are | 0 |
 | `constructionSites` | cranes on the next parcels in line | 0 |
 | `roughSleeping` | people in doorways | 0 |

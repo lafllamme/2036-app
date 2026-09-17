@@ -878,3 +878,64 @@ allen drei Stellen erkennbar dieselbe Sache sein.
 Weiter weg heißt kleiner, aber nie unlesbar — zwischen 300 m und 1.600 m schrumpft die Marke auf zwei
 Drittel und bleibt dann so. Und die Ebene selbst fängt keine Klicks ab: sie liegt über der ganzen
 Stadt, und ein Layer, der Klicks schluckt, nähme dem Ziehen und Drehen der Karte die Fläche.
+
+## Jedes Haus trägt seinen eigenen Zustand
+
+Eine Kachel ist ein Mesh, ein Mesh ist ein Draw-Call, und ein Draw-Call hat **eine** Uniform. Alles,
+was ein einzelnes Haus von seinem Nachbarn unterscheiden soll, muss deshalb im Vertexpuffer stehen —
+das galt für die Wandfarbe und gilt jetzt auch für den Bauzustand.
+
+`condition` steht seit dem ersten Tag an jedem der 16.782 Gebäude. Zu sehen war sie auch, aber
+**eingebacken**: `weathered()` hat Sättigung und Helligkeit der Wandfarbe beim Aufbau
+heruntergerechnet, der Höhenverlauf am Fuß hing ebenfalls daran. Eine Zahl, die einmal in eine Farbe
+eingeht, ist danach nicht mehr herauszuholen — und genau daran scheitert alles, was den Zustand
+*ändern* soll. Ein Umbau kann einen Ton, in dem Farbe und Verfall verrechnet sind, nicht
+zurücknehmen, ohne die Farbe mitzuverändern.
+
+Seitdem sind es zwei Puffer statt einem:
+
+| | steht in | sagt |
+| --- | --- | --- |
+| `color` | `vec3`, 3 Floats je Eckpunkt | **woraus** die Wand ist — Putzton, Sockelstein, Sonnenseite |
+| `wear` | `float`, 1 Float je Eckpunkt, ein Wert je Gebäude | **wie es ihr geht** — 0 instand gehalten, 1 aufgegeben |
+
+Der Shader setzt es zusammen, an drei Stellen und ohne ein zusätzliches Dreieck:
+
+1. **Dreck steht unten.** `uv().y` zählt die Geschosse, ist also schon das Höhenmaß. Voll am Sockel,
+   nach vier Geschossen halb — ganz weg ist es nie.
+2. **Farbe geht raus, bevor es dunkel wird.** Gemischt wird gegen die *eigene Helligkeit* der Fläche
+   mal einem Grauton, nicht gegen eine feste Farbe: ein verwahrlostes Haus ist ausgekreidet, nicht
+   angemalt. Dächer bekommen dasselbe mit einem Stich ins Grüne, weil dort oben Moos steht und kein
+   Ruß.
+3. **Die Oberfläche wird matt.** `roughnessNode` steigt mit dem Verschleiß.
+
+Gegengerechnet bekommt das gepflegte Haus aktiv etwas zurück (`1 − wear` hebt es um bis zu zehn
+Prozent an), sonst wäre die Stadt nur unterschiedlich schmutzig statt teils instand gehalten.
+
+### Was es kostet
+
+Im selben Lauf gegeneinander gemessen — acht Sekunden Zoomflug bei festgenagelter Auflösung 3, je
+drei Durchgänge:
+
+| | Bilder | Renderzeit |
+| --- | --- | --- |
+| ohne | 788 / 789 / 788 | 2,55–2,56 ms |
+| mit | 764 / 752 / 760 | 2,62–2,69 ms |
+
+**0,11 ms und rund 3,5 % Bilder**, bei null zusätzlichen Draws und null zusätzlichen Dreiecken. Der
+größere Posten ist Speicher: 2,74 Millionen Eckpunkte mal vier Byte sind 10,45 MB neben den rund
+115 MB, die Position, Normale, UV und Farbe schon belegen.
+
+Ein Byte je Eckpunkt wäre ein Viertel davon — geht aber nicht. WebGPU kennt bei **einer** Komponente
+nur `uint32`, `sint32` und `float32`; alles Kleinere füllt three auf vier Byte auf
+(`WebGPUAttributeUtils`). Billiger als das hier wird es erst, wenn ein zweiter Wert in dieselben vier
+Byte einzieht — und den gibt es noch nicht.
+
+### Und was daran hängt
+
+`blight` aus der Simulation schreibt seit demselben Schritt in dieses Attribut statt in die Farbe.
+Getroffen wird dabei nicht mehr die erste beliebige Reihe der Häuserliste, sondern der Teil des
+Bestands, der ohnehin am schlechtesten dasteht — die Kachel hält ihre Gebäude einmal nach Bauzustand
+sortiert vor. Damit sammelt sich Verfall dort, wo die Stadt ihn ohnehin hat (Hafen, Gewerbe Ost),
+statt gleichmäßig über acht Viertel gesprenkelt zu sein, und die Farbe gehört wieder allein dem
+Material und dem Mauszeiger.

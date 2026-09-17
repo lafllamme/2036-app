@@ -2,7 +2,7 @@ import type { BuildingRecord, BuildingType, CityBlueprint } from '../../../core/
 import type { DistrictCharacter } from '../../../world/districtCharacter'
 import type { Relief } from '../../../world/relief'
 import type { SolidSink } from './stoop'
-import { attribute, float, mix, normalWorld, positionWorld, select, texture, uv, vec2 } from 'three/tsl'
+import { attribute, float, mix, normalWorld, positionWorld, select, texture, uv, vec2, vec3 } from 'three/tsl'
 import * as THREE from 'three/webgpu'
 import { createRandomStream } from '../../../core/rng'
 import { DISTRICT_CHARACTER } from '../../../world/districtCharacter'
@@ -321,6 +321,16 @@ export interface CityBuildings {
   /** Ein möglicher Ladenplatz je Haus mit Straßenfront. Siehe `ShopSeat`. */
   shopSeats: (ShopSeat & { record: BuildingRecord })[]
   buildingColors: Map<THREE.Mesh, THREE.Color[]>
+  /**
+   * Der Bauzustand je Gebäude, so wie er gerade gezeichnet wird — siehe `wearOf`.
+   *
+   * Das Attribut dahinter hält **einen Wert je Eckpunkt**, weil es pro Gebäude nur einen Draw-Call
+   * gäbe, an dem man etwas anderes festmachen könnte: eine Kachel ist ein Mesh, und ein Mesh hat
+   * eine Uniform. Was ein einzelnes Haus von seinem Nachbarn unterscheiden soll, muss deshalb im
+   * Puffer stehen. Ein Float je Eckpunkt ist der billigste Puffer, den es gibt — ein Drittel dessen,
+   * was die Farbe schon kostet, und kein Dreieck und kein Draw mehr als vorher.
+   */
+  buildingWear: Map<THREE.Mesh, THREE.BufferAttribute>
   /** The two materials the whole city is drawn with: its walls and its roofs. */
   buildingMaterials: THREE.MeshStandardMaterial[]
 }
@@ -356,6 +366,27 @@ interface Tile {
   roofIndex: number[]
   ranges: { start: number, count: number }[]
   colours: THREE.Color[]
+}
+
+/** Wohin eine Wand kippt, die niemand pflegt: unbunt und ein gutes Stück dunkler. */
+const GRIME: readonly [number, number, number] = [0.66, 0.64, 0.58]
+/** Und ein Dach: dasselbe mit einem Stich ins Grüne, denn dort oben ist es Moos und kein Ruß. */
+const MOSS: readonly [number, number, number] = [0.62, 0.66, 0.55]
+
+/**
+ * Der Bauzustand eines Hauses als Verschleiß: 0 heißt instand gehalten, 1 heißt aufgegeben.
+ *
+ * Die Spanne ist nicht willkürlich, sondern genau die, die der Stadtaufbau wirklich vergibt:
+ * `conditionRange` in `districtCharacter.ts` reicht über alle acht Bezirke von 0,50 im schlechtest
+ * gepflegten Viertel bis 0,94 im besten. Eine Abbildung, die enger oder weiter greift, verschenkt
+ * entweder die halbe Skala oder zeigt eine Stadt, in der alles gleich aussieht.
+ *
+ * Damit bekommt das Gefälle zwischen den Vierteln seine Entsprechung im Bild, ohne dass irgendwo
+ * eine Bezirksfarbe stünde: Hafen und Gewerbe-Ost sind gebaut worden, um schlechter dazustehen, und
+ * ab hier sieht man ihnen das an.
+ */
+export function wearOf(condition: number): number {
+  return Math.min(1, Math.max(0, (0.92 - condition) / 0.42))
 }
 
 export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): CityBuildings {
@@ -422,7 +453,53 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
   const backside = uv().x.greaterThan(REAR_U / 2)
   const groundUv = vec2(uv().x, uv().y.add(select(backside, 1, 0))).mul(vec2(...GROUND_REPEAT))
   const ground = texture(groundFloorTexture(), groundUv)
-  wallMaterial.colorNode = select(uv().y.lessThan(1), ground, facade).mul(attribute('color', 'vec3'))
+  /*
+   * Und wie es dem Haus geht.
+   *
+   * `condition` steht seit dem ersten Tag an jedem der 16.782 Gebäude und wird vom Bezirkscharakter
+   * gesetzt (`conditionRange`). Zu sehen war sie durchaus — aber **eingebacken**: `weathered()` hat
+   * Sättigung und Helligkeit der Wandfarbe beim Aufbau heruntergerechnet, und der Höhenverlauf am
+   * Fuß hing ebenfalls daran. Beides ist eine Zahl, die einmal in eine Farbe eingeht und danach
+   * nicht mehr herauszuholen ist.
+   *
+   * Genau daran scheitert alles, was den Zustand *ändern* soll. Ein Umbau kann eine Farbe, in der
+   * Ton und Zustand verrechnet sind, nicht zurücknehmen, ohne den Ton mitzuverändern; und was das
+   * Modell bisher am Bestand zeigen konnte, war deshalb auch nur eine stadtweite Quote
+   * „verwahrlost", die eine beliebige Vorderreihe der Häuserliste grau gefärbt hat.
+   *
+   * Der Verschleiß kommt hier an drei Stellen an, und keine davon kostet Geometrie:
+   *
+   * 1. **Dreck steht unten.** Was eine Wand altern lässt, kommt vom Gehweg und vom Spritzwasser, und
+   *    es verläuft sich nach oben. `uv().y` zählt die Geschosse, ist also schon das Höhenmaß — vier
+   *    Geschosse weit, dann bleibt nur noch ein Grundschleier.
+   * 2. **Farbe geht raus, bevor sie dunkel wird.** Ein verwahrlostes Haus ist nicht schwarz, es ist
+   *    *grau geworden*: erst kippt der Putzton ins Unbunte, dann wird er stumpf. Deshalb wird gegen
+   *    die eigene Helligkeit gemischt und nicht gegen eine Farbe.
+   * 3. **Die Oberfläche wird matt.** Frischer Putz hat einen Rest Glanz, ausgewaschener keinen.
+   *
+   * Das gepflegte Haus bekommt dabei aktiv etwas zurück — `1 − wear` hebt es leicht an —, sonst wäre
+   * die ganze Stadt nur „unterschiedlich schmutzig" statt „manche instand gehalten, manche nicht".
+   *
+   * Gemessen, im selben Lauf gegeneinander: acht Sekunden Zoomflug bei festgenagelter Auflösung 3,
+   * je drei Durchgänge. Ohne 788 / 789 / 788 Bilder bei 2,55–2,56 ms Renderzeit, mit 764 / 752 / 760
+   * bei 2,62–2,69 ms. Also **0,11 ms und rund 3,5 % Bilder** — nicht nichts, aber der Preis für
+   * 16.782 Häuser, die einzeln altern, und weder ein Dreieck noch ein Draw mehr.
+   *
+   * Der größere Posten ist Speicher: 2,74 Millionen Eckpunkte mal vier Byte, also 10,45 MB neben den
+   * rund 115 MB, die Position, Normale, UV und Farbe schon belegen.
+   */
+  const worn = attribute<'float'>('wear', 'float')
+  const surface = select(uv().y.lessThan(1), ground, facade).mul(attribute('color', 'vec3'))
+  /** Voll am Sockel, nach vier Geschossen auf die Hälfte abgeklungen — ganz weg ist es nie. */
+  const lowDown = float(1).sub(uv().y.div(4).clamp(0, 1)).mul(0.45).add(0.55)
+  const soiled = worn.mul(lowDown)
+  const value = surface.r.mul(0.3).add(surface.g.mul(0.59)).add(surface.b.mul(0.11))
+  wallMaterial.colorNode = mix(
+    surface.mul(float(1).add(float(1).sub(worn).mul(0.1))),
+    vec3(value, value, value).mul(vec3(...GRIME)),
+    soiled.mul(0.8),
+  )
+  wallMaterial.roughnessNode = float(0.74).add(worn.mul(0.24))
   const roofMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.94, metalness: 0 })
   /*
    * Die Dachhaut, über die Weltkoordinate gelegt.
@@ -439,7 +516,16 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
    */
   const grain = texture(roofTexture(), positionWorld.xz.div(ROOF_GRAIN))
   const flatness = normalWorld.y.abs()
-  roofMaterial.colorNode = mix(float(1), grain.r, flatness).mul(attribute('color', 'vec3'))
+  const roofSurface = mix(float(1), grain.r, flatness).mul(attribute('color', 'vec3'))
+  /*
+   * Auf dem Dach gilt dasselbe, nur ohne Höhenverlauf: ein Dach hat keine Sockelzone, es hat Moos.
+   * Schwächer angesetzt als an der Wand, weil die Überblickskamera fast nur Dächer sieht — eine
+   * Stadt, deren halber Bestand von oben grau ist, liest sich als Nebel und nicht als Zustand.
+   */
+  const roofWorn = attribute<'float'>('wear', 'float')
+  const roofValue = roofSurface.r.mul(0.3).add(roofSurface.g.mul(0.59)).add(roofSurface.b.mul(0.11))
+  roofMaterial.colorNode = mix(roofSurface, vec3(roofValue, roofValue, roofValue).mul(vec3(...MOSS)), roofWorn.mul(0.78))
+  roofMaterial.roughnessNode = float(0.88).add(roofWorn.mul(0.1))
 
   const buildingMeshes: THREE.Mesh[] = []
   const buildingRecords = new Map<THREE.Mesh, BuildingRecord[]>()
@@ -447,6 +533,7 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
   const buildingOfTriangle = new Map<THREE.Mesh, Uint16Array>()
   const buildingBoxes = new Map<THREE.Mesh, THREE.Box3[]>()
   const buildingColors = new Map<THREE.Mesh, THREE.Color[]>()
+  const buildingWear = new Map<THREE.Mesh, THREE.BufferAttribute>()
 
   for (const tile of tiles) {
     if (tile.records.length === 0)
@@ -457,6 +544,24 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
     geometry.setAttribute('normal', new THREE.Float32BufferAttribute(tile.normal, 3))
     geometry.setAttribute('uv', new THREE.Float32BufferAttribute(tile.uv, 2))
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(tile.colour, 3))
+    /*
+     * Ein Float je Eckpunkt, aber **ein Wert je Gebäude** — geschrieben über die Bereiche, die
+     * ohnehin schon feststehen, statt über die drei Eckpunktschreiber. Die hätten alle drei ein
+     * Argument mehr gebraucht und wären drei Stellen gewesen, an denen man es vergessen kann; hier
+     * ist es eine Schleife, die nicht wissen muss, was für eine Fläche sie gerade füllt.
+     */
+    const wear = new Float32Array(tile.position.length / 3)
+    tile.ranges.forEach((range, index) => {
+      wear.fill(wearOf(tile.records[index]?.condition ?? 1), range.start, range.start + range.count)
+    })
+    /*
+     * Und warum das ein Float ist und kein Byte: ein Byte je Eckpunkt wäre ein Viertel davon, aber
+     * WebGPU kennt bei einer Komponente nur `uint32`, `sint32` und `float32` — alles Kleinere wird
+     * von three auf vier Byte aufgefüllt (`WebGPUAttributeUtils`). Billiger als das hier ist nur,
+     * einen zweiten Wert in denselben vier Byte unterzubringen, und den gibt es noch nicht.
+     */
+    const wearAttribute = new THREE.BufferAttribute(wear, 1)
+    geometry.setAttribute('wear', wearAttribute)
     geometry.setIndex([...tile.wallIndex, ...tile.roofIndex])
     geometry.addGroup(0, tile.wallIndex.length, 0)
     geometry.addGroup(tile.wallIndex.length, tile.roofIndex.length, 1)
@@ -471,11 +576,12 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
     buildingRecords.set(mesh, tile.records)
     buildingRanges.set(mesh, tile.ranges)
     buildingColors.set(mesh, tile.colours)
+    buildingWear.set(mesh, wearAttribute)
     buildingOfTriangle.set(mesh, triangleOwners(tile))
     buildingBoxes.set(mesh, boxesOf(geometry, tile.ranges))
   }
 
-  return { buildingMeshes, buildingRecords, buildingRanges, buildingOfTriangle, buildingBoxes, shopSeats, buildingColors, buildingMaterials: [wallMaterial, roofMaterial] }
+  return { buildingMeshes, buildingRecords, buildingRanges, buildingOfTriangle, buildingBoxes, shopSeats, buildingColors, buildingWear, buildingMaterials: [wallMaterial, roofMaterial] }
 }
 
 /**
@@ -587,25 +693,6 @@ function tinted(base: THREE.Color, exposure: number): THREE.Color {
   return colour.setHSL(hue, hsl.s * (1 - exposure * 0.1), THREE.MathUtils.clamp(hsl.l * (1 + exposure), 0.03, 0.97))
 }
 
-/**
- * Verwitterung — aber nicht bis ins Schwarze.
- *
- * Ein dunkler Anstrich bei schlechtem Bauzustand verlor ein Drittel seiner Helligkeit, und weil eine
- * senkrechte Wand ohnehin nur einen Bruchteil des Lichts eines Daches bekommt, landete Flaschengrün
- * am Wohnring als schwarzer Fleck. Verwitterung *bleicht* Putz aber eher aus, als ihn abzudunkeln:
- * sie nimmt vor allem Sättigung. Der Helligkeitsverlust bleibt, hat jetzt aber einen Boden, unter den
- * keine Fassade fällt.
- */
-const WEATHERED_FLOOR = 0.26
-
-function weathered(base: THREE.Color, condition: number): THREE.Color {
-  const colour = base.clone()
-  const hsl = { h: 0, s: 0, l: 0 }
-  colour.getHSL(hsl)
-  const wear = 1 - THREE.MathUtils.clamp(condition, 0, 1)
-  return colour.setHSL(hsl.h, hsl.s * (1 - wear * 0.55), Math.max(WEATHERED_FLOOR, hsl.l * (1 - wear * 0.26)))
-}
-
 function tileOf(x: number, z: number): number {
   const column = THREE.MathUtils.clamp(Math.floor(((x + CITY_EXTENT) / (CITY_EXTENT * 2)) * TILES), 0, TILES - 1)
   const row = THREE.MathUtils.clamp(Math.floor(((z + CITY_EXTENT) / (CITY_EXTENT * 2)) * TILES), 0, TILES - 1)
@@ -648,16 +735,21 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
    */
   const floor = ground + PLINTH + HOCHPARTERRE[building.type]
   /*
-   * Wie eine Fassade aussieht, wenn sie dreißig Jahre niemand angefasst hat.
+   * Die Wandfarbe ist ab hier die **ungealterte**.
    *
-   * Der Bauzustand skalierte die Helligkeit um sechzehn Prozent und sonst nichts — ein verwahrlostes
-   * Haus war ein leicht dunkleres. Verwitterung ist aber vor allem ein *Verlust an Farbe*: Putz
-   * kreidet aus, Anstrich bleicht, alles zieht ins Graubraune. Also beides, und deutlich: ein Haus
-   * bei `condition` 0,3 steht dreißig Prozent dunkler und halb so satt wie dasselbe Haus in Ordnung.
+   * Sie war es nicht: `weathered()` hat den Bauzustand hier eingebacken — halbe Sättigung und ein
+   * Viertel Helligkeit weniger beim schlechtesten Haus —, und das waren zwei Dinge in einem Wert,
+   * die nicht zusammengehören. Die Wandfarbe sagt, *woraus* eine Wand ist; der Bauzustand sagt,
+   * *wie es ihr geht*. Zusammengerechnet lässt sich das zweite nie wieder ändern, und genau das
+   * braucht ein Umbau: ein saniertes Haus muss seinen eigenen Ton zurückbekommen und nicht einen,
+   * den jemand vor dem ersten Bild schon halb weggerechnet hat.
+   *
+   * Beides steckt jetzt getrennt im Puffer — Farbe in `color`, Zustand in `wear` — und der Shader
+   * setzt es zusammen. Deshalb bekommt auch `roofColour` unten einen anderen Ausgangswert als
+   * vorher: das Dach leitet seinen Ton von der Wand ab, und die ist nicht mehr vorgealtert.
    */
-  const keep = building.condition
   const character = DISTRICT_CHARACTER[building.districtId]
-  const wall = weathered(wallColour(building, character, rng), keep)
+  const wall = wallColour(building, character, rng)
   /*
    * Der Verlauf über die Höhe.
    *
@@ -666,10 +758,15 @@ function extrude(tile: Tile, building: BuildingRecord, rng: { next: () => number
    * wasser, Reifenabrieb, Abgase, und im Erdgeschoss oft ein anderer Sockelputz. Oben bleicht die
    * Sonne sie aus. Das kostet keinen Draw und kein Dreieck — der Quader hat unten und oben eigene
    * Ecken, und die Wandfarbe war immer schon eine Vertex-Farbe.
+   *
+   * Beide Werte hingen einmal am Bauzustand und sind jetzt fest. Das ist kein Verlust, sondern die
+   * Trennung von oben, eine Ebene tiefer: dass eine Fassade unten dunkler und oben ausgebleicht ist,
+   * hat **jede** Fassade, auch eine frisch gestrichene — es ist Architektur und Wetter, nicht
+   * Zustand. Was am Zustand hängt, steht im `wear`-Attribut, und nur dort kann ein Umbau es wieder
+   * zurücknehmen.
    */
-  const soiling = (1 - keep) * 0.5 + 0.1
-  const wallFoot = wall.clone().multiplyScalar(1 - soiling * 0.34)
-  const wallHead = wall.clone().lerp(SUN_BLEACH, 0.05 + (1 - keep) * 0.12)
+  const wallFoot = wall.clone().multiplyScalar(1 - 0.22 * 0.34)
+  const wallHead = wall.clone().lerp(SUN_BLEACH, 0.08)
   const plinth = wall.clone().lerp(PLINTH_STONE, PLINTH_STONINESS).multiplyScalar(PLINTH_SHADE)
   const roof = roofColour(building, character, wall, rng)
   tile.records.push(building)

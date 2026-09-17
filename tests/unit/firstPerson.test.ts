@@ -45,6 +45,7 @@ const EMPTY: CityBuildings = {
   buildingBoxes: new Map(),
   shopSeats: [],
   buildingColors: new Map(),
+  buildingWear: new Map(),
   buildingMaterials: [],
 }
 

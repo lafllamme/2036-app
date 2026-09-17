@@ -20,6 +20,7 @@ const sound = useSound()
 const {
   experienceStage,
   ready,
+  buildStages,
   rendererStats,
   selectedPartyId,
   selectedGoalIds,
@@ -60,6 +61,12 @@ const savedLabel = computed(() => {
 })
 
 const cityReady = computed(() => ready.value && Boolean(rendererStats.value))
+
+/** Wie viel vom Aufbau steht, in Prozent. Aus den vier Schritten, nicht aus einer Uhr. */
+const buildProgress = computed(() => {
+  const done = buildStages.value.filter(stage => stage.done).length
+  return Math.round((done / Math.max(1, buildStages.value.length)) * 100)
+})
 const selectedParty = computed<PartyDefinition | null>(() => (
   selectedPartyId.value ? getParty(selectedPartyId.value) : null
 ))
@@ -206,10 +213,25 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
               <Icon name="lucide:settings" />Einstellungen
             </button>
           </div>
+          <!--
+            Der Aufbau, während er stattfindet.
+
+            Vorher: ein Balken, der lief, und ein Satz, der „wird synchronisiert" sagte, bis alles
+            auf einmal da war — man erfuhr nicht, worauf man wartet, und nichts davon war wahr. Jetzt
+            stehen die vier Schritte da, die es wirklich gibt, jeder hakt sich ab, wenn er fertig
+            ist, und trägt das, was er gefunden hat: „26.238 Gebäude · 20 Viertel", „354 Draws ·
+            4.374k Dreiecke". Eine Zahl, die aus der Sache kommt, ist der Unterschied zwischen einem
+            Ladebalken und einem Spiel, beim Aufbauen zuzusehen.
+          -->
           <div class="entry-loading" :class="{ complete: cityReady }" aria-live="polite">
-            <span>{{ cityReady ? 'Stadtmodell bereit' : 'Stadtmodell wird synchronisiert' }}</span>
-            <i><b /></i>
-            <span>{{ cityReady ? '100 %' : 'Lädt …' }}</span>
+            <ol class="build-log">
+              <li v-for="stage in buildStages" :key="stage.id" :class="{ 'is-done': stage.done }">
+                <Icon :name="stage.done ? 'lucide:check' : 'lucide:loader'" />
+                <span>{{ stage.label }}</span>
+                <em v-if="stage.detail">{{ stage.detail }}</em>
+              </li>
+            </ol>
+            <i><b :style="{ width: `${buildProgress}%` }" /></i>
           </div>
         </footer>
         <!-- The ground plan is real map data, and its licence asks to be told about it. -->
@@ -352,15 +374,17 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
           <span class="entry-step">2 / 3</span>
         </header>
 
-        <div class="profile-layout">
-          <!--
-            Ein Körper statt zweier, und darin nur Haarlinien.
+        <!--
+          Links steht, wer sie sind, und rechts läuft, was sie wollen.
 
-            Vorher: eine Fahne links, ein Blatt rechts, und im Blatt sechs Kästen mit eigenem Rahmen —
-            ein Körper im Körper im Körper. `DESIGN.md` sagt dazu einen Satz: „Innerhalb eines Körpers
-            kommt Struktur aus Haarlinien und Abstand, nicht aus verschachtelten Kästen."
-          -->
-          <article class="profile-sheet" :style="{ '--party-color': selectedParty.color }">
+          Vorher war es ein einziger hoher Körper: Kopf, Zahlen, Stärken, dreizehn Positionen,
+          Quellen und der Knopf untereinander — und der Knopf, mit dem man sich entscheidet, lag
+          zweihundert Pixel unter der Kante. Man scrollte hoch, um die Zahlen zu prüfen, und wieder
+          herunter, um zu wählen. Dieselbe Aufteilung wie beim Programm eine Seite später: was
+          feststeht, steht fest; was lang ist, läuft.
+        -->
+        <div class="profile-layout">
+          <aside class="profile-card" :style="{ '--party-color': selectedParty.color }">
             <header class="profile-head">
               <i class="party-mark" aria-hidden="true" />
               <strong>{{ selectedParty.abbreviation }}</strong>
@@ -392,6 +416,13 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
               </section>
             </div>
 
+            <button class="entry-primary profile-confirm" type="button" @click="game.confirmParty">
+              Diese Partei wählen
+              <Icon name="lucide:arrow-right" />
+            </button>
+          </aside>
+
+          <div class="profile-stream">
             <section class="position-list" aria-label="Positionen zu den vorhandenen Ratsvorlagen">
               <header><small>Aktuelle Ratsvorlagen</small><span>Programmbasierte Einordnung</span></header>
               <details v-for="position in selectedParty.policyPositions" :key="position.policyId">
@@ -405,12 +436,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
               <a v-for="source in selectedEvidence" :key="source.id" :href="source.url" target="_blank" rel="noreferrer">{{ source.publisher }} ↗</a>
               <p>Parteipositionen und Spielwirkungen sind getrennt. Die Ausgangswerte sind Modellannahmen für Lindenhafen, keine reale Prognose.</p>
             </div>
-
-            <button class="entry-primary profile-confirm" type="button" @click="game.confirmParty">
-              Diese Partei wählen
-              <Icon name="lucide:arrow-right" />
-            </button>
-          </article>
+          </div>
         </div>
       </section>
 
@@ -735,35 +761,56 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 .title-secondary button:disabled { opacity: 0.4; cursor: not-allowed; }
 .title-secondary :deep(svg) { width: 13px; height: 13px; opacity: 0.75; }
 
-.entry-loading {
-  display: flex;
+/*
+ * Das Aufbauprotokoll.
+ *
+ * Vier Zeilen statt eines Balkens, und der Balken darunter misst jetzt etwas: er springt auf 25,
+ * 50, 75, 100 — vier echte Schritte statt einer Schleife, die so tut, als ginge etwas voran. Ein
+ * Fortschrittsbalken, der nichts misst, ist eine Lüge mit Animation.
+ */
+.entry-loading { display: grid; gap: 12px; justify-items: end; min-width: 300px; }
+
+.build-log { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; justify-items: end; }
+.build-log li {
+  display: grid;
+  grid-template-columns: 14px auto;
+  gap: 9px;
   align-items: center;
-  gap: 14px;
-  color: var(--dim);
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  color: var(--faint);
+  font-size: 12px;
+  transition: color 320ms ease;
 }
+.build-log li.is-done { color: var(--dim); }
+.build-log :deep(svg) { width: 13px; height: 13px; }
+/* Was noch aussteht, dreht sich; was fertig ist, steht. */
+.build-log li:not(.is-done) :deep(svg) { animation: build-spin 1.4s linear infinite; }
+.build-log li.is-done :deep(svg) { color: var(--positive); }
+.build-log em {
+  grid-column: 2 / 3;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+}
+
+@keyframes build-spin {
+  to { transform: rotate(360deg); }
+}
+
 .entry-loading i {
   display: block;
-  width: 150px;
+  width: 100%;
   height: 2px;
   overflow: hidden;
+  border-radius: 2px;
   background: var(--hairline);
 }
 .entry-loading b {
   display: block;
-  width: 44%;
   height: 100%;
   background: var(--ink);
-  animation: entry-load 1.2s ease-in-out infinite alternate;
-}
-.entry-loading.complete b { width: 100%; animation: none; }
-
-@keyframes entry-load {
-  from { transform: translateX(-70%); }
-  to { transform: translateX(160%); }
+  /* Exponentiell auslaufend: ein Schritt, der einrastet, nicht eine Füllung, die kriecht. */
+  transition: width 520ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* --- Party hall --------------------------------------------------------- */
@@ -881,14 +928,34 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 
 /* --- Party profile ------------------------------------------------------ */
 
-.profile-layout { max-width: 940px; margin: 0 auto; }
+/*
+ * Zwei Spalten: links die Partei, rechts ihre Positionen.
+ *
+ * Links steht alles, was man vergleicht und was den Knopf trägt — und es bleibt stehen. Rechts
+ * läuft die Liste, die je nach Partei sieben bis dreizehn Einträge lang ist. Dieselbe Aufteilung
+ * wie beim Programm eine Seite später, damit der Fluss eine Form hat und nicht drei.
+ */
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  gap: 34px;
+  align-content: start;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+}
 
-.profile-sheet {
-  padding: 34px 36px 28px;
+.profile-card {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  padding: 30px 32px 26px;
   border-radius: var(--r-panel);
   background: var(--panel);
   box-shadow: var(--body-edge), var(--body-drop);
 }
+
+.profile-stream { padding-top: 4px; }
 
 /*
  * Der Kopf: Punkt, Kürzel, Name, ein Satz.
@@ -939,12 +1006,13 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
  */
 .party-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  margin: 26px 0 0;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px 0;
+  margin: 24px 0 0;
 }
-.party-stats > div { padding: 4px 20px; }
-.party-stats > div + div { border-left: 1px solid var(--rule); }
-.party-stats > div:first-child { padding-left: 0; }
+.party-stats > div { padding: 0 20px; }
+.party-stats > div:nth-child(2n) { border-left: 1px solid var(--rule); }
+.party-stats > div:nth-child(2n+1) { padding-left: 0; }
 .party-stats dt { color: var(--dim); font-size: 12px; }
 .party-stats dd {
   display: flex;
@@ -965,13 +1033,11 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 /* Zwei Spalten, eine Haarlinie dazwischen. Kein Kasten, keine Rahmen. */
 .profile-columns {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0 30px;
-  margin-top: 30px;
-  padding-top: 26px;
+  gap: 22px;
+  margin-top: 26px;
+  padding-top: 24px;
   border-top: 1px solid var(--rule);
 }
-.profile-columns section + section { padding-left: 30px; border-left: 1px solid var(--rule); }
 /*
  * Beschriftungen sind Sprache, keine Technik.
  *
@@ -990,7 +1056,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 .profile-columns ul { margin: 14px 0 0; padding-left: 16px; display: grid; gap: 8px; }
 .profile-columns li { font-size: 13px; line-height: 1.55; }
 
-.position-list { margin-top: 26px; }
+.position-list { margin-top: 0; }
 .position-list header {
   display: flex;
   justify-content: space-between;
@@ -1111,7 +1177,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   display: grid;
   grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
   gap: 34px;
-  align-content: center;
+  align-content: start;
   width: 100%;
   max-width: 1120px;
 }
@@ -1123,7 +1189,20 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
  * Struktur kommt aus einer Linie links und aus Abstand. Ein zweiter Körper neben dem Katalog hätte
  * zwei gleich schwere Flächen ergeben, und dann ist keine von beiden die Hauptsache.
  */
-.manifesto-sheet { align-self: start; padding-right: 30px; border-right: 1px solid var(--rule); }
+/*
+ * Es bleibt stehen, während der Katalog läuft.
+ *
+ * Zwölf Ziele sind länger als jeder Bildschirm, und beim Scrollen verschwand das Programm nach oben
+ * weg — man wählte dann ins Blinde, weil man nicht mehr sah, was man schon versprochen hatte. Genau
+ * dafür gibt es `sticky`: die Spalte klebt an ihrer oberen Kante und die andere bewegt sich.
+ */
+.manifesto-sheet {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  padding-right: 30px;
+  border-right: 1px solid var(--rule);
+}
 .manifesto-sheet > header {
   display: grid;
   grid-template-columns: 10px auto minmax(0, 1fr);
@@ -1313,7 +1392,8 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .entry-loading b { animation: none; width: 70%; }
+  .build-log li:not(.is-done) :deep(svg) { animation: none; }
+  .entry-loading b { transition: none; }
   .entry-fade-enter-active,
   .entry-fade-leave-active { transition: none; }
 }

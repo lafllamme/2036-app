@@ -24,7 +24,24 @@ onMounted(async () => {
      * The ground plan and the kit both have to be on hand before the first frame: a model arriving
      * late is a building popping into a city the player is already looking at.
      */
-    const [blueprint, models] = await Promise.all([loadCityBlueprint(2036), loadCityModels()])
+    /*
+     * Beide Meilensteine einzeln melden, obwohl sie parallel laufen.
+     *
+     * Der Grundriss ist vier Megabyte über das Netz und der Modellsatz ein Dutzend Dateien von der
+     * Platte — die beiden sind verschieden schnell, und welcher gerade fehlt, ist die einzige
+     * Auskunft, die einen Ladebildschirm ehrlich macht. `Promise.all` wartet weiter auf beide; nur
+     * meldet jetzt jeder für sich, wann er da ist.
+     */
+    const [blueprint, models] = await Promise.all([
+      loadCityBlueprint(2036).then((plan) => {
+        game.buildStageDone('plan', `${plan.buildings.length.toLocaleString('de-DE')} Gebäude · ${plan.districts.length} Viertel`)
+        return plan
+      }),
+      loadCityModels().then((kit) => {
+        game.buildStageDone('kit', null)
+        return kit
+      }),
+    ])
     if (!canvas.value)
       return
     cityRenderer = new Renderer({
@@ -41,7 +58,10 @@ onMounted(async () => {
           game.chooseBlock(building)
         else game.selectedBuilding = building
       },
-      onReady: (stats) => { game.rendererStats = stats },
+      onReady: (stats) => {
+        game.rendererStats = stats
+        game.buildStageDone('scene', `${stats.drawCalls} Draws · ${Math.round(stats.triangles / 1000).toLocaleString('de-DE')}k Dreiecke`)
+      },
       onStats: (stats) => { game.rendererStats = stats },
       // Wo der Fußgänger steht. Eigener Rückruf, weil `onStats` nur einmal je Sekunde läuft.
       onWalk: (state) => { game.walkState = state },

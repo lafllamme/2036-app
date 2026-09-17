@@ -246,6 +246,32 @@ export const useGameStore = defineStore('game', () => {
   const decisionsOpen = ref(false)
 
   const ready = ref(false)
+
+  /**
+   * Wie weit der Aufbau ist — **nach echten Meilensteinen**, nicht nach einer Uhr.
+   *
+   * Der Titelbildschirm hatte einen Balken, der lief, und einen Satz, der „wird synchronisiert"
+   * sagte, bis alles auf einmal da war. Das ist kein Ladevorgang, das ist ein Warteraum: man erfährt
+   * nicht, worauf man wartet, und nichts davon ist wahr.
+   *
+   * Hier stehen die vier Schritte, die wirklich stattfinden, und jeder wird gemeldet, wenn er
+   * fertig ist — der Rechenkern, der Grundriss über das Netz, das Modellset, und die Stadt im Bild.
+   * `detail` trägt dazu, was der Schritt **gefunden** hat: „26.238 Gebäude, 20 Viertel". Eine Zahl,
+   * die aus der Sache selbst kommt, ist der Unterschied zwischen einem Ladebalken und einem Spiel,
+   * das beim Aufbauen zusieht.
+   */
+  const buildStages = ref<{ id: string, label: string, detail: string | null, done: boolean }[]>([
+    { id: 'core', label: 'Rechenkern', detail: null, done: false },
+    { id: 'plan', label: 'Stadtgrundriss', detail: null, done: false },
+    { id: 'kit', label: 'Modellsatz', detail: null, done: false },
+    { id: 'scene', label: 'Stadt im Bild', detail: null, done: false },
+  ])
+
+  /** Einen Schritt als erledigt melden, mit dem, was er gefunden hat. */
+  function buildStageDone(id: string, detail: string | null = null): void {
+    buildStages.value = buildStages.value.map(stage =>
+      (stage.id === id ? { ...stage, detail, done: true } : stage))
+  }
   const error = ref<string | null>(null)
   const saveStatus = ref('Nicht gespeichert')
   /**
@@ -389,6 +415,7 @@ export const useGameStore = defineStore('game', () => {
     const previous = snapshot.value
     snapshot.value = data.snapshot
     ready.value = true
+    buildStageDone('core')
     pendingCommand.value = false
 
     if (isCampaignComplete(data.snapshot.month))
@@ -1029,6 +1056,8 @@ export const useGameStore = defineStore('game', () => {
     districtShapes,
     decisionsOpen,
     ready,
+    buildStages,
+    buildStageDone,
     error,
     saveStatus,
     savedGame,

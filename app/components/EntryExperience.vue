@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CampaignGoalDefinition, CampaignGoalId, PartyDefinition, PartyPolicyPosition } from '~/core/contracts'
 import { storeToRefs } from 'pinia'
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useSound } from '~/composables/useSound'
 import { useSoundSettings } from '~/composables/useSoundSettings'
 import { CAMPAIGN_GOALS } from '~/content/goals'
@@ -95,21 +95,59 @@ function chooseGoal(goalId: CampaignGoalId): void {
   game.toggleGoal(goalId)
 }
 
+/**
+ * Die Fraktionen, nach Mandaten sortiert — und der Rat als sechzig Striche.
+ *
+ * Sechs gleich große Karten haben behauptet, die Parteien seien gleich groß. Die CDU hat achtzehn
+ * Sitze und die FDP drei; das ist die wichtigste Zahl des ganzen Bildschirms, und sie stand klein
+ * unten in einer Kachel, die genauso breit war wie alle anderen. Jetzt trägt die Reihenfolge sie,
+ * und die Schriftgröße der Zeile trägt sie mit — `--weight` läuft von 1 bei der stärksten Fraktion
+ * herunter.
+ */
+const rankedParties = computed(() =>
+  [...PARTIES].sort((a, b) => b.stats.councilSeats - a.stats.councilSeats))
+
+/** Ein Eintrag je Sitz, in der Reihenfolge der Fraktionen. Sechzig Stück, einmal gerechnet. */
+const chamber = computed(() =>
+  rankedParties.value.flatMap(party =>
+    Array.from({ length: party.stats.councilSeats }, (_, at) => ({
+      key: `${party.id}-${at}`,
+      partyId: party.id,
+      color: party.color,
+    }))))
+
+/** Auf welche Zeile gerade gezeigt wird. Nur dort leuchtet Parteifarbe auf — siehe `DESIGN.md`. */
+const hoveredParty = ref<string | null>(null)
+
+/**
+ * Die Zeile über der Kammer.
+ *
+ * Sechzig graue Striche ohne ein Wort sind ein Muster und keine Auskunft — man erfährt erst durch
+ * Zeigen, dass es ein Rat ist. Der Satz sagt es vorher und wird dann zu dem, was man gerade
+ * betrachtet.
+ */
+const hoveredLabel = computed(() => {
+  const party = PARTIES.find(entry => entry.id === hoveredParty.value)
+  return party
+    ? `${party.abbreviation} hält ${party.stats.councilSeats} der 60 Sitze`
+    : 'Der Rat von Lindenhafen, 60 Sitze'
+})
+
 function moveBannerFocus(event: KeyboardEvent, index: number): void {
-  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key))
+  if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key))
     return
   event.preventDefault()
   if (!(event.currentTarget instanceof HTMLElement))
     return
-  const row = event.currentTarget.closest('.party-banner-row')
-  const buttons = Array.from(row?.querySelectorAll<HTMLButtonElement>('.party-banner') ?? [])
+  const row = event.currentTarget.closest('.party-rank')
+  const buttons = Array.from(row?.querySelectorAll<HTMLButtonElement>('.party-row') ?? [])
   if (buttons.length === 0)
     return
   const nextIndex = event.key === 'Home'
     ? 0
     : event.key === 'End'
       ? buttons.length - 1
-      : (index + (event.key === 'ArrowRight' ? 1 : -1) + buttons.length) % buttons.length
+      : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
   buttons[nextIndex]?.focus()
 }
 </script>
@@ -183,7 +221,6 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
             ← Titel
           </button>
           <div>
-            <small>01 · Der Vorsitz</small>
             <h1 id="leader-title">
               Wer tritt an?
             </h1>
@@ -239,7 +276,6 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
             ← Vorsitz
           </button>
           <div>
-            <small>02 · Politische Kraft</small>
             <h1 id="party-hall-title">
               Welche Richtung für Lindenhafen?
             </h1>
@@ -247,24 +283,49 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
           <span class="entry-step">2 / 4</span>
         </header>
 
-        <div class="party-banner-row" aria-label="Spielbare fiktive Parteien">
-          <button
-            v-for="(party, index) in PARTIES"
-            :key="party.id"
-            class="party-banner"
-            type="button"
-            :style="{ '--party-color': party.color }"
-            :aria-label="`${party.abbreviation}: ${party.name} auswählen`"
-            @click="game.selectParty(party.id)"
-            @keydown="moveBannerFocus($event, index)"
-          >
-            <span class="banner-emblem" aria-hidden="true">{{ party.emblem }}</span>
-            <strong>{{ party.abbreviation }}</strong>
-            <span class="banner-name">{{ party.name }}</span>
-            <span class="banner-seats">Mandate <b>{{ party.stats.councilSeats }}</b></span>
-            <span class="banner-action">Profil öffnen <Icon name="lucide:arrow-right" /></span>
-          </button>
+        <!--
+          Der Rat, bevor man seinen Platz darin wählt.
+
+          Sechzig Striche, einer je Sitz, in der Reihenfolge der Fraktionen. Sie sind grau, bis man
+          auf eine Zeile zeigt — dann leuchten **ihre** Sitze auf. Damit erscheint Parteifarbe genau
+          dort, wo sie Identität ist und nichts bewertet, und man sieht in derselben Sekunde, wie
+          viel von diesem Rat die Fraktion ist, die man gerade anschaut.
+        -->
+        <div class="chamber-strip">
+          <span>{{ hoveredLabel }}</span>
+          <div class="chamber" aria-hidden="true">
+            <i
+              v-for="seat in chamber"
+              :key="seat.key"
+              class="seat"
+              :class="{ 'is-lit': hoveredParty === seat.partyId }"
+              :style="{ '--party-color': seat.color }"
+            />
+          </div>
         </div>
+
+        <ol class="party-rank" aria-label="Spielbare fiktive Parteien">
+          <li v-for="(party, index) in rankedParties" :key="party.id">
+            <button
+              class="party-row"
+              type="button"
+              :style="{ '--party-color': party.color, '--weight': party.stats.councilSeats / 18 }"
+              :aria-label="`${party.abbreviation}: ${party.name}, ${party.stats.councilSeats} von 60 Sitzen`"
+              @click="game.selectParty(party.id)"
+              @keydown="moveBannerFocus($event, index)"
+              @mouseenter="hoveredParty = party.id"
+              @mouseleave="hoveredParty = null"
+              @focus="hoveredParty = party.id"
+              @blur="hoveredParty = null"
+            >
+              <i class="party-mark" aria-hidden="true" />
+              <strong>{{ party.abbreviation }}</strong>
+              <span class="party-full">{{ party.name }}</span>
+              <span class="party-seats"><b>{{ party.stats.councilSeats }}</b> von 60</span>
+              <Icon class="party-go" name="lucide:arrow-right" />
+            </button>
+          </li>
+        </ol>
 
         <p class="fiction-note">
           Fiktive Parteien und Ratswerte. Kürzel und Farbfamilien greifen die deutsche Parteienlandschaft auf; Namen und Symbole sind eigenständig.
@@ -277,7 +338,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
             ← Parteien
           </button>
           <div>
-            <small>02 · Politisches Profil</small><h1 id="party-profile-title">
+            <h1 id="party-profile-title">
               {{ selectedParty.abbreviation }} prüfen
             </h1>
           </div>
@@ -285,23 +346,26 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
         </header>
 
         <div class="profile-layout">
-          <div class="profile-banner" :style="{ '--party-color': selectedParty.color, '--party-text': selectedParty.textColor }">
-            <span class="profile-emblem" aria-hidden="true">{{ selectedParty.emblem }}</span>
-            <strong>{{ selectedParty.abbreviation }}</strong>
-            <span>{{ selectedParty.name }}</span>
-          </div>
+          <!--
+            Ein Körper statt zweier, und darin nur Haarlinien.
 
-          <article class="profile-sheet">
-            <div class="profile-intro">
-              <div><small>Fiktive Partei · Quellenstand {{ selectedParty.asOf }}</small><h2>{{ selectedParty.name }}</h2></div>
+            Vorher: eine Fahne links, ein Blatt rechts, und im Blatt sechs Kästen mit eigenem Rahmen —
+            ein Körper im Körper im Körper. `DESIGN.md` sagt dazu einen Satz: „Innerhalb eines Körpers
+            kommt Struktur aus Haarlinien und Abstand, nicht aus verschachtelten Kästen."
+          -->
+          <article class="profile-sheet" :style="{ '--party-color': selectedParty.color }">
+            <header class="profile-head">
+              <i class="party-mark" aria-hidden="true" />
+              <strong>{{ selectedParty.abbreviation }}</strong>
+              <h2>{{ selectedParty.name }}</h2>
               <p>{{ selectedParty.summary }}</p>
-            </div>
+            </header>
 
             <dl class="party-stats" aria-label="Fiktive Ausgangswerte">
-              <div><dt>Ratsmandate</dt><dd>{{ selectedParty.stats.councilSeats }} / 60</dd></div>
-              <div><dt>Zustimmung</dt><dd>{{ selectedParty.stats.publicSupport }} %</dd></div>
-              <div><dt>Organisation</dt><dd>{{ selectedParty.stats.organization }}</dd></div>
-              <div><dt>Verhandlung</dt><dd>{{ selectedParty.stats.negotiation }}</dd></div>
+              <div><dt>Ratsmandate</dt><dd>{{ selectedParty.stats.councilSeats }}<em>von 60</em></dd></div>
+              <div><dt>Zustimmung</dt><dd>{{ selectedParty.stats.publicSupport }}<em>Prozent</em></dd></div>
+              <div><dt>Organisation</dt><dd>{{ selectedParty.stats.organization }}<em>von 100</em></dd></div>
+              <div><dt>Verhandlung</dt><dd>{{ selectedParty.stats.negotiation }}<em>von 100</em></dd></div>
             </dl>
 
             <div class="profile-columns">
@@ -330,7 +394,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
             </section>
 
             <div class="profile-sources">
-              <small>Quellen und Einordnung</small>
+              <small>Quellen und Einordnung · Stand {{ selectedParty.asOf }}</small>
               <a v-for="source in selectedEvidence" :key="source.id" :href="source.url" target="_blank" rel="noreferrer">{{ source.publisher }} ↗</a>
               <p>Parteipositionen und Spielwirkungen sind getrennt. Die Ausgangswerte sind Modellannahmen für Lindenhafen, keine reale Prognose.</p>
             </div>
@@ -349,7 +413,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
             ← Profil
           </button>
           <div>
-            <small>04 · Mandat 2026</small><h1 id="manifesto-title">
+            <h1 id="manifesto-title">
               Drei Ziele für das Jahrzehnt
             </h1>
           </div>
@@ -466,12 +530,12 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 }
 .entry-header > div { text-align: center; }
 .entry-header small,
+/* Der Schrittzähler ist eine Zahl, die man vergleicht — also Mono, und ohne Versalienkostüm. */
 .entry-step {
-  color: var(--dim);
+  color: var(--faint);
   font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.04em;
 }
 .entry-header h1 {
   margin: 12px 0 0;
@@ -483,21 +547,31 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 }
 .entry-step { justify-self: end; padding-top: 2px; }
 
+/*
+ * Der Rückweg: dieselbe leise Pille wie `.btn--ghost` im Spiel.
+ *
+ * Vorher eine Kontur in 9-px-Mono-Versalien. Ein Knopf im Einstieg und ein Knopf im Spiel waren
+ * damit zwei verschiedene Objekte für dieselbe Sache, und das ist genau der Bruch, den man in den
+ * ersten zehn Sekunden sieht.
+ */
 .entry-back {
   justify-self: start;
-  padding: 8px 14px;
-  border: 1px solid var(--rule);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  border: 0;
   border-radius: var(--r-pill);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.07);
   color: var(--dim);
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
+  font-family: var(--text);
+  font-size: 13px;
   cursor: pointer;
-  transition: border-color 160ms ease, color 160ms ease;
+  transition: background-color 160ms ease, color 160ms ease;
 }
-.entry-back:hover { border-color: var(--hairline); color: var(--ink); }
+.entry-back:hover { background: rgba(255, 255, 255, 0.1); color: var(--ink); }
 
 /*
  * The one filled action per screen.
@@ -520,19 +594,24 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   padding: 0 26px;
   border: 0;
   border-radius: var(--r-pill);
-  background: var(--ink);
+  /*
+   * Dasselbe Objekt wie `.btn` im Spiel: ein Körper aus Papier mit Lichtkante und Schatten, gesetzt
+   * in Switzer. Vorher war es eine flache Fläche in 10-px-Mono-Versalien — die gefüllte Aktion des
+   * Einstiegs und die des Spiels waren zwei verschiedene Dinge für dieselbe Handlung.
+   */
+  background: linear-gradient(180deg, #fbf9f4 0%, #e6e2d8 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 10px 22px -8px rgba(0, 0, 0, 0.7);
   color: #0b0f12;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
+  font-family: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
   cursor: pointer;
-  transition: opacity 160ms ease, transform 160ms ease;
+  transition: filter 160ms ease, opacity 160ms ease, transform 160ms ease;
 }
 .entry-primary:first-child { margin-top: 0; }
-.entry-primary:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
-.entry-primary:disabled { opacity: 0.3; cursor: not-allowed; }
+.entry-primary:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+.entry-primary:disabled { opacity: 0.42; cursor: default; }
 .entry-primary :deep(svg) { width: 15px; height: 15px; }
 
 /* --- Title -------------------------------------------------------------- */
@@ -653,92 +732,108 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 
 /* --- Party hall --------------------------------------------------------- */
 
-.party-hall { display: grid; grid-template-rows: auto 1fr auto; }
+.party-hall { display: grid; grid-template-rows: auto auto 1fr auto; gap: 26px; }
 
-.party-banner-row {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 14px;
-  align-content: center;
+/*
+ * Der Rat als sechzig Striche.
+ *
+ * Nicht als Balkendiagramm und nicht als Halbkreis: ein Sitz ist ein Sitz, und sechzig davon
+ * nebeneinander sind die eine Auskunft, die dieser Bildschirm schuldet — wie viel von diesem Haus
+ * eine Fraktion ist. Grau, bis man auf eine Zeile zeigt; dann leuchten ihre Sitze auf. Damit steht
+ * Parteifarbe genau dort, wo sie Identität ist und nichts bewertet.
+ */
+.chamber-strip { display: grid; gap: 10px; }
+.chamber-strip > span {
+  color: var(--faint);
+  font-size: 11.5px;
+}
+.chamber {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 28px;
+  padding: 0 2px;
+}
+/*
+ * Die Sitze stehen auf, wenn man auf ihre Fraktion zeigt — der eine gestaltete Moment auf diesem
+ * Bildschirm. Ohne den Höhenunterschied wechselte nur die Farbe, und eine Farbe allein ist eine
+ * Zustandsanzeige; ein Aufrichten ist eine Handlung.
+ */
+.seat {
+  flex: 1 1 0;
+  height: 17px;
+  min-width: 2px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.11);
+  transition: background-color 260ms cubic-bezier(0.16, 1, 0.3, 1), height 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.seat.is-lit {
+  height: 28px;
+  background: color-mix(in oklab, var(--party-color), var(--ink) 40%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seat { transition: background-color 120ms linear; }
 }
 
 /*
- * Party colour is identity, not judgement: a 2 px edge and the emblem ring, never the surface.
- * Six saturated full-bleed banners read as election posters and fought with the status colours.
+ * Die Fraktionen als Rangliste, nicht als Raster.
+ *
+ * Sechs gleich große Karten haben behauptet, die Parteien seien gleich groß — und die Zahl, die das
+ * widerlegt, stand klein in der vorletzten Zeile jeder Kachel. Hier trägt die Reihenfolge sie, und
+ * das Kürzel wächst mit: `--weight` läuft von 1 bei der stärksten Fraktion herunter, und daraus
+ * folgt eine Schriftgröße zwischen 26 und 46 px. Der Bildschirm sagt damit dasselbe wie die Zahl
+ * daneben, nur ohne dass man sie lesen muss.
  */
-.party-banner {
-  --party-accent: color-mix(in oklab, var(--party-color), var(--ink) 34%);
-  position: relative;
+.party-rank { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; align-content: center; }
+
+.party-row {
   display: grid;
-  grid-template-rows: auto auto 1fr auto auto;
-  gap: 12px;
-  padding: 22px 18px 18px;
+  grid-template-columns: 10px minmax(0, auto) minmax(0, 1fr) auto 18px;
+  gap: 18px;
+  align-items: baseline;
+  width: 100%;
+  padding: 18px 20px;
   border: 0;
   border-radius: var(--r-inner);
-  background: var(--panel);
-  box-shadow: var(--body-edge), var(--body-drop);
+  background: transparent;
+  color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 180ms ease, background-color 180ms ease, transform 180ms ease;
+  transition: background-color 180ms ease;
 }
-.party-banner::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 18px;
-  left: 18px;
-  height: 2px;
-  background: var(--party-accent);
-}
-.party-banner:hover,
-.party-banner:focus-visible {
-  border-color: var(--hairline);
-  background: rgba(18, 24, 29, 0.78);
-  transform: translateY(-2px);
+.party-row + .party-row { box-shadow: inset 0 1px 0 var(--rule); }
+.party-rank li + li .party-row { box-shadow: inset 0 1px 0 var(--rule); }
+.party-row:hover,
+.party-row:focus-visible { background: rgba(255, 255, 255, 0.05); }
+
+/* Identität, und sonst nichts: der kleine runde Punkt aus `DESIGN.md`. */
+.party-mark {
+  align-self: center;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--party-color), var(--ink) 34%);
 }
 
-.banner-emblem {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border: 1px solid var(--party-accent);
-  border-radius: 50%;
-  color: var(--party-accent);
+.party-row strong {
   font-family: var(--display);
-  font-size: 17px;
+  font-size: calc(26px + var(--weight) * 20px);
   font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
-.party-banner strong {
-  font-family: var(--display);
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-.banner-name { color: var(--dim); font-size: 11px; line-height: 1.45; }
-.banner-seats {
-  display: flex;
-  justify-content: space-between;
-  padding-top: 12px;
-  border-top: 1px solid var(--rule);
+.party-full {
+  align-self: center;
   color: var(--dim);
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 12.5px;
+  line-height: 1.45;
 }
-.banner-seats b { color: var(--ink); font-size: 11px; font-weight: 500; }
-.banner-action {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--dim);
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.party-banner :deep(svg) { width: 13px; height: 13px; }
+/* Die Zahl in Mono, weil man sie vergleicht — die Beschriftung daneben in Sprache. */
+.party-seats { align-self: center; color: var(--dim); font-size: 12px; }
+.party-seats b { color: var(--ink); font-family: var(--mono); font-size: 16px; font-weight: 400; }
+.party-go { align-self: center; width: 16px; height: 16px; color: var(--faint); }
+.party-row:hover .party-go { color: var(--ink); }
 
 .fiction-note {
   margin: 36px 0 0;
@@ -750,104 +845,114 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 
 /* --- Party profile ------------------------------------------------------ */
 
-.profile-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
-  gap: 22px;
-  max-width: 1180px;
-  margin: 0 auto;
-}
-
-.profile-banner {
-  --party-accent: color-mix(in oklab, var(--party-color), var(--ink) 34%);
-  position: relative;
-  display: grid;
-  align-content: start;
-  gap: 14px;
-  padding: 30px 24px;
-  border: 0;
-  border-radius: var(--r-panel);
-  background: var(--panel);
-  box-shadow: var(--body-edge), var(--body-drop);
-}
-.profile-banner::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 24px;
-  left: 24px;
-  height: 2px;
-  background: var(--party-accent);
-}
-.profile-emblem {
-  display: grid;
-  place-items: center;
-  width: 52px;
-  height: 52px;
-  border: 1px solid var(--party-accent);
-  border-radius: 50%;
-  color: var(--party-accent);
-  font-family: var(--display);
-  font-size: 22px;
-  font-weight: 700;
-}
-.profile-banner strong {
-  font-family: var(--display);
-  font-size: 40px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1;
-}
-.profile-banner > span:last-child { color: var(--dim); font-size: 12px; line-height: 1.5; }
+.profile-layout { max-width: 940px; margin: 0 auto; }
 
 .profile-sheet {
-  padding: 28px 30px 24px;
+  padding: 34px 36px 28px;
   border-radius: var(--r-panel);
   background: var(--panel);
   box-shadow: var(--body-edge), var(--body-drop);
 }
-.profile-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: end; }
-.profile-intro small {
-  color: var(--dim);
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+
+/*
+ * Der Kopf: Punkt, Kürzel, Name, ein Satz.
+ *
+ * Die Fahne links ist weg. Sie war eine zweite Fläche für dieselbe Auskunft, und ihr farbiger
+ * Streifen und der farbige Emblemring verstießen gegen die einzige Farbregel, die dieses Projekt
+ * hat — Parteifarbe erscheint als kleiner runder Punkt neben einem Kürzel, nie als Fläche.
+ */
+.profile-head {
+  display: grid;
+  grid-template-columns: 12px auto minmax(0, 1fr);
+  gap: 0 16px;
+  align-items: baseline;
+  padding-bottom: 26px;
+  border-bottom: 1px solid var(--rule);
 }
-.profile-intro h2 {
-  margin: 10px 0 0;
+.profile-head .party-mark { width: 12px; height: 12px; }
+.profile-head strong {
   font-family: var(--display);
-  font-size: 34px;
+  font-size: 44px;
   font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.08;
+  letter-spacing: -0.035em;
+  line-height: 1;
 }
-.profile-intro p { margin: 0; color: var(--dim); font-size: 13px; line-height: 1.6; }
-
-.party-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 26px 0 0; }
-.party-stats > div { padding: 14px 16px; border: 1px solid var(--rule); border-radius: var(--r-inner); }
-.party-stats dt {
+.profile-head h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.profile-head p {
+  grid-column: 2 / -1;
+  max-width: 62ch;
+  margin: 14px 0 0;
   color: var(--dim);
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 14px;
+  line-height: 1.6;
 }
-.party-stats dd { margin: 8px 0 0; font-family: var(--mono); font-size: 19px; }
 
-.profile-columns { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
-.profile-columns section { padding: 16px; border: 1px solid var(--rule); border-radius: var(--r-inner); }
+/*
+ * Vier Zahlen, getrennt durch Haarlinien statt durch vier Kästen.
+ *
+ * Die Zahl steht in Mono, weil man sie vergleicht; ihre Einheit daneben in Sprache und klein, weil
+ * man sie einmal liest. Vorher stand die Beschriftung in 8-px-Mono-Versalien — genau das, was
+ * `DESIGN.md` unter „Vermeiden" führt und was die alte Oberfläche wie ein Datenblatt aussehen ließ.
+ */
+.party-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 26px 0 0;
+}
+.party-stats > div { padding: 4px 20px; }
+.party-stats > div + div { border-left: 1px solid var(--rule); }
+.party-stats > div:first-child { padding-left: 0; }
+.party-stats dt { color: var(--dim); font-size: 12px; }
+.party-stats dd {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 7px 0 0;
+  font-family: var(--mono);
+  font-size: 26px;
+  line-height: 1;
+}
+.party-stats dd em {
+  color: var(--faint);
+  font-family: var(--text);
+  font-size: 11.5px;
+  font-style: normal;
+}
+
+/* Zwei Spalten, eine Haarlinie dazwischen. Kein Kasten, keine Rahmen. */
+.profile-columns {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 30px;
+  margin-top: 30px;
+  padding-top: 26px;
+  border-top: 1px solid var(--rule);
+}
+.profile-columns section + section { padding-left: 30px; border-left: 1px solid var(--rule); }
+/*
+ * Beschriftungen sind Sprache, keine Technik.
+ *
+ * Sie standen alle in 8-px-Mono-Versalien mit 0,14 em Sperrung — `SPIELERISCHE STÄRKEN`,
+ * `AKTUELLE RATSVORLAGEN`, `QUELLEN UND EINORDNUNG`. `DESIGN.md` führt genau das unter „Vermeiden"
+ * und nennt auch den Grund: Mono ist für Zahlen da, nicht als Kostüm für „technisch", und ein
+ * Bildschirm, dessen jede Beschriftung so gesetzt ist, sieht aus wie ein Datenblatt statt wie ein
+ * Spiel. Sie sind jetzt Fließschrift in Satzschreibung.
+ */
 .profile-columns small,
 .position-list header small,
 .profile-sources small {
   color: var(--dim);
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 12px;
 }
-.profile-columns ul { margin: 12px 0 0; padding-left: 16px; display: grid; gap: 7px; }
-.profile-columns li { font-size: 12px; line-height: 1.5; }
+.profile-columns ul { margin: 14px 0 0; padding-left: 16px; display: grid; gap: 8px; }
+.profile-columns li { font-size: 13px; line-height: 1.55; }
 
 .position-list { margin-top: 26px; }
 .position-list header {
@@ -856,21 +961,18 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   padding-bottom: 10px;
   border-bottom: 1px solid var(--rule);
 }
-.position-list header span { color: var(--dim); font-size: 11px; }
+.position-list header span { color: var(--faint); font-size: 12px; }
 .position-list details { border-bottom: 1px solid var(--rule); }
 .position-list summary {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  padding: 13px 0;
+  padding: 14px 0;
   cursor: pointer;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 13px;
 }
-.position-list summary b { font-size: 10px; }
-.position-list details p { margin: 0 0 14px; color: var(--dim); font-size: 12px; line-height: 1.6; }
+.position-list summary b { font-size: 12px; font-weight: 500; }
+.position-list details p { margin: 0 0 16px; max-width: 68ch; color: var(--dim); font-size: 13px; line-height: 1.6; }
 
 /* Status colours: the only two that carry meaning, plus paper for the middle ground. */
 .stance-support { color: var(--positive); }
@@ -878,10 +980,10 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 .stance-oppose { color: var(--negative); }
 
 .profile-sources { margin-top: 24px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; }
-.profile-sources a { color: var(--dim); font-size: 11px; }
+.profile-sources a { color: var(--dim); font-size: 12px; }
 .profile-sources a:hover { color: var(--ink); }
-.profile-sources p { flex-basis: 100%; margin: 4px 0 0; color: var(--dim); font-size: 11px; line-height: 1.6; }
-.profile-confirm { width: 100%; justify-content: center; margin-top: 24px; }
+.profile-sources p { flex-basis: 100%; max-width: 70ch; margin: 6px 0 0; color: var(--faint); font-size: 12px; line-height: 1.6; }
+.profile-confirm { width: 100%; justify-content: center; margin-top: 30px; }
 
 /* --- Priorities --------------------------------------------------------- */
 
@@ -910,6 +1012,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 .manifesto-party::before {
   content: '';
   position: absolute;
+  display: none;
   top: 0;
   right: 24px;
   left: 24px;

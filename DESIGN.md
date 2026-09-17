@@ -68,14 +68,26 @@ Frame weich, damit Text lesbar wird, den Deckkraft umsonst lesbar macht. Ersatzl
 Schrift, die direkt auf der Stadt steht, wird über `--lift` lesbar, einen zweistufigen
 Schlagschatten; Flächen, die etwas verdecken dürfen, sind fast undurchsichtig.
 
-Der Einstieg behält seinen Blur, als **Zahl** und nicht als Token: dort steht die Kamera still,
-niemand spielt, und die Parteienhalle lebt davon, dass die Stadt hinter den Karten liegt statt unter
-ihnen. Ein Token wäre eine Einladung, ihn wieder überall zu nehmen.
+**Auch im Einstieg nicht mehr.** Hier stand die Ausnahme: der Einstieg behalte seinen Blur, weil die
+Kamera stillsteht und „die Parteienhalle davon lebt, dass die Stadt hinter den Karten liegt". Der
+Satz war richtig und die Ausnahme trotzdem falsch — die Halle hat keine Karten mehr. Sie ist eine
+Liste ohne eigene Fläche, und die Stadt liegt nicht *hinter* ihr, sondern schlicht *da*. Acht
+`backdrop-filter: blur(42px)` über einer laufenden Canvas standen also für eine Wirkung, die man
+billiger und besser bekommt, indem man die Fläche weglässt.
+
+Was bleibt, ist eine Fläche für lange Texte — das Parteiprofil —, und die ist ein Körper wie jeder
+andere.
 
 **Ein Flächen-Primitiv: `.pod`.** Ein Körper, kein Rechteck — Licht auf der Oberkante, ein Verlauf,
 der ihn nach unten schwerer macht, 26 px Radius und ein Schatten mit Versatz. Keine Komponente denkt
 sich ihre eigene Fläche aus. Innerhalb eines Körpers kommt Struktur aus Haarlinien und Abstand, nicht
 aus verschachtelten Kästen.
+
+Er ist **fast undurchsichtig**, und das ist gemessen: bei 5,5 % Durchlässigkeit färbte sich dieselbe
+Regel je nach Standort verschieden ein. Unten liegt `.shell-hem` und dunkelt die Stadt hinter dem
+Deck ab, die Pods an den Seiten liegen über dem rohen Bild — `(1 − α) × (Himmel − gesäumte Stadt)`
+sind rund neun Helligkeitsstufen, und dabei kippen sie ins Bläuliche. Zwei Körper mit derselben Regel
+sahen aus wie zwei Materialien.
 
 **Kein Körper spannt sich von Kante zu Kante.** Eine durchgehende Leiste liest wie eine Symbolleiste
 im Browser und nimmt dem Bild eine ganze Kante. Jeder Körper ist so breit wie sein Inhalt, mit Luft

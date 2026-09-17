@@ -831,3 +831,46 @@ Sprint quer durch die Innenstadt, gemessen mit `?bench`:
 
 Davon **0,51 ms** eigene Rechnung. Der Modus zeigt dieselbe Szene aus einer anderen Höhe; er baut
 nichts dazu.
+
+
+## Von einem Ort in der Stadt zu einem Punkt auf dem Schirm
+
+Der Punkt, der in `FEATURE_MATRIX` seit Wochen als offen stand: *„Marking a motion at its place in
+the city (needs a camera→screen projection at the CityCanvas boundary)."* Ohne ihn hat das Spiel acht
+Bezirke mit Grenzen, Einsätze mit Koordinaten und Häuser mit Grundriss — und keine Möglichkeit,
+irgendetwas davon **dort** zu beschriften, wo es steht.
+
+`rendering/screen.ts` rechnet es, `CityRenderer.project()` reicht es durch, der Store hält die
+Funktion, und `MapMarkers.vue` zeichnet damit die laufenden Einsätze über die Straße, an der sie
+stattfinden.
+
+### Drei Entscheidungen, die daran hängen
+
+**Von Hand gerechnet statt über `Vector3.project`.** Das spart nicht nur den Vektor — es braucht die
+homogene Koordinate `w`. Sie ist im Perspektivfall der Abstand entlang der Blickrichtung, und
+**negativ heißt hinter der Kamera**. Genau den Fall teilt die Bibliothek weg, ohne ihn zu melden: ein
+Punkt im Rücken projiziert auf vollkommen gültig aussehende Koordinaten, am Bildmittelpunkt
+gespiegelt. Ohne die Prüfung steht die Marke für ein Haus hinter einem vorn im Bild, auf der falschen
+Seite, und wandert beim Drehen in die verkehrte Richtung — und zwar nur manchmal, weshalb man es für
+ein Gespenst hält. `tests/unit/screen.test.ts` prüft genau diesen Fall.
+
+**Kein `new Vector3()` im Renderpfad.** Die Funktion läuft je Marke und Bild; bei zwanzig Marken und
+120 Bildern sind das 2.400 Aufrufe je Sekunde. Das Ergebnis wird in ein übergebenes Objekt
+geschrieben, das der Aufrufer wiederverwendet.
+
+**Und die Marken laufen nicht durch Vue.** Die **Liste** der Marken ist reaktiv — sie ändert sich
+alle paar Sekunden. Ihre **Position** ist es nicht: die schreibt eine eigene Bildschleife direkt als
+`transform: translate3d(...)` ins Element. Über reaktive Werte wären es dieselben 2.400
+Store-Schreibvorgänge je Sekunde, jeder mit Abhängigkeitsverfolgung und einem Render-Durchlauf am
+Ende. `translate3d` statt `left/top`, damit der Browser schiebt, ohne das Layout neu zu rechnen.
+
+### Was die Marke zeigt
+
+Nur laufende Einsätze. Ein abgeschlossener bleibt im Stadtfunk noch ein paar Sekunden stehen, damit
+man ihn enden sieht — über der Straße wäre er eine Marke für etwas, das dort nicht mehr ist. Die
+Farben sind dieselben vier wie im Funk und wie der Ring auf der Fahrbahn: derselbe Einsatz muss an
+allen drei Stellen erkennbar dieselbe Sache sein.
+
+Weiter weg heißt kleiner, aber nie unlesbar — zwischen 300 m und 1.600 m schrumpft die Marke auf zwei
+Drittel und bleibt dann so. Und die Ebene selbst fängt keine Klicks ab: sie liegt über der ganzen
+Stadt, und ein Layer, der Klicks schluckt, nähme dem Ziehen und Drehen der Karte die Fläche.

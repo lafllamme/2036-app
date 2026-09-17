@@ -12,6 +12,7 @@ den Zustand reicht.
 | `DecisionPanel.vue`, `VoteSheet.vue`, `VoteResult.vue` | Vorlagen, Abstimmung, Ergebnis |
 | `NewsTicker.vue`, `SettingsSheet.vue` | Stadtfunk und Einstellungen |
 | `FirstSteps.vue` | die Einarbeitung: ein Ring um die echte Fläche, Drehbuch in `content/firstSteps.ts` |
+| `MapMarkers.vue` | Marken über der Stadt: laufende Einsätze dort, wo sie stattfinden. Position je Bild ohne Vue |
 | `ClosingReport.vue` | der Schlussbericht im Dezember 2036 |
 
 ## Drei Regeln, die hier gelten

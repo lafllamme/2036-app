@@ -16,6 +16,7 @@ import type {
   VoteResult,
 } from '~/core/contracts'
 import type { RendererStats } from '~/rendering/CityRenderer'
+import type { ScreenPoint } from '~/rendering/screen'
 import type { PersonAt } from '~/rendering/world/traffic/agents'
 import type { Citizen } from '~/world/citizens'
 import { useIntervalFn } from '@vueuse/core'
@@ -174,6 +175,16 @@ export const useGameStore = defineStore('game', () => {
    * fest" für ein halbes Dutzend Ursachen gleich aussehen. Drei Zahlen im Bild unterscheiden sie.
    */
   const walkState = shallowRef<{ x: number, z: number, ground: number, eye: number, stuck: boolean, refused: number } | null>(null)
+
+  /**
+   * Wo ein Ort der Stadt gerade auf dem Schirm liegt — oder nichts, solange keine Stadt da ist.
+   *
+   * Eine Funktion im Store, und das ist hier Absicht statt Nachlässigkeit. Der Renderer gehört
+   * `CityCanvas`, und alles, was seine Kamera braucht, müsste sonst durch dieselbe Komponente
+   * gereicht werden — die Marken über der Stadt liegen aber woanders im Dokument, weil sie über
+   * allem stehen. `shallowRef`, damit Vue nicht versucht, eine Funktion reaktiv zu machen.
+   */
+  const project = shallowRef<((x: number, y: number, z: number, out: ScreenPoint) => ScreenPoint) | null>(null)
 
   /**
    * Beide Schubladen fangen **zu** an.
@@ -834,6 +845,7 @@ export const useGameStore = defineStore('game', () => {
     railOpen,
     walking,
     walkState,
+    project,
     decisionsOpen,
     ready,
     error,

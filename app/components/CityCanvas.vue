@@ -40,6 +40,8 @@ onMounted(async () => {
       onPersonSelected: person => game.selectPerson(person),
       onError: (message) => { game.error = message },
     })
+    // Die Brücke von einem Ort in der Stadt zu einem Punkt auf dem Schirm. Siehe `rendering/screen.ts`.
+    game.project = (x, y, z, out) => cityRenderer!.project(x, y, z, out)
     cityRenderer.setFrameCap(experienceStage.value === 'gameplay' ? null : MENU_FRAME_CAP)
     if (snapshot.value)
       cityRenderer.applySnapshot(snapshot.value)
@@ -96,7 +98,10 @@ watch(weather, (reading) => {
   cityRenderer?.setWeather(reading)
 }, { immediate: true })
 
-onBeforeUnmount(() => cityRenderer?.dispose())
+onBeforeUnmount(() => {
+  game.project = null
+  cityRenderer?.dispose()
+})
 </script>
 
 <template>

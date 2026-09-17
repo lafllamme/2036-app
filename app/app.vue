@@ -170,6 +170,9 @@ function restart(): void {
       <template v-if="experienceStage === 'gameplay'">
         <div class="shell-hem" aria-hidden="true" />
 
+        <!-- Was gerade passiert, dort beschriftet, wo es passiert. Siehe `MapMarkers.vue`. -->
+        <MapMarkers />
+
         <MetricRail />
         <DecisionPanel />
         <NewsTicker />

@@ -2,6 +2,7 @@ import type { BuildingRecord, CityBlueprint, SimulationSnapshot, SkyState } from
 import type { Weather } from '../core/weather'
 import type { CityModels } from './cityModels'
 import type { FrameStats } from './frameLog'
+import type { ScreenPoint } from './screen'
 import type { SkyVisuals } from './sky/index'
 import type { WorldVisuals } from './world/index'
 import type { PersonAt } from './world/traffic/agents'
@@ -16,6 +17,7 @@ import { CameraRig } from './cameraRig'
 import { WalkAbout } from './firstPerson'
 import { FrameLog } from './frameLog'
 import { BuildingPicker } from './picking'
+import { project } from './screen'
 import { Atmosphere } from './sky/atmosphere'
 import { createSky } from './sky/index'
 import { updatePrecipitation } from './sky/precipitation'
@@ -624,6 +626,22 @@ export class CityRenderer {
    * Hinein geht es dorthin, wo die Karte gerade **hinsieht**, nicht dorthin, wo die Kamera steht —
    * sonst stünde man achthundert Meter schräg über der Stadt in der Luft.
    */
+  /**
+   * Wo ein Ort der Stadt gerade auf dem Schirm liegt.
+   *
+   * Die Brücke, die zwischen Karte und Oberfläche gefehlt hat: ohne sie kann nichts **dort**
+   * beschriftet werden, wo es steht — kein Einsatz, kein Bezirk, keine Lage. Die Rechnung selbst
+   * steht in `rendering/screen.ts` und ist dort ohne Canvas geprüft; hier kommen nur die Kamera und
+   * die Größe der Zeichenfläche dazu.
+   *
+   * Die Größe wird in CSS-Pixeln genommen und nicht in Gerätepixeln: eine Marke ist ein Element im
+   * Dokument, und das Dokument rechnet in CSS-Pixeln. Auf einem Retina-Schirm wäre alles andere
+   * doppelt so weit rechts.
+   */
+  project(x: number, y: number, z: number, out: ScreenPoint): ScreenPoint {
+    return project(this.rig.camera, x, y, z, this.canvas.clientWidth, this.canvas.clientHeight, out)
+  }
+
   /** Wo der Fußgänger steht — für die Anzeige in der Kamerahilfe. Siehe `firstPerson.ts`. */
   get walkState(): { x: number, z: number, ground: number, eye: number, stuck: boolean, refused: number } {
     const state = this.walk.state

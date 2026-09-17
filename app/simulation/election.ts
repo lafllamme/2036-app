@@ -19,14 +19,21 @@ export const COUNCIL_SEATS = 60
 export const MAJORITY = Math.floor(COUNCIL_SEATS / 2) + 1
 
 /**
- * When the city votes.
+ * Wann die Stadt wählt: alle vier Jahre.
  *
- * The campaign runs January 2026 to December 2036 and a Kommunalwahl is a five-year term, so the
- * council elected before the game starts is due in January 2031 and again in January 2036. Month 0
- * is January 2026, so those are months 60 and 120 — the first is the half-time verdict, the second
- * decides the last year the player gets.
+ * Hier standen fünf Jahre, weil eine Kommunalwahl in den meisten deutschen Ländern fünfjährig ist.
+ * Für **diese** Stadt ist das falsch: Lindenhafens Grundriss ist Bremen, und die Bremische
+ * Bürgerschaft wird **vierjährig** gewählt — zusammen mit den Stadtverordneten in Bremerhaven. Eine
+ * Hafenstadt, die aussieht wie Bremen, wählt wie Bremen.
+ *
+ * Monat 0 ist Januar 2026, also wählt die Stadt im **Januar 2030** und im **Januar 2034**. Die erste
+ * ist das Halbzeiturteil, die zweite entscheidet über die letzten drei Jahre. Eine dritte fällt hinter
+ * das Ende der Amtszeit — Dezember 2036 — und findet deshalb nicht mehr statt.
+ *
+ * Nebenbei ist die Viererteilung die bessere Dramaturgie: zwei Urteile in elf Jahren, das erste
+ * früh genug, dass eine verlorene Wahl noch eine Antwort zulässt.
  */
-export const ELECTION_MONTHS = [60, 120]
+export const ELECTION_MONTHS = [48, 96]
 
 export function isElectionMonth(month: number): boolean {
   return ELECTION_MONTHS.includes(month)

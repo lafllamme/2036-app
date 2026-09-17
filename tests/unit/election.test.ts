@@ -57,13 +57,23 @@ describe('counting sixty seats out of six shares', () => {
 })
 
 describe('when the city votes', () => {
-  it('votes twice in the decade, five years apart', () => {
-    expect(ELECTION_MONTHS).toEqual([60, 120])
-    expect(isElectionMonth(60)).toBe(true)
-    expect(isElectionMonth(61)).toBe(false)
-    // Both inside the campaign, which runs to month 131.
+  /**
+   * Vier Jahre, nicht fünf.
+   *
+   * Lindenhafens Grundriss ist Bremen, und die Bremische Bürgerschaft wird vierjährig gewählt —
+   * anders als die Kommunalwahlen der meisten Flächenländer. Eine Hafenstadt, die aussieht wie
+   * Bremen, wählt wie Bremen.
+   */
+  it('wählt zweimal im Jahrzehnt, im Abstand von vier Jahren', () => {
+    expect(ELECTION_MONTHS).toEqual([48, 96])
+    expect(isElectionMonth(48)).toBe(true)
+    expect(isElectionMonth(49)).toBe(false)
+    // Genau vier Jahre auseinander, und beide innerhalb der Amtszeit, die bis Monat 131 läuft.
+    expect(ELECTION_MONTHS[1]! - ELECTION_MONTHS[0]!).toBe(48)
     for (const month of ELECTION_MONTHS)
       expect(month).toBeLessThan(132)
+    // Und die dritte fällt hinter das Ende — sonst stünde im letzten Jahr noch eine Wahl an.
+    expect(ELECTION_MONTHS[1]! + 48).toBeGreaterThan(131)
   })
 
   it('puts the player out only when the coalition cannot carry a motion', () => {

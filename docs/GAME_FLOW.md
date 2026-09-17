@@ -213,7 +213,7 @@ Teuer: die Simulation braucht Kennzahlen je Bezirk, und das ist ein echter Eingr
 die Kapital und Rückhalt kosten statt Geld. Wird durch A **wichtiger** als gedacht: das
 Vorbereitungsfenster muss etwas zu tun haben, sonst ist es dieselbe Leere mit einem neuen Namen.
 
-**F — Wahlkampf als Phase.** `ELECTION_MONTHS = [60, 120]` steht, `holdElection` rechnet. Die drei
+**F — Wahlkampf als Phase.** `ELECTION_MONTHS = [48, 96]` steht — vier Jahre wie in Bremen, dessen Grundriss die Stadt trägt — und `holdElection` rechnet. Die drei
 Monate davor könnten anders laufen: Versprechen, Bezirke, Ressourcen. Gibt dem Jahrzehnt einen Bogen
 statt 132 gleicher Monate.
 

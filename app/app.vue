@@ -235,6 +235,9 @@ function restart(): void {
       <template v-if="experienceStage === 'gameplay'">
         <div class="shell-hem" aria-hidden="true" />
 
+        <!-- Die acht Bezirke, eingefärbt nach einer Kennzahl. Siehe `DistrictOverlay.vue`. -->
+        <DistrictOverlay />
+
         <!-- Was gerade passiert, dort beschriftet, wo es passiert. Siehe `MapMarkers.vue`. -->
         <MapMarkers />
 

@@ -215,6 +215,15 @@ export const useGameStore = defineStore('game', () => {
    */
   const openHotspotId = ref<string | null>(null)
 
+  /**
+   * Welche Bezirkskennzahl gerade über der Karte liegt — oder keine.
+   *
+   * Miete, Einbrüche und Leerstand gelten seit gestern je Bezirk, und man sah sie **nur**, wenn man
+   * zufällig ein Haus anklickte. Die Standortwahl fragt aber „Hafen, Vorstadt oder Gründerzeit?“ —
+   * eine Entscheidung ohne die Information, die sie beantwortet.
+   */
+  const overlay = ref<'none' | 'averageRent' | 'burglaryRate' | 'vacantUnits'>('none')
+
   const railOpen = ref(false)
   const decisionsOpen = ref(false)
 
@@ -952,6 +961,7 @@ export const useGameStore = defineStore('game', () => {
     focusOnPlace,
     railOpen,
     openHotspotId,
+    overlay,
     walking,
     walkState,
     project,

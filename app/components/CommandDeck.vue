@@ -35,6 +35,7 @@ const {
   pendingDecisions,
   railOpen,
   decisionsOpen,
+  overlay,
   saveStatus,
   walking,
 } = storeToRefs(game)
@@ -164,6 +165,26 @@ const sky = computed(() => {
  * Er sagte „Nächstes Ereignis" auch dann, wenn längst eines auf dem Tisch lag und die Uhr deshalb
  * stand. Genau in dem Zustand landet der Spieler nach jedem Laden und nach jedem Zeitraffer.
  */
+/**
+ * Die Bezirkslage, reihum.
+ *
+ * Vier Zustände an einem Knopf statt vier Knöpfen: das Deck ist voll, und man will ohnehin immer nur
+ * eine Lage auf einmal sehen.
+ */
+const OVERLAY_ORDER = ['none', 'averageRent', 'burglaryRate', 'vacantUnits'] as const
+const OVERLAY_LABEL = {
+  none: 'Bezirke einfärben · Miete',
+  averageRent: 'Bezirke: Miete — weiter zu Einbrüchen',
+  burglaryRate: 'Bezirke: Einbrüche — weiter zum Leerstand',
+  vacantUnits: 'Bezirke: Leerstand — weiter zu aus',
+} as const
+
+function cycleOverlay(): void {
+  const at = OVERLAY_ORDER.indexOf(overlay.value)
+  game.overlay = OVERLAY_ORDER[(at + 1) % OVERLAY_ORDER.length]!
+  sound.play(game.overlay === 'none' ? 'hud.railCollapsed' : 'hud.railExpanded')
+}
+
 const advanceLabel = computed(() => {
   if (nextAction.value === 'decide')
     return 'Vorlage öffnen'
@@ -369,6 +390,24 @@ function toggleDecisions(): void {
       </button>
 
       <span class="divider" />
+
+      <!--
+        Die Bezirkslage über der Stadt. Reihum: aus, Miete, Einbrüche, Leerstand.
+        Steht bei den beiden Schubladen, weil es dasselbe ist: eine Art, die Stadt anzusehen.
+      -->
+      <button
+        type="button"
+        class="round"
+        :class="{ 'is-on': overlay !== 'none' }"
+        :aria-pressed="overlay !== 'none'"
+        :aria-label="OVERLAY_LABEL[overlay]"
+        :title="OVERLAY_LABEL[overlay]"
+        @click="cycleOverlay"
+      >
+        <svg viewBox="0 0 24 24" class="icon" aria-hidden="true">
+          <path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3zM9 4v13M15 7v13" />
+        </svg>
+      </button>
 
       <button
         data-first-step="railButton"

@@ -210,7 +210,7 @@ const perception = computed(() => snapshot.value?.perception)
     ein Körper, der über dem Bild schwebt, so hoch wie sein Inhalt, und der Knopf, der ihn holt,
     steht unten in der Bedienung.
   -->
-  <aside v-if="railOpen" class="pod rail" :class="{ 'is-wide': expanded }" aria-label="Stadtkennzahlen">
+  <aside v-if="railOpen" data-first-step="rail" class="pod rail" :class="{ 'is-wide': expanded }" aria-label="Stadtkennzahlen">
     <header>
       <h2>Lagebild</h2>
       <button type="button" class="link" :aria-expanded="expanded" @click="toggleRail">

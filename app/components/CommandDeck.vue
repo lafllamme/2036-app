@@ -334,6 +334,7 @@ function toggleDecisions(): void {
         selbst an — er überspringt nie mehr Zeit als nötig.
       -->
       <button
+        data-first-step="advance"
         type="button"
         class="btn advance"
         :class="{ 'is-skipping': skipping }"

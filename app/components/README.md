@@ -11,6 +11,8 @@ den Zustand reicht.
 | `MetricRail.vue` | das Lagebild links, mit „seit Amtsantritt" auf jedem Wert |
 | `DecisionPanel.vue`, `VoteSheet.vue`, `VoteResult.vue` | Vorlagen, Abstimmung, Ergebnis |
 | `NewsTicker.vue`, `SettingsSheet.vue` | Stadtfunk und Einstellungen |
+| `FirstSteps.vue` | die Einarbeitung: ein Ring um die echte Fläche, Drehbuch in `content/firstSteps.ts` |
+| `ClosingReport.vue` | der Schlussbericht im Dezember 2036 |
 
 ## Drei Regeln, die hier gelten
 

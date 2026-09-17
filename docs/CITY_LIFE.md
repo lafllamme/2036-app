@@ -28,6 +28,22 @@ die schon für die Parteien gilt — eine Architekturregel verbietet, in der Sim
 Partei-ID zu verzweigen — und sie gilt hier aus demselben Grund: was gezeigt wird, darf nie zurück in
 das wirken, was gerechnet wird.
 
+### Und dasselbe für das, was in den Häusern ist
+
+`world/tenancy.ts` gibt zu jedem Haus zurück, was in seinem Erdgeschoss ist — eine Bäckerei, eine
+Praxis, ein Laden, der zugemacht hat. Auch das läuft nur in eine Richtung, und die Regel ist eng
+genug, dass sie hier stehen muss:
+
+**Keine Kennzahl, kein Ereignis und kein Auslöser liest je, was in einem bestimmten Haus ist.**
+
+Der Einzelhandelsbestand entscheidet, **wie viele** Läden offen sind; welcher Laden in welchem Haus
+sitzt, ist eine reine Funktion aus Gebäudenummer und Stadtkeim und wird nirgends gespeichert. Es gibt
+also nichts, was zurückfließen könnte — und wenn es das gäbe, wäre es genau die Rückkopplung, die
+`citizens.ts` und die Parteienregel verbieten.
+
+Der Gewinn ist der Sinn der Sache: sackt der Bestand, gehen **sichtbar** Läden zu. Eine Zahl, an der
+man vorbeiliest, wird zu einem grauen Schild, an dem man vorbeigeht.
+
 ### Was `CityVisualState` dafür bekommen muss
 
 Heute hat es neun Felder und der Renderer liest vier. Dazu kommen:
@@ -208,6 +224,7 @@ legible from the overview camera is whole fleets, whole stocks, whole surfaces.
 | `greenery` | how many trees stand, and how dry they are | 0 |
 | `constructionSites` | cranes on the next parcels in line | 0 |
 | `roughSleeping` | people in doorways | 0 |
+| `businessStock` | how many shop signs are painted rather than grey | 0 — a colour per instance, once a month |
 
 `cycling` and `carTraffic` are deliberately one decision seen from two sides: somebody who takes the
 bike is not in the car. A transport vote therefore changes **what** is on the street and not only how

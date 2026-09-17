@@ -205,11 +205,27 @@ seine zehn Zeilen in der Engine.
 | `fleet/` in sechs Module | **erledigt** — `3f66709`, im laufenden Build bei 120 FPS geprüft |
 | READMEs für zehn Ordner | **erledigt** — `5186e63` |
 | Verzweigung verdrahtet, fünf Ereignisse hinter Türen, drei Sperren | **erledigt** |
-| `EntryExperience.vue` (943 Zeilen) aufteilen | offen |
-| `simulation/model.ts` (788 Zeilen) aufteilen | offen |
-| `fire.ts` anschließen oder als Vorbau dokumentieren | offen |
-| `cityShape.ts` entfernen oder anschließen | offen |
-| **Profiling-Sitzung, dann über `BatchedMesh` entscheiden** | offen — und weiterhin *nicht* vorher |
+| `EntryExperience.vue` aufteilen | offen — und **gewachsen**: 943 → 1.092 Zeilen |
+| `simulation/model.ts` aufteilen | offen — und stark gewachsen: 788 → 1.295 Zeilen |
+| `fire.ts` anschließen oder als Vorbau dokumentieren | **erledigt** — `incidentScene.ts` benutzt `addFires`/`updateFires` |
+| `cityShape.ts` entfernen oder anschließen | **erledigt** — im zweiten Durchgang entfernt, siehe unten |
+| **Profiling-Sitzung, dann über `BatchedMesh` entscheiden** | **erledigt — und die Antwort ist nein.** Siehe unten |
+
+### Die Profiling-Sitzung, und was sie über `BatchedMesh` ergeben hat
+
+Gemessen wurde mit `?bench` bei festgehaltener Auflösung, weil die Bildwiederholrate sonst alles
+zudeckt: bei 120 Hz mit Luft nach oben ändert das Ausblenden der **ganzen Stadt** die Bildzahl um
+eins von 1.081. Die Ergebnisse stehen ausführlich in `RENDERING_ARCHITECTURE.md`; für diese Zeile
+zählt eines:
+
+**Draws sind auf dieser Maschine nicht der Preis.** 357 einzelne Meshes für geparkte Autos mit
+zusammen 3,98 Mio. Dreiecken kosten gemessen **0 %** des Bildes. Was wirklich gekostet hat, war
+etwas ganz anderes — ein Strahl gegen 1,37 Mio. Dreiecke bei **jeder Mausbewegung** (24 FPS beim
+Ziehen, gemeldet), die Hüllkugel einer einzigen Instanzmenge über die ganze Karte, und die
+Übersetzung des Schattendurchgangs beim Zoomen.
+
+`BatchedMesh` hätte gegen keines davon geholfen. Die Frage ist damit beantwortet und nicht vertagt:
+**nicht bauen**, solange eine Messung nicht das Gegenteil zeigt.
 
 
 ---

@@ -553,13 +553,18 @@ das man messen wollte. Und ein FPS-Zähler zeigt ohnehin nie, worum es geht: ein
 **einzelner langer Frame**, und sechzig kurze plus einer zu 87 ms sind zusammen immer noch über
 hundert Bilder je Sekunde.
 
-`http://localhost:3000/?bench` schaltet deshalb drei Dinge zusammen:
+`http://localhost:2036/?bench` schaltet deshalb drei Dinge zusammen — der Port gehört diesem Projekt
+und steht in `.claude/launch.json` auf der Kommandozeile, weil eine `PORT`-Umgebungsvariable sonst
+still gewinnt:
 
 1. **Kein Einstiegsablauf.** Partei, Ziele und Amtsinhaberin sind gesetzt, die Stadt wird gebaut, man
    landet direkt darin.
 2. **Die Uhr steht.** Ohne Monatswechsel gibt es keine Ereignisse — es braucht dafür keinen zweiten
    Schalter.
-3. **`window.bench`** mit `reset()`, `stats()` und `flight(sekunden)`.
+3. **`window.bench`** mit `reset()`, `stats()` und `flight(sekunden)`. Die Verteilung dahinter kommt
+   aus `rendering/frameLog.ts`: ein fester Ringpuffer ohne Allokation je Bild, der Median, p95, p99,
+   den längsten Frame und die Zahl der Frames über 20 ms zurückgibt. Ein Mittelwert wäre genau die
+   Zahl, in der ein Ruckler verschwindet.
 
 `flight` nimmt jedes Mal denselben Weg: ein voller Umlauf um die Stadt, dabei einmal von neunhundert
 Metern Höhe bis dicht über die Dächer und zurück. Stillstehend misst man den einen Blick, in dem

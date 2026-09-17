@@ -40,6 +40,7 @@ Sortiert nach Verhältnis von Wirkung zu Aufwand. Jede Zeile ist für sich liefe
 | 9 | `unitsUnderConstruction` | **Gerüste, Kräne, Lieferverkehr.** Teils da, nicht an die Zahl gehängt. | `construction.ts` vorhanden |
 | 10 ✅ | `unrest` | **Demonstrationen** vor dem Rathaus, wenn die Stadt genug hat. | gebaut: `life/protest.ts`, 3 Draws |
 | 11 | `transitCoverage` | **Busse auf den Hauptachsen.** | kein Busmodell im Kit |
+| 13 ✅ | `businessStock` | **Läden, die zumachen.** Jedes Erdgeschoss mit Straßenfront hat ein Gewerbe und ein Schild mit Markise; fällt der Bestand, gehen sie in der Reihenfolge ihrer Robustheit zu und das Schild wird grau. Eine Apotheke hält länger durch als ein Buchladen. | gebaut: `world/tenancy.ts`, `shopfronts.ts`, 3.483 Schilder in 71 Kacheln |
 | 12 | Wetter (neu) | **Regen, Schnee, Wind, Nebel** — nach einer Approximation echter norddeutscher Klimastatistik, also Regen im November und Schnee im Januar statt Würfelwetter. Nasse Fahrbahn, weniger Menschen draußen, Schnee auf Dächern. | **fertig**, siehe unten |
 
 ## Das zweite Problem: man merkt nichts

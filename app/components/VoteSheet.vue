@@ -272,7 +272,7 @@ watch(() => openDecision.value?.definition.id, () => {
     </p>
 
     <div class="split">
-      <section class="ways">
+      <section data-first-step="ways" class="ways">
         <!--
           Die Überschrift zählt, was zur Wahl steht — sie fragt nicht, ob der Weg so heißt wie die
           Vorlage. An `singleOption` gehängt stand über einer Vorlage mit genau einem Weg, der anders
@@ -426,7 +426,7 @@ watch(() => openDecision.value?.definition.id, () => {
               {{ VOTE_LABELS.yes }}
             </button>
           </template>
-          <button v-else type="button" class="btn" @click="callVote(chosen)">
+          <button v-else data-first-step="submit" type="button" class="btn" @click="callVote(chosen)">
             {{ onTheAgenda ? 'Abstimmen lassen' : 'Einbringen' }}
           </button>
         </div>

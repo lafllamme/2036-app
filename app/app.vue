@@ -177,6 +177,9 @@ function restart(): void {
         <VoteSheet />
         <VoteResult />
         <ClosingReport />
+        <!-- Zeigt beim ersten Mal auf die echten Flächen und lässt die erste Vorlage selbst
+             einbringen. Siehe `content/firstSteps.ts`. -->
+        <FirstSteps />
 
         <!--
           Die Kamerahilfe und das Render-Abzeichen: das Leiseste auf dem Schirm, in der Ecke des

@@ -18,7 +18,8 @@ import { citizenHash } from './citizens'
  * Der Einzelhandelsbestand (`businessStock`) entscheidet, **wie viele** Läden offen sind. Umgekehrt
  * nie: keine Kennzahl, kein Ereignis und kein Auslöser liest je, was in einem bestimmten Haus ist.
  * Die Nutzung ist Anschauung, so wie Herkunft und Beruf einer Figur Anschauung sind — sie macht eine
- * Zahl im Lagebild sichtbar, sie erzeugt sie nicht. `docs/CITY_LIFE.md` schreibt es fest.
+ * Zahl im Lagebild sichtbar, sie erzeugt sie nicht. `docs/CITY_LIFE.md` schreibt es unter „Und dasselbe
+ * für das, was in den Häusern ist" fest.
  *
  * Genau das ist der Gewinn: sackt der Bestand, gehen **sichtbar** Läden zu und stehen leer. Eine
  * Zahl, an der man vorbeiliest, wird zu einem zugeklebten Schaufenster, an dem man vorbeigeht.

@@ -48,8 +48,8 @@ watch(() => openMotions.value.length, (now, before) => {
   <aside v-if="decisionsOpen" class="pod agenda" aria-label="Ratsvorlagen und Entscheidungen">
     <header>
       <h2>Entscheidungen</h2>
-      <span v-if="openMotions.length > 0" class="count is-open">{{ openMotions.length }} offen</span>
-      <span v-else class="count">{{ snapshot?.coalitionSupport ?? 0 }} von 60 Sitzen</span>
+      <span v-if="openMotions.length > 0" data-first-step="seats" class="count is-open">{{ openMotions.length }} offen</span>
+      <span v-else data-first-step="seats" class="count">{{ snapshot?.coalitionSupport ?? 0 }} von 60 Sitzen</span>
       <button type="button" class="close-button" aria-label="Entscheidungen schließen" @click="game.decisionsOpen = false">
         <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
       </button>
@@ -78,7 +78,7 @@ watch(() => openMotions.value.length, (now, before) => {
         </button>
       </article>
 
-      <section v-if="standingMotions.length > 0" class="group">
+      <section v-if="standingMotions.length > 0" data-first-step="motions" class="group">
         <h4>Was du einbringen kannst</h4>
         <button
           v-for="policy in standingMotions"

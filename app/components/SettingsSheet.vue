@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useSound } from '~/composables/useSound'
+import { useFirstSteps } from '~/composables/useFirstSteps'
 import { useSoundSettings } from '~/composables/useSoundSettings'
 
 const { settingsOpen, soundEnabled, soundVolume, closeSettings, toggleSound: toggleSettingsSound } = useSoundSettings()
 const sound = useSound()
+const coach = useFirstSteps()
+
+/** Die Einarbeitung noch einmal, und dann aus dem Weg: sie zeigt auf Flächen hinter diesem Blatt. */
+function showFirstSteps(): void {
+  closeSettings()
+  coach.restart()
+}
 
 const volumePercent = computed({
   get: () => Math.round(soundVolume.value * 100),
@@ -31,11 +39,21 @@ function previewVolume(): void {
         <div>
           <span class="kick">Einstellungen</span>
           <h2 id="settings-title">
-            Ton
+            Spiel
           </h2>
         </div>
         <button type="button" class="close-button" aria-label="Einstellungen schließen" @click="closeSettings()">
           <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      <div class="row">
+        <div class="label">
+          <strong>Einarbeitung</strong>
+          <p>Acht Schritte durch die erste Vorlage – von den Sitzen bis zur Abstimmung. Läuft beim ersten Spiel von selbst.</p>
+        </div>
+        <button type="button" class="btn btn--ghost btn--sm" @click="showFirstSteps">
+          Nochmal zeigen
         </button>
       </div>
 

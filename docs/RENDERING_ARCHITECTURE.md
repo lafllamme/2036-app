@@ -678,6 +678,36 @@ Die Maus zu bewegen kostet jetzt **0,2 ms** statt 15,2 — nicht mehr von Stills
 `bench.flight(sekunden, faktor, true)` schickt seither immer Zeigerbewegungen mit. Ein Messstand, der
 eine ganze Eingabeart auslässt, misst zuverlässig das Falsche.
 
+### Und was dabei kaputtgegangen ist, ohne dass es auffiel
+
+Die Kästen entstehen aus `ranges`, und `ranges` zählt **Eckpunkte** — die Werte kommen aus
+`position.length / 3`. Die erste Fassung von `boxesOf` ist trotzdem durch den Indexpuffer gegangen:
+
+```ts
+const vertex = index ? index.getX(at) : at // at ist eine Eckpunktnummer, keine Indexnummer
+```
+
+Damit bestand jeder Kasten aus willkürlich zusammengewürfelten Eckpunkten — und das Ergebnis sah
+**funktionierend aus.** Der Strahl traf irgendeinen Kasten, der Cursor wurde brav zum Zeigefinger,
+und eingefärbt wurde ein Haus am anderen Ende der Stadt, wo niemand hinsieht. Gemeldet wurde es
+entsprechend als „das Hover ist irgendwie kaputtgegangen“.
+
+Nachgemessen hat es der Umweg über die Projektion: die gelben Eckpunkte lagen bei (−464, −907), die
+Kamera stand bei (1600, 1680) — fast drei Kilometer daneben. Nach der Reparatur projizieren dieselben
+Eckpunkte auf (419, 465) und der Zeiger stand auf (419, 465).
+
+Dieselben Kästen sind die Vorauswahl der Kollision im Begehen-Modus. Falsche Kästen heißt dort: die
+echte Wand wird gar nicht erst geprüft. `tests/unit/buildingBoxes.test.ts` dreht den Indexpuffer
+absichtlich um, damit ein Rückfall garantiert auffällt.
+
+### Warum die Markierung über eins liegt
+
+Die Wandfarbe ist im Shader ein **Faktor** auf die Fassadentextur und kein Anstrich. `#f0c65a` auf ein
+cremefarbenes Haus gerechnet ergibt ein etwas wärmeres cremefarbenes Haus — in einer Stadt aus Sand,
+Putz und Ziegel aus dreihundert Metern nicht zu sehen. Die Markierung steht deshalb als lineare
+Komponenten über eins (`1,7 / 1,02 / 0,06`): das Haus wird heller als seine eigene Textur. Bei
+`2,1 / 1,45` kippte es nach dem Tonemapping ins Weiße, also liegt der Wert darunter.
+
 ### Schnelles Zoomen: der Schattendurchgang übersetzt nach
 
 `bench.zoom(sekunden)` fährt schnell hinein und wieder heraus, statt einmal sanft hinunterzutauchen.

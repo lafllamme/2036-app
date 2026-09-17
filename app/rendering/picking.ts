@@ -20,7 +20,19 @@ import { peopleMeshes, personAt } from './world/traffic/agents'
 /** Wohin `intersectBox` seinen Treffer schreibt. Ein Vektor je Probe wäre ein Vektor je Probe. */
 const SCRATCH = /* @__PURE__ */ new THREE.Vector3()
 
-const HOVER = /* @__PURE__ */ new THREE.Color('#f0c65a')
+/**
+ * Die Markierung unter dem Zeiger — heller als Farbe.
+ *
+ * Die Wandfarbe ist im Shader ein **Faktor** auf die Fassadentextur, kein Anstrich: `#f0c65a` auf ein
+ * cremefarbenes Haus gerechnet ergibt ein etwas wärmeres cremefarbenes Haus, und in einer Stadt aus
+ * Sand, Putz und Ziegel sieht man das aus dreihundert Metern nicht. Deshalb steht hier ein Wert
+ * **über eins**: das Haus wird heller als seine Textur und leuchtet damit aus der Zeile heraus,
+ * ohne dass der Shader etwas davon wissen muss.
+ *
+ * Direkt als lineare Komponenten geschrieben und nicht als Hex — ein Hex-Wert kann nicht über eins
+ * liegen, und die Umrechnung aus sRGB würde genau das wegnehmen, worum es hier geht.
+ */
+const HOVER = /* @__PURE__ */ new THREE.Color(1.7, 1.02, 0.06)
 /** How far the pointer may travel between press and release and still count as a click, in pixels. */
 const DRAG_SLOP = 5
 

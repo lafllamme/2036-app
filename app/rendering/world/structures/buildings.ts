@@ -478,18 +478,28 @@ export function createBuildings(scene: THREE.Scene, blueprint: CityBlueprint): C
   return { buildingMeshes, buildingRecords, buildingRanges, buildingOfTriangle, buildingBoxes, shopSeats, buildingColors, buildingMaterials: [wallMaterial, roofMaterial] }
 }
 
-/** Je Gebäude der Kasten um seine Ecken, aus dem Bereich, den es in der Kachel belegt. */
-function boxesOf(geometry: THREE.BufferGeometry, ranges: { start: number, count: number }[]): THREE.Box3[] {
+/**
+ * Je Gebäude der Kasten um seine Ecken, aus dem Bereich, den es in der Kachel belegt.
+ *
+ * Der Bereich zählt **Eckpunkte**, nicht Indexeinträge — `ranges` entsteht aus `position.length / 3`.
+ * Die erste Fassung ist trotzdem durch den Indexpuffer gegangen (`index.getX(at)`) und hat damit eine
+ * Eckpunktnummer als Indexnummer gelesen. Herausgekommen sind Kästen aus willkürlich
+ * zusammengewürfelten Eckpunkten: der Zeiger traf irgendeinen davon, der Cursor wurde brav zum
+ * Zeigefinger, und eingefärbt wurde ein Haus am anderen Ende der Stadt. Gemeldet als „das Hover ist
+ * irgendwie kaputtgegangen“, und genau da ist es kaputtgegangen — im selben Commit, der den Strahl
+ * von 1,37 Millionen Dreiecken auf zwölftausend Kästen gebracht hat.
+ *
+ * Dieselben Kästen sind die Vorauswahl der Kollision im Begehen-Modus. Falsche Kästen heißt dort:
+ * die echte Wand wird gar nicht erst geprüft.
+ */
+export function boxesOf(geometry: THREE.BufferGeometry, ranges: { start: number, count: number }[]): THREE.Box3[] {
   const position = geometry.getAttribute('position')
-  const index = geometry.getIndex()
   const point = new THREE.Vector3()
 
   return ranges.map((range) => {
     const box = new THREE.Box3()
-    for (let at = range.start; at < range.start + range.count; at += 1) {
-      const vertex = index ? index.getX(at) : at
+    for (let vertex = range.start; vertex < range.start + range.count; vertex += 1)
       box.expandByPoint(point.fromBufferAttribute(position, vertex))
-    }
     return box
   })
 }

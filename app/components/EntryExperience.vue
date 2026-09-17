@@ -66,7 +66,14 @@ const selectedParty = computed<PartyDefinition | null>(() => (
 const selectedEvidence = computed(() => (
   selectedParty.value ? getPartyEvidence(selectedParty.value.sourceIds) : []
 ))
-const selectedGoals = computed(() => CAMPAIGN_GOALS.filter(({ id }) => selectedGoalIds.value.includes(id)))
+/*
+ * In der Reihenfolge, in der man sie gewählt hat, und nicht in der des Katalogs.
+ *
+ * Seit die drei als nummerierte Zeilen im Programm stehen, ist die Reihenfolge sichtbar — und „das
+ * Erste, was ich versprochen habe" steht dann auch auf Platz eins.
+ */
+const selectedGoals = computed(() =>
+  selectedGoalIds.value.flatMap(id => CAMPAIGN_GOALS.filter(goal => goal.id === id)))
 
 /** Die Schwelle in einem Wort, damit die Karte sagt, worauf man sich einlässt. */
 function goalTarget(goal: CampaignGoalDefinition): string {
@@ -421,29 +428,58 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
         </header>
 
         <div class="manifesto-layout">
-          <div class="manifesto-party" :style="{ '--party-color': selectedParty.color }">
-            <span>{{ selectedParty.abbreviation }}</span>
-            <strong>{{ selectedParty.name }}</strong>
+          <!--
+            Links das Programm, das man gerade schreibt.
+
+            Drei nummerierte Zeilen, und sie stehen von der ersten Sekunde an da — leer. Vorher waren
+            es zwölf gleiche Karten mit einem Plus, und die Regel „genau drei" bemerkte man erst,
+            wenn die vierte nicht mehr ging. Eine Beschränkung, die das ganze Spiel trägt, gehört
+            nicht in eine Fehlermeldung, sondern ins Bild.
+          -->
+          <aside class="manifesto-sheet" :style="{ '--party-color': selectedParty.color }">
+            <header>
+              <i class="party-mark" aria-hidden="true" />
+              <strong>{{ selectedParty.abbreviation }}</strong>
+              <span>Programm für das Jahrzehnt</span>
+            </header>
+
+            <ol class="manifesto-slots">
+              <li v-for="slot in 3" :key="slot" :class="{ 'is-filled': Boolean(selectedGoals[slot - 1]) }">
+                <b>{{ slot }}</b>
+                <template v-if="selectedGoals[slot - 1]">
+                  <button type="button" class="slot-filled" @click="chooseGoal(selectedGoals[slot - 1]!.id)">
+                    <strong>{{ selectedGoals[slot - 1]!.name }}</strong>
+                    <em>{{ goalTarget(selectedGoals[slot - 1]!) }}</em>
+                    <Icon name="lucide:x" aria-label="Wieder streichen" />
+                  </button>
+                </template>
+                <span v-else class="slot-empty">noch offen</span>
+              </li>
+            </ol>
+
             <p>Diese drei Zahlen müssen im Dezember 2036 stimmen. Sonst nichts – daran wird gemessen.</p>
-          </div>
-          <div class="priority-grid" aria-label="Ziele der Kampagne">
-            <button
-              v-for="goal in CAMPAIGN_GOALS"
-              :key="goal.id"
-              type="button"
-              :class="{ selected: selectedGoalIds.includes(goal.id) }"
-              :aria-pressed="selectedGoalIds.includes(goal.id)"
-              :disabled="!selectedGoalIds.includes(goal.id) && selectedGoalIds.length === 3"
-              @click="chooseGoal(goal.id)"
-            >
-              <span>
-                {{ selectedGoalIds.includes(goal.id) ? 'Ausgewählt' : goalTarget(goal) }}
-                <Icon :name="selectedGoalIds.includes(goal.id) ? 'lucide:check' : 'lucide:plus'" />
-              </span>
-              <strong>{{ goal.name }}</strong>
-              <small>{{ goal.promise }}</small>
-            </button>
-          </div>
+          </aside>
+
+          <!--
+            Rechts der Katalog, als Liste. Die Schwelle steht am Zeilenende in Mono, wo eine Zahl
+            hingehört — und nicht als gesperrte Versalienzeile über der Überschrift.
+          -->
+          <ul class="goal-list" aria-label="Ziele der Kampagne">
+            <li v-for="goal in CAMPAIGN_GOALS" :key="goal.id">
+              <button
+                type="button"
+                :class="{ 'is-chosen': selectedGoalIds.includes(goal.id) }"
+                :aria-pressed="selectedGoalIds.includes(goal.id)"
+                :disabled="!selectedGoalIds.includes(goal.id) && selectedGoalIds.length === 3"
+                @click="chooseGoal(goal.id)"
+              >
+                <Icon class="goal-state" :name="selectedGoalIds.includes(goal.id) ? 'lucide:check' : 'lucide:plus'" />
+                <strong>{{ goal.name }}</strong>
+                <small>{{ goal.promise }}</small>
+                <em>{{ goalTarget(goal) }}</em>
+              </button>
+            </li>
+          </ul>
         </div>
 
         <button class="entry-primary manifesto-confirm" type="button" :disabled="selectedGoalIds.length !== 3" @click="game.reviewCampaign">
@@ -990,148 +1026,136 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 .manifesto-screen { display: grid; grid-template-rows: auto 1fr auto; justify-items: center; }
 .manifesto-layout {
   display: grid;
-  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: 34px;
   align-content: center;
   width: 100%;
-  max-width: 1180px;
+  max-width: 1120px;
 }
-
-.manifesto-party {
-  --party-accent: color-mix(in oklab, var(--party-color), var(--ink) 34%);
-  position: relative;
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  padding: 26px 24px;
-  border: 0;
-  border-radius: var(--r-panel);
-  background: var(--panel);
-  box-shadow: var(--body-edge), var(--body-drop);
-}
-.manifesto-party::before {
-  content: '';
-  position: absolute;
-  display: none;
-  top: 0;
-  right: 24px;
-  left: 24px;
-  height: 2px;
-  background: var(--party-accent);
-}
-.manifesto-party span {
-  color: var(--dim);
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-.manifesto-party strong {
-  font-family: var(--display);
-  font-size: 25px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 1.12;
-}
-.manifesto-party p { margin: 0; color: var(--dim); font-size: 12px; line-height: 1.55; }
 
 /*
- * Der Vorsitz. Das Namensfeld trägt das Monogramm rechts, damit der Name sofort ein Gesicht bekommt
- * und nicht erst auf dem nächsten Bildschirm.
+ * Das Programm, das man gerade schreibt.
+ *
+ * Kein Körper mit Schatten: es liegt auf der Stadt wie ein Blatt Papier auf einem Tisch, und seine
+ * Struktur kommt aus einer Linie links und aus Abstand. Ein zweiter Körper neben dem Katalog hätte
+ * zwei gleich schwere Flächen ergeben, und dann ist keine von beiden die Hauptsache.
  */
-.leader-layout { display: grid; gap: 18px; }
-
-.leader-name {
-  position: relative;
+.manifesto-sheet { align-self: start; padding-right: 30px; border-right: 1px solid var(--rule); }
+.manifesto-sheet > header {
   display: grid;
-  gap: 8px;
-  padding: 20px 96px 20px 20px;
-  border: 0;
-  border-radius: var(--r-inner);
-  background: var(--panel);
-  box-shadow: var(--body-edge), var(--body-drop);
+  grid-template-columns: 10px auto minmax(0, 1fr);
+  gap: 0 12px;
+  align-items: baseline;
 }
-
-.leader-name > span {
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--dim);
+.manifesto-sheet .party-mark { width: 10px; height: 10px; }
+.manifesto-sheet > header strong {
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
+.manifesto-sheet > header span { grid-column: 2 / -1; margin-top: 8px; color: var(--dim); font-size: 12.5px; }
+.manifesto-sheet > p { max-width: 34ch; margin: 24px 0 0; color: var(--faint); font-size: 12.5px; line-height: 1.6; }
 
-.leader-name input {
+/*
+ * Drei Zeilen, und sie stehen von Anfang an da.
+ *
+ * Die Regel „genau drei" trägt diesen Bildschirm, und vorher bemerkte man sie erst, wenn die vierte
+ * Karte nicht mehr ging. Eine leere Zeile mit einer Ziffer davor sagt sie, bevor man das erste Mal
+ * klickt — und sie sagt nebenbei, dass hier etwas unterschrieben und nicht eingekauft wird.
+ */
+.manifesto-slots { display: grid; gap: 2px; margin: 28px 0 0; padding: 0; list-style: none; }
+.manifesto-slots li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 14px 0;
+  border-top: 1px solid var(--rule);
+}
+.manifesto-slots li:last-child { border-bottom: 1px solid var(--rule); }
+.manifesto-slots b {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.manifesto-slots li.is-filled b { color: var(--ink); }
+.slot-empty { color: var(--faint); font-size: 13px; line-height: 1.5; }
+
+.slot-filled {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  width: 100%;
+  padding: 0;
   border: 0;
-  border-bottom: 1px solid var(--rule);
-  padding: 0 0 8px;
   background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 22px;
-  letter-spacing: -0.01em;
-}
-
-.leader-name input:focus { outline: none; border-bottom-color: var(--ink); }
-.leader-name input::placeholder { color: var(--faint); font-size: 15px; }
-
-.leader-monogram {
-  position: absolute;
-  inset-block: 50% auto;
-  inset-inline-end: 20px;
-  translate: 0 -50%;
-  display: grid;
-  place-items: center;
-  inline-size: 58px;
-  block-size: 58px;
-  border: 1px solid var(--rule);
-  border-radius: 50%;
-  color: var(--ink);
-  font-size: 19px;
-  font-style: normal;
-  letter-spacing: 0.04em;
-}
-
-.priority-grid,
-.leader-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.priority-grid button,
-.leader-grid button {
-  display: grid;
-  gap: 8px;
-  padding: 20px;
-  border: 0;
-  border-radius: var(--r-inner);
-  background: var(--panel);
-  box-shadow: var(--body-edge), var(--body-drop);
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 160ms ease, background-color 160ms ease;
 }
-.priority-grid button:hover,
-.leader-grid button:hover { border-color: var(--hairline); background: rgba(18, 24, 29, 0.74); }
-/* Selection is paper, matching the filled action elsewhere — the old olive was an amber leftover. */
-.priority-grid button.selected,
-.leader-grid button.selected { border-color: var(--ink); background: rgba(246, 243, 236, 0.07); }
-
-.priority-grid button span,
-.leader-grid button span {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* Wieder explizit: ein Zeichen, das über beide Zeilen greift, nimmt sonst die erste Spalte. */
+.slot-filled strong { grid-area: 1 / 1 / 2 / 2; font-size: 14px; font-weight: 500; line-height: 1.35; }
+.slot-filled em {
+  grid-area: 2 / 1 / 3 / 2;
   color: var(--dim);
   font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 11.5px;
+  font-style: normal;
 }
-.priority-grid button.selected span { color: var(--ink); }
-.priority-grid :deep(svg) { width: 14px; height: 14px; }
-.priority-grid button strong {
-  font-family: var(--display);
-  font-size: 21px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+.slot-filled :deep(svg) { grid-area: 1 / 2 / 3 / 3; align-self: center; width: 14px; height: 14px; color: var(--faint); }
+.slot-filled:hover :deep(svg) { color: var(--negative); }
+
+/*
+ * Der Katalog als Liste.
+ *
+ * Zwölf gleich große Karten waren der bequeme Behälter: jede trug eine gesperrte Mono-Versalzeile
+ * mit der Schwelle **über** der Überschrift — ein Eyebrow, den weder `DESIGN.md` noch der
+ * Handwerksboden zulassen. Die Schwelle ist eine Zahl; sie steht jetzt am Zeilenende in Mono, wo man
+ * Zahlen vergleicht.
+ */
+.goal-list { display: grid; margin: 0; padding: 0; list-style: none; align-content: start; }
+.goal-list li + li { border-top: 1px solid var(--rule); }
+.goal-list button {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 2px 14px;
+  width: 100%;
+  padding: 15px 14px;
+  border: 0;
+  border-radius: var(--r-inner);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms ease, opacity 160ms ease;
 }
-.priority-grid button small { color: var(--dim); font-size: 11px; line-height: 1.5; }
+.goal-list button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.05); }
+.goal-list button:disabled { opacity: 0.34; cursor: default; }
+/*
+ * Jedes Kind steht explizit im Raster.
+ *
+ * Mit impliziter Platzierung und zwei Elementen, die über beide Zeilen greifen, schob der Browser
+ * die Schwelle in die Namensspalte und den Namen an den rechten Rand — im Bild stand „unter 12,80
+ * €/m²" dort, wo „Bezahlbare Mieten" hingehört. Vier `grid-area`-Zeilen, und die Frage stellt sich
+ * nicht mehr.
+ */
+.goal-state { grid-area: 1 / 1 / 3 / 2; align-self: center; width: 16px; height: 16px; color: var(--faint); }
+.goal-list button.is-chosen .goal-state { color: var(--positive); }
+.goal-list strong { grid-area: 1 / 2 / 2 / 3; font-size: 14.5px; font-weight: 500; }
+.goal-list small { grid-area: 2 / 2 / 3 / 3; color: var(--dim); font-size: 12.5px; line-height: 1.5; }
+.goal-list em {
+  grid-area: 1 / 3 / 3 / 4;
+  align-self: center;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-style: normal;
+  white-space: nowrap;
+}
 
 .manifesto-confirm { margin-top: 30px; }
 
@@ -1182,17 +1206,26 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 
 /* --- Responsive and motion --------------------------------------------- */
 
-@media (max-width: 1180px) {
-  .party-banner-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .profile-layout,
+/*
+ * Die Umbrüche zeigten auf `.party-banner-row`, `.profile-intro` und `.priority-grid` — drei
+ * Klassen, die es nicht mehr gibt. Eine Regel, die auf nichts zeigt, fällt nicht auf, bis jemand
+ * das Fenster kleiner zieht und sich wundert.
+ *
+ * Das Programm klappte schon unter 1.180 px unter den Katalog, also auf jedem Laptop: eine Spalte
+ * von 320 px und eine von 1 fr passen längst nebeneinander. Erst unter 900 px wird es eng.
+ */
+@media (max-width: 900px) {
   .manifesto-layout { grid-template-columns: minmax(0, 1fr); }
-  .profile-intro { grid-template-columns: minmax(0, 1fr); }
+  .manifesto-sheet { padding-right: 0; padding-bottom: 26px; border-right: 0; border-bottom: 1px solid var(--rule); }
+  .party-stats { grid-template-columns: repeat(2, 1fr); }
+  .party-stats > div:nth-child(3) { padding-left: 0; border-left: 0; }
+  .profile-columns { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+  .profile-columns section + section { padding-left: 0; padding-top: 26px; border-left: 0; border-top: 1px solid var(--rule); }
 }
 
 @media (max-width: 760px) {
-  .party-banner-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .party-stats { grid-template-columns: repeat(2, 1fr); }
-  .priority-grid { grid-template-columns: minmax(0, 1fr); }
+  .party-row { grid-template-columns: 10px auto minmax(0, 1fr) auto; }
+  .party-row .party-go { display: none; }
   .title-foot { flex-direction: column; gap: 16px; }
 }
 
@@ -1200,6 +1233,5 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   .entry-loading b { animation: none; width: 70%; }
   .entry-fade-enter-active,
   .entry-fade-leave-active { transition: none; }
-  .party-banner:hover { transform: none; }
 }
 </style>

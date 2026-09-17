@@ -257,46 +257,59 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
           <span class="entry-step">1 / 4</span>
         </header>
 
+        <!--
+          Links wird man jemand, rechts wählt man, woher man kommt.
+
+          Vorher: ein breites Namensfeld über einem 2 × 2-Raster aus Karten, und darunter vierzig
+          Prozent leerer Bildschirm. Dieselbe Aufteilung wie beim Parteiprofil und beim Programm —
+          was man entscheidet, steht links und bleibt stehen; was zur Auswahl steht, läuft rechts.
+          Damit hat der ganze Einstieg **eine** Form statt drei.
+        -->
         <div class="leader-layout">
-          <label class="leader-name">
-            <span>Name</span>
-            <input
-              v-model="leaderName"
-              type="text"
-              maxlength="42"
-              autocomplete="off"
-              spellcheck="false"
-              placeholder="Wie sollen dich die Leute nennen?"
-              @keydown.enter="game.confirmLeader"
-            >
-            <!-- Das Monogramm ist das Gesicht, bis es eines gibt: die Initialen in der Farbe, die
-                 die Partei später beisteuert. -->
-            <i class="leader-monogram" aria-hidden="true">{{ monogram }}</i>
-          </label>
+          <aside class="leader-card">
+            <label class="leader-name">
+              <span>Dein Name</span>
+              <input
+                v-model="leaderName"
+                type="text"
+                maxlength="42"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Wie sollen dich die Leute nennen?"
+                @keydown.enter="game.confirmLeader"
+              >
+              <!-- Das Monogramm ist das Gesicht, bis es eines gibt: die Initialen in der Farbe, die
+                   die Partei später beisteuert. -->
+              <i class="leader-monogram" aria-hidden="true">{{ monogram }}</i>
+            </label>
 
-          <div class="leader-grid" aria-label="Werdegang">
-            <button
-              v-for="background in LEADER_BACKGROUNDS"
-              :key="background.id"
-              type="button"
-              :class="{ selected: leaderBackgroundId === background.id }"
-              :aria-pressed="leaderBackgroundId === background.id"
-              @click="game.chooseBackground(background.id)"
-            >
-              <span>
-                {{ background.effect }}
-                <Icon :name="leaderBackgroundId === background.id ? 'lucide:check' : 'lucide:plus'" />
-              </span>
-              <strong>{{ background.name }}</strong>
-              <small>{{ background.description }}</small>
+            <p class="leader-note">
+              Elf Jahre, ein Rat, eine Stadt. Der Werdegang daneben entscheidet, womit du anfängst –
+              nicht, was du erreichen kannst.
+            </p>
+
+            <button class="entry-primary" type="button" :disabled="!leader" @click="game.confirmLeader">
+              {{ leader ? 'Weiter zur Partei' : leaderName.trim() ? 'Werdegang wählen' : 'Namen eintragen' }}
+              <Icon v-if="leader" name="lucide:arrow-right" />
             </button>
-          </div>
-        </div>
+          </aside>
 
-        <button class="entry-primary" type="button" :disabled="!leader" @click="game.confirmLeader">
-          {{ leader ? 'Weiter zur Partei' : leaderName.trim() ? 'Werdegang wählen' : 'Namen eintragen' }}
-          <Icon v-if="leader" name="lucide:arrow-right" />
-        </button>
+          <ul class="leader-list" aria-label="Werdegang">
+            <li v-for="background in LEADER_BACKGROUNDS" :key="background.id">
+              <button
+                type="button"
+                :class="{ 'is-chosen': leaderBackgroundId === background.id }"
+                :aria-pressed="leaderBackgroundId === background.id"
+                @click="game.chooseBackground(background.id)"
+              >
+                <Icon class="goal-state" :name="leaderBackgroundId === background.id ? 'lucide:check' : 'lucide:plus'" />
+                <strong>{{ background.name }}</strong>
+                <small>{{ background.description }}</small>
+                <em>{{ background.effect }}</em>
+              </button>
+            </li>
+          </ul>
+        </div>
       </section>
 
       <section v-else-if="experienceStage === 'partyHall'" key="party-hall" class="entry-screen party-hall" aria-labelledby="party-hall-title">
@@ -484,6 +497,11 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
             </ol>
 
             <p>Diese drei Zahlen müssen im Dezember 2036 stimmen. Sonst nichts – daran wird gemessen.</p>
+
+            <button class="entry-primary" type="button" :disabled="selectedGoalIds.length !== 3" @click="game.reviewCampaign">
+              {{ selectedGoalIds.length === 3 ? 'Mandat bestätigen' : `Noch ${3 - selectedGoalIds.length} auswählen` }}
+              <Icon v-if="selectedGoalIds.length === 3" name="lucide:arrow-right" />
+            </button>
           </aside>
 
           <!--
@@ -507,11 +525,6 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
             </li>
           </ul>
         </div>
-
-        <button class="entry-primary manifesto-confirm" type="button" :disabled="selectedGoalIds.length !== 3" @click="game.reviewCampaign">
-          {{ selectedGoalIds.length === 3 ? 'Mandat bestätigen' : `Noch ${3 - selectedGoalIds.length} auswählen` }}
-          <Icon v-if="selectedGoalIds.length === 3" name="lucide:arrow-right" />
-        </button>
       </section>
 
       <section v-else-if="experienceStage === 'intro' && selectedParty" key="intro" class="entry-screen intro-screen" aria-labelledby="intro-title">
@@ -570,11 +583,24 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   background: radial-gradient(ellipse at 50% 44%, rgba(9, 13, 16, 0.52) 0%, rgba(6, 9, 12, 0.9) 100%);
 }
 
+/*
+ * Ein Bildschirm ist so hoch wie der Schirm, und er läuft nicht über.
+ *
+ * Vorher war jeder Schritt `min-height: 100dvh` in einem scrollenden Behälter — beim Parteiprofil
+ * und beim Programm wanderte deshalb **alles** mit, Kopfzeile inklusive. `sticky` war die falsche
+ * Antwort darauf: es klebt die eine Spalte fest und lässt den Rest trotzdem wegwandern. Was hier
+ * fehlte, war die Ansage, dass der Bildschirm passt. Was lang ist, bekommt seinen eigenen Läufer.
+ */
 .entry-screen {
   position: relative;
-  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100dvh;
   padding: 34px 40px 30px;
+  overflow: hidden;
 }
+/* Der Titel hat keinen Kopf und keine zweite Zeile; er ordnet sich selbst. */
+.title-screen { display: block; }
 
 .entry-fade-enter-active,
 .entry-fade-leave-active { transition: opacity 360ms ease, transform 360ms ease; }
@@ -926,6 +952,124 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   text-align: center;
 }
 
+/*
+ * Die drei zweispaltigen Schritte teilen sich eine Form: links, was man entscheidet, rechts, was
+ * zur Auswahl steht. Links bleibt stehen, rechts läuft — und zwar die Liste selbst und nicht die
+ * Seite.
+ */
+.leader-layout,
+.profile-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  gap: 34px;
+  align-content: start;
+  width: 100%;
+  max-width: 1120px;
+  min-height: 0;
+  margin: 0 auto;
+}
+.leader-layout { grid-template-columns: minmax(0, 400px) minmax(0, 1fr); }
+
+.leader-card,
+.profile-card {
+  align-self: start;
+  padding: 30px 32px 26px;
+  border-radius: var(--r-panel);
+  background: var(--panel);
+  box-shadow: var(--body-edge), var(--body-drop);
+}
+
+/* Der Läufer. Er ist der einzige im Bildschirm, und er hat seine eigene Bildlaufleiste. */
+.leader-list,
+.profile-stream {
+  min-height: 0;
+  padding-right: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.leader-list::-webkit-scrollbar,
+.profile-stream::-webkit-scrollbar,
+.goal-list::-webkit-scrollbar { width: 6px; }
+.leader-list::-webkit-scrollbar-thumb,
+.profile-stream::-webkit-scrollbar-thumb,
+.goal-list::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(255, 255, 255, 0.14); }
+
+/* --- Der Vorsitz -------------------------------------------------------- */
+
+.leader-name { position: relative; display: grid; gap: 10px; }
+.leader-name > span { color: var(--dim); font-size: 12px; }
+.leader-name input {
+  width: 100%;
+  padding: 0 60px 12px 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.leader-name input:focus { outline: none; border-bottom-color: var(--ink); }
+.leader-name input::placeholder { color: var(--faint); font-family: var(--text); font-size: 15px; font-weight: 400; letter-spacing: 0; }
+
+/* Das Monogramm ist das Gesicht, bis es eines gibt. */
+.leader-monogram {
+  position: absolute;
+  right: 0;
+  bottom: 6px;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px var(--rule);
+  color: var(--dim);
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.leader-note { max-width: 36ch; margin: 22px 0 0; color: var(--faint); font-size: 12.5px; line-height: 1.6; }
+.leader-card .entry-primary { width: 100%; justify-content: center; margin-top: 26px; }
+
+/*
+ * Die vier Werdegänge als Zeilen, nicht als Kacheln — dieselbe Zeile wie die Ziele eine Seite
+ * später, bis auf die Farbe des Hakens.
+ */
+.leader-list { display: grid; align-content: start; margin: 0; padding-right: 10px; list-style: none; }
+.leader-list li + li { border-top: 1px solid var(--rule); }
+.leader-list button {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 2px 14px;
+  width: 100%;
+  padding: 18px 14px;
+  border: 0;
+  border-radius: var(--r-inner);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms ease;
+}
+.leader-list button:hover { background: rgba(255, 255, 255, 0.05); }
+.leader-list button.is-chosen { background: rgba(255, 255, 255, 0.07); }
+.leader-list button.is-chosen .goal-state { color: var(--positive); }
+.leader-list strong { grid-area: 1 / 2 / 2 / 3; font-family: var(--display); font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
+.leader-list small { grid-area: 2 / 2 / 3 / 3; margin-top: 4px; color: var(--dim); font-size: 12.5px; line-height: 1.55; }
+.leader-list em {
+  grid-area: 1 / 3 / 3 / 4;
+  align-self: center;
+  max-width: 17ch;
+  color: var(--faint);
+  font-size: 11.5px;
+  font-style: normal;
+  line-height: 1.45;
+  text-align: right;
+}
+
 /* --- Party profile ------------------------------------------------------ */
 
 /*
@@ -935,28 +1079,6 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
  * läuft die Liste, die je nach Partei sieben bis dreizehn Einträge lang ist. Dieselbe Aufteilung
  * wie beim Programm eine Seite später, damit der Fluss eine Form hat und nicht drei.
  */
-.profile-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
-  gap: 34px;
-  align-content: start;
-  width: 100%;
-  max-width: 1120px;
-  margin: 0 auto;
-}
-
-.profile-card {
-  position: sticky;
-  top: 0;
-  align-self: start;
-  padding: 30px 32px 26px;
-  border-radius: var(--r-panel);
-  background: var(--panel);
-  box-shadow: var(--body-edge), var(--body-drop);
-}
-
-.profile-stream { padding-top: 4px; }
-
 /*
  * Der Kopf: Punkt, Kürzel, Name, ein Satz.
  *
@@ -1087,99 +1209,17 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 .profile-sources p { flex-basis: 100%; max-width: 70ch; margin: 6px 0 0; color: var(--faint); font-size: 12px; line-height: 1.6; }
 .profile-confirm { width: 100%; justify-content: center; margin-top: 30px; }
 
-/*
- * Der Vorsitz. Das Namensfeld trägt das Monogramm rechts, damit der Name sofort ein Gesicht bekommt
- * und nicht erst auf dem nächsten Bildschirm.
- */
-.leader-layout { display: grid; gap: 18px; }
-
-.leader-name {
-  position: relative;
-  display: grid;
-  gap: 8px;
-  padding: 20px 96px 20px 20px;
-  border: 0;
-  border-radius: var(--r-inner);
-  background: var(--panel);
-  box-shadow: var(--body-edge), var(--body-drop);
-}
-
-/* Die letzte gesperrte Versalienzeile des Einstiegs. Auch sie ist eine Beschriftung, also Sprache. */
-.leader-name > span {
-  font-size: 12px;
-  color: var(--dim);
-}
-
-.leader-name input {
-  border: 0;
-  border-bottom: 1px solid var(--rule);
-  padding: 0 0 8px;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 22px;
-  letter-spacing: -0.01em;
-}
-
-.leader-name input:focus { outline: none; border-bottom-color: var(--ink); }
-.leader-name input::placeholder { color: var(--faint); font-size: 15px; }
-
-.leader-monogram {
-  position: absolute;
-  inset-block: 50% auto;
-  inset-inline-end: 20px;
-  translate: 0 -50%;
-  display: grid;
-  place-items: center;
-  inline-size: 58px;
-  block-size: 58px;
-  border: 1px solid var(--rule);
-  border-radius: 50%;
-  color: var(--ink);
-  font-size: 19px;
-  font-style: normal;
-  letter-spacing: 0.04em;
-}
-
-.leader-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.leader-grid button {
-  display: grid;
-  gap: 8px;
-  padding: 20px;
-  border: 0;
-  border-radius: var(--r-inner);
-  background: var(--panel);
-  box-shadow: var(--body-edge), var(--body-drop);
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 160ms ease, background-color 160ms ease;
-}
-.leader-grid button:hover { border-color: var(--hairline); background: rgba(18, 24, 29, 0.74); }
-/* Selection is paper, matching the filled action elsewhere — the old olive was an amber leftover. */
-.leader-grid button.selected {
-  background: rgba(246, 243, 236, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(246, 243, 236, 0.4), var(--body-drop);
-}
-
-.leader-grid button span {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: var(--dim);
-  font-size: 12px;
-}
-
 /* --- Priorities --------------------------------------------------------- */
 
-.manifesto-screen { display: grid; grid-template-rows: auto 1fr auto; justify-items: center; }
 .manifesto-layout {
   display: grid;
-  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
   gap: 34px;
   align-content: start;
   width: 100%;
   max-width: 1120px;
+  min-height: 0;
+  margin: 0 auto;
 }
 
 /*
@@ -1190,19 +1230,14 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
  * zwei gleich schwere Flächen ergeben, und dann ist keine von beiden die Hauptsache.
  */
 /*
- * Es bleibt stehen, während der Katalog läuft.
+ * Es steht, während der Katalog läuft.
  *
- * Zwölf Ziele sind länger als jeder Bildschirm, und beim Scrollen verschwand das Programm nach oben
- * weg — man wählte dann ins Blinde, weil man nicht mehr sah, was man schon versprochen hatte. Genau
- * dafür gibt es `sticky`: die Spalte klebt an ihrer oberen Kante und die andere bewegt sich.
+ * Zwölf Ziele sind länger als jeder Bildschirm, und vorher wanderte das Programm beim Scrollen nach
+ * oben weg — man wählte dann ins Blinde, weil man nicht mehr sah, was man schon versprochen hatte.
+ * `sticky` war die halbe Antwort: es klebt die Spalte fest und lässt die Kopfzeile trotzdem gehen.
+ * Jetzt passt der Bildschirm, und scrollen tut nur der Katalog.
  */
-.manifesto-sheet {
-  position: sticky;
-  top: 0;
-  align-self: start;
-  padding-right: 30px;
-  border-right: 1px solid var(--rule);
-}
+.manifesto-sheet { align-self: start; padding-right: 30px; border-right: 1px solid var(--rule); }
 .manifesto-sheet > header {
   display: grid;
   grid-template-columns: 10px auto minmax(0, 1fr);
@@ -1279,7 +1314,16 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
  * Handwerksboden zulassen. Die Schwelle ist eine Zahl; sie steht jetzt am Zeilenende in Mono, wo man
  * Zahlen vergleicht.
  */
-.goal-list { display: grid; margin: 0; padding: 0; list-style: none; align-content: start; }
+.goal-list {
+  display: grid;
+  align-content: start;
+  min-height: 0;
+  margin: 0;
+  padding: 0 10px 0 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+}
 .goal-list li + li { border-top: 1px solid var(--rule); }
 .goal-list button {
   display: grid;
@@ -1319,7 +1363,7 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
   white-space: nowrap;
 }
 
-.manifesto-confirm { margin-top: 30px; }
+.manifesto-sheet .entry-primary { width: 100%; justify-content: center; margin-top: 24px; }
 
 /* --- Intro -------------------------------------------------------------- */
 

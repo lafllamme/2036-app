@@ -243,15 +243,19 @@ function edgeDistance(ring, x, z) {
  * Einsatz, jedem Standort und jedem Umbau. Punkt-in-Polygon gegen zwanzig Ringe mit zusammen
  * siebenhundert Stützpunkten wäre dafür die falsche Antwort.
  *
- * Also einmal hier ein Raster brennen: 256 × 256 Zellen über den Ausschnitt, ein Byte je Zelle, das
- * ist der Bezirksindex. Fünfzehn Meter Kantenlänge — feiner als jedes Gebäude, und das Ganze ist
- * 64 kB. Die Abfrage im Spiel sind zwei Divisionen und ein Feldzugriff.
+ * Also einmal hier ein Raster brennen: 384 × 384 Zellen über den Ausschnitt, ein Byte je Zelle, das
+ * ist der Bezirksindex. Gut zehn Meter Kantenlänge — feiner als jedes Gebäude, und das Ganze ist
+ * 144 kB. Die Abfrage im Spiel sind zwei Divisionen und ein Feldzugriff.
+ *
+ * Es ist außerdem die **Wahrheit über die Fläche**, aus der die gezeichneten Umrisse abgeleitet
+ * werden — siehe `traceRegion`. Der geschnittene Ortsteilring wäre die genauere Grenze und ließe
+ * trotzdem Löcher im Bild, weil die zehn weggefallenen Splitter dann niemandem gehören.
  *
  * Zellen, die in keinem der zwanzig liegen — die zehn weggefallenen Splitter und die Ränder —
  * bekommen den nächsten Bezirk, über eine Welle vom belegten Gebiet aus. Damit gibt es im ganzen
  * Quadrat keinen Punkt ohne Viertel, und der Landstrich außerhalb der Stadt bekommt seinen auch.
  */
-const GRID = 256
+const GRID = 384
 
 function buildGrid(districts, extent) {
   const cell = (extent * 2) / GRID
@@ -303,6 +307,114 @@ function buildGrid(districts, extent) {
 }
 
 /**
+ * Den Umriss eines Viertels **aus dem Raster** zurückgewinnen.
+ *
+ * Gezeichnet wurde bis hierher der geschnittene Ortsteilring, und der ist die genauere Grenze — nur
+ * deckt er den Ausschnitt nicht ab. Die zehn weggefallenen Splitter gehören im Raster dem nächsten
+ * Nachbarn, im Bild aber niemandem, und auf der Karte standen dort Löcher: grüne Wiese zwischen zwei
+ * Vierteln, die in Wirklichkeit aneinandergrenzen.
+ *
+ * Also andersherum: das Raster ist lückenlos, also kommt der Umriss von dort. Gelaufen wird die
+ * Kante zwischen „gehört dazu" und „gehört nicht dazu", im Uhrzeigersinn um jede Zelle; die
+ * Kantenstücke hängen sich an ihren Endpunkten zu einem Ring zusammen. Danach einmal Douglas–Peucker
+ * darüber, sonst ist die Grenze eine Treppe mit zehn Metern Stufenhöhe.
+ *
+ * Das ist die Näherung, und sie ist die richtige: eine Grenze, die auf zehn Meter genau ist und die
+ * Stadt vollständig aufteilt, ist als Auskunft mehr wert als eine metergenaue mit Löchern darin.
+ */
+function traceRegion(data, index, size, extent) {
+  const cell = (extent * 2) / size
+  const inside = (column, row) => column >= 0 && row >= 0 && column < size && row < size && data[row * size + column] === index
+
+  /* Die Kanten, gerichtet, Inneres zur Linken. Als Karte von „woher" auf „wohin", damit das
+   * Zusammenhängen ein Nachschlagen ist und keine Suche über zehntausend Stücke. */
+  const next = new Map()
+  const key = (x, y) => x * 1_000 + y
+  let start = null
+  for (let row = 0; row < size; row += 1) {
+    for (let column = 0; column < size; column += 1) {
+      if (!inside(column, row))
+        continue
+      if (!inside(column, row - 1))
+        next.set(key(column, row), [column + 1, row])
+      if (!inside(column + 1, row))
+        next.set(key(column + 1, row), [column + 1, row + 1])
+      if (!inside(column, row + 1))
+        next.set(key(column + 1, row + 1), [column, row + 1])
+      if (!inside(column - 1, row))
+        next.set(key(column, row + 1), [column, row])
+      start ??= [column, row]
+    }
+  }
+  if (!start)
+    return []
+
+  /*
+   * Der **längste** Ring, nicht der erste: ein Viertel kann im Raster eine Insel haben — ein paar
+   * Zellen jenseits des Flusses, die dem falschen Nachbarn zugefallen sind. Gezeichnet wird der
+   * Hauptteil, und der ist immer der längste.
+   */
+  const seen = new Set()
+  let best = []
+  for (const [from] of next) {
+    if (seen.has(from))
+      continue
+    const ring = []
+    let at = from
+    while (at !== undefined && !seen.has(at)) {
+      seen.add(at)
+      const to = next.get(at)
+      if (!to)
+        break
+      ring.push(to)
+      at = key(to[0], to[1])
+    }
+    if (ring.length > best.length)
+      best = ring
+  }
+
+  const world = best.map(([column, row]) => [-extent + column * cell, -extent + row * cell])
+  return simplifyRing(world, cell * 0.9)
+}
+
+/** Douglas–Peucker auf einem geschlossenen Ring. Nimmt der Treppe die Stufen und lässt die Form. */
+function simplifyRing(ring, tolerance) {
+  if (ring.length < 8)
+    return ring
+
+  const keep = new Uint8Array(ring.length)
+  keep[0] = 1
+  keep[ring.length - 1] = 1
+  const stack = [[0, ring.length - 1]]
+  while (stack.length > 0) {
+    const [from, to] = stack.pop()
+    let worst = 0
+    let at = -1
+    for (let i = from + 1; i < to; i += 1) {
+      const distance = pointToSegment(ring[i], ring[from], ring[to])
+      if (distance > worst) {
+        worst = distance
+        at = i
+      }
+    }
+    if (at >= 0 && worst > tolerance) {
+      keep[at] = 1
+      stack.push([from, at], [at, to])
+    }
+  }
+  const out = ring.filter((_, at) => keep[at] === 1)
+  return out.length >= 4 ? out : ring
+}
+
+function pointToSegment(point, from, to) {
+  const dx = to[0] - from[0]
+  const dy = to[1] - from[1]
+  const span = dx * dx + dy * dy
+  const t = span === 0 ? 0 : Math.max(0, Math.min(1, ((point[0] - from[0]) * dx + (point[1] - from[1]) * dy) / span))
+  return Math.hypot(point[0] - (from[0] + t * dx), point[1] - (from[1] + t * dy))
+}
+
+/**
  * Aus der Grenz-Relation-Datei die Viertel bauen.
  *
  * Gibt zurück, was in `lindenhafen.json` landet: je Viertel sein Polygon in Metern, sein Kasten,
@@ -348,5 +460,32 @@ export function buildDistricts(raw, project, extent) {
   })
 
   const grid = buildGrid(districts, extent)
-  return { districts: districts.map(({ ring, ...rest }) => rest), grid }
+
+  /*
+   * Und jetzt der Umriss aus dem Raster statt aus dem Ortsteilring. Erst hier, weil das Raster
+   * vorher nicht existiert — und es ist das, was die Stadt wirklich aufteilt.
+   */
+  const raster = Buffer.from(grid.data, 'base64')
+  return {
+    districts: districts.map(({ ring, ...rest }, index) => {
+      const traced = traceRegion(raster, index, grid.size, extent)
+      const outline = traced.length >= 4 ? traced : ring
+      let minX = Infinity
+      let maxX = -Infinity
+      let minZ = Infinity
+      let maxZ = -Infinity
+      for (const [x, z] of outline) {
+        minX = Math.min(minX, x)
+        maxX = Math.max(maxX, x)
+        minZ = Math.min(minZ, z)
+        maxZ = Math.max(maxZ, z)
+      }
+      return {
+        ...rest,
+        p: outline.flatMap(([x, z]) => [Math.round(x), Math.round(z)]),
+        b: [Math.round(minX), Math.round(maxX), Math.round(minZ), Math.round(maxZ)],
+      }
+    }),
+    grid,
+  }
 }

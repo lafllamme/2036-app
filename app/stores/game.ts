@@ -408,11 +408,13 @@ export const useGameStore = defineStore('game', () => {
      * das war wörtlich richtig.
      */
     const siteWanted = Boolean(data.snapshot.pendingSiting) && !previous?.pendingSiting
+    // Ein gesuchter Block ist dasselbe eine Stufe feiner — und braucht die Stadt im Bild, nicht eine Liste.
+    const blockWanted = Boolean(data.snapshot.pendingBlock) && !previous?.pendingBlock
     if (arrived) {
       holdClock()
       openDecisionId.value = arrived.eventId
     }
-    else if (siteWanted) {
+    else if (siteWanted || blockWanted) {
       holdClock()
       // Und die Kamera dorthin, wo die Wahl steht — sonst zeigt die Karte gerade irgendeine Ecke.
       overviewRequest.value += 1
@@ -547,7 +549,7 @@ export const useGameStore = defineStore('game', () => {
    * - **Der Zeitraffer läuft.** Dann ist er die Bremse.
    * - **Sonst.** Dann läuft er bis zum nächsten Ereignis.
    */
-  const nextAction = computed<'decide' | 'site' | 'halt' | 'skip'>(() => {
+  const nextAction = computed<'decide' | 'site' | 'block' | 'halt' | 'skip'>(() => {
     if (pendingDecisions.value.length > 0)
       return 'decide'
     /*
@@ -557,6 +559,8 @@ export const useGameStore = defineStore('game', () => {
      */
     if (snapshot.value?.pendingSiting)
       return 'site'
+    if (snapshot.value?.pendingBlock)
+      return 'block'
     return skipping.value ? 'halt' : 'skip'
   })
 
@@ -575,7 +579,7 @@ export const useGameStore = defineStore('game', () => {
       return
     }
     // Zeig mir, wo gewählt werden soll: die Gesamtansicht hat alle drei Marken im Bild.
-    if (nextAction.value === 'site') {
+    if (nextAction.value === 'site' || nextAction.value === 'block') {
       overviewRequest.value += 1
       return
     }
@@ -595,7 +599,7 @@ export const useGameStore = defineStore('game', () => {
     if (heldSpeed === 0 || speed.value !== 0)
       return
     // Ein Standort, der noch fehlt, ist eine offene Entscheidung wie jede andere.
-    if (openDecisionId.value !== null || lastVoteResult.value !== null || pendingCommand.value || snapshot.value?.pendingSiting)
+    if (openDecisionId.value !== null || lastVoteResult.value !== null || pendingCommand.value || snapshot.value?.pendingSiting || snapshot.value?.pendingBlock)
       return
     if (!canAdvance.value || snapshot.value?.defeat)
       return
@@ -830,6 +834,22 @@ export const useGameStore = defineStore('game', () => {
   }
 
   /**
+   * Und auf welchen Häuserzug die Sanierung geht.
+   *
+   * Die einzige Entscheidung im Spiel, die man **in der Stadt** trifft und nicht in einem Blatt: das
+   * angeklickte Haus ist die Antwort. Deshalb läuft sie auch nicht über eine Karte mit drei Marken,
+   * sondern über dieselbe Auswahl, mit der man sich sonst ein Haus ansieht — solange eine Sanierung
+   * wartet, ist jeder Klick auf ein Haus ein Beschluss.
+   */
+  function chooseBlock(building: BuildingRecord): void {
+    if (!snapshot.value?.pendingBlock)
+      return
+    holdClock()
+    selectedBuilding.value = null
+    send({ type: 'CHOOSE_BLOCK', at: { x: building.x, z: building.z, districtId: building.districtId } })
+  }
+
+  /**
    * Eine Lage vor Ort beantworten — ohne Rat, aus eigenen Mitteln.
    *
    * Die Uhr hält hier **nicht** an. Ein Brennpunkt ist kein Tagesordnungspunkt: er läuft neben der
@@ -999,6 +1019,7 @@ export const useGameStore = defineStore('game', () => {
     negotiate,
     campaignFor,
     chooseSite,
+    chooseBlock,
     answerHotspot,
     withdrawMotion,
     callUrgent,

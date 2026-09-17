@@ -933,6 +933,13 @@ Byte einzieht — und den gibt es noch nicht.
 
 ### Und was daran hängt
 
+**Die Blocksanierung.** Ein beschlossener Block holt sich seinen Zustand über achtzehn Monate
+zurück — im selben Durchgang wie der Verfall, weil beide in dasselbe Attribut schreiben. Getrennt
+wären es zwei Läufe, die sich gegenseitig überschreiben, und das ist die Art Fehler, die man erst
+nach achtzehn Spielmonaten sieht. Ausgelöst wird der Durchgang, wenn der Verfall sich bewegt **oder**
+eine Sanierung weitergekommen ist; der Fortschritt läuft in Achtzehnteln, also höchstens einmal im
+Monat. Siehe `simulation/renewal.ts` und `GAME_FLOW.md`.
+
 `blight` aus der Simulation schreibt seit demselben Schritt in dieses Attribut statt in die Farbe.
 Getroffen wird dabei nicht mehr die erste beliebige Reihe der Häuserliste, sondern der Teil des
 Bestands, der ohnehin am schlechtesten dasteht — die Kachel hält ihre Gebäude einmal nach Bauzustand

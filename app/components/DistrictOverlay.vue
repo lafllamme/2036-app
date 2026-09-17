@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { DistrictId } from '~/core/contracts'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { screenPoint } from '~/rendering/screen'
@@ -59,44 +60,25 @@ const reading = computed(() => (showing.value ? READINGS[showing.value] : null))
  * Schnitt" sagt, wo man baut.
  */
 /**
- * Die Grenze auf so viele Stützpunkte eindampfen, wie sie auf dem Schirm noch braucht.
- *
- * Nicht nach Winkel, sondern nach **Länge**: eine Grenze, die einen Häuserblock umfährt, hat dort
- * zwanzig Punkte auf achtzig Metern, und keiner davon ist aus zwei Kilometern Entfernung von seinem
- * Nachbarn zu unterscheiden. Behalten wird jeder Punkt, der weiter als ein Zwanzigstel des Umfangs
- * vom letzten behaltenen entfernt ist — dabei bleibt die Form, und die Zackerei fällt weg.
- */
-function outlineOf(polygon: number[]): { x: number, z: number }[] {
-  const points: { x: number, z: number }[] = []
-  for (let at = 0; at < polygon.length; at += 2)
-    points.push({ x: polygon[at]!, z: polygon[at + 1]! })
-  if (points.length <= 12)
-    return points
-
-  let perimeter = 0
-  for (let at = 0; at < points.length; at += 1) {
-    const from = points[at]!
-    const to = points[(at + 1) % points.length]!
-    perimeter += Math.hypot(to.x - from.x, to.z - from.z)
-  }
-  const step = perimeter / 26
-
-  const kept = [points[0]!]
-  for (const point of points.slice(1)) {
-    const last = kept[kept.length - 1]!
-    if (Math.hypot(point.x - last.x, point.z - last.z) >= step)
-      kept.push(point)
-  }
-  return kept.length >= 4 ? kept : points
-}
-
-/**
  * Je Viertel: sein Umriss, sein Wert, und wie weit er vom Stadtschnitt abweicht.
  *
  * Die Abweichung ist die eigentliche Auskunft. „14,20 €/m²" sagt wenig; „ein Fünftel über dem
  * Schnitt" sagt, wo man baut.
  */
-const outlines = computed(() => new Map(districtShapes.value.map(shape => [shape.id, outlineOf(shape.polygon)])))
+/**
+ * Der Umriss, wie er aus der Kartendatei kommt — **nicht noch einmal ausgedünnt.**
+ *
+ * Hier lief eine zweite Vereinfachung nach Länge, aus der Zeit, als die Ringe achtzig Stützpunkte
+ * aus einer Ortsteilgrenze hatten. Seit die Umrisse aus dem Raster kommen, sind sie bereits auf
+ * zehn Meter vereinfacht — ein zweiter Durchgang nähme derselben Form ein zweites Mal die Ecken und
+ * zöge die Grenze vom Fluss weg, an dem sie entlangläuft.
+ */
+const outlines = computed(() => new Map(districtShapes.value.map((shape) => {
+  const points: { x: number, z: number }[] = []
+  for (let at = 0; at < shape.polygon.length; at += 2)
+    points.push({ x: shape.polygon[at]!, z: shape.polygon[at + 1]! })
+  return [shape.id, points] as const
+})))
 
 const districts = computed(() => {
   const metric = showing.value
@@ -110,13 +92,51 @@ const districts = computed(() => {
       id: shape.id,
       name: DISTRICT_BY_ID.get(shape.id)?.shortName ?? shape.id,
       value,
-      /** −1 … 1, geklemmt: ein Drittel Abweichung ist voller Ausschlag. */
-      tilt: Math.max(-1, Math.min(1, (value / city - 1) / 0.33)),
+      ratio: value / city,
       corners: outlines.value.get(shape.id) ?? [],
       centre: shape.centre,
     }
   })
 })
+
+/**
+ * Der Ausschlag — nach **Rangfolge**, nicht nach Abweichung.
+ *
+ * Zwei Anläufe vorher, beide falsch, und der Grund ist derselbe: die Mieten sind schief verteilt.
+ * Die Altstadt liegt 41 % über dem Stadtschnitt und der Werfthafen 34 % darunter, die anderen
+ * achtzehn Viertel drängeln sich dazwischen — Buntenhorst auf 12,93 € bei einem Schnitt von 13,20.
+ * Eine Skala, die an der Abweichung hängt, färbt damit zwei Flächen und lässt achtzehn weiß, und
+ * Weiß liest sich als „keine Daten". Erst hieß es „ein Drittel ist Vollausschlag", dann „die Spanne
+ * der Stadt ist Vollausschlag" — beides ändert nichts daran, dass die Masse in der Mitte liegt.
+ *
+ * Also das, was eine Karte in dieser Lage immer tut: **einordnen statt messen.** Das niedrigste
+ * Viertel steht am grünen Anschlag, das höchste am roten, und die achtzehn dazwischen verteilen sich
+ * gleichmäßig darüber. Jede Fläche bekommt damit eine Farbe, die etwas sagt, und die Frage, die die
+ * Lage beantwortet — *wo ist es teuer und wo billig* —, ist ohnehin eine Frage nach der Reihenfolge.
+ * Die Zahl steht am Namen, wer es genau wissen will.
+ *
+ * Gedämpft wird das Ganze, wenn die Stadt wirklich gleichförmig ist: liegen Erster und Letzter
+ * weniger als ein Zehntel auseinander, wäre ein voller Farbverlauf eine dramatische Aussage über
+ * Rauschen. Dann geht die Sättigung mit zurück.
+ */
+const ranking = computed(() => {
+  const sorted = [...districts.value].sort((a, b) => a.ratio - b.ratio)
+  return {
+    places: new Map(sorted.map((district, at) => [district.id, at])),
+    last: Math.max(1, sorted.length - 1),
+    /** 0 … 1: wie viel Spreizung die Stadt gerade wirklich hat. Ein Zehntel ist voll. */
+    force: Math.min(1, ((sorted[sorted.length - 1]?.ratio ?? 1) - (sorted[0]?.ratio ?? 1)) / 0.1),
+  }
+})
+
+/** −1 (am niedrigsten) … 1 (am höchsten), nach Platz in der Reihe. */
+function tiltOf(id: DistrictId): number {
+  const { places, last, force } = ranking.value
+  const place = places.get(id)
+  if (place === undefined)
+    return 0
+  return ((place / last) * 2 - 1) * force
+}
 
 /**
  * Über dem Schnitt warm, darunter kühl — **und im Schnitt trotzdem eine Fläche.**
@@ -128,9 +148,12 @@ const districts = computed(() => {
  * überhaupt?" gar nicht mehr.
  *
  * Jetzt liegt unter allem ein Grundschleier, und der Ausschlag kommt oben drauf: jedes Viertel ist
- * eine Fläche, und wie stark sie gefärbt ist, sagt, wie weit es vom Schnitt weg ist.
+ * eine Fläche, und wo sie auf der Skala steht, sagt `tiltOf`.
+ *
+ * Der Mittelton ist bewusst ein warmes Sand und kein Grau. Grau in einer grün-roten Skala sieht aus
+ * wie unbedrucktes Papier — „hier steht nichts" —, und genau so wurde es auch gelesen.
  */
-const NEUTRAL: readonly [number, number, number] = [188, 190, 186]
+const NEUTRAL: readonly [number, number, number] = [222, 206, 150]
 const HIGH: readonly [number, number, number] = [214, 106, 70]
 const LOW: readonly [number, number, number] = [108, 199, 138]
 
@@ -138,7 +161,7 @@ function tint(tilt: number): string {
   const strength = Math.min(1, Math.abs(tilt))
   const towards = tilt >= 0 ? HIGH : LOW
   const channel = (at: 0 | 1 | 2): number => Math.round(NEUTRAL[at] + (towards[at] - NEUTRAL[at]) * strength)
-  return `rgba(${channel(0)}, ${channel(1)}, ${channel(2)}, ${(0.13 + strength * 0.3).toFixed(3)})`
+  return `rgba(${channel(0)}, ${channel(1)}, ${channel(2)}, ${(0.22 + strength * 0.22).toFixed(3)})`
 }
 
 const shapes = ref<{ id: string, points: string, fill: string, at: { x: number, y: number } | null }[]>([])
@@ -175,10 +198,10 @@ const LABEL_MARGIN = 70
 /** Was das Deck unten verdeckt. Ein Name dahinter ist kein Name. */
 const BOTTOM_DECK = 150
 
-/** Liegt dieser Weltpunkt vor der Kamera? `away === 0` heißt: dahinter — siehe `rendering/screen.ts`. */
+/** Liegt dieser Weltpunkt vor der Kamera? Siehe `behind` in `rendering/screen.ts`. */
 function ahead(projector: NonNullable<typeof project.value>, x: number, z: number): boolean {
   projector(x, 0, z, probe)
-  return probe.onScreen || probe.away > 0
+  return !probe.behind
 }
 
 /**
@@ -336,7 +359,7 @@ function trace(): void {
     next.push({
       id: district.id,
       points: points.join(' '),
-      fill: tint(district.tilt),
+      fill: tint(tiltOf(district.id)),
       at: labelAt(screen),
     })
   }
@@ -380,9 +403,9 @@ watch(showing, (now) => {
     </span>
 
     <p class="legend">
-      <span>{{ reading.label }} je Bezirk</span>
-      <em class="low">unter dem Schnitt</em>
-      <em class="high">darüber</em>
+      <span>{{ reading.label }} je Viertel</span>
+      <em class="low">am niedrigsten</em>
+      <em class="high">am höchsten</em>
     </p>
   </div>
 </template>
@@ -465,6 +488,6 @@ watch(showing, (now) => {
   border-radius: 3px;
 }
 
-.legend .low::before { background: rgba(108, 199, 138, 0.55); }
-.legend .high::before { background: rgba(214, 106, 70, 0.55); }
+.legend .low::before { background: rgba(108, 199, 138, 0.75); }
+.legend .high::before { background: rgba(214, 106, 70, 0.75); }
 </style>

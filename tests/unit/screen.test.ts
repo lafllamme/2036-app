@@ -65,14 +65,39 @@ describe('projektion', () => {
 
     project(camera, 0, 2, -50, WIDTH, HEIGHT, out)
     expect(out.onScreen).toBe(true)
+    expect(out.behind).toBe(false)
 
     project(camera, 0, 2, 50, WIDTH, HEIGHT, out)
     expect(out.onScreen).toBe(false)
+    expect(out.behind).toBe(true)
   })
 
-  it('meldet einen Punkt weit neben dem Bild als nicht sichtbar', () => {
+  /**
+   * Und die beiden Fälle müssen **unterscheidbar** sein.
+   *
+   * Das war der Fehler, der die Bezirksflächen zerrissen hat: „nicht im Bild" wirft zusammen, was
+   * seitlich draußen liegt und was im Rücken steht, und wer das trennen musste, prüfte hilfsweise auf
+   * `away === 0` — eine Bedingung, die nie zutrifft, weil `away` ein Abstand ist. Ein Punkt hinter
+   * der Kamera landet auf (0, 0), und die Fläche bekam eine Ecke in der linken oberen Bildecke.
+   */
+  it('meldet einen Punkt weit neben dem Bild als draußen, aber nicht als hinter der Kamera', () => {
     project(camera, 4000, 0, 0, WIDTH, HEIGHT, out)
     expect(out.onScreen).toBe(false)
+    expect(out.behind).toBe(false)
+    // Und seine Koordinaten sind brauchbar: seitlich daneben heißt seitlich daneben.
+    expect(out.x).toBeGreaterThan(WIDTH)
+    expect(out.away).toBeGreaterThan(0)
+  })
+
+  /** `away` ist ein Abstand. Es ist nie null und darf nie als „hinter der Kamera" gelesen werden. */
+  it('meldet den Abstand auch im Rücken als positiv', () => {
+    camera.position.set(0, 2, 0)
+    camera.lookAt(0, 2, -10)
+    camera.updateMatrixWorld()
+    camera.matrixWorldInverse.copy(camera.matrixWorld).invert()
+
+    project(camera, 0, 2, 50, WIDTH, HEIGHT, out)
+    expect(out.away).toBeCloseTo(50, 3)
   })
 
   /** Läuft je Marke und Bild. Ein eigenes Objekt je Aufruf wäre Müll im Renderpfad. */

@@ -82,21 +82,27 @@ describe('fictional party content', () => {
    * Wohnungsbau. Sechs Parteien unterschieden sich damit nur in Arithmetik — Sitze, Rückhalt,
    * Achsen —, nicht in dem, was man überhaupt tun kann.
    */
-  it('gives every party four motions of its own and two that every council needs', () => {
+  it('gives every party four motions of its own and three that every council needs', () => {
+    /*
+     * Drei gemeinsame, seit die Blocksanierung dazugekommen ist. Sie gehört keiner Fraktion, und das
+     * ist nicht Bequemlichkeit: einen Häuserzug herrichten will jeder Rat, und die Frage, an der
+     * sich die Fraktionen scheiden, ist nicht **ob**, sondern **welchen Block** — und die stellt das
+     * Spiel auf der Karte und nicht im Programm.
+     */
     const shared = POLICIES.filter(policy => !policy.partyIds)
-    expect(shared, 'die gemeinsamen Vorlagen fehlen').toHaveLength(2)
+    expect(shared, 'die gemeinsamen Vorlagen fehlen').toHaveLength(3)
 
     for (const party of PARTIES) {
       const own = POLICIES.filter(policy => policy.partyIds?.includes(party.id))
       expect(own, `${party.id} hat kein eigenes Programm mit vier Vorlagen`).toHaveLength(4)
-      expect(policiesFor(party.id)).toHaveLength(6)
+      expect(policiesFor(party.id)).toHaveLength(7)
     }
 
     // Kein Programm gehört zwei Parteien: sonst wäre es keins.
     for (const policy of POLICIES.filter(entry => entry.partyIds))
       expect(policy.partyIds, `${policy.id} gehört mehreren Fraktionen`).toHaveLength(1)
 
-    expect(POLICIES).toHaveLength(6 * 4 + 2)
+    expect(POLICIES).toHaveLength(6 * 4 + 3)
   })
 
   it('writes a programme out of the party\'s own positions, not out of a cliché', () => {

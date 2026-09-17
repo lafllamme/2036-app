@@ -75,6 +75,16 @@ export interface SimulationSnapshot {
   /** Was gerade auf einen Standort wartet, oder nichts. Siehe `PendingSiting`. */
   pendingSiting: PendingSiting | null
   /**
+   * Und was gerade auf einen **Block** wartet.
+   *
+   * Dieselbe Frage eine Größenordnung feiner, und deshalb ein eigenes Feld: auf einen Standort
+   * antwortet man mit einem Namen aus einer Liste, auf einen Block, indem man in die Stadt zeigt.
+   * Siehe `simulation/renewal.ts`.
+   */
+  pendingBlock: { policyId: string, title: string, cost: number, months: number } | null
+  /** Die beschlossenen Blocksanierungen, laufende wie fertige. Der Renderer putzt danach die Häuser. */
+  renewals: RenewalView[]
+  /**
    * Die Tagesordnung der nächsten Ratssitzung.
    *
    * Eingebracht heißt: steht hier. Abgestimmt wird am Monatsende über alles davon — und in der Zeit
@@ -148,6 +158,17 @@ export type SimulationMessage
  * Der Rat hat entschieden, was gebaut wird. Wo, entscheidet der Spieler, und bis dahin ist nichts
  * bezahlt und nichts gebaut. Siehe `simulation/siting.ts`.
  */
+/** Eine Blocksanierung, so wie der Renderer und die Karte sie brauchen. */
+export interface RenewalView {
+  id: string
+  districtId: DistrictId
+  x: number
+  z: number
+  startedMonth: number
+  /** 0 … 1. Bei eins ist das Gerüst weg. */
+  progress: number
+}
+
 export interface PendingSiting {
   policyId: string
   title: string
@@ -200,6 +221,8 @@ export type SimulationCommandExtra
   = | { type: 'REQUEST_SAVE' }
     /** Wohin die beschlossene Vorlage soll. Pflicht: ohne sie passiert nichts. */
     | { type: 'CHOOSE_SITE', districtId: DistrictId }
+    /** Auf welchen Block die Sanierung geht: das angeklickte Haus. Siehe `simulation/renewal.ts`. */
+    | { type: 'CHOOSE_BLOCK', at: { x: number, z: number, districtId: DistrictId } }
     /** Eine Antwort auf einen Brennpunkt. Ohne Rat, aus eigenen Mitteln. */
     | { type: 'ANSWER_HOTSPOT', id: string, answerId: string }
     /** Auf die Tagesordnung der nächsten Sitzung damit. Abgestimmt wird am Monatsende. */

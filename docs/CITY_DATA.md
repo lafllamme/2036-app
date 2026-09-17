@@ -103,11 +103,20 @@ an. Die Tabelle steht in `scripts/cityDistricts.mjs`:
 | Woltmershausen | Wolterdeich | 29 | Industrie |
 | Südervorstadt | Südring | 26 | Wohnstraße |
 
+**Die gezeichneten Umrisse kommen aus dem Raster, nicht aus dem Ortsteilring.** Der Ring ist die
+genauere Grenze und lässt trotzdem Löcher: die zehn weggefallenen Splitter gehören im Raster dem
+nächsten Nachbarn, im Bild aber niemandem, und auf der Karte stand dort grüne Wiese zwischen zwei
+Vierteln, die in Wirklichkeit aneinandergrenzen. Also andersherum — das Raster ist lückenlos, also
+kommt der Umriss von dort: die Kante zwischen „gehört dazu" und „gehört nicht dazu" wird
+abgelaufen, die Kantenstücke hängen sich zu einem Ring zusammen, und einmal Douglas–Peucker nimmt
+der Treppe die Stufen. **Gemessen decken die zwanzig Umrisse 15,99 von 16,00 km² ab.** Zehn Meter
+Ungenauigkeit gegen null Löcher ist der richtige Tausch für eine Auskunft.
+
 **Der Rasterindex.** Gefragt wird „in welchem Viertel liegt dieser Punkt?" rund fünfzigtausend Mal
 beim Laden — einmal je Gebäude — und danach bei jedem Einsatz, jedem Standort und jedem Umbau. Gegen
 zwanzig Polygone mit zusammen siebenhundert Stützpunkten zu prüfen wäre die falsche Antwort. Der
-Konverter brennt stattdessen ein 256 × 256-Raster: ein Byte je Zelle, 15 Meter Kantenlänge, 64 kB in
-der Datei. Zellen ohne Viertel bekommen über eine Welle vom belegten Gebiet aus den nächsten — damit
+Konverter brennt stattdessen ein 384 × 384-Raster: ein Byte je Zelle, gut zehn Meter Kantenlänge,
+144 kB in der Datei. Zellen ohne Viertel bekommen über eine Welle vom belegten Gebiet aus den nächsten — damit
 gibt es im Quadrat keinen Punkt ohne Viertel, und das Land ringsum bekommt seinen auch.
 
 **Die Einwohnerzahl** folgt aus der Fläche über eine Wohndichte je Art (155 je Hektar in der

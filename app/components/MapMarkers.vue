@@ -47,6 +47,14 @@ const { cityReports, project, walking, experienceStage, snapshot, openDecisionId
 const CENTRES = computed(() => new Map(districtShapes.value.map(shape => [shape.id, shape.centre])))
 
 const siting = computed(() => (experienceStage.value === 'gameplay' && !walking.value ? snapshot.value?.pendingSiting ?? null : null))
+/**
+ * Und der gesuchte Block — dieselbe Frage eine Größenordnung feiner.
+ *
+ * Keine Marken dazu, und das ist kein Versehen: bei der Standortwahl gibt es sechs Antworten, hier
+ * gibt es sechsundzwanzigtausend. Was hier steht, ist deshalb nur die Frage; beantwortet wird sie
+ * durch einen Klick in die Stadt, mit derselben Auswahl, mit der man sich sonst ein Haus ansieht.
+ */
+const blocking = computed(() => (experienceStage.value === 'gameplay' && !walking.value ? snapshot.value?.pendingBlock ?? null : null))
 
 /**
  * Die zweite Uhr, als Marke am Ort.
@@ -229,7 +237,7 @@ watch(placements, () => {
 </script>
 
 <template>
-  <div v-if="placements.length > 0 || siting" ref="layer" class="map-marks">
+  <div v-if="placements.length > 0 || siting || blocking" ref="layer" class="map-marks">
     <!--
       Drei Kissen auf einer Karte sagen nicht, worum es geht. Der Satz dazu steht oben, mittig, und
       verschwindet mit der Entscheidung — er ist die Frage, die die Marken beantworten.
@@ -238,6 +246,16 @@ watch(placements, () => {
       <span>Standort wählen</span>
       <b>{{ siting.title }}</b>
       <em v-if="!sitedOnce">Klick eine der drei Marken auf der Karte — oder ein Haus in dem Bezirk.</em>
+    </p>
+
+    <!--
+      Die Blocksanierung fragt nicht nach einem Viertel, sondern nach einer Adresse. Also steht hier
+      nur die Frage — und der Hinweis, woran man den richtigen Block erkennt: an den Häusern.
+    -->
+    <p v-else-if="blocking" class="ask is-block">
+      <span>Block anklicken</span>
+      <b>{{ blocking.title }}</b>
+      <em>Zeig auf ein Haus — der Zug drumherum wird saniert. {{ formatNumber(blocking.cost, 1) }} Mio., {{ blocking.months }} Monate Gerüst.</em>
     </p>
 
     <!--

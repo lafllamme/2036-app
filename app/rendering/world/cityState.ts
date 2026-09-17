@@ -1,7 +1,8 @@
-import type { CityBlueprint, SimulationSnapshot } from '../../core/contracts'
+import type { CityBlueprint, RenewalView, SimulationSnapshot } from '../../core/contracts'
 import type { WorldVisuals } from './index'
 import type { CityPressure } from './traffic/incidents'
 import * as THREE from 'three/webgpu'
+import { RENEWAL_RADIUS, RENEWAL_RECOVERY } from '../../simulation/renewal'
 import { updateProtest } from './life/protest'
 import { updateRoughSleeping } from './life/roughSleeping'
 import { wearOf } from './structures/buildings'
@@ -84,6 +85,8 @@ export class CityState {
   /** Dwellings one rendered building stands for, so the skyline scales with the real stock. */
   private readonly unitsPerBuilding: number
   private appliedBlight = -1
+  /** Wie weit die Sanierungen zuletzt waren, in Vierundsechzigsteln summiert — der Auslöser. */
+  private appliedRenewal = -1
   /** Der Verschleiß, wie er gerade im Puffer steht — je Gebäude, nicht je Eckpunkt. */
   private readonly wearNow = new Map<THREE.Mesh, Float32Array>()
   /** Die Gebäude einer Kachel, nach Bauzustand aufsteigend. Einmal sortiert, dann nur gelesen. */
@@ -181,7 +184,7 @@ export class CityState {
         site.position.set(slot.x, this.blueprint.relief.height(slot.x, slot.z), slot.z)
     })
 
-    this.applyBlight(city.blight)
+    this.applyBlight(city.blight, snapshot.renewals)
     this.applyGreenery(city.greenery)
     /*
      * Und wer noch offen hat.
@@ -218,10 +221,23 @@ export class CityState {
    * Verfall dort, wo die Stadt ihn ohnehin hat — im Hafen, in Gewerbe-Ost — statt gleichmäßig über
    * acht Viertel gesprenkelt zu sein.
    */
-  private applyBlight(blight: number): void {
-    if (Math.abs(blight - this.appliedBlight) <= BLIGHT_EPSILON)
+  private applyBlight(blight: number, renewals: RenewalView[]): void {
+    /*
+     * Und was saniert wird, holt sich seinen Zustand zurück.
+     *
+     * Derselbe Durchgang wie der Verfall, weil beide in dasselbe Attribut schreiben. Getrennt
+     * wären es zwei Läufe, die sich gegenseitig überschreiben — wer zuletzt schreibt, gewinnt, und
+     * das ist die Art Fehler, die man erst nach achtzehn Spielmonaten sieht.
+     *
+     * Ausgelöst wird er, wenn der Verfall sich bewegt **oder** eine Sanierung weitergekommen ist.
+     * Der Fortschritt läuft in Achtzehnteln, also höchstens einmal im Monat — kein Grund, 26.000
+     * Gebäude je Bild durchzugehen.
+     */
+    const progress = renewals.reduce((sum, renewal) => sum + Math.round(renewal.progress * 64), 0)
+    if (Math.abs(blight - this.appliedBlight) <= BLIGHT_EPSILON && progress === this.appliedRenewal)
       return
     this.appliedBlight = blight
+    this.appliedRenewal = progress
     for (const mesh of this.visuals.buildingMeshes) {
       const records = this.visuals.buildingRecords.get(mesh)
       const ranges = this.visuals.buildingRanges.get(mesh)
@@ -245,9 +261,21 @@ export class CityState {
       let touched = false
       for (let rank = 0; rank < order.length; rank += 1) {
         const index = order[rank]!
-        const base = wearOf(records[index]!.condition)
+        const record = records[index]!
+        const base = wearOf(record.condition)
         // Ein aufgegebenes Haus ist aufgegeben; sein Ausgangszustand hebt es nur noch wenig davon ab.
-        const target = rank < affected ? Math.min(1, 0.68 + base * 0.32) : base
+        const decayed = rank < affected ? Math.min(1, 0.68 + base * 0.32) : base
+        /*
+         * Die Sanierung kommt **nach** dem Verfall und gewinnt: ein Block, an dem gerade achtzehn
+         * Monate gearbeitet wird, ist nicht gleichzeitig verwahrlost. Der stärkste Fortschritt
+         * gewinnt, wenn zwei Blöcke sich überlappen — zweimal saniert ist nicht doppelt saniert.
+         */
+        let recovery = 0
+        for (const renewal of renewals) {
+          if (Math.hypot(record.x - renewal.x, record.z - renewal.z) <= RENEWAL_RADIUS)
+            recovery = Math.max(recovery, renewal.progress)
+        }
+        const target = decayed * (1 - recovery * RENEWAL_RECOVERY)
         if (Math.abs(target - now[index]!) < 0.004)
           continue
         now[index] = target

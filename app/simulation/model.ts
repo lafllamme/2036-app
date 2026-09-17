@@ -30,6 +30,7 @@ import type { Defeat, EdgeState } from './election'
 import type { Support } from './electorate'
 import type { ActiveMeasure, EventDrawState } from './events'
 import type { Hotspot } from './hotspots'
+import type { Renewal } from './renewal'
 import type { SituationState } from './situation'
 import { getEvent } from '../content/events'
 import { getGoal, goalIsMet } from '../content/goals'
@@ -65,6 +66,7 @@ import {
   updateStreaks,
 } from './events'
 import { answerHotspot, openHotspot, stepHotspots, TIPPING_LEVEL } from './hotspots'
+import { displace, needsBlock, progressOf, RENEWAL_MONTHS } from './renewal'
 import { costAt, needsSite, offered, paceAt, sitesFor, unrestAt } from './siting'
 import { BASELINE_SITUATION, stepSituation } from './situation'
 
@@ -175,6 +177,13 @@ export interface SimulationState {
    * gehen zwei Bauvorlagen an einem Abend durch, warten zwei Standorte. Gefragt wird nach dem ersten.
    */
   siting: { policyId: string, decidedMonth: number }[]
+  /**
+   * Beschlossene Sanierungen, die noch auf ihren Block warten — dieselbe Warteschlange eine Stufe
+   * feiner. Siehe `simulation/renewal.ts`.
+   */
+  blocking: { policyId: string, decidedMonth: number }[]
+  /** Und die Blöcke, die daraus geworden sind: laufende wie fertige. */
+  renewals: Renewal[]
   /**
    * Wohin jede verortete Vorlage gegangen ist.
    *
@@ -370,6 +379,8 @@ export function createInitialState(
     agenda: [],
     lastSession: [],
     siting: [],
+    blocking: [],
+    renewals: [],
     sites: {},
     hotspots: [],
     spread: initialSpread(),
@@ -1036,6 +1047,8 @@ export function migrateState(state: SimulationState): SimulationState {
     lastSession: state.lastSession ?? [],
     // Spielstände von vor der Warteschlange hatten höchstens einen — oder gar keinen.
     siting: Array.isArray(state.siting) ? state.siting : (state.siting ? [state.siting] : []),
+    blocking: Array.isArray(state.blocking) ? state.blocking : [],
+    renewals: Array.isArray(state.renewals) ? state.renewals : [],
     sites: state.sites ?? {},
     hotspots: state.hotspots ?? [],
     spread: state.spread ?? initialSpread(),
@@ -1098,11 +1111,14 @@ export function campaignFor(state: SimulationState, motionId: string, optionId: 
  * man einen Bauplatz aussuchen würde.
  */
 export function applyPolicy(state: SimulationState, policyId: string, districtId: DistrictId | null = null): SimulationState {
-  if (state.policies.some(policy => policy.id === policyId))
-    return state
   const definition = getPolicy(policyId)
   if (!definition)
     throw new Error(`Unknown policy: ${policyId}`)
+  if (!definition.repeatable && state.policies.some(policy => policy.id === policyId))
+    return state
+
+  if (districtId === null && needsBlock(policyId))
+    return { ...state, blocking: [...state.blocking, { policyId, decidedMonth: state.month }] }
 
   if (districtId === null && needsSite(definition))
     return { ...state, siting: [...state.siting, { policyId, decidedMonth: state.month }] }
@@ -1180,6 +1196,50 @@ export function chooseSite(state: SimulationState, districtId: DistrictId): Simu
   return { ...settled, spread, sites: { ...settled.sites, [waiting.policyId]: districtId } }
 }
 
+/**
+ * Den Block nennen und die Sanierung damit wirklich beschließen.
+ *
+ * Der Gegenpart zu `chooseSite`, eine Größenordnung feiner: dort wählt man ein Viertel aus einer
+ * Liste, hier zeigt man in die Stadt. Was übergeben wird, ist das angeklickte Haus — Ort und Viertel,
+ * mehr braucht die Rechnung nicht. Welche Häuser dazugehören, entscheidet der Renderer über
+ * `inBlock`, und er entscheidet es jedes Bild neu, statt eine Liste von Gebäude-IDs durch die
+ * Simulation zu tragen, die dort nichts zu suchen hat.
+ */
+export function chooseBlock(state: SimulationState, at: { x: number, z: number, districtId: DistrictId }): SimulationState {
+  const waiting = state.blocking[0]
+  if (!waiting)
+    return state
+
+  const renewal: Renewal = {
+    id: `renewal-${state.month}-${state.renewals.length}`,
+    policyId: waiting.policyId,
+    districtId: at.districtId,
+    x: Math.round(at.x),
+    z: Math.round(at.z),
+    startedMonth: state.month,
+  }
+
+  /*
+   * Erst der Block, dann die Vorlage. `applyPolicy` würde sonst über `needsBlock` sofort wieder in
+   * der Warteschlange landen — es ist derselbe Griff wie bei `chooseSite`, das `siting` abschneidet,
+   * bevor es weiterreicht.
+   */
+  const settled = applyPolicy(
+    { ...state, blocking: state.blocking.slice(1), renewals: [...state.renewals, renewal] },
+    waiting.policyId,
+    at.districtId,
+  )
+  return pushNews(settled, {
+    id: `renewal-${renewal.id}`,
+    month: state.month,
+    scope: 'city',
+    urgency: 'important',
+    headline: `${SITE_PROFILES[at.districtId].name.toUpperCase()}: Blocksanierung beschlossen — achtzehn Monate Gerüst`,
+    districtId: at.districtId,
+    policyId: waiting.policyId,
+  })
+}
+
 /** Put one of the three standing motions to the council instead of adopting it directly. */
 /**
  * Eine eigene Vorlage zur Abstimmung stellen.
@@ -1191,7 +1251,9 @@ export function chooseSite(state: SimulationState, districtId: DistrictId): Simu
 export function voteOnPolicy(state: SimulationState, policyId: string): { state: SimulationState, result: VoteResult | null } {
   const definition = getPolicy(policyId)
   // Keine Fraktion bringt das Programm einer anderen ein. Die Auswahl selbst steht im Inhalt.
-  if (!definition || !mayTable(state.partyId, policyId) || state.policies.some(policy => policy.id === policyId))
+  if (!definition || !mayTable(state.partyId, policyId))
+    return { state, result: null }
+  if (!definition.repeatable && state.policies.some(policy => policy.id === policyId))
     return { state, result: null }
   const option = asOption(definition)
   const stream = createRandomStream(state.seed, `vote:${state.month}:${policyId}:${policyId}`)
@@ -1362,6 +1424,21 @@ function visualsFrom(metrics: CityMetrics, stocks: CityStocks): CityVisualState 
  * was etwas kostet, und nicht ausrechnen, was etwas kostet. Sonst gibt es zwei Antworten auf
  * dieselbe Frage, und eine davon ist irgendwann falsch.
  */
+/**
+ * Was gerade auf einen Block wartet — und was er kostet.
+ *
+ * Kein Angebot wie bei der Standortwahl: es gibt nichts auszuwählen, weil jedes Haus der Stadt in
+ * Frage kommt. Was das Blatt braucht, ist nur der Preis und die Bauzeit, damit der Spieler weiß,
+ * worauf er zeigt.
+ */
+function blockView(state: SimulationState): { policyId: string, title: string, cost: number, months: number } | null {
+  const waiting = state.blocking[0]
+  const definition = waiting ? getPolicy(waiting.policyId) : undefined
+  if (!waiting || !definition)
+    return null
+  return { policyId: waiting.policyId, title: definition.name, cost: definition.implementationCost, months: RENEWAL_MONTHS }
+}
+
 function sitingView(state: SimulationState): PendingSiting | null {
   const waiting = state.siting[0]
   if (!waiting)
@@ -1422,6 +1499,15 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     pendingDecisions: state.pending,
     motionPreparation: state.motionPrep,
     pendingSiting: sitingView(state),
+    pendingBlock: blockView(state),
+    renewals: state.renewals.map(renewal => ({
+      id: renewal.id,
+      districtId: renewal.districtId,
+      x: renewal.x,
+      z: renewal.z,
+      startedMonth: renewal.startedMonth,
+      progress: progressOf(renewal, state.month),
+    })),
     agenda: state.agenda.map(item => ({
       sourceId: item.sourceId,
       title: getEvent(item.sourceId)?.title ?? getPolicy(item.sourceId)?.name ?? item.sourceId,
@@ -1836,6 +1922,17 @@ function advanceOneMonth(state: SimulationState): SimulationState {
    * nicht im nächsten — die Rechnung kommt, wenn man sie ausgesessen hat, und nicht später.
    */
   next = tickHotspots(next, month)
+
+  /*
+   * Und was gerade eingerüstet ist, treibt die Miete in seinem Viertel.
+   *
+   * Vor der Sitzung, damit eine Blocksanierung, die heute beschlossen wird, erst **nächsten** Monat
+   * verdrängt — sonst käme die Verdrängung in derselben Sekunde wie der Beschluss, und niemand
+   * könnte den Zusammenhang sehen. Stadtweit ändert sich dadurch nichts: `shift` normiert, und die
+   * Durchschnittsmiete der Stadt bleibt, was die Dynamik gesagt hat. Siehe `simulation/renewal.ts`.
+   */
+  const displaced = displace(next.spread.averageRent, next.spread.vacantUnits, next.renewals, month)
+  next = { ...next, spread: { ...next.spread, averageRent: displaced.rent, vacantUnits: displaced.vacancy } }
 
   /*
    * Und dann tagt der Rat.

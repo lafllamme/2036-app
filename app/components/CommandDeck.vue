@@ -191,6 +191,9 @@ const advanceLabel = computed(() => {
   // Dasselbe für den gesuchten Standort: er wartet auf den Spieler, also sagt der Knopf das auch.
   if (nextAction.value === 'site')
     return 'Standort wählen'
+  // Und für den gesuchten Block, der nicht gewählt, sondern angezeigt wird.
+  if (nextAction.value === 'block')
+    return 'Block anklicken'
   if (!canAdvance.value)
     return 'Kampagne beendet'
   return skipping.value ? 'Anhalten' : 'Nächstes Ereignis'
@@ -361,8 +364,8 @@ function toggleDecisions(): void {
         data-first-step="advance"
         type="button"
         class="btn advance"
-        :class="{ 'is-skipping': skipping, 'is-wanted': nextAction === 'decide' || nextAction === 'site' }"
-        :disabled="!canAdvance && nextAction !== 'decide' && nextAction !== 'site'"
+        :class="{ 'is-skipping': skipping, 'is-wanted': nextAction === 'decide' || nextAction === 'site' || nextAction === 'block' }"
+        :disabled="!canAdvance && nextAction !== 'decide' && nextAction !== 'site' && nextAction !== 'block'"
         @click="game.skipToEvent"
       >
         {{ advanceLabel }}

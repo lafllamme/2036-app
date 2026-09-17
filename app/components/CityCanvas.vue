@@ -31,7 +31,16 @@ onMounted(async () => {
       canvas: canvas.value,
       blueprint,
       models,
-      onBuildingSelected: (building) => { game.selectedBuilding = building },
+      /*
+       * Solange eine Blocksanierung auf ihren Häuserzug wartet, **ist** der Klick auf ein Haus der
+       * Beschluss. Kein zweiter Knopf und kein Bestätigungsblatt: die Frage steht oben im Bild, die
+       * Antwort ist ein Zeigefinger. Danach ist es wieder eine Gebäudekarte wie immer.
+       */
+      onBuildingSelected: (building) => {
+        if (building && game.snapshot?.pendingBlock)
+          game.chooseBlock(building)
+        else game.selectedBuilding = building
+      },
       onReady: (stats) => { game.rendererStats = stats },
       onStats: (stats) => { game.rendererStats = stats },
       // Wo der Fußgänger steht. Eigener Rückruf, weil `onStats` nur einmal je Sekunde läuft.

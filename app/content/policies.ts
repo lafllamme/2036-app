@@ -498,6 +498,40 @@ export const POLICIES: PolicyDefinition[] = [
     ],
     sourceIds: ['vertical-slice-model-v1'],
   },
+  {
+    id: 'shared-block-renewal',
+    /*
+     * Die einzige Vorlage, die nicht nach einem Viertel fragt, sondern nach einem **Block**.
+     *
+     * Und die einzige, bei der der Spieler die Stadt anfassen muss, um sie zu beantworten: er sieht
+     * sich um, findet den Häuserzug, dem man ansieht, dass ihn seit dreißig Jahren niemand angefasst
+     * hat, und zeigt darauf. Das geht erst, seit ein Haus seinen Zustand im Bild trägt — vorher wäre
+     * „welcher Block?" eine Frage ohne Auskunft gewesen.
+     *
+     * Der Konflikt steckt in den Wirkungen und ist der echte: saniert wird Bestand, und sanierter
+     * Bestand ist teurer. Das Programm senkt den Investitionsstau und hebt die Zufriedenheit — und
+     * treibt die Miete **in genau dem Viertel**, in dem der Block steht. Wer die schlechtesten
+     * Häuser der Stadt herrichtet, verdrängt die Leute, die darin wohnen. Siehe `simulation/renewal.ts`.
+     */
+    renews: true,
+    repeatable: true,
+    name: 'Blocksanierung',
+    summary: 'Ein Häuserblock wird von Grund auf hergerichtet: Dach, Fassade, Leitungen, Heizung. Achtzehn Monate Gerüst — und danach eine Adresse, die sich niemand mehr leisten kann, der vorher darin wohnte.',
+    category: 'housing',
+    jurisdiction: 'municipal',
+    implementationCost: 11,
+    monthlyCost: 0.4,
+    /** Achtzehn Monate Bauzeit, danach ist es Bestand und kostet nichts mehr. */
+    costMonths: 18,
+    administrativeLoad: 9,
+    axes: { growthVsPreservation: 0.7, marketVsPublic: -0.4, redistribution: 0.2, fiscalRestraint: -0.4 },
+    salience: { growthVsPreservation: 0.8, marketVsPublic: 0.5, fiscalRestraint: 0.5 },
+    effects: [
+      { target: 'investmentBacklog', mode: 'level', delayMonths: 3, rampMonths: 14, min: -9, expected: -6, max: -3.5, confidence: 'high' },
+      { target: 'satisfaction', mode: 'level', delayMonths: 6, rampMonths: 12, min: 0.3, expected: 0.9, max: 1.5, confidence: 'medium' },
+    ],
+    sourceIds: ['vertical-slice-model-v1'],
+  },
 ]
 
 export function getPolicy(policyId: string): PolicyDefinition | undefined {

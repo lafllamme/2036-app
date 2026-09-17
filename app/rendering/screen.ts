@@ -36,6 +36,20 @@ export interface ScreenPoint {
    * wandert beim Drehen in die verkehrte Richtung.
    */
   onScreen: boolean
+  /**
+   * Ob der Punkt **hinter** der Kamera liegt.
+   *
+   * Eigenes Feld, und es hat gefehlt. `onScreen` sagt „nicht im Bild" und wirft damit zwei völlig
+   * verschiedene Fälle zusammen: der Punkt liegt vor der Kamera, aber seitlich draußen — dann sind
+   * `x` und `y` brauchbar und nur außerhalb des Rahmens —, oder er liegt dahinter, und dann sind sie
+   * es nicht. Wer die beiden unterscheiden muss, hatte dafür keine Auskunft: `away` ist der Abstand
+   * und damit **immer positiv**, auch im Rücken.
+   *
+   * Zwei Stellen haben deshalb auf `away === 0` geprüft — eine Bedingung, die nie zutrifft —, und
+   * die Bezirksflächen bekamen für jeden Punkt im Rücken eine Ecke bei (0, 0). Auf dem Schirm waren
+   * das Fächer aus der linken oberen Ecke quer über die ganze Stadt.
+   */
+  behind: boolean
 }
 
 /**
@@ -79,9 +93,11 @@ export function project(
     out.x = 0
     out.y = 0
     out.onScreen = false
+    out.behind = true
     return out
   }
 
+  out.behind = false
   out.x = (cx / cw * 0.5 + 0.5) * width
   out.y = (1 - (cy / cw * 0.5 + 0.5)) * height
   out.onScreen = out.x >= -MARGIN && out.x <= width + MARGIN && out.y >= -MARGIN && out.y <= height + MARGIN
@@ -90,5 +106,5 @@ export function project(
 
 /** Ein Ergebnisobjekt, das man wiederverwendet. Siehe oben: kein Müll im Renderpfad. */
 export function screenPoint(): ScreenPoint {
-  return { x: 0, y: 0, away: 0, onScreen: false }
+  return { x: 0, y: 0, away: 0, onScreen: false, behind: false }
 }

@@ -85,6 +85,27 @@ export interface PolicyDefinition {
    * `simulation/siting.ts`.
    */
   sited?: boolean
+  /**
+   * Ob es **einen einzelnen Block** betrifft statt eines ganzen Viertels.
+   *
+   * Der Unterschied zu `sited` ist der Maßstab der Frage, und darin liegt der ganze Reiz: ein
+   * Wohnungsbauprogramm fragt „in welchem Viertel?", eine Blocksanierung fragt „welcher Block?" —
+   * und die zweite Frage beantwortet man, indem man in die Stadt hineinzeigt. Sie ist nur zu stellen,
+   * seit jedes Haus seinen Zustand sichtbar trägt (`wear` in `structures/buildings.ts`): vorher hätte
+   * eine Sanierung nichts verändert, was man sehen kann.
+   */
+  renews?: boolean
+  /**
+   * Ob der Rat das **mehrfach** beschließen kann.
+   *
+   * Die Ausnahme, und sie hat genau einen Grund: eine Blocksanierung saniert einen Block. Wäre sie
+   * einmalig, hätte der Rat in elf Jahren einen einzigen Häuserzug hergerichtet — das ist keine
+   * Mechanik, das ist eine Anekdote. Jeder weitere Block braucht eine eigene Mehrheit, kostet wieder
+   * Geld und bindet wieder Verwaltung, solange das Gerüst steht; mehr Riegel braucht es nicht.
+   *
+   * Alles andere bleibt einmalig, und das ist richtig: ein Sozialticket führt man nicht zweimal ein.
+   */
+  repeatable?: boolean
   id: string
   name: string
   summary: string

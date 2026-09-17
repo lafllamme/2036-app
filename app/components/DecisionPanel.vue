@@ -24,7 +24,7 @@ const agenda = computed(() => snapshot.value?.agenda ?? [])
  */
 const standingMotions = computed(() =>
   policiesFor(game.selectedPartyId).filter(policy =>
-    !snapshot.value?.activePolicyIds.includes(policy.id)
+    (policy.repeatable || !snapshot.value?.activePolicyIds.includes(policy.id))
     && !agenda.value.some(item => item.sourceId === policy.id)))
 
 /**

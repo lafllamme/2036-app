@@ -6,6 +6,7 @@ import {
   applyPolicy,
   callUrgent,
   campaignFor,
+  chooseBlock,
   chooseSite,
   createInitialState,
   forecastsForEvent,
@@ -77,6 +78,12 @@ globalThis.onmessage = ({ data }: MessageEvent<SimulationCommand>) => {
       case 'CHOOSE_SITE': {
         // Wohin die beschlossene Vorlage soll. Erst damit ist sie wirklich beschlossen.
         state = chooseSite(state, data.districtId)
+        publish('SNAPSHOT')
+        return
+      }
+      case 'CHOOSE_BLOCK': {
+        // Auf welchen Häuserzug die Sanierung geht. Erst damit ist sie wirklich beschlossen.
+        state = chooseBlock(state, data.at)
         publish('SNAPSHOT')
         return
       }

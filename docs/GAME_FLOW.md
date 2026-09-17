@@ -573,3 +573,62 @@ Jahre lang Platz für genau eine kleine Sache daneben — und das Nahverkehrsnet
 In der Schublade steht die Zahl über der Liste (*„Verwaltung: 18 von 32 gebunden"*), und was nicht
 mehr hineinpasst, ist gesperrt statt still wirkungslos. Ein gesperrter Knopf ohne diese Zeile sieht
 aus wie ein Fehler; mit ihr ist er eine Auskunft über die Stadt.
+
+## Gebaut: die Blocksanierung
+
+Der erste Beschluss, der auf ein **bestimmtes Haus** zeigt — und der erste, dessen Ergebnis man
+ansieht, statt es abzulesen.
+
+Alles, was der Rat bis dahin beschließen konnte, galt für die Stadt oder für ein Viertel. Das ist
+richtig für ein Wohnungsbauprogramm und falsch für das, was eine Kommune tatsächlich am häufigsten
+tut: sie richtet einen Häuserzug her. Dach, Fassade, Leitungen, Heizung, achtzehn Monate Gerüst.
+
+### Warum das erst jetzt ging
+
+Weil ein Haus seit dem `wear`-Attribut seinen Zustand im Bild trägt. Vorher wäre „welcher Block?"
+eine Frage ohne Auskunft gewesen — man hätte irgendwohin gezeigt, achtzehn Monate gewartet und
+nichts gesehen. Jetzt sieht man dem Häuserzug an, dass ihn seit dreißig Jahren niemand angefasst
+hat, und danach sieht man, dass es jemand getan hat. Die Schleife schließt sich auf der Karte statt
+in einer Tabelle.
+
+### Die drei Entscheidungen
+
+**Ein Block, kein Haus.** Geklickt wird ein Haus, weil man auf ein Haus zeigen kann; saniert wird,
+was in 110 Metern darum steht — 26 Gebäude im gemessenen Fall. Ein einzelnes Haus wäre aus der
+Überblickskamera ein Fleck von vier Pixeln, und eine Kommune saniert ohnehin Blöcke.
+
+**Der Preis ist nicht nur Geld.** 11 Mio. einmalig, 0,4 im Monat, und **9 Verwaltungslast, solange
+das Gerüst steht** — das ist der Riegel: mehr als zwei gleichzeitig passen nicht neben ein großes
+Vorhaben. Dazu Lage und Tempo des Viertels wie bei jedem verorteten Beschluss.
+
+**Wiederholbar, aber jedes Mal mit eigener Mehrheit.** Die einzige Vorlage im Spiel mit
+`repeatable`. Einmalig hätte der Rat in elf Jahren einen einzigen Häuserzug hergerichtet — das ist
+keine Mechanik, das ist eine Anekdote.
+
+### Der Konflikt
+
+Sanierter Bestand ist teurer Bestand. Das Programm senkt den Investitionsstau (−6) und hebt die
+Zufriedenheit (+1) — und treibt die Miete **in dem Viertel, in dem der Block steht**, Monat für
+Monat, solange gebaut wird. Wer die schlechtesten Häuser der Stadt herrichtet, verdrängt die Leute,
+die darin wohnen; wer es lässt, lässt sie im Schimmel wohnen.
+
+Stadtweit ändert die Verdrängung nichts: `shift` normiert, und die Durchschnittsmiete der Stadt
+bleibt, was die Dynamik sagt. Es ist eine Umverteilung im Gefälle und keine zweite Preisspirale.
+
+Die Zahl dafür stand zuerst auf 0,85 % je Monat und damit auf 16 % über die Bauzeit — im Spiel
+gemessen ging die Altstadtmiete von 18,60 auf 22,73 €. Für 26 sanierte Häuser in einem Viertel mit
+8.300 Einwohnern ist das keine Verdrängung, sondern eine Preisbombe. Sie steht jetzt auf 0,35 %,
+also rund 6,5 % über achtzehn Monate.
+
+### Und was man sieht
+
+Am Puffer gemessen, derselbe Block über die Bauzeit:
+
+| | Verschleiß im Block (26 Häuser) | im Ring darum |
+| --- | --- | --- |
+| Monat 0 | 0,234 | 0,264 |
+| Monat 10 (56 % fertig) | 0,130 | 0,264 |
+| Monat 19 (fertig) | 0,037 | 0,264 |
+
+Ein Siebtel des Verschleißes bleibt stehen (`RENEWAL_RECOVERY` 0,85): ein saniertes Gründerzeithaus
+ist ein gutes Haus und kein neues.

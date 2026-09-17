@@ -1,5 +1,4 @@
 import type {
-  CampaignPriorityDefinition,
   EvidenceReference,
   PartyDefinition,
   PartyId,
@@ -94,15 +93,6 @@ export const PARTY_EVIDENCE: EvidenceReference[] = [
     claimType: 'position',
     applicability: 'Bundespolitische Positionen werden nur als Inspiration für kommunale, fiktive Politikpräferenzen verwendet.',
   },
-]
-
-export const CAMPAIGN_PRIORITIES: CampaignPriorityDefinition[] = [
-  { id: 'housing', name: 'Bezahlbares Wohnen', description: 'Mieten, Wohnungsangebot und Gebäudezustand ins Gleichgewicht bringen.' },
-  { id: 'employment', name: 'Gute Arbeit', description: 'Beschäftigung, Qualifikation und lokale Wirtschaft gemeinsam stärken.' },
-  { id: 'mobility', name: 'Mobile Stadt', description: 'Erreichbarkeit verbessern und Stau sowie Emissionen reduzieren.' },
-  { id: 'climate', name: 'Klimaresilienz', description: 'Energie, Stadtgrün und Schutz vor Hitze langfristig ausbauen.' },
-  { id: 'cohesion', name: 'Zusammenhalt', description: 'Teilhabe, Integration und Vertrauen in die Stadtgesellschaft fördern.' },
-  { id: 'fiscalHealth', name: 'Solider Haushalt', description: 'Handlungsfähigkeit erhalten und dauerhafte Folgekosten kontrollieren.' },
 ]
 
 export const PARTIES: PartyDefinition[] = [

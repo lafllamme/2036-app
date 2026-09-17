@@ -112,12 +112,6 @@ export interface PartyRedLine {
   reason: string
 }
 
-export interface CampaignPriorityDefinition {
-  id: CampaignPriorityId
-  name: string
-  description: string
-}
-
 /**
  * Municipal political axes. Options and parties both carry a position here, which is how a
  * council vote is decided without any calculation ever branching on a party identifier.

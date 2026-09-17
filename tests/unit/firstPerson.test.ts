@@ -1,5 +1,5 @@
-import type { Relief } from '../../app/world/relief'
 import type { CityBuildings } from '../../app/rendering/world/structures/buildings'
+import type { Relief } from '../../app/world/relief'
 import * as THREE from 'three/webgpu'
 import { beforeEach, describe, expect, it } from 'vitest'
 

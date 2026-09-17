@@ -5,7 +5,7 @@ import {
   PARTY_CONTENT_AS_OF,
   PARTY_EVIDENCE,
 } from '../../app/content/parties'
-import { POLICIES, policiesFor } from '../../app/content/policies'
+import { EVIDENCE, POLICIES, policiesFor } from '../../app/content/policies'
 
 describe('fictional party content', () => {
   it('uses unique fictional identities with the intended German abbreviations', () => {
@@ -20,6 +20,29 @@ describe('fictional party content', () => {
     expect(PARTIES.reduce((sum, party) => sum + party.stats.publicSupport, 0)).toBe(100)
     expect(PARTIES.every(party => party.stats.organization >= 0 && party.stats.organization <= 100)).toBe(true)
     expect(PARTIES.every(party => party.stats.negotiation >= 0 && party.stats.negotiation <= 100)).toBe(true)
+  })
+
+  /**
+   * Dieselbe Prüfung für die Maßnahmen, und sie hat lange gefehlt.
+   *
+   * `EVIDENCE` in `content/policies.ts` wird über Kennungen aus den Daten heraus benutzt und nie über
+   * seinen Namen. Ein Zähler für tote Exporte hält es deshalb für eine Leiche, und ein Tippfehler in
+   * einer `sourceIds`-Zeile wäre nirgendwo aufgefallen: die Maßnahme behauptet dann eine Quelle, die
+   * es nicht gibt. Bei den Parteien wird das seit Anfang an geprüft, bei den Maßnahmen bis hierher
+   * nicht.
+   */
+  it('backs every policy with a source that exists', () => {
+    const evidenceById = new Map(EVIDENCE.map(source => [source.id, source]))
+    expect(evidenceById.size).toBe(EVIDENCE.length)
+
+    for (const policy of POLICIES) {
+      expect(policy.sourceIds.length).toBeGreaterThan(0)
+      for (const sourceId of policy.sourceIds) {
+        const source = evidenceById.get(sourceId)
+        expect(source, `${policy.id} verweist auf ${sourceId}`).toBeDefined()
+        expect(source?.applicability).toMatch(/fiktiv/i)
+      }
+    }
   })
 
   it('maps every party position to a policy and dated official evidence', () => {

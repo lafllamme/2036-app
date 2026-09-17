@@ -60,8 +60,6 @@ export const CATEGORY_LABELS: Record<EventCategory, string> = {
  * Eine eigene Vorlage trägt jetzt dieselben Ressorts wie ein Ereignis — sechsundzwanzig Programme
  * über acht Ressorts lassen sich nicht in „Wohnen, Mobilität, Steuern" pressen.
  */
-export const POLICY_CATEGORY_LABELS = CATEGORY_LABELS
-
 export const CONFIDENCE_LABELS = { low: 'unsicher', medium: 'mittlere Sicherheit', high: 'belastbar' }
 
 /**

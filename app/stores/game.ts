@@ -741,6 +741,17 @@ export const useGameStore = defineStore('game', () => {
     send({ type: 'CHOOSE_SITE', districtId })
   }
 
+  /**
+   * Eine Lage vor Ort beantworten — ohne Rat, aus eigenen Mitteln.
+   *
+   * Die Uhr hält hier **nicht** an. Ein Brennpunkt ist kein Tagesordnungspunkt: er läuft neben der
+   * Zeit her, und wer ihn liegen lässt, trifft damit auch eine Entscheidung. Genau das ist der
+   * Unterschied zwischen der ersten Uhr und der zweiten.
+   */
+  function answerHotspot(id: string, answerId: string): void {
+    send({ type: 'ANSWER_HOTSPOT', id, answerId })
+  }
+
   function negotiate(motionId: string, partyId: PartyId): void {
     send({ type: 'NEGOTIATE', eventId: motionId, partyId })
   }
@@ -896,6 +907,7 @@ export const useGameStore = defineStore('game', () => {
     negotiate,
     campaignFor,
     chooseSite,
+    answerHotspot,
     dismissVoteResult,
     currentDate,
     monthProgress,

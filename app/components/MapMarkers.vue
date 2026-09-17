@@ -30,7 +30,7 @@ import { LINDENHAFEN } from '~/world/model/lindenhafen'
  */
 
 const game = useGameStore()
-const { cityReports, project, walking, experienceStage, snapshot } = storeToRefs(game)
+const { cityReports, project, walking, experienceStage, snapshot, openDecisionId } = storeToRefs(game)
 
 /**
  * Die drei Standorte, zwischen denen gerade zu wählen ist.
@@ -49,6 +49,24 @@ const CENTRES = new Map(LINDENHAFEN.districts.map(district => [
 ]))
 
 const siting = computed(() => (experienceStage.value === 'gameplay' && !walking.value ? snapshot.value?.pendingSiting ?? null : null))
+
+/**
+ * Die zweite Uhr, als Marke am Ort.
+ *
+ * Ein Brennpunkt gehört auf die Karte und nicht in eine Liste: er hat einen Bezirk, und die Antwort
+ * darauf ist eine Handlung dort. Während ein Standort gesucht wird, treten sie zurück — zwei Fragen
+ * gleichzeitig auf einer Karte sind eine zu viel.
+ */
+const spots = computed(() => (siting.value
+  ? []
+  : (snapshot.value?.hotspots ?? []).map(spot => ({
+      ...spot,
+      at: CENTRES.get(spot.districtId) ?? { x: 0, z: 0 },
+    }))))
+
+/** Welcher Brennpunkt gerade offen ist — die Marke ist der Griff, die Karte darunter die Antwort. */
+const opened = ref<string | null>(null)
+const open = computed(() => spots.value.find(spot => spot.id === opened.value) ?? null)
 
 const choices = computed(() => (siting.value?.sites ?? []).map(site => ({
   ...site,
@@ -86,14 +104,14 @@ const marks = computed(() =>
     : [])
 
 const layer = ref<HTMLElement | null>(null)
-/** Einsatzmarken nach ihrer Nummer, Standortmarken nach ihrem Bezirk. Ein Topf, zwei Schlüsselarten. */
-const spots = new Map<string, HTMLElement>()
+/** Die Elemente aller Marken, nach ihrem Schlüssel. Ein Topf für Einsätze, Standorte und Brennpunkte. */
+const elements = new Map<string, HTMLElement>()
 let frame = 0
 
 function bind(element: Element | null, id: string): void {
   if (element instanceof HTMLElement)
-    spots.set(id, element)
-  else spots.delete(id)
+    elements.set(id, element)
+  else elements.delete(id)
 }
 
 /**
@@ -106,10 +124,11 @@ const HOVER_HEIGHT = 14
 /** Eine Standortmarke steht höher: sie meint einen Stadtteil und keine Kreuzung. */
 const SITE_HEIGHT = 90
 
-/** Alles, was der Bildlauf schieben muss — Einsätze und Standorte in einer Liste. */
+/** Alles, was der Bildlauf schieben muss — Einsätze, Standorte und Brennpunkte in einer Liste. */
 const placements = computed(() => [
   ...marks.value.map(mark => ({ key: `call-${mark.id}`, x: mark.x, z: mark.z, height: HOVER_HEIGHT })),
   ...choices.value.map(choice => ({ key: `site-${choice.districtId}`, x: choice.at.x, z: choice.at.z, height: SITE_HEIGHT })),
+  ...spots.value.map(spot => ({ key: `spot-${spot.id}`, x: spot.at.x, z: spot.at.z, height: SITE_HEIGHT })),
 ])
 
 const point = screenPoint()
@@ -121,7 +140,7 @@ function place(): void {
     return
 
   for (const mark of placements.value) {
-    const element = spots.get(mark.key)
+    const element = elements.get(mark.key)
     if (!element)
       continue
     projector(mark.x, mark.height, mark.z, point)
@@ -155,6 +174,23 @@ onBeforeUnmount(() => cancelAnimationFrame(frame))
  * einem Panel, und zwar diejenige, die gerade nicht gemeint war. Eine Entscheidung, die auf der Karte
  * liegt, darf nicht von einer Liste verdeckt werden, aus der sie gerade herausgekommen ist.
  */
+/*
+ * Eine offene Lage teilt sich den Platz mit dem Lagebild und mit dem Abstimmungsblatt.
+ *
+ * Also: die Lage macht das Lagebild zu, und das Abstimmungsblatt macht die Lage zu. Die Reihenfolge
+ * ist keine Geschmacksfrage — eine Vorlage hält die Uhr an und will beantwortet werden, ein
+ * Brennpunkt läuft nebenher. Wer wichtiger ist, deckt den anderen zu.
+ */
+watch(opened, (now) => {
+  if (now)
+    game.railOpen = false
+})
+
+watch(openDecisionId, (now) => {
+  if (now)
+    opened.value = null
+})
+
 watch(siting, (now) => {
   if (now)
     game.decisionsOpen = false
@@ -163,9 +199,9 @@ watch(siting, (now) => {
 }, { immediate: true })
 
 watch(placements, () => {
-  for (const [key, element] of spots) {
+  for (const [key, element] of elements) {
     if (!placements.value.some(mark => mark.key === key)) {
-      spots.delete(key)
+      elements.delete(key)
       continue
     }
     element.style.visibility = 'hidden'
@@ -205,6 +241,27 @@ watch(placements, () => {
     </button>
 
     <!--
+      Was der Stadt gerade an einem Ort zusetzt — die zweite Uhr. Die Marke ist der Griff; was man
+      tun kann, steht in der Karte, die sie aufmacht.
+    -->
+    <button
+      v-for="spot in spots"
+      :key="`spot-${spot.id}`"
+      :ref="element => bind(element as Element | null, `spot-${spot.id}`)"
+      type="button"
+      class="mark spot"
+      :class="{ 'is-urgent': spot.grace <= 1, 'is-held': Boolean(spot.running) }"
+      @click="opened = opened === spot.id ? null : spot.id"
+    >
+      <span class="spot-name">{{ spot.label }}</span>
+      <span class="spot-where">{{ spot.districtName }}</span>
+      <span class="spot-level" :aria-label="`Stufe ${spot.level} von 4`">
+        <i v-for="step in 4" :key="step" :class="{ 'is-on': step <= spot.level }" />
+      </span>
+      <span class="stem spot-stem" />
+    </button>
+
+    <!--
       Und wohin das Beschlossene soll. Diese hier sind **keine** Ansicht, sondern die Entscheidung
       selbst — also echte Knöpfe mit echtem Text.
     -->
@@ -225,6 +282,47 @@ watch(placements, () => {
       <span class="stem site-stem" />
     </button>
   </div>
+
+  <!-- Die Antwort. Ohne Rat, aus eigenen Mitteln — außer der letzten. -->
+  <aside v-if="open" class="pod answers" role="dialog" :aria-label="`${open.label} in ${open.districtName}`">
+    <header>
+      <div>
+        <span class="kick">{{ open.districtName }} · Stufe {{ open.level }} von 4</span>
+        <h2>{{ open.label }}</h2>
+      </div>
+      <button type="button" class="close-button" aria-label="Schließen" @click="opened = null">
+        <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+      </button>
+    </header>
+
+    <p v-if="open.running" class="running">
+      Läuft bereits: {{ open.answers.find(answer => answer.id === open!.running)?.label }}
+    </p>
+    <template v-else>
+      <button
+        v-for="answer in open.answers"
+        :key="answer.id"
+        type="button"
+        class="answer"
+        :disabled="!answer.open"
+        @click="game.answerHotspot(open!.id, answer.id); opened = null"
+      >
+        <span class="answer-name">{{ answer.label }}</span>
+        <span class="answer-detail">{{ answer.detail }}</span>
+        <span class="answer-price">
+          <template v-if="answer.cost > 0">{{ formatNumber(answer.cost, 1) }} Mio. € einmalig</template>
+          <template v-else>ohne Einmalkosten</template>
+          <template v-if="answer.monthly > 0"> · {{ formatNumber(answer.monthly, 2) }}/Monat für {{ answer.months }} Monate</template>
+          <b v-if="!answer.open"> · braucht erst einen Ratsbeschluss</b>
+        </span>
+      </button>
+    </template>
+
+    <p class="foot">
+      Die Zeit läuft weiter. Ein Brennpunkt, den niemand beantwortet, steigt jeden Monat um eine
+      Stufe — und kostet dich am Ende im Rat.
+    </p>
+  </aside>
 </template>
 
 <style scoped>
@@ -368,6 +466,155 @@ watch(placements, () => {
   height: 26px;
   background: linear-gradient(180deg, rgba(251, 249, 244, 0.85), rgba(251, 249, 244, 0));
 }
+
+/*
+ * Ein Brennpunkt sieht aus wie ein Einsatz, der nicht mehr aufhört: dunkel wie eine Meldung, aber mit
+ * einer Stufenleiste statt eines Punktes. Die Leiste ist die Drohung — vier Striche, und der vierte
+ * heißt, dass es nächsten Monat kippt.
+ */
+.spot {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 14px;
+  background: rgba(10, 14, 18, 0.93);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 12px 26px -10px rgba(0, 0, 0, 0.9);
+}
+
+.spot:hover { background: rgba(18, 24, 29, 0.97); }
+.spot.is-urgent { box-shadow: inset 0 0 0 1px var(--negative), 0 12px 26px -10px rgba(0, 0, 0, 0.9); }
+/* Eine laufende Antwort ist keine offene Frage mehr, also drängt sie auch nicht. */
+.spot.is-held { opacity: 0.72; }
+
+.spot-name {
+  font-family: var(--display);
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.spot-where {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+
+.spot-level {
+  display: flex;
+  gap: 3px;
+  margin-top: 5px;
+}
+
+.spot-level i {
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.spot-level i.is-on { background: var(--negative); }
+
+.spot-stem {
+  height: 26px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0));
+}
+
+/* Die Antwortkarte sitzt fest unten links, nicht am Ort: sie ist Text und keine Marke. */
+/*
+ * Und sie steht **neben** der Markenebene, nicht darin.
+ *
+ * Darin lag sie bei z-index 4 und damit unter dem Stadtfunk und den Schubladen — also unter genau dem,
+ * was am selben Platz steht. Ein Kind kann seinen Stapelkontext nicht verlassen, also musste sie
+ * heraus. Jetzt teilt sie sich die Ebene mit dem Abstimmungsblatt, und das ist auch richtig: es ist
+ * dasselbe, nur kleiner.
+ */
+.answers {
+  position: absolute;
+  z-index: 12;
+  bottom: 152px;
+  left: 34px;
+  width: min(420px, calc(100% - 68px));
+  padding: 20px 22px 16px;
+  pointer-events: auto;
+}
+
+.answers header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.answers .kick {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.answers h2 {
+  margin: 5px 0 0;
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.014em;
+  color: var(--ink);
+}
+
+.answer {
+  display: block;
+  width: 100%;
+  padding: 11px 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.answer:disabled { opacity: 0.45; cursor: default; }
+.answer:hover:not(:disabled) .answer-name { color: #fff; }
+
+.answer-name {
+  display: block;
+  font-family: var(--text);
+  font-size: 14px;
+  color: var(--ink);
+  transition: color 140ms ease;
+}
+
+.answer-detail {
+  display: block;
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.answer-price {
+  display: block;
+  margin-top: 5px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+.answer-price b { color: var(--negative); font-weight: 400; }
+
+.answers .running,
+.answers .foot {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+
+.answers .running { color: var(--ink-2); }
 
 @media (prefers-reduced-motion: reduce) {
   .dot { animation: none; opacity: 0.9; }

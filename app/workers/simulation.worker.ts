@@ -2,6 +2,7 @@ import type { SimulationCommand, SimulationMessage } from '../core/contracts'
 import type { SimulationState } from '../simulation/model'
 import {
   advanceMonths,
+  answerSituation,
   applyPolicy,
   campaignFor,
   chooseSite,
@@ -39,6 +40,12 @@ globalThis.onmessage = ({ data }: MessageEvent<SimulationCommand>) => {
         if (outcome.result)
           post({ type: 'VOTE_RESULT', result: outcome.result, snapshot: snapshotOf(state) })
         else publish('SNAPSHOT')
+        return
+      }
+      case 'ANSWER_HOTSPOT': {
+        // Die zweite Uhr: eine Lage vor Ort, ohne Ratsbeschluss beantwortet.
+        state = answerSituation(state, data.id, data.answerId)
+        publish('SNAPSHOT')
         return
       }
       case 'CHOOSE_SITE': {

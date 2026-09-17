@@ -28,9 +28,11 @@ import type { VoteContext } from './council'
 import type { Defeat, EdgeState } from './election'
 import type { Support } from './electorate'
 import type { ActiveMeasure, EventDrawState } from './events'
+import type { Hotspot } from './hotspots'
 import type { SituationState } from './situation'
 import { getEvent } from '../content/events'
 import { getGoal, goalIsMet } from '../content/goals'
+import { hotspotTemplate } from '../content/hotspots'
 import { getBackground } from '../content/leaders'
 import { getParty, mapParties, PARTIES } from '../content/parties'
 import { getPolicy, mayTable } from '../content/policies'
@@ -59,6 +61,7 @@ import {
   measureFromOption,
   updateStreaks,
 } from './events'
+import { answerHotspot, openHotspot, stepHotspots, TIPPING_LEVEL } from './hotspots'
 import { costAt, needsSite, offered, paceAt, sitesFor, unrestAt } from './siting'
 import { BASELINE_SITUATION, stepSituation } from './situation'
 
@@ -132,6 +135,13 @@ export interface SimulationState {
    * Jahrzehnt lang gebaut wurde.
    */
   sites: Partial<Record<string, DistrictId>>
+  /**
+   * Die zweite Uhr: was der Stadt gerade an einem Ort zusetzt.
+   *
+   * Kleiner als ein Ratsbeschluss, schneller, und mit Mitteln zu beantworten statt mit Mehrheiten.
+   * Siehe `simulation/hotspots.ts`. Leer in Spielständen von vorher.
+   */
+  hotspots: Hotspot[]
   pending: PendingDecision[]
   /**
    * Negotiation and campaigning the player has already paid for, keyed by motion id. Kept apart
@@ -303,6 +313,7 @@ export function createInitialState(
     measures: [],
     siting: null,
     sites: {},
+    hotspots: [],
     pending: [],
     motionPrep: {},
     cooldowns: {},
@@ -774,6 +785,7 @@ export function migrateState(state: SimulationState): SimulationState {
     // Spielstände von vor der Standortwahl warten auf nichts.
     siting: state.siting ?? null,
     sites: state.sites ?? {},
+    hotspots: state.hotspots ?? [],
     cooldowns: state.cooldowns ?? {},
     streaks: state.streaks ?? {},
     firedOnce: state.firedOnce ?? [],
@@ -1134,6 +1146,29 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     motionPreparation: state.motionPrep,
     pendingSiting: sitingView(state),
     sites: state.sites,
+    hotspots: state.hotspots.map((spot) => {
+      const template = hotspotTemplate(spot.kind)
+      return {
+        id: spot.id,
+        kind: spot.kind,
+        label: template.label,
+        districtId: spot.districtId,
+        districtName: SITE_PROFILES[spot.districtId].name,
+        level: spot.level,
+        grace: Math.max(0, TIPPING_LEVEL - spot.level),
+        running: spot.answer?.id ?? null,
+        answers: template.answers.map(answer => ({
+          id: answer.id,
+          label: answer.label,
+          detail: answer.detail,
+          cost: answer.cost,
+          monthly: answer.monthly,
+          months: answer.months,
+          open: !answer.needsPolicy || state.policies.some(policy => policy.id === answer.needsPolicy),
+          needs: answer.needsPolicy ?? null,
+        })),
+      }
+    }),
     councilSeatsByParty: state.seatsByParty,
     coalitionPartyIds: state.coalitionPartyIds,
     coalitionSupport: coalitionSeats,
@@ -1160,6 +1195,114 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
 
 export function snapshotOf(state: SimulationState): SimulationSnapshot {
   return buildSnapshot(state)
+}
+
+/**
+ * Die Brennpunkte einen Monat weiter.
+ *
+ * Drei Dinge in einer Funktion, weil sie zusammengehören: was läuft, läuft weiter; was gekippt ist,
+ * kostet; und höchstens einer macht neu auf.
+ *
+ * **Was kippen kostet: politisches Kapital, nicht die Stadt.**
+ *
+ * Der erste Versuch hat Zufriedenheit und Vertrauen belastet, und das war aus zwei Gründen falsch.
+ * Gemessen: über 131 Monate machen **26** Brennpunkte auf, alle fünf Monate einer, und in einer
+ * Amtszeit, in der niemand antwortet, kippen sie alle. Bei −2,2 Zufriedenheit je Kippen sind das
+ * −57 Punkte — eine Stadt, die an einer Nebenmechanik zugrunde geht. `goals.test.ts` hat prompt
+ * zwei von zwölf Kampagnenzielen für unerreichbar erklärt, und auch bei einem Sechstel des Wertes
+ * blieb eins hängen: die Schwellen sitzen so knapp, dass die beste von 36 Durchspielungen teils auf
+ * 0,2 an ihr Ziel herankommt. Die Kampagne hat für eine neue Dauerlast schlicht keinen Platz.
+ *
+ * Der zweite Grund ist der bessere: **es gehört gar nicht der Stadt.** Wer eine Serie monatelang
+ * laufen lässt, sieht aus, als hätte er sie nicht im Griff — und das kostet ihn im Rat, nicht die
+ * Mieten. Politisches Kapital wächst mit 1,1 im Monat nach; sechs Punkte sind eine halbe Verhandlung,
+ * also genau die Ressource, um die die zweite Uhr ohnehin mit der ersten konkurriert.
+ *
+ * Kein Schaden an der Kennzahl, aus der er entstanden ist — das wäre eine Spirale, in der eine Stadt
+ * mit hoher Einbruchsrate immer höhere bekommt, und ein Spiel, aus dem man nicht mehr herauskommt,
+ * ist keine Entscheidung mehr.
+ */
+/** Was ein ausgesessener Brennpunkt im Rat kostet. Eine halbe Verhandlung, siehe oben. */
+const TIPPING_COST = 6
+function tickHotspots(state: SimulationState, month: number): SimulationState {
+  const stepped = stepHotspots(state.hotspots, month)
+  let next = state
+
+  for (const spot of stepped.tipped) {
+    const template = hotspotTemplate(spot.kind)
+    next = pushNews(
+      {
+        ...next,
+        metrics: { ...next.metrics, politicalCapital: clamp(next.metrics.politicalCapital - TIPPING_COST) },
+      },
+      {
+        id: `hotspot-${spot.id}`,
+        month,
+        scope: 'city',
+        urgency: 'breaking',
+        headline: `${template.label.toUpperCase()} in ${SITE_PROFILES[spot.districtId].name}: monatelang nichts passiert`,
+        districtId: spot.districtId,
+      },
+    )
+  }
+
+  const opened = openHotspot(stepped.open, next.metrics, month, createRandomStream(state.seed, `hotspot:${month}`))
+  const open = opened ? [...stepped.open, opened] : stepped.open
+  if (opened) {
+    const template = hotspotTemplate(opened.kind)
+    next = pushNews(next, {
+      id: `hotspot-open-${opened.id}`,
+      month,
+      scope: 'city',
+      urgency: 'important',
+      headline: template.headline.replace('{bezirk}', SITE_PROFILES[opened.districtId].name),
+      districtId: opened.districtId,
+    })
+  }
+
+  return { ...next, hotspots: open }
+}
+
+/**
+ * Eine Antwort auf einen Brennpunkt geben.
+ *
+ * Bezahlt wird sofort und aus dem Haushalt; was über Monate läuft, wird als Maßnahme geführt wie
+ * jede andere, damit es im Lagebild auftaucht und mitläuft, statt eine zweite Buchhaltung zu eröffnen.
+ */
+export function answerSituation(state: SimulationState, id: string, answerId: string): SimulationState {
+  const done = answerHotspot(state.hotspots, id, answerId, state.month, policyId => state.policies.some(policy => policy.id === policyId))
+  if (!done)
+    return state
+
+  const spot = state.hotspots.find(entry => entry.id === id)!
+  const template = hotspotTemplate(spot.kind)
+  const answer = template.answers.find(entry => entry.id === answerId)!
+
+  const next: SimulationState = {
+    ...state,
+    hotspots: done.open,
+    metrics: { ...state.metrics, cityBudget: Math.max(0, state.metrics.cityBudget - done.cost) },
+  }
+  if (done.monthly === 0)
+    return next
+
+  return adoptMeasure(
+    next,
+    `hotspot:${id}`,
+    {
+      id: answerId,
+      label: `${template.label} · ${answer.label}`,
+      rationale: answer.detail,
+      oneOffCost: 0,
+      monthlyCost: done.monthly,
+      costMonths: done.months,
+      axes: {},
+      salience: {},
+      effects: [],
+      sourceIds: [],
+    },
+    'safety',
+  )
 }
 
 function advanceOneMonth(state: SimulationState): SimulationState {
@@ -1334,6 +1477,15 @@ function advanceOneMonth(state: SimulationState): SimulationState {
     activeMeasureSources: next.measures.map(measure => measure.sourceId),
     coalitionSeats: seatsOfCoalition(next),
   }
+  /*
+   * Die zweite Uhr, vor dem Ereignis des Monats.
+   *
+   * Erst weitergehen lassen, was läuft, dann höchstens einen neuen Brennpunkt aufmachen. Vorher,
+   * damit ein Brennpunkt, der in diesem Monat kippt, seinen Preis noch in diesem Monat bezahlt und
+   * nicht im nächsten — die Rechnung kommt, wenn man sie ausgesessen hat, und nicht später.
+   */
+  next = tickHotspots(next, month)
+
   const drawn = drawEvent(drawState, monthOfYear, createRandomStream(state.seed, `events:${month}`))
 
   if (drawn) {

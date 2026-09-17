@@ -356,3 +356,61 @@ ausgerechnet der mit der größten Reserve.
    einzelnes Haus zeigt — Sanierung, Umnutzung —, nutzt die 16.782, die schon stehen.
 3. **Bezirkskennzahlen.** Dann würde der Ort nicht nur Preis, Tempo und Widerstand ändern, sondern
    auch die Wirkung: Wohnungsbau dort, wo die Miete am höchsten ist, hilft mehr.
+
+
+---
+
+## Die zweite Uhr: Brennpunkte
+
+Die Standortwahl ist **Tiefe, keine Frequenz** — neun verortbare Vorlagen in elf Jahren. Der
+ursprüngliche Punkt war ein anderer: *„es sollte wirklich jeden Tag was zu entscheiden geben."*
+
+Ein Brennpunkt ist das Stockwerk zwischen „nichts zu tun" und „Ratssitzung": **kleiner als ein
+Beschluss, an einem Ort, und mit Mitteln zu beantworten statt mit Mehrheiten.**
+
+| | Der Rat | Der Brennpunkt |
+|---|---|---|
+| Reichweite | ganze Stadt | ein Bezirk |
+| braucht | eine Mehrheit | Geld, das man hat |
+| Antwortzeit | Monate | sofort |
+| Ignorieren | geht nicht | geht — und kostet |
+
+Zwei Arten: **Einbruchserie** (aus `burglaryRate`) und **Brandserie** (aus `investmentBacklog`). Eine
+dritte — Unfallhäufung — stand im Entwurf und ist wieder raus: es gibt keine Kennzahl, die sie ehrlich
+trägt, und eine Lage an der falschen Zahl ist Dekoration mit Kosten.
+
+### Vier Monate Bedenkzeit
+
+Der Pegel steigt jeden Monat ohne Antwort. Auf Stufe vier kippt er. Eine laufende Antwort hält ihn an
+— das ist der Unterschied zwischen „ich habe etwas getan" und „ich habe es weggeklickt".
+
+### Was Kippen kostet, und warum so wenig
+
+Gemessen an einer Amtszeit ohne eine einzige Antwort: über 131 Monate machen **26** Brennpunkte auf,
+alle fünf Monate einer, und alle kippen. Der erste Entwurf nahm dafür 2,2 Punkte Zufriedenheit je
+Kippen — **−57 über ein Jahrzehnt**, eine Stadt, die an einer Nebenmechanik zugrunde geht.
+`goals.test.ts` erklärte prompt zwei von zwölf Kampagnenzielen für unerreichbar, und auch bei einem
+Sechstel des Wertes blieb eins hängen.
+
+Das war der eigentliche Fund: **die Schwellen der Kampagnenziele sitzen so knapp, dass die beste von
+36 Durchspielungen teils auf 0,2 an ihr Ziel herankommt.** Für eine neue Dauerlast auf den
+Stadtkennzahlen ist kein Platz.
+
+Also kostet Kippen **politisches Kapital** — sechs Punkte, eine halbe Verhandlung. Das ist auch die
+bessere Antwort: wer eine Serie monatelang laufen lässt, sieht aus, als hätte er sie nicht im Griff,
+und das kostet ihn im Rat und nicht bei den Mieten. Nebenbei ist es genau die Ressource, um die die
+zweite Uhr mit der ersten ohnehin konkurriert.
+
+### Und der Pull-Teil, zur Hälfte
+
+Die stärkste Antwort auf eine Einbruchserie sind Kameras — und die gibt es **nur, wenn der Rat das
+Kameranetz beschlossen hat.** Damit steht der Satz zum ersten Mal im Spiel:
+
+> Auf der Karte kannst du fast nichts — bis ein Beschluss es freigeschaltet hat.
+
+### Bekannte Kante
+
+„Einbruchserie im Wohnring Süd" gibt es **auch** als Ratsereignis, mit der Videoüberwachung als
+Beschlussvorschlag. Beim Durchspielen standen kurz beide nebeneinander. Richtig wäre eine Kette statt
+zweier Stränge: der Brennpunkt zuerst, und wer ihn aussitzt, bekommt ihn irgendwann als Vorlage auf
+den Tisch, weil eine andere Fraktion ihn aufgreift.

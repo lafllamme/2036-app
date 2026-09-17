@@ -76,6 +76,8 @@ export interface SimulationSnapshot {
   pendingSiting: PendingSiting | null
   /** Wohin jede verortete Vorlage gegangen ist — damit die Karte dort baut. */
   sites: Partial<Record<string, DistrictId>>
+  /** Was der Stadt gerade an einem Ort zusetzt. Siehe `HotspotView`. */
+  hotspots: HotspotView[]
   councilSeatsByParty: Record<PartyId, number>
   coalitionPartyIds: PartyId[]
   coalitionSupport: number
@@ -137,10 +139,44 @@ export interface PendingSiting {
   }[]
 }
 
+/**
+ * Ein Brennpunkt, fertig zum Anzeigen: was los ist, wo, wie schlimm, und was man tun kann.
+ *
+ * Die zweite Uhr des Spiels — kleiner als ein Ratsbeschluss, an einem Ort, mit Mitteln zu beantworten
+ * statt mit Mehrheiten. Siehe `simulation/hotspots.ts`.
+ */
+export interface HotspotView {
+  id: string
+  kind: string
+  label: string
+  districtId: DistrictId
+  districtName: string
+  /** 1 bis 4. Auf der letzten Stufe kippt er im nächsten Monat. */
+  level: number
+  /** Wie viele Stufen es bis zum Kippen noch sind. */
+  grace: number
+  /** Die laufende Antwort, wenn eine läuft. */
+  running: string | null
+  answers: {
+    id: string
+    label: string
+    detail: string
+    cost: number
+    monthly: number
+    months: number
+    /** Ob sie überhaupt gewählt werden kann — manche brauchen erst einen Ratsbeschluss. */
+    open: boolean
+    /** Und wenn nicht: welchen. */
+    needs: string | null
+  }[]
+}
+
 export type SimulationCommandExtra
   = | { type: 'REQUEST_SAVE' }
     /** Wohin die beschlossene Vorlage soll. Pflicht: ohne sie passiert nichts. */
     | { type: 'CHOOSE_SITE', districtId: DistrictId }
+    /** Eine Antwort auf einen Brennpunkt. Ohne Rat, aus eigenen Mitteln. */
+    | { type: 'ANSWER_HOTSPOT', id: string, answerId: string }
     | { type: 'RESTORE', state: SimulationState }
     | { type: 'REQUEST_FORECAST', eventId: string }
     | { type: 'RESOLVE_DECISION', eventId: string, optionId: string }

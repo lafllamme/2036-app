@@ -76,6 +76,16 @@ export interface HotspotTemplate {
   loud: number
   /** In welchen Bezirken sie vorkommt. Eine Einbruchserie braucht Wohnungen. */
   districts: DistrictId[]
+  /**
+   * Die Vorlage, die eine andere Fraktion einbringt, wenn man die Lage aussitzt.
+   *
+   * Damit wird aus zwei Strängen eine Kette. „Einbruchserie im Wohnring Süd“ gab es nämlich schon als
+   * Ratsereignis, und beim Durchspielen standen kurz beide nebeneinander — zweimal dieselbe Sache mit
+   * zwei verschiedenen Bedienungen. Jetzt kommt der Brennpunkt zuerst und ist die Verwaltungsebene;
+   * wer ihn monatelang laufen lässt, bekommt ihn als **Vorlage auf den Tisch**, weil eine andere
+   * Fraktion ihn aufgreift. Das Ratsereignis ist damit die Eskalation der Lage und nicht ihr Zwilling.
+   */
+  escalation: string
   answers: HotspotAnswer[]
 }
 
@@ -98,6 +108,7 @@ export const HOTSPOTS: HotspotTemplate[] = [
     quiet: 9,
     loud: 22,
     districts: RESIDENTIAL,
+    escalation: 'saf-burglary-series',
     answers: [
       {
         id: 'patrols',
@@ -137,6 +148,8 @@ export const HOTSPOTS: HotspotTemplate[] = [
     quiet: 60,
     loud: 160,
     districts: BUSY,
+    // Die Ursache einer Brandserie ist aufgeschobener Unterhalt — also kommt das Instandhaltungsprogramm.
+    escalation: 'fin-maintenance-program',
     answers: [
       {
         id: 'inspections',

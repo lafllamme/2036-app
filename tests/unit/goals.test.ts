@@ -2,8 +2,9 @@ import type { CityMetrics, PartyId } from '../../app/core/contracts'
 import { describe, expect, it } from 'vitest'
 import { EVENTS } from '../../app/content/events'
 import { CAMPAIGN_GOALS, goalIsMet } from '../../app/content/goals'
+import { hotspotTemplate } from '../../app/content/hotspots'
 import { policiesFor } from '../../app/content/policies'
-import { advanceMonths, createInitialState, motionOnTheAgenda, proposePolicy, resolveDecision, voteOnMotion } from '../../app/simulation/model'
+import { advanceMonths, answerSituation, createInitialState, motionOnTheAgenda, proposePolicy, resolveDecision, voteOnMotion } from '../../app/simulation/model'
 
 /**
  * Ein Ziel muss zu schaffen sein — und nicht von allein.
@@ -41,6 +42,21 @@ function play(party: PartyId, favour: string[]): CityMetrics {
 
   for (let month = 0; month < 131; month += 1) {
     state = advanceMonths(state, 1)
+    /*
+     * Brennpunkte beantworten, und zwar mit dem billigsten, was frei ist.
+     *
+     * Dieser Lauf spielt einen kompetenten, nicht einen ehrgeizigen Spieler — und ein kompetenter
+     * lässt eine Einbruchserie nicht vier Monate laufen, bis sie ihn Kapital kostet und eine andere
+     * Fraktion die Vorlage einbringt. Ohne diese drei Zeilen maß der Test die Stadt eines Spielers,
+     * der eine ganze Mechanik nicht kennt, und erklärte prompt ein Kampagnenziel für unerreichbar.
+     */
+    for (const spot of [...state.hotspots]) {
+      if (spot.answer)
+        continue
+      const free = hotspotTemplate(spot.kind).answers.filter(answer => !answer.needsPolicy).sort((a, b) => (a.cost + a.monthly * a.months) - (b.cost + b.monthly * b.months))[0]
+      if (free)
+        state = answerSituation(state, spot.id, free.id)
+    }
     for (const entry of [...state.pending]) {
       const event = EVENTS.find(candidate => candidate.id === entry.eventId)!
       const wanted = favour.includes(event.category)

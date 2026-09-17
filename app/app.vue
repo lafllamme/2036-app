@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useSound } from '~/composables/useSound'
 import { getParty } from '~/content/parties'
 import { useGameStore } from '~/stores/game'
+import { formatNumber } from '~/utils/labels'
 import { tenancyAt } from '~/world/tenancy'
 
 /*
@@ -51,6 +52,64 @@ const tenancy = computed(() => {
   if (!picked || now === undefined || !start)
     return null
   return tenancyAt(picked, CITY_SEED, now / start)
+})
+
+/**
+ * Was man an diesem Ort tun kann — und meistens ist es nichts.
+ *
+ * Die Gebäudekarte war ein Datenblatt: Bauart, Zustand, Auslastung, Erdgeschoss. Vier Auskünfte über
+ * ein Objekt und keine einzige über das, was man damit anfangen kann — also stand man vor der Stadt
+ * und konnte sie ansehen, aber nicht anfassen.
+ *
+ * Hier steht jetzt, **was hier geht**. Die Liste ist kurz und oft leer, und das ist keine Schwäche,
+ * sondern die Aussage des ganzen Spiels: eine Fraktion verwaltet nicht, sie beantragt. Auf der Karte
+ * kann man fast nichts, bis ein Beschluss es freigeschaltet hat — der Standort, den der Rat gerade
+ * sucht, und die Lage, die im Bezirk läuft, sind die beiden Fälle, in denen es etwas zu tun gibt.
+ */
+const hereYouCan = computed(() => {
+  const picked = selectedBuilding.value
+  const snap = game.snapshot
+  if (!picked || !snap)
+    return []
+
+  const doable: { id: string, label: string, detail: string, run: () => void }[] = []
+
+  const offer = snap.pendingSiting?.sites.find(site => site.districtId === picked.districtId)
+  if (offer && snap.pendingSiting) {
+    doable.push({
+      id: 'site',
+      label: `„${snap.pendingSiting.title}“ hier bauen`,
+      detail: `${formatNumber(offer.cost, 1)} Mio. € · ${offer.months} Monate · ${offer.note}`,
+      run: () => game.chooseSite(offer.districtId),
+    })
+  }
+
+  const spot = snap.hotspots.find(entry => entry.districtId === picked.districtId)
+  if (spot) {
+    doable.push({
+      id: 'hotspot',
+      label: `${spot.label} in diesem Bezirk`,
+      detail: `Stufe ${spot.level} von 4 — was du dagegen tun kannst`,
+      run: () => {
+        game.openHotspotId = spot.id
+      },
+    })
+  }
+
+  doable.push({
+    id: 'walk',
+    label: 'Zu Fuß hingehen',
+    detail: 'Die Stadt auf Augenhöhe, an dieser Stelle.',
+    run: () => {
+      game.focusOnPlace(picked.x, picked.z)
+      game.selectedBuilding = null
+      window.setTimeout(() => {
+        game.walking = true
+      }, 700)
+    },
+  })
+
+  return doable
 })
 
 const buildingLabels = {
@@ -238,6 +297,26 @@ function restart(): void {
               </dd>
             </div>
           </dl>
+
+          <!--
+            Und was hier geht. Meistens nichts — siehe `hereYouCan`.
+          -->
+          <div class="can">
+            <h3>Was du hier tun kannst</h3>
+            <button
+              v-for="option in hereYouCan"
+              :key="option.id"
+              type="button"
+              class="can-option"
+              @click="option.run()"
+            >
+              <span class="can-label">{{ option.label }}</span>
+              <span class="can-detail">{{ option.detail }}</span>
+            </button>
+            <p v-if="hereYouCan.length <= 1" class="can-none">
+              Mehr nicht. Was an einem Ort geschieht, beschließt der Rat — du bringst es ein.
+            </p>
+          </div>
         </section>
 
         <!--
@@ -400,6 +479,25 @@ function restart(): void {
 /* Ein leerstehendes Erdgeschoss ist kein Fehler, aber ein Verlust — also grau und nicht rot. */
 .pick dd.vacant { color: var(--ink-3); }
 .pick dd { margin: 0; font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+/*
+ * Was hier geht. Steht unter den Zahlen, weil es die Antwort auf sie ist — und eine Zeile, die sagt,
+ * dass nichts geht, gehört genauso dazu wie eine, die etwas anbietet.
+ */
+.can { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.10); }
+.can h3 {
+  margin: 0 0 8px; font-family: var(--mono); font-size: 10.5px; font-weight: 400;
+  letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3);
+}
+.can-option {
+  display: block; width: 100%; padding: 8px 0; border: 0; background: none;
+  text-align: left; cursor: pointer; border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.can-option:first-of-type { border-top: 0; }
+.can-label { display: block; font-family: var(--text); font-size: 13.5px; color: var(--ink); transition: color 140ms ease; }
+.can-option:hover .can-label { color: #fff; }
+.can-detail { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.4; color: var(--ink-3); }
+.can-none { margin: 10px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--ink-3); }
 
 .note { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.08); color: var(--ink-3); font-size: 11.5px; line-height: 1.55; }
 

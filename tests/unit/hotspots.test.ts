@@ -2,9 +2,11 @@ import type { CityMetrics } from '../../app/core/contracts'
 import type { RandomStream } from '../../app/core/rng'
 import type { Hotspot } from '../../app/simulation/hotspots'
 import { describe, expect, it } from 'vitest'
+import { EVENTS } from '../../app/content/events'
 import { HOTSPOTS, hotspotTemplate } from '../../app/content/hotspots'
 import { BASELINE_METRICS } from '../../app/simulation/baseline'
 import { answerHotspot, chanceOf, openHotspot, stepHotspots, TIPPING_LEVEL } from '../../app/simulation/hotspots'
+import { advanceMonths, createInitialState } from '../../app/simulation/model'
 
 /**
  * Brennpunkte — die zweite Uhr.
@@ -132,5 +134,34 @@ describe('brennpunkte', () => {
        */
       expect(Math.max(...template.answers.map(answer => answer.relief)), template.kind).toBeGreaterThanOrEqual(TIPPING_LEVEL)
     }
+  })
+
+  /**
+   * Die Kette statt zweier Stränge.
+   *
+   * „Einbruchserie im Wohnring Süd“ gab es schon als Ratsereignis, und beim Durchspielen standen
+   * kurz beide nebeneinander — zweimal dieselbe Sache mit zwei Bedienungen. Wer die Lage aussitzt,
+   * bekommt sie jetzt als Vorlage auf den Tisch, und dann muss es dieses Ereignis auch geben.
+   */
+  it('eskaliert in eine Vorlage, die es wirklich gibt', () => {
+    for (const template of HOTSPOTS) {
+      const event = EVENTS.find(entry => entry.id === template.escalation)
+      expect(event, `${template.kind} → ${template.escalation}`).toBeDefined()
+      // Und in eine, über die der Rat auch abstimmen kann.
+      expect(event!.options.length, template.escalation).toBeGreaterThan(0)
+      expect(event!.kind, template.escalation).toBe('decision')
+    }
+  })
+
+  /** Und derselbe Weg einmal ganz: ausgesessen, gekippt, im Rat gelandet. */
+  it('legt die ausgesessene Lage als Vorlage auf den Tisch und schickt die Rechnung', () => {
+    const opened: Hotspot = { id: 'x', kind: 'burglary', districtId: 'gruenderzeit-nord', level: TIPPING_LEVEL, openedMonth: 0, answer: null }
+    const before = { ...createInitialState(2036), hotspots: [opened] }
+    const after = advanceMonths(before, 1)
+
+    expect(after.hotspots).toHaveLength(0)
+    // Bezahlt wird im Rat und nicht bei den Mieten.
+    expect(after.metrics.politicalCapital).toBeLessThan(before.metrics.politicalCapital)
+    expect(after.pending.map(entry => entry.eventId)).toContain('saf-burglary-series')
   })
 })

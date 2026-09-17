@@ -199,6 +199,14 @@ export const useGameStore = defineStore('game', () => {
    * `DecisionPanel.vue` und gilt weiter. Ein zugeklappter Posteingang wäre keine Ruhe, sondern ein
    * verpasster Termin.
    */
+  /**
+   * Welcher Brennpunkt gerade offen ist.
+   *
+   * Im Store und nicht in der Markenebene, weil zwei Stellen ihn aufmachen: die Marke auf der Karte
+   * und die Gebäudekarte. Ein Ort hat eine Lage, und beide Wege müssen auf dieselbe zeigen.
+   */
+  const openHotspotId = ref<string | null>(null)
+
   const railOpen = ref(false)
   const decisionsOpen = ref(false)
 
@@ -881,6 +889,7 @@ export const useGameStore = defineStore('game', () => {
     focusRequest,
     focusOnPlace,
     railOpen,
+    openHotspotId,
     walking,
     walkState,
     project,

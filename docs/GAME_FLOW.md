@@ -414,3 +414,30 @@ Kameranetz beschlossen hat.** Damit steht der Satz zum ersten Mal im Spiel:
 Beschlussvorschlag. Beim Durchspielen standen kurz beide nebeneinander. Richtig wäre eine Kette statt
 zweier Stränge: der Brennpunkt zuerst, und wer ihn aussitzt, bekommt ihn irgendwann als Vorlage auf
 den Tisch, weil eine andere Fraktion ihn aufgreift.
+
+
+### Die Kette, und der Pull-Teil
+
+**Aus zwei Strängen eine Kette.** „Einbruchserie im Wohnring Süd" gab es schon als Ratsereignis; beim
+Durchspielen standen kurz beide nebeneinander. Jetzt kommt der Brennpunkt zuerst und ist die
+Verwaltungsebene — wer ihn vier Monate laufen lässt, bekommt ihn als **Vorlage auf den Tisch**, und
+zwar von einer anderen Fraktion, denn sie hat jetzt das Thema. Das Ratsereignis ist damit die
+Eskalation der Lage statt ihres Zwillings. Für die Brandserie ist es das Instandhaltungsprogramm: die
+Ursache einer Brandserie ist aufgeschobener Unterhalt.
+
+**Und die Gebäudekarte sagt, was hier geht.** Sie war ein Datenblatt — Bauart, Zustand, Auslastung,
+Erdgeschoss. Vier Auskünfte über ein Objekt und keine einzige darüber, was man damit anfangen kann.
+Jetzt steht darunter „Was du hier tun kannst", und meistens steht dort:
+
+> Mehr nicht. Was an einem Ort geschieht, beschließt der Rat — du bringst es ein.
+
+Zwei Fälle, in denen etwas dasteht: der Rat sucht gerade einen Standort und dieser Bezirk ist im
+Angebot — dann wählt man ihn, indem man ein Haus dort anklickt statt eines Kissens. Oder im Bezirk
+läuft eine Lage, und die Karte führt zu ihren Antworten.
+
+**Was `goals.test.ts` daran zweimal gefunden hat.** Beim ersten Mal die zu harte Strafe fürs Kippen;
+beim zweiten die Eskalation, die zusätzliche Vorlagen auf die Tagesordnung bringt und damit den
+Haushalt verschiebt. Die Lösung war beide Male dieselbe Einsicht: der Test spielte einen Spieler, der
+Brennpunkte **nie** beantwortet — also jemanden, der eine ganze Mechanik nicht kennt. Er beantwortet
+sie jetzt mit dem Billigsten, was frei ist. Das ist kein Aufweichen des Tests, sondern die Korrektur
+seiner Annahme.

@@ -30,7 +30,7 @@ import { LINDENHAFEN } from '~/world/model/lindenhafen'
  */
 
 const game = useGameStore()
-const { cityReports, project, walking, experienceStage, snapshot, openDecisionId } = storeToRefs(game)
+const { cityReports, project, walking, experienceStage, snapshot, openDecisionId, openHotspotId } = storeToRefs(game)
 
 /**
  * Die drei Standorte, zwischen denen gerade zu wählen ist.
@@ -64,9 +64,13 @@ const spots = computed(() => (siting.value
       at: CENTRES.get(spot.districtId) ?? { x: 0, z: 0 },
     }))))
 
-/** Welcher Brennpunkt gerade offen ist — die Marke ist der Griff, die Karte darunter die Antwort. */
-const opened = ref<string | null>(null)
-const open = computed(() => spots.value.find(spot => spot.id === opened.value) ?? null)
+/**
+ * Welcher Brennpunkt gerade offen ist — die Marke ist der Griff, die Karte darunter die Antwort.
+ *
+ * Der Wert liegt im Store, weil zwei Stellen ihn setzen: diese Marke und die Gebäudekarte, die sagt,
+ * was man an einem Ort tun kann. Ein Ort hat eine Lage, und beide Wege zeigen auf dieselbe.
+ */
+const open = computed(() => spots.value.find(spot => spot.id === openHotspotId.value) ?? null)
 
 const choices = computed(() => (siting.value?.sites ?? []).map(site => ({
   ...site,
@@ -181,14 +185,14 @@ onBeforeUnmount(() => cancelAnimationFrame(frame))
  * ist keine Geschmacksfrage — eine Vorlage hält die Uhr an und will beantwortet werden, ein
  * Brennpunkt läuft nebenher. Wer wichtiger ist, deckt den anderen zu.
  */
-watch(opened, (now) => {
+watch(openHotspotId, (now) => {
   if (now)
     game.railOpen = false
 })
 
 watch(openDecisionId, (now) => {
   if (now)
-    opened.value = null
+    openHotspotId.value = null
 })
 
 watch(siting, (now) => {
@@ -251,7 +255,7 @@ watch(placements, () => {
       type="button"
       class="mark spot"
       :class="{ 'is-urgent': spot.grace <= 1, 'is-held': Boolean(spot.running) }"
-      @click="opened = opened === spot.id ? null : spot.id"
+      @click="openHotspotId = openHotspotId === spot.id ? null : spot.id"
     >
       <span class="spot-name">{{ spot.label }}</span>
       <span class="spot-where">{{ spot.districtName }}</span>
@@ -290,7 +294,7 @@ watch(placements, () => {
         <span class="kick">{{ open.districtName }} · Stufe {{ open.level }} von 4</span>
         <h2>{{ open.label }}</h2>
       </div>
-      <button type="button" class="close-button" aria-label="Schließen" @click="opened = null">
+      <button type="button" class="close-button" aria-label="Schließen" @click="openHotspotId = null">
         <svg viewBox="0 0 24 24" class="icon" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
       </button>
     </header>
@@ -305,7 +309,7 @@ watch(placements, () => {
         type="button"
         class="answer"
         :disabled="!answer.open"
-        @click="game.answerHotspot(open!.id, answer.id); opened = null"
+        @click="game.answerHotspot(open!.id, answer.id); openHotspotId = null"
       >
         <span class="answer-name">{{ answer.label }}</span>
         <span class="answer-detail">{{ answer.detail }}</span>

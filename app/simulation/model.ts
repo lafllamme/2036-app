@@ -1230,6 +1230,7 @@ function tickHotspots(state: SimulationState, month: number): SimulationState {
 
   for (const spot of stepped.tipped) {
     const template = hotspotTemplate(spot.kind)
+    next = escalate(next, template.escalation, month)
     next = pushNews(
       {
         ...next,
@@ -1261,6 +1262,50 @@ function tickHotspots(state: SimulationState, month: number): SimulationState {
   }
 
   return { ...next, hotspots: open }
+}
+
+/**
+ * Was eine ausgesessene Lage im Rat aus sich macht.
+ *
+ * Aus zwei Strängen wird eine Kette: die Vorlage, die zu dem Brennpunkt gehört, kommt auf die
+ * Tagesordnung — und zwar **von einer anderen Fraktion**, denn sie hat jetzt das Thema. Damit ist das
+ * Ratsereignis die Eskalation der Lage und nicht ihr Zwilling.
+ *
+ * Nicht, wenn sie ohnehin schon auf dem Tisch liegt oder gerade abgekühlt ist — sonst bekäme man
+ * dieselbe Vorlage zweimal nebeneinander, was genau der Zustand war, aus dem diese Funktion
+ * entstanden ist.
+ */
+function escalate(state: SimulationState, eventId: string, month: number): SimulationState {
+  const definition = getEvent(eventId)
+  if (!definition || state.pending.some(entry => entry.eventId === eventId) || (state.cooldowns[eventId] ?? 0) > month)
+    return state
+
+  const tabled = tabler(state, definition, createRandomStream(state.seed, `escalation:${month}:${eventId}`))
+  const next: SimulationState = {
+    ...state,
+    cooldowns: { ...state.cooldowns, [eventId]: month + definition.trigger.cooldownMonths },
+    firedOnce: state.firedOnce.includes(eventId) ? state.firedOnce : [...state.firedOnce, eventId],
+    tabledByOthers: tabled ? state.tabledByOthers + 1 : state.tabledByOthers,
+    pending: [...state.pending, {
+      eventId,
+      raisedMonth: month,
+      expiresMonth: month + definition.expiresInMonths,
+      negotiatedPartyIds: [],
+      campaignedOptionIds: [],
+      tabledBy: tabled?.partyId ?? null,
+      tabledOptionId: tabled?.optionId ?? null,
+    }],
+  }
+  return pushNews(next, {
+    id: `escalation-${eventId}-${month}`,
+    month,
+    scope: 'city',
+    urgency: 'important',
+    headline: tabled
+      ? `STADTRAT: ${getParty(tabled.partyId)?.abbreviation ?? 'Fraktion'} bringt „${definition.title}“ ein`
+      : `STADTRAT: „${definition.title}“ steht auf der Tagesordnung`,
+    policyId: undefined,
+  })
 }
 
 /**

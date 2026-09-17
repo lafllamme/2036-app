@@ -243,6 +243,19 @@ export const useGameStore = defineStore('game', () => {
     selectedGoalIds.value = ['affordable-rent', 'bound-stock', 'nobody-outside']
     leaderName.value = 'Messfahrt'
     leaderBackgroundId.value = 'administration'
+    /*
+     * Und der Simulation dasselbe sagen — daran ist der Messstand ein halbes Jahr lang vorbeigelaufen.
+     *
+     * Die vier Zeilen darüber setzen den **Client**: die Oberfläche zeigte GRÜNE, bot die
+     * GRÜNEN-Vorlagen an und sah in jeder Hinsicht aus wie ein laufendes Spiel. Der Worker war aber
+     * mit `INIT` ohne Partei gestartet und blieb dabei — also **0 von 60 Sitzen**, jede Abstimmung
+     * gegen eine Fraktion, die es nicht gibt, und jede Vorlage abgelehnt.
+     *
+     * Ein Messstand, der ein anderes Spiel misst als das, das er anzeigt, ist schlimmer als keiner:
+     * Vorlagen, Abstimmungen und alles, was daran hängt, waren dort nie zu prüfen. `enterCity` macht
+     * es seit jeher richtig; hier fehlte genau diese eine Zeile.
+     */
+    reset()
     experienceStage.value = 'gameplay'
     speed.value = 0
   }

@@ -558,7 +558,11 @@ und steht in `.claude/launch.json` auf der Kommandozeile, weil eine `PORT`-Umgeb
 still gewinnt:
 
 1. **Kein Einstiegsablauf.** Partei, Ziele und Amtsinhaberin sind gesetzt, die Stadt wird gebaut, man
-   landet direkt darin.
+   landet direkt darin — und die Simulation bekommt dasselbe gesagt. Das fehlte ein halbes Jahr lang:
+   `enterBench` setzte nur den **Client**, der Worker lief mit `INIT` ohne Partei weiter. Die
+   Oberfläche zeigte GRÜNE und bot die GRÜNEN-Vorlagen an, der Rat rechnete mit **0 von 60 Sitzen**,
+   und jede Abstimmung im Messstand ging verloren. Ein Messstand, der ein anderes Spiel misst als das,
+   das er anzeigt, ist schlimmer als keiner — Vorlagen und Abstimmungen waren dort nie zu prüfen.
 2. **Die Uhr steht.** Ohne Monatswechsel gibt es keine Ereignisse — es braucht dafür keinen zweiten
    Schalter.
 3. **`window.bench`** mit `reset()`, `stats()` und `flight(sekunden)`. Die Verteilung dahinter kommt

@@ -4,17 +4,20 @@ import {
   advanceMonths,
   answerSituation,
   applyPolicy,
+  callUrgent,
   campaignFor,
   chooseSite,
   createInitialState,
   forecastsForEvent,
   migrateState,
   negotiate,
-  proposePolicy,
-
   resolveDecision,
+
   snapshotOf,
+  tableMotion,
   voteOnMotion,
+  voteOnPolicy,
+  withdrawMotion,
 } from '../simulation/model'
 
 let state: SimulationState = createInitialState()
@@ -32,10 +35,33 @@ globalThis.onmessage = ({ data }: MessageEvent<SimulationCommand>) => {
         return
       case 'ADVANCE':
         state = advanceMonths(state, data.months)
-        publish('SNAPSHOT')
+        // Was die Ratssitzung ergeben hat, geht als eigene Nachricht raus — sonst ist der wichtigste
+        // Moment des Monats ein stiller Zahlenwechsel im Lagebild.
+        if (state.lastSession.length > 0)
+          post({ type: 'SESSION', results: state.lastSession, snapshot: snapshotOf(state) })
+        else publish('SNAPSHOT')
         return
       case 'APPLY_POLICY': {
-        const outcome = proposePolicy(state, data.policyId)
+        const outcome = voteOnPolicy(state, data.policyId)
+        state = outcome.state
+        if (outcome.result)
+          post({ type: 'VOTE_RESULT', result: outcome.result, snapshot: snapshotOf(state) })
+        else publish('SNAPSHOT')
+        return
+      }
+      case 'TABLE_MOTION': {
+        // Einbringen heißt: auf die Tagesordnung. Abgestimmt wird in der Sitzung am Monatsende.
+        state = tableMotion(state, data.sourceId, data.optionId, data.vote ?? 'yes')
+        publish('SNAPSHOT')
+        return
+      }
+      case 'WITHDRAW_MOTION': {
+        state = withdrawMotion(state, data.sourceId)
+        publish('SNAPSHOT')
+        return
+      }
+      case 'CALL_URGENT': {
+        const outcome = callUrgent(state, data.sourceId, data.optionId, data.vote ?? 'yes')
         state = outcome.state
         if (outcome.result)
           post({ type: 'VOTE_RESULT', result: outcome.result, snapshot: snapshotOf(state) })

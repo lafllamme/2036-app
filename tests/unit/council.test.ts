@@ -5,7 +5,7 @@ import { EVENTS, getEvent } from '../../app/content/events'
 import { getParty, mapParties, PARTIES } from '../../app/content/parties'
 import { createRandomStream } from '../../app/core/rng'
 import { castVote, forecastVote, supportFor } from '../../app/simulation/council'
-import { advanceMonths, createInitialState, forecastsForEvent, proposePolicy } from '../../app/simulation/model'
+import { advanceMonths, createInitialState, forecastsForEvent, voteOnPolicy } from '../../app/simulation/model'
 
 const seats = mapParties(party => party.stats.councilSeats)
 const noSalience = mapParties(() => false)
@@ -110,7 +110,7 @@ describe('a motion of your own', () => {
     // Die gemeinsame Konsolidierungsvorlage: die LINKE kann sie einbringen und mag sie nicht.
     // Genau deshalb ist sie der Prüfstein — wer einbringt, stimmt zu, auch gegen die eigene Neigung.
     const state = createInitialState(2036, 'linke', [])
-    const { result } = proposePolicy(state, 'shared-consolidation')
+    const { result } = voteOnPolicy(state, 'shared-consolidation')
     const own = result?.votes.find(entry => entry.partyId === 'linke')
     expect(own?.vote).toBe('yes')
     expect(result!.yesSeats).toBeGreaterThanOrEqual(own!.seats)
@@ -120,12 +120,12 @@ describe('a motion of your own', () => {
     // Bis hierher bekam jede Partei dieselben drei Vorlagen: die LINKE konnte die
     // Gewerbesteuersenkung einbringen und die FDP den kommunalen Wohnungsbau.
     const linke = createInitialState(2036, 'linke', [])
-    expect(proposePolicy(linke, 'business-tax-balance').result).toBeNull()
+    expect(voteOnPolicy(linke, 'business-tax-balance').result).toBeNull()
     const fdp = createInitialState(2036, 'fdp', [])
-    expect(proposePolicy(fdp, 'housing-accelerator').result).toBeNull()
+    expect(voteOnPolicy(fdp, 'housing-accelerator').result).toBeNull()
     // Das eigene Programm und das gemeinsame gehen weiterhin.
-    expect(proposePolicy(fdp, 'business-tax-balance').result).not.toBeNull()
-    expect(proposePolicy(linke, 'shared-maintenance').result).not.toBeNull()
+    expect(voteOnPolicy(fdp, 'business-tax-balance').result).not.toBeNull()
+    expect(voteOnPolicy(linke, 'shared-maintenance').result).not.toBeNull()
   })
 
   it('leaves a foreign motion rolled, because that vote is the question', () => {

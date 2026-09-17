@@ -74,6 +74,15 @@ export interface SimulationSnapshot {
   motionPreparation: Record<string, MotionPreparationView>
   /** Was gerade auf einen Standort wartet, oder nichts. Siehe `PendingSiting`. */
   pendingSiting: PendingSiting | null
+  /**
+   * Die Tagesordnung der nächsten Ratssitzung.
+   *
+   * Eingebracht heißt: steht hier. Abgestimmt wird am Monatsende über alles davon — und in der Zeit
+   * dazwischen kann verhandelt werden. Siehe `simulation/model.ts`, `tableMotion`.
+   */
+  agenda: { sourceId: string, title: string, optionId: string, vote: PartyVote, tabledMonth: number }[]
+  /** Wie viele Pätze eine Tagesordnung hat. */
+  agendaSeats: number
   /** Wohin jede verortete Vorlage gegangen ist — damit die Karte dort baut. */
   sites: Partial<Record<string, DistrictId>>
   /** Was der Stadt gerade an einem Ort zusetzt. Siehe `HotspotView`. */
@@ -121,6 +130,8 @@ export type SimulationMessage
     | { type: 'READY', snapshot: SimulationSnapshot }
     | { type: 'SNAPSHOT', snapshot: SimulationSnapshot }
     | { type: 'VOTE_RESULT', result: VoteResult, snapshot: SimulationSnapshot }
+    /** Was die Ratssitzung dieses Monats ergeben hat — bis zu drei Abstimmungen an einem Abend. */
+    | { type: 'SESSION', results: VoteResult[], snapshot: SimulationSnapshot }
     | { type: 'FORECAST', eventId: string, forecasts: Record<string, VoteForecast> }
     | { type: 'ERROR', message: string }
 
@@ -184,6 +195,11 @@ export type SimulationCommandExtra
     | { type: 'CHOOSE_SITE', districtId: DistrictId }
     /** Eine Antwort auf einen Brennpunkt. Ohne Rat, aus eigenen Mitteln. */
     | { type: 'ANSWER_HOTSPOT', id: string, answerId: string }
+    /** Auf die Tagesordnung der nächsten Sitzung damit. Abgestimmt wird am Monatsende. */
+    | { type: 'TABLE_MOTION', sourceId: string, optionId: string, vote?: PartyVote }
+    | { type: 'WITHDRAW_MOTION', sourceId: string }
+    /** Am Kalender vorbei, sofort abstimmen. Kostet politisches Kapital. */
+    | { type: 'CALL_URGENT', sourceId: string, optionId: string, vote?: PartyVote }
     | { type: 'RESTORE', state: SimulationState }
     | { type: 'REQUEST_FORECAST', eventId: string }
     | { type: 'RESOLVE_DECISION', eventId: string, optionId: string }

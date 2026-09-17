@@ -491,3 +491,41 @@ Aufgefallen ist es erst, als „Einbrüche 3,9 / 1.000" auf der Gebäudekarte st
 niemand je sieht, meldet sich nicht.** Jetzt spannen beide Bereiche über das, was die Kennzahlen
 wirklich tun, und ein Test spielt ein vernachlässigtes Jahrzehnt durch und verlangt, dass beide Arten
 vorkommen: 3 Einbruchserien und 22 Brandserien, etwa alle fünf Monate eine.
+
+
+## Gebaut: der Sitzungskalender
+
+Der Vorschlag aus Abschnitt 4 steht. **Einbringen heißt jetzt: auf die Tagesordnung der nächsten
+Ratssitzung** — abgestimmt wird am Monatsende, über alles, was draufsteht.
+
+| | |
+|---|---|
+| Sitzung | einmal je Monat, am Monatswechsel |
+| Plätze | **3**, eigene und fremde zusammen |
+| Zurückziehen | jederzeit, solange die Sitzung nicht war |
+| Dringlichkeitsantrag | **15 Kapital**, übergeht den Kalender und stimmt sofort ab |
+
+Warum das die eigentliche Reparatur ist, in einer Zahl: Verhandeln kostet 12 Kapital, eine Kampagne
+18, und über die ganze Amtszeit bekommt man rund 210 — genug für etwa siebzehn Verhandlungen in elf
+Jahren. Bis hierher hat davon **niemand je einen Punkt ausgegeben**, weil man auch einfach abstimmen
+lassen konnte. Wer sofort abstimmen lassen kann, verhandelt nicht.
+
+### Was daran hing
+
+**Die Standortwahl braucht eine Warteschlange.** Eine Sitzung kann drei Bauvorlagen an einem Abend
+beschließen; `siting` war ein einzelner Platz, und der zweite Standort wäre lautlos verlorengegangen.
+
+**Und die Abstimmungsergebnisse auch.** Drei Ergebnisse gleichzeitig übereinanderzulegen ist ein
+Stapel, dessen oberstes Blatt alle Klicks schluckt — sie kommen jetzt hintereinander.
+
+**Die Einarbeitung wartete auf das Falsche.** Ihr Schritt „bring sie ein" hing am
+Abstimmungsergebnis; das kommt erst am Monatsende, und die Einarbeitung hätte dort stillgestanden.
+Sie wartet jetzt darauf, dass etwas auf der Tagesordnung liegt — und das ist auch genau das, was der
+Spieler an dieser Stelle tut.
+
+### Wahlperiode: vier Jahre
+
+`ELECTION_MONTHS` stand auf fünf Jahren, weil eine Kommunalwahl in den meisten Ländern fünfjährig
+ist. Für diese Stadt ist das das falsche Land: Lindenhafens Grundriss ist Bremen, und die Bremische
+Bürgerschaft wird **vierjährig** gewählt. Also Januar 2030 und Januar 2034 — die erste früh genug,
+dass eine verlorene Wahl noch eine Antwort zulässt.

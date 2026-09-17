@@ -49,7 +49,7 @@ describe('the campaign clock', () => {
     game.setSpeed(4)
     game.openDecisionSheet('saf-burglary-series')
 
-    game.lastVoteResult = {
+    game.voteQueue = [{
       optionId: 'saf-burglary-order',
       passed: true,
       yesSeats: 34,
@@ -57,7 +57,7 @@ describe('the campaign clock', () => {
       abstainSeats: 6,
       votes: [],
       forecast: { expectedYesSeats: 34, expectedNoSeats: 20, majorityProbability: 0.8, parties: [] },
-    }
+    }]
     game.openDecisionSheet(null)
     expect(game.speed, 'the result is still there to be read').toBe(0)
 

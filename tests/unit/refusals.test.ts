@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { EVENTS } from '../../app/content/events'
 import { BASELINE_METRICS } from '../../app/simulation/baseline'
 import { eligibleEvents } from '../../app/simulation/events'
-import { advanceMonths, createInitialState, motionOnTheAgenda, proposePolicy, resolveDecision, voteOnMotion } from '../../app/simulation/model'
+import { advanceMonths, createInitialState, motionOnTheAgenda, resolveDecision, voteOnMotion, voteOnPolicy } from '../../app/simulation/model'
 import { BASELINE_SITUATION } from '../../app/simulation/situation'
 
 /**
@@ -129,6 +129,6 @@ describe('what comes back because it was refused', () => {
     expect(motionOnTheAgenda(state, 'housing-accelerator')).toBeNull()
     expect(voteOnMotion(state, 'housing-accelerator', 'yes').result).toBeNull()
     // Der Weg hinein ist das Einbringen, und das lässt den Rat abstimmen.
-    expect(proposePolicy(state, 'housing-accelerator').result).not.toBeNull()
+    expect(voteOnPolicy(state, 'housing-accelerator').result).not.toBeNull()
   })
 })

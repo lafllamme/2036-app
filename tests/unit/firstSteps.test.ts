@@ -14,8 +14,8 @@ import { FIRST_STEPS, stepCleared } from '../../app/content/firstSteps'
 
 const ANCHORS = ['none', 'railButton', 'motionsButton', 'rail', 'seats', 'motions', 'ways', 'submit', 'advance']
 
-const NOTHING: StepWorld = { railOpen: false, decisionsOpen: false, sheetOpen: false, voteCast: false }
-const EVERYTHING: StepWorld = { railOpen: true, decisionsOpen: true, sheetOpen: true, voteCast: true }
+const NOTHING: StepWorld = { railOpen: false, decisionsOpen: false, sheetOpen: false, tabled: false }
+const EVERYTHING: StepWorld = { railOpen: true, decisionsOpen: true, sheetOpen: true, tabled: true }
 
 describe('einarbeitung', () => {
   /**
@@ -25,7 +25,7 @@ describe('einarbeitung', () => {
    */
   it('lässt den Spieler viermal wirklich handeln, und in der richtigen Reihenfolge', () => {
     const waits = FIRST_STEPS.filter(step => step.gate !== 'hand')
-    expect(waits.map(step => step.gate)).toEqual(['railOpen', 'decisionsOpen', 'sheetOpen', 'voteCast'])
+    expect(waits.map(step => step.gate)).toEqual(['railOpen', 'decisionsOpen', 'sheetOpen', 'tabled'])
   })
 
   /** Und die Fläche, die ein Schritt erklärt, kommt nach dem Klick, der sie aufmacht. */
@@ -71,7 +71,7 @@ describe('einarbeitung', () => {
       expect(stepCleared(step, NOTHING), step.id).toBe(false)
       expect(stepCleared(step, EVERYTHING), step.id).toBe(true)
       // Und nicht durch eine der anderen drei Handlungen.
-      for (const other of ['railOpen', 'decisionsOpen', 'sheetOpen', 'voteCast'] as const) {
+      for (const other of ['railOpen', 'decisionsOpen', 'sheetOpen', 'tabled'] as const) {
         if (other === step.gate)
           continue
         expect(stepCleared(step, { ...NOTHING, [other]: true }), `${step.id} durch ${other}`).toBe(false)

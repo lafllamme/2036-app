@@ -89,6 +89,20 @@ function withoutPreparation(motionPrep: Record<string, MotionPreparation>, motio
   return Object.fromEntries(Object.entries(motionPrep).filter(([id]) => id !== motionId))
 }
 
+/**
+ * Ein Punkt auf der Tagesordnung der nächsten Ratssitzung.
+ *
+ * `sourceId` ist eine Ereignis- oder eine Vorlagenkennung — dieselben zwei Wege, die auch vorher
+ * beide in derselben Abstimmung endeten. `vote` ist die eigene Haltung: wer selbst einbringt, stimmt
+ * zu; bei einer fremden Vorlage steht hier, was man ihr entgegenbringt.
+ */
+export interface AgendaItem {
+  sourceId: string
+  optionId: string
+  vote: PartyVote
+  tabledMonth: number
+}
+
 export interface SimulationState {
   seed: number
   month: number
@@ -128,7 +142,31 @@ export interface SimulationState {
    * `measures`: eine Maßnahme in der Schwebe wäre eine, die schon wirkt und trotzdem nicht
    * stattfindet. Null in Spielständen von vorher und immer dann, wenn nichts wartet.
    */
-  siting: { policyId: string, decidedMonth: number } | null
+  /**
+   * Was in der nächsten Ratssitzung abgestimmt wird.
+   *
+   * Eingebracht heißt seit dem Sitzungskalender: **steht auf der Tagesordnung**, nicht: ist
+   * beschlossen. Dazwischen liegt ein Monat, und in dem Monat kann man verhandeln, Kampagne machen —
+   * und die Gegenseite auch. Vorher wurde in derselben Sekunde abgestimmt, in der man eingebracht
+   * hat, und genau deshalb hat nie jemand die zwölf Kapital für eine Verhandlung ausgegeben: man
+   * konnte auch einfach abstimmen lassen.
+   */
+  agenda: AgendaItem[]
+  /**
+   * Was die letzte Sitzung ergeben hat.
+   *
+   * Steht im Zustand und nicht im Rückgabewert, weil `advanceMonths` von zwei Dutzend Stellen
+   * gerufen wird und keine davon Sitzungsergebnisse will. Der Worker liest sie nach dem Monatswechsel
+   * heraus und schickt sie an die Oberfläche; danach sind sie Geschichte.
+   */
+  lastSession: VoteResult[]
+  /**
+   * Beschlossene Vorlagen, die noch auf ihren Standort warten.
+   *
+   * Eine Liste und kein einzelner Platz, seit eine Sitzung mehrere Vorlagen auf einmal beschließt:
+   * gehen zwei Bauvorlagen an einem Abend durch, warten zwei Standorte. Gefragt wird nach dem ersten.
+   */
+  siting: { policyId: string, decidedMonth: number }[]
   /**
    * Wohin jede verortete Vorlage gegangen ist.
    *
@@ -321,7 +359,9 @@ export function createInitialState(
     stocks: { ...BASELINE_STOCKS },
     perception: { ...BASELINE_PERCEPTION, mediaAttention: { ...BASELINE_PERCEPTION.mediaAttention } },
     measures: [],
-    siting: null,
+    agenda: [],
+    lastSession: [],
+    siting: [],
     sites: {},
     hotspots: [],
     spread: initialSpread(),
@@ -617,6 +657,9 @@ export function voteOnMotion(state: SimulationState, eventId: string, vote: Part
   return decide(state, eventId, optionId, vote)
 }
 
+/** Was ein Dringlichkeitsantrag kostet: er übergeht den Kalender und stimmt sofort ab. */
+export const URGENCY_COST = 15
+
 /** Take one road at a Weggabelung. Choosing it is tabling it, and tabling it is your yes. */
 export function resolveDecision(state: SimulationState, eventId: string, optionId: string): { state: SimulationState, result: VoteResult | null } {
   // Auf eine Vorlage antwortet man mit einer Haltung, nicht mit einer Auswahl. `voteOnMotion` ist
@@ -625,6 +668,78 @@ export function resolveDecision(state: SimulationState, eventId: string, optionI
     return { state, result: null }
   // Wer einbringt, stimmt zu, und die eigene Fraktion folgt.
   return decide(state, eventId, optionId, 'yes')
+}
+
+/**
+ * Der Dringlichkeitsantrag: sofort abstimmen, am Kalender vorbei.
+ *
+ * Kein Komfort, sondern eine Notwendigkeit. Krisenereignisse haben Fristen von ein bis zwei Monaten,
+ * und eine gesperrte Hafenbrücke wartet nicht auf die nächste Sitzung. Er kostet fast so viel wie
+ * eine Kampagne, also benutzt man ihn selten und ärgert sich, wenn man muss — genau das soll er.
+ */
+export function callUrgent(state: SimulationState, sourceId: string, optionId: string, vote: PartyVote = 'yes'): { state: SimulationState, result: VoteResult | null } {
+  if (state.metrics.politicalCapital < URGENCY_COST)
+    return { state, result: null }
+  const paid: SimulationState = {
+    ...withdrawMotion(state, sourceId),
+    metrics: { ...state.metrics, politicalCapital: clamp(state.metrics.politicalCapital - URGENCY_COST) },
+  }
+  return getEvent(sourceId) ? decide(paid, sourceId, optionId, vote) : voteOnPolicy(paid, sourceId)
+}
+
+/**
+ * Wie viele Punkte eine Sitzung schafft.
+ *
+ * Drei. Nicht, weil ein Rat nicht mehr könnte, sondern weil eine Tagesordnung eine Entscheidung sein
+ * soll: was du drauf setzt, setzt jemand anders nicht drauf — und eine Sitzung mit drei Ergebnissen
+ * ist ein Abend, eine mit acht eine Liste.
+ */
+export const AGENDA_SEATS = 3
+
+/**
+ * Etwas auf die Tagesordnung der nächsten Sitzung setzen.
+ *
+ * Der Kern des Sitzungskalenders. Vorher hieß „einbringen“: in derselben Sekunde abstimmen — und
+ * deshalb hat in elf Jahren niemand die zwölf Kapital für eine Verhandlung ausgegeben, obwohl sie
+ * seit Monaten im Spiel sind. Wer sofort abstimmen lassen kann, verhandelt nicht.
+ *
+ * Doppelt geht nicht, und voll ist voll: eine Tagesordnung mit drei Plätzen ist eine Entscheidung
+ * darüber, was **diesen** Monat drankommt.
+ */
+export function tableMotion(state: SimulationState, sourceId: string, optionId: string, vote: PartyVote = 'yes'): SimulationState {
+  if (state.agenda.length >= AGENDA_SEATS || state.agenda.some(item => item.sourceId === sourceId))
+    return state
+  return { ...state, agenda: [...state.agenda, { sourceId, optionId, vote, tabledMonth: state.month }] }
+}
+
+/** Und wieder herunter, solange die Sitzung nicht war. Ein Antrag ist zurückziehbar. */
+export function withdrawMotion(state: SimulationState, sourceId: string): SimulationState {
+  return { ...state, agenda: state.agenda.filter(item => item.sourceId !== sourceId) }
+}
+
+/**
+ * Die Ratssitzung: alles, was auf der Tagesordnung steht, der Reihe nach.
+ *
+ * Läuft einmal je Monat, am Monatswechsel. Was beschlossen wird, wirkt ab sofort; was durchfällt,
+ * ist erledigt. Die Tagesordnung ist danach leer — wer etwas wiederhaben will, setzt es neu drauf.
+ */
+export function holdSession(state: SimulationState): { state: SimulationState, results: VoteResult[] } {
+  if (state.agenda.length === 0)
+    return { state, results: [] }
+
+  let next: SimulationState = { ...state, agenda: [] }
+  const results: VoteResult[] = []
+
+  for (const item of state.agenda) {
+    const outcome = getEvent(item.sourceId)
+      ? decide(next, item.sourceId, item.optionId, item.vote)
+      : voteOnPolicy(next, item.sourceId)
+    next = outcome.state
+    if (outcome.result)
+      results.push(outcome.result)
+  }
+
+  return { state: next, results }
 }
 
 /** Was eine laute, hauchdünn entschiedene Abstimmung an Polarisierung hinterlässt. */
@@ -794,7 +909,10 @@ export function migrateState(state: SimulationState): SimulationState {
     relationships: state.relationships ?? {},
     motionPrep: state.motionPrep ?? {},
     // Spielstände von vor der Standortwahl warten auf nichts.
-    siting: state.siting ?? null,
+    agenda: state.agenda ?? [],
+    lastSession: state.lastSession ?? [],
+    // Spielstände von vor der Warteschlange hatten höchstens einen — oder gar keinen.
+    siting: Array.isArray(state.siting) ? state.siting : (state.siting ? [state.siting] : []),
     sites: state.sites ?? {},
     hotspots: state.hotspots ?? [],
     spread: state.spread ?? initialSpread(),
@@ -864,7 +982,7 @@ export function applyPolicy(state: SimulationState, policyId: string, districtId
     throw new Error(`Unknown policy: ${policyId}`)
 
   if (districtId === null && needsSite(definition))
-    return { ...state, siting: { policyId, decidedMonth: state.month } }
+    return { ...state, siting: [...state.siting, { policyId, decidedMonth: state.month }] }
 
   const next = adoptMeasure(state, policyId, sitedOption(definition, districtId), 'governance')
   return pushNews(
@@ -909,13 +1027,13 @@ function sitedOption(definition: PolicyDefinition, districtId: DistrictId | null
  * ein Befehl, der daran vorbeigeht, wäre eine Abkürzung um genau die Wahl herum, um die es geht.
  */
 export function chooseSite(state: SimulationState, districtId: DistrictId): SimulationState {
-  const waiting = state.siting
+  const waiting = state.siting[0]
   if (!waiting || !offered(waiting.policyId, state.seed, districtId))
     return state
 
   const bite = unrestAt(districtId)
   const settled = applyPolicy(
-    { ...state, siting: null, metrics: { ...state.metrics, satisfaction: clamp(state.metrics.satisfaction - bite) } },
+    { ...state, siting: state.siting.slice(1), metrics: { ...state.metrics, satisfaction: clamp(state.metrics.satisfaction - bite) } },
     waiting.policyId,
     districtId,
   )
@@ -940,7 +1058,14 @@ export function chooseSite(state: SimulationState, districtId: DistrictId): Simu
 }
 
 /** Put one of the three standing motions to the council instead of adopting it directly. */
-export function proposePolicy(state: SimulationState, policyId: string): { state: SimulationState, result: VoteResult | null } {
+/**
+ * Eine eigene Vorlage zur Abstimmung stellen.
+ *
+ * Hieß einmal `proposePolicy` und war zugleich das Einbringen. Seit dem Sitzungskalender ist das
+ * Einbringen `tableMotion`, und hier steht nur noch die Abstimmung selbst — gerufen aus der Sitzung
+ * oder von einem Dringlichkeitsantrag.
+ */
+export function voteOnPolicy(state: SimulationState, policyId: string): { state: SimulationState, result: VoteResult | null } {
   const definition = getPolicy(policyId)
   // Keine Fraktion bringt das Programm einer anderen ein. Die Auswahl selbst steht im Inhalt.
   if (!definition || !mayTable(state.partyId, policyId) || state.policies.some(policy => policy.id === policyId))
@@ -1115,7 +1240,7 @@ function visualsFrom(metrics: CityMetrics, stocks: CityStocks): CityVisualState 
  * dieselbe Frage, und eine davon ist irgendwann falsch.
  */
 function sitingView(state: SimulationState): PendingSiting | null {
-  const waiting = state.siting
+  const waiting = state.siting[0]
   if (!waiting)
     return null
   const definition = getPolicy(waiting.policyId)
@@ -1174,6 +1299,14 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     pendingDecisions: state.pending,
     motionPreparation: state.motionPrep,
     pendingSiting: sitingView(state),
+    agenda: state.agenda.map(item => ({
+      sourceId: item.sourceId,
+      title: getEvent(item.sourceId)?.title ?? getPolicy(item.sourceId)?.name ?? item.sourceId,
+      optionId: item.optionId,
+      vote: item.vote,
+      tabledMonth: item.tabledMonth,
+    })),
+    agendaSeats: AGENDA_SEATS,
     sites: state.sites,
     districtMetrics: Object.fromEntries(LINDENHAFEN.districts.map(district => [district.id, {
       averageRent: valueIn(state.metrics.averageRent, state.spread.averageRent, district.id),
@@ -1575,6 +1708,16 @@ function advanceOneMonth(state: SimulationState): SimulationState {
    * nicht im nächsten — die Rechnung kommt, wenn man sie ausgesessen hat, und nicht später.
    */
   next = tickHotspots(next, month)
+
+  /*
+   * Und dann tagt der Rat.
+   *
+   * Vor dem Ereignis des Monats, damit eine Vorlage, die heute beschlossen wird, noch heute gilt —
+   * und damit das, was der Rat gerade beschlossen hat, nicht vom nächsten Ereignis überholt wird,
+   * bevor es überhaupt im Stadtfunk stand.
+   */
+  const session = holdSession(next)
+  next = { ...session.state, lastSession: session.results }
 
   const drawn = drawEvent(drawState, monthOfYear, createRandomStream(state.seed, `events:${month}`))
 

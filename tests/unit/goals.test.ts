@@ -4,7 +4,7 @@ import { EVENTS } from '../../app/content/events'
 import { CAMPAIGN_GOALS, goalIsMet } from '../../app/content/goals'
 import { hotspotTemplate } from '../../app/content/hotspots'
 import { policiesFor } from '../../app/content/policies'
-import { advanceMonths, answerSituation, createInitialState, motionOnTheAgenda, proposePolicy, resolveDecision, voteOnMotion } from '../../app/simulation/model'
+import { advanceMonths, answerSituation, createInitialState, motionOnTheAgenda, resolveDecision, voteOnMotion, voteOnPolicy } from '../../app/simulation/model'
 
 /**
  * Ein Ziel muss zu schaffen sein — und nicht von allein.
@@ -37,7 +37,7 @@ const FIELDS: string[][] = [
 function play(party: PartyId, favour: string[]): CityMetrics {
   let state = createInitialState(2036, party, [])
   if (favour.length > 0) {
-    for (const policy of policiesFor(party)) state = proposePolicy(state, policy.id).state
+    for (const policy of policiesFor(party)) state = voteOnPolicy(state, policy.id).state
   }
 
   for (let month = 0; month < 131; month += 1) {

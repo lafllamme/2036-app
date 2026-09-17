@@ -56,7 +56,15 @@ export const useGameStore = defineStore('game', () => {
   const rendererStats = shallowRef<RendererStats | null>(null)
   const experienceStage = ref<ExperienceStage>('title')
   const openDecisionId = ref<string | null>(null)
-  const lastVoteResult = shallowRef<VoteResult | null>(null)
+  /**
+   * Die Abstimmungsergebnisse, die noch gezeigt werden müssen — eines nach dem anderen.
+   *
+   * Eine Warteschlange, seit der Rat einmal im Monat tagt und dabei bis zu drei Vorlagen abstimmt.
+   * Vorher war es immer genau eins, weil jede Abstimmung für sich stattfand; drei Ergebnisse
+   * gleichzeitig übereinanderzulegen wäre ein Stapel, dessen oberstes Blatt alle Klicks schluckt.
+   */
+  const voteQueue = shallowRef<VoteResult[]>([])
+  const lastVoteResult = computed(() => voteQueue.value[0] ?? null)
   const forecasts = shallowRef<Record<string, VoteForecast>>({})
   const selectedPartyId = ref<PartyId | null>(null)
   /**
@@ -346,7 +354,10 @@ export const useGameStore = defineStore('game', () => {
       return
     }
     if (data.type === 'VOTE_RESULT')
-      lastVoteResult.value = data.result
+      voteQueue.value = [...voteQueue.value, data.result]
+    // Eine Sitzung bringt mehrere auf einmal; gezeigt werden sie hintereinander.
+    if (data.type === 'SESSION')
+      voteQueue.value = [...voteQueue.value, ...data.results]
 
     const previous = snapshot.value
     snapshot.value = data.snapshot
@@ -672,8 +683,7 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function applyPolicy(policyId: string): void {
-    holdClock()
-    send({ type: 'APPLY_POLICY', policyId })
+    send({ type: 'TABLE_MOTION', sourceId: policyId, optionId: policyId })
   }
 
   /**
@@ -743,12 +753,34 @@ export const useGameStore = defineStore('game', () => {
     send({ type: 'REQUEST_FORECAST', eventId })
   }
 
+  /**
+   * Auf die Tagesordnung der nächsten Ratssitzung.
+   *
+   * Hieß einmal „Einbringen“ und war zugleich die Abstimmung. Seit dem Sitzungskalender liegt ein
+   * Monat dazwischen — und darin steckt der ganze Sinn: in diesem Monat kann verhandelt und Kampagne
+   * gemacht werden, und die Gegenseite kann dasselbe tun. Die Uhr hält danach **nicht** mehr an; im
+   * Gegenteil, sie muss laufen, damit die Sitzung kommt.
+   */
   function resolveDecision(eventId: string, optionId: string): void {
+    send({ type: 'TABLE_MOTION', sourceId: eventId, optionId })
+    openDecisionId.value = null
+    resumeIfClear()
+  }
+
+  /** Und wieder herunter davon, solange die Sitzung nicht war. */
+  function withdrawMotion(sourceId: string): void {
+    send({ type: 'WITHDRAW_MOTION', sourceId })
+  }
+
+  /**
+   * Am Kalender vorbei: sofort abstimmen lassen, für politisches Kapital.
+   *
+   * Keine Bequemlichkeit, sondern der Ausweg für die Fälle, in denen ein Monat zu lang ist — eine
+   * gesperrte Hafenbrücke wartet nicht auf die nächste Sitzung.
+   */
+  function callUrgent(sourceId: string, optionId: string, vote?: PartyVote): void {
     holdClock()
-    // A standing motion has no pending entry in the worker, so it goes through the policy path.
-    if (getEvent(eventId))
-      send({ type: 'RESOLVE_DECISION', eventId, optionId })
-    else send({ type: 'APPLY_POLICY', policyId: eventId })
+    send({ type: 'CALL_URGENT', sourceId, optionId, vote })
     openDecisionId.value = null
   }
 
@@ -760,9 +792,11 @@ export const useGameStore = defineStore('game', () => {
    * the same way a resolution holds it, because the council still has to answer.
    */
   function voteOnMotion(eventId: string, vote: PartyVote): void {
-    holdClock()
-    send({ type: 'VOTE_ON_MOTION', eventId, vote })
+    // Auch die eigene Haltung zu einer fremden Vorlage geht auf die Tagesordnung, nicht sofort durch.
+    const tabled = pendingDecisions.value.find(entry => entry.eventId === eventId)
+    send({ type: 'TABLE_MOTION', sourceId: eventId, optionId: tabled?.tabledOptionId ?? eventId, vote })
     openDecisionId.value = null
+    resumeIfClear()
   }
 
   /**
@@ -797,7 +831,7 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function dismissVoteResult(): void {
-    lastVoteResult.value = null
+    voteQueue.value = voteQueue.value.slice(1)
     resumeIfClear()
   }
 
@@ -936,6 +970,7 @@ export const useGameStore = defineStore('game', () => {
     pendingDecisions,
     forecasts,
     lastVoteResult,
+    voteQueue,
     decisionDefinition,
     openDecisionSheet,
     voteOnMotion,
@@ -945,6 +980,8 @@ export const useGameStore = defineStore('game', () => {
     campaignFor,
     chooseSite,
     answerHotspot,
+    withdrawMotion,
+    callUrgent,
     dismissVoteResult,
     currentDate,
     monthProgress,

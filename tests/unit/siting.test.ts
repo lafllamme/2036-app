@@ -115,7 +115,7 @@ describe('standortwahl', () => {
     const before = createInitialState(SEED)
     const waiting = applyPolicy(before, 'housing-accelerator')
 
-    expect(waiting.siting?.policyId).toBe('housing-accelerator')
+    expect(waiting.siting[0]?.policyId).toBe('housing-accelerator')
     expect(waiting.measures).toHaveLength(before.measures.length)
     expect(waiting.metrics.cityBudget).toBe(before.metrics.cityBudget)
     expect(waiting.policies).toHaveLength(0)
@@ -125,7 +125,7 @@ describe('standortwahl', () => {
     expect(sites[0]!.cost).toBeLessThan(sites[2]!.cost)
 
     const done = chooseSite(waiting, sites[0]!.districtId)
-    expect(done.siting).toBeNull()
+    expect(done.siting).toHaveLength(0)
     expect(done.sites['housing-accelerator']).toBe(sites[0]!.districtId)
     expect(done.measures.length).toBeGreaterThan(before.measures.length)
     expect(done.metrics.cityBudget).toBeLessThan(before.metrics.cityBudget)
@@ -133,7 +133,7 @@ describe('standortwahl', () => {
 
   it('lässt eine ortlose Vorlage sofort durch', () => {
     const done = applyPolicy(createInitialState(SEED), 'spd-social-ticket')
-    expect(done.siting).toBeNull()
+    expect(done.siting).toHaveLength(0)
     expect(done.policies).toHaveLength(1)
   })
 
@@ -143,7 +143,7 @@ describe('standortwahl', () => {
     const outside = SITES_BY_COST.find(site => !offers.includes(site.districtId))!
 
     expect(chooseSite(waiting, outside.districtId)).toBe(waiting)
-    expect(chooseSite(waiting, outside.districtId).siting).not.toBeNull()
+    expect(chooseSite(waiting, outside.districtId).siting).toHaveLength(1)
   })
 
   /** Der teure Standort muss im Haushalt und in der Stimmung wehtun, sonst wählt ihn jeder. */

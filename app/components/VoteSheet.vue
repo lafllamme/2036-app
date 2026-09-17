@@ -188,6 +188,20 @@ function vote(choice: PartyVote): void {
   game.voteOnMotion(definitionId, choice)
 }
 
+/**
+ * Am Kalender vorbei abstimmen lassen.
+ *
+ * Nimmt die Vorlage zugleich von der Tagesordnung, falls sie schon drauflag — sonst stünde sie nach
+ * der Abstimmung immer noch dort und käme am Monatsende ein zweites Mal dran.
+ */
+function urgent(option: EventOption): void {
+  const definitionId = openDecision.value?.definition.id
+  if (!definitionId)
+    return
+  sound.play('vote.called')
+  game.callUrgent(definitionId, option.id, isVorlage.value ? 'yes' : undefined)
+}
+
 function startCampaign(optionId: string): void {
   const definitionId = openDecision.value?.definition.id
   if (!definitionId)
@@ -415,6 +429,19 @@ watch(() => openDecision.value?.definition.id, () => {
             {{ openDecision.prepared.campaignedOptionIds.includes(chosen.id) ? 'Kampagne läuft' : 'Kampagne · 18 Kapital' }}
           </button>
           <span class="spacer" />
+          <!--
+            Dringlich: am Kalender vorbei, sofort. Steht links und leise, weil es die Ausnahme ist —
+            fast so teuer wie eine Kampagne, und man ärgert sich, wenn man muss.
+          -->
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm"
+            :disabled="capital < 15"
+            title="Übergeht die Tagesordnung und stimmt sofort ab"
+            @click="urgent(chosen)"
+          >
+            Dringlich · 15 Kapital
+          </button>
           <template v-if="isVorlage">
             <button type="button" class="btn btn--ghost btn--sm" @click="vote('no')">
               {{ VOTE_LABELS.no }}
@@ -427,7 +454,7 @@ watch(() => openDecision.value?.definition.id, () => {
             </button>
           </template>
           <button v-else data-first-step="submit" type="button" class="btn" @click="callVote(chosen)">
-            {{ onTheAgenda ? 'Abstimmen lassen' : 'Einbringen' }}
+            Auf die Tagesordnung
           </button>
         </div>
       </section>

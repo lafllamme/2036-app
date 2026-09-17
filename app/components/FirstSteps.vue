@@ -28,7 +28,7 @@ import { useGameStore } from '~/stores/game'
  */
 
 const game = useGameStore()
-const { openDecisionId, lastVoteResult, selectedPartyId, experienceStage, leaderName, railOpen, decisionsOpen } = storeToRefs(game)
+const { openDecisionId, lastVoteResult, selectedPartyId, experienceStage, leaderName, railOpen, decisionsOpen, snapshot } = storeToRefs(game)
 const coach = useFirstSteps()
 
 const box = ref<{ top: number, left: number, width: number, height: number } | null>(null)
@@ -122,7 +122,7 @@ const world = computed(() => ({
   railOpen: railOpen.value,
   decisionsOpen: decisionsOpen.value,
   sheetOpen: openDecisionId.value !== null,
-  voteCast: lastVoteResult.value !== null,
+  tabled: (snapshot.value?.agenda.length ?? 0) > 0,
 }))
 
 /*

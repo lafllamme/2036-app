@@ -17,6 +17,11 @@ const openMotions = computed(() =>
 const standingMotions = computed(() =>
   policiesFor(game.selectedPartyId).filter(policy => !snapshot.value?.activePolicyIds.includes(policy.id)))
 
+const agenda = computed(() => snapshot.value?.agenda ?? [])
+
+/** Wie die eigene Haltung zu einem Punkt heißt, wenn sie neben ihm steht. */
+const STANCE = { yes: 'dafür', no: 'dagegen', abstain: 'Enthaltung' } as const
+
 const measures = computed(() => snapshot.value?.activeMeasures.filter(measure => measure.monthlyCost !== 0) ?? [])
 const monthlyCost = computed(() => measures.value.reduce((sum, measure) => sum + measure.monthlyCost, 0))
 
@@ -78,6 +83,25 @@ watch(() => openMotions.value.length, (now, before) => {
         </button>
       </article>
 
+      <!--
+        Die Tagesordnung der nächsten Sitzung.
+        Steht ganz oben, weil sie das ist, was als Nächstes passiert — und weil man in dem Monat
+        dazwischen noch etwas tun kann: verhandeln, Kampagne machen, oder es wieder herunternehmen.
+      -->
+      <section v-if="agenda.length > 0" class="group agenda-list">
+        <h4>Tagesordnung · {{ agenda.length }} von {{ snapshot?.agendaSeats ?? 3 }}</h4>
+        <div v-for="item in agenda" :key="item.sourceId" class="tabled">
+          <span class="name">{{ item.title }}</span>
+          <span class="stance">{{ STANCE[item.vote] }}</span>
+          <button type="button" class="drop" title="Von der Tagesordnung nehmen" @click="game.withdrawMotion(item.sourceId)">
+            entfernen
+          </button>
+        </div>
+        <p class="hint">
+          Abgestimmt wird am Monatsende. Bis dahin zählt, wen du überzeugst.
+        </p>
+      </section>
+
       <section v-if="standingMotions.length > 0" data-first-step="motions" class="group">
         <h4>Was du einbringen kannst</h4>
         <button
@@ -124,6 +148,24 @@ watch(() => openMotions.value.length, (now, before) => {
 </template>
 
 <style scoped>
+/*
+ * Die Tagesordnung sieht anders aus als die Liste darunter: was darauf steht, ist entschieden
+ * eingebracht und wartet nur noch auf den Termin. Eine Zeile, eine Haltung, ein Ausweg.
+ */
+.agenda-list .tabled {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 7px 0; border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.agenda-list .tabled:first-of-type { border-top: 0; }
+.agenda-list .name { flex: 1; font-size: 13.5px; color: var(--ink); }
+.agenda-list .stance { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+.agenda-list .drop {
+  border: 0; background: none; padding: 0; cursor: pointer;
+  font-family: var(--text); font-size: 11.5px; color: var(--ink-3);
+}
+.agenda-list .drop:hover { color: var(--negative); }
+.agenda-list .hint { margin: 9px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-3); }
+
 .agenda {
   /*
    * Höher als das Deck, aber nie bis an die Oberkante. Ein Körper hat Luft über sich; eine Wand

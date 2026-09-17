@@ -235,7 +235,7 @@ describe('modal arbitration', () => {
     const { useGameStore } = await import('../../app/stores/game')
     const game = useGameStore()
 
-    game.lastVoteResult = {
+    game.voteQueue = [{
       optionId: 'saf-burglary-order',
       passed: true,
       yesSeats: 34,
@@ -243,7 +243,7 @@ describe('modal arbitration', () => {
       abstainSeats: 6,
       votes: [],
       forecast: { expectedYesSeats: 34, expectedNoSeats: 20, majorityProbability: 0.8, parties: [] },
-    }
+    }]
     game.openDecisionSheet('saf-burglary-series')
 
     expect(game.openDecisionId).toBe('saf-burglary-series')

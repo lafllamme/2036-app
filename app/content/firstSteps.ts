@@ -65,14 +65,21 @@ export type StepAnchor
  * Einarbeitung: wer sich nur durchklickt, hat nichts getan; wer am Ende ankommt, hat das Spiel
  * einmal gespielt.
  */
-export type StepGate = 'hand' | 'railOpen' | 'decisionsOpen' | 'sheetOpen' | 'voteCast'
+export type StepGate = 'hand' | 'railOpen' | 'decisionsOpen' | 'sheetOpen' | 'tabled'
 
 /** Was das Spiel dem Drehbuch über den Spieler meldet. */
 export interface StepWorld {
   railOpen: boolean
   decisionsOpen: boolean
   sheetOpen: boolean
-  voteCast: boolean
+  /**
+   * Ob etwas auf der Tagesordnung liegt.
+   *
+   * Hieß einmal `voteCast` und wartete auf das Abstimmungsergebnis — seit dem Sitzungskalender kommt
+   * das erst am Monatsende, und die Einarbeitung stand bis dahin still. Was der Spieler hier wirklich
+   * tut, ist einbringen; das Ergebnis sieht er, wenn der Rat tagt.
+   */
+  tabled: boolean
 }
 
 export interface FirstStep {
@@ -142,10 +149,10 @@ export const FIRST_STEPS: FirstStep[] = [
   {
     id: 'submit',
     anchor: 'submit',
-    title: 'Jetzt bring sie ein.',
-    body: 'Danach stimmt der Rat ab, und du bekommst das Ergebnis Fraktion für Fraktion. Angenommen oder abgelehnt — beides ist eine Antwort, und beides kostet dich nichts als diesen einen Versuch.',
-    gate: 'voteCast',
-    waiting: 'Wartet auf die Abstimmung',
+    title: 'Setz sie auf die Tagesordnung.',
+    body: 'Abgestimmt wird am Monatsende, in der Ratssitzung. Der Monat dazwischen ist deiner: verhandeln, Kampagne machen, oder zusehen, wie die Gegenseite dasselbe tut. Wer es eilig hat, kann auch sofort abstimmen lassen — das kostet 15 Kapital.',
+    gate: 'tabled',
+    waiting: 'Wartet auf deinen Antrag',
   },
   {
     id: 'clock',

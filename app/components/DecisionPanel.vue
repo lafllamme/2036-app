@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import type { PartyId } from '~/core/contracts'
 import { storeToRefs } from 'pinia'
 import { computed, watch } from 'vue'
+import { PARTIES } from '~/content/parties'
 import { policiesFor } from '~/content/policies'
 import { useGameStore } from '~/stores/game'
 import { CATEGORY_LABELS, effectTone, formatNumber, targetLabel } from '~/utils/labels'
@@ -14,6 +16,26 @@ const openMotions = computed(() =>
     .filter((item): item is { entry: typeof item.entry, definition: NonNullable<typeof item.definition> } => Boolean(item.definition)))
 
 const agenda = computed(() => snapshot.value?.agenda ?? [])
+
+/**
+ * Wer gerade um ein Gespräch bittet.
+ *
+ * Steht hier und nicht auf der Karte, weil ein Termin keinen Ort hat — das ist der Unterschied zum
+ * Brennpunkt und der ganze Grund, warum es beides gibt.
+ */
+const appointments = computed(() => snapshot.value?.appointments ?? [])
+
+/** Wie lange der Termin noch steht. Mit Plural, weil „noch 1 Monate" wie ein Fehler aussieht. */
+function patience(monthsLeft: number): string {
+  if (monthsLeft === 0)
+    return 'letzte Gelegenheit'
+  return monthsLeft === 1 ? 'noch diesen und nächsten Monat' : `noch ${monthsLeft} Monate`
+}
+
+/** Das Kürzel einer Fraktion, für die Zeile „wessen Stimme wird danach teurer". */
+function abbreviation(partyId: PartyId): string {
+  return PARTIES.find(party => party.id === partyId)?.abbreviation ?? partyId
+}
 
 /*
  * Nur, was die eigene Fraktion auch einbringen würde — und was nicht schon oben steht.
@@ -83,7 +105,7 @@ watch(() => openMotions.value.length, (now, before) => {
     </header>
 
     <div class="body">
-      <p v-if="openMotions.length === 0 && standingMotions.length === 0" class="empty">
+      <p v-if="openMotions.length === 0 && standingMotions.length === 0 && appointments.length === 0" class="empty">
         Zurzeit liegt keine Vorlage vor. Lass die Zeit laufen – Ereignisse erreichen den Rat von selbst.
       </p>
 
@@ -104,6 +126,40 @@ watch(() => openMotions.value.length, (now, before) => {
             : `${item.definition.options.length} Wege prüfen` }}
         </button>
       </article>
+
+      <!--
+        Wer um ein Gespräch bittet.
+
+        Ganz oben und über der Tagesordnung, weil es die einzige Stelle im Spiel ist, an der
+        politisches Kapital **entsteht** — und weil ein Termin verfällt, während eine Vorlage wartet.
+        Keine Mehrheit nötig, kein Geld im Spiel: man klickt die Haltung an, und das war es.
+      -->
+      <section v-for="date in appointments" :key="date.id" class="group appointment">
+        <h4>{{ date.caller }} · {{ patience(date.monthsLeft) }}</h4>
+        <p class="ask">
+          {{ date.body }}
+        </p>
+        <button
+          v-for="option in date.options"
+          :key="option.id"
+          type="button"
+          class="stance-row"
+          @click="game.keepAppointment(date.id, option.id)"
+        >
+          <span class="label">{{ option.label }}</span>
+          <span class="price" :class="{ 'is-gain': option.capital > 0, 'is-loss': option.capital < 0 }">
+            {{ option.capital > 0 ? '+' : '' }}{{ option.capital }}
+          </span>
+          <!--
+            Wessen Stimme danach billiger wird und wessen teurer. Das ist die eigentliche Auskunft:
+            das Kapital bekommt man sofort, die Rechnung dafür kommt in der nächsten Verhandlung.
+          -->
+          <span class="whom">
+            <i v-for="id in option.warms" :key="`w-${id}`" class="warm">{{ abbreviation(id) }}</i>
+            <i v-for="id in option.cools" :key="`c-${id}`" class="cool">{{ abbreviation(id) }}</i>
+          </span>
+        </button>
+      </section>
 
       <!--
         Die Tagesordnung der nächsten Sitzung.
@@ -292,4 +348,34 @@ h4 { margin: 0 0 8px; color: var(--ink-3); font-family: var(--text); font-size: 
  * Obergrenze oben macht das überflüssig: 524 px, solange sie passen, sonst was nach dem Deck übrig
  * bleibt. Eine Regel, beide Richtungen.
  */
+
+/*
+ * Ein Termin sieht anders aus als eine Vorlage, und das ist Absicht: hier wird nicht abgestimmt,
+ * hier wird zugesagt. Die Zeilen sind Knöpfe, nicht Einträge mit einem Knopf daneben.
+ */
+.appointment .ask {
+  margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2);
+}
+
+.stance-row {
+  display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
+  width: 100%; padding: 9px 12px; margin-bottom: 5px;
+  border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.045); color: var(--ink);
+  font-family: var(--text); font-size: 12.5px; text-align: left; cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  transition: background 140ms ease;
+}
+.stance-row:hover { background: rgba(255, 255, 255, 0.09); }
+.stance-row .price { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+.stance-row .price.is-gain { color: var(--good, #6cc78a); }
+.stance-row .price.is-loss { color: var(--bad, #d66a46); }
+
+/* Wessen Stimme danach billiger wird, und wessen teurer. Klein: es ist die Fußnote zum Preis. */
+.stance-row .whom { display: inline-flex; gap: 4px; }
+.stance-row .whom i {
+  font-family: var(--mono); font-style: normal; font-size: 9.5px; line-height: 1;
+  padding: 3px 4px; border-radius: 4px;
+}
+.stance-row .whom .warm { background: rgba(108, 199, 138, 0.2); color: #9ad9b1; }
+.stance-row .whom .cool { background: rgba(214, 106, 70, 0.2); color: #e0a08a; }
 </style>

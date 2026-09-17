@@ -841,6 +841,17 @@ export const useGameStore = defineStore('game', () => {
    * sondern über dieselbe Auswahl, mit der man sich sonst ein Haus ansieht — solange eine Sanierung
    * wartet, ist jeder Klick auf ein Haus ein Beschluss.
    */
+  /**
+   * Einen Termin wahrnehmen — Haltung gegen Rückhalt.
+   *
+   * Die Uhr hält hier **nicht** an, aus demselben Grund wie beim Brennpunkt: ein Termin ist kein
+   * Tagesordnungspunkt. Er läuft neben dem Rat her, hat seine eigene Frist, und wer ihn verstreichen
+   * lässt, hat ihn verstreichen lassen.
+   */
+  function keepAppointment(appointmentId: string, optionId: string): void {
+    send({ type: 'KEEP_APPOINTMENT', appointmentId, optionId })
+  }
+
   function chooseBlock(building: BuildingRecord): void {
     if (!snapshot.value?.pendingBlock)
       return
@@ -1020,6 +1031,7 @@ export const useGameStore = defineStore('game', () => {
     campaignFor,
     chooseSite,
     chooseBlock,
+    keepAppointment,
     answerHotspot,
     withdrawMotion,
     callUrgent,

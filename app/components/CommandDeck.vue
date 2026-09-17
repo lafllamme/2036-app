@@ -185,6 +185,25 @@ function cycleOverlay(): void {
   sound.play(game.overlay === 'none' ? 'hud.railCollapsed' : 'hud.railExpanded')
 }
 
+/**
+ * Was in der Schublade auf einen wartet — Vorlagen **und** Termine.
+ *
+ * Der Punkt zählte nur die Vorlagen, und ein Termin wäre damit unsichtbar gewesen: er steht nicht
+ * im Stadtfunk (er ist keine Nachricht), er hält die Uhr nicht an (er ist kein
+ * Tagesordnungspunkt) — und er verfällt. Eine Mechanik, die man nur findet, wenn man zufällig eine
+ * geschlossene Schublade aufmacht, ist keine.
+ */
+const waiting = computed(() => pendingDecisions.value.length + (snapshot.value?.appointments.length ?? 0))
+
+const waitingLabel = computed(() => {
+  const dates = snapshot.value?.appointments.length ?? 0
+  if (dates === 0)
+    return 'Vorlagen'
+  return pendingDecisions.value.length > 0
+    ? `Vorlagen · ${dates} ${dates === 1 ? 'Termin' : 'Termine'} warten`
+    : `${dates} ${dates === 1 ? 'Termin wartet' : 'Termine warten'}`
+})
+
 const advanceLabel = computed(() => {
   if (nextAction.value === 'decide')
     return 'Vorlage öffnen'
@@ -432,13 +451,13 @@ function toggleDecisions(): void {
         :class="{ 'is-on': decisionsOpen }"
         :aria-pressed="decisionsOpen"
         :aria-label="decisionsOpen ? 'Vorlagen schließen' : 'Vorlagen öffnen'"
-        title="Vorlagen"
+        :title="waitingLabel"
         @click="toggleDecisions"
       >
         <svg viewBox="0 0 24 24" class="icon" aria-hidden="true">
           <path d="M15 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z" /><path d="M14 3v5h5M9 13h6M9 17h4" />
         </svg>
-        <span v-if="pendingDecisions.length > 0" class="badge">{{ pendingDecisions.length }}</span>
+        <span v-if="waiting > 0" class="badge">{{ waiting }}</span>
       </button>
     </section>
   </div>

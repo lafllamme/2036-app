@@ -23,6 +23,7 @@ import type {
   VoteResult,
 } from '../core/contracts'
 import type { RandomStream } from '../core/rng'
+import type { Appointment } from './appointments'
 import type { CityStocks } from './baseline'
 import type { VoteContext } from './council'
 import type { Spread } from './districts'
@@ -43,6 +44,7 @@ import { CAMPAIGN_LAST_MONTH } from '../core/campaign'
 import { formatNumber } from '../core/format'
 import { createRandomStream } from '../core/rng'
 import { LINDENHAFEN } from '../world/model/lindenhafen'
+import { effectOf, expire, openAppointment, viewOf } from './appointments'
 import {
   BASELINE_METRICS,
   BASELINE_PERCEPTION,
@@ -184,6 +186,16 @@ export interface SimulationState {
   blocking: { policyId: string, decidedMonth: number }[]
   /** Und die Blöcke, die daraus geworden sind: laufende wie fertige. */
   renewals: Renewal[]
+  /**
+   * Wer gerade um ein Gespräch bittet — siehe `simulation/appointments.ts`.
+   *
+   * Der Gegenpart zum Brennpunkt: kein Ort, keine Kennzahl, keine Eskalation. Er verfällt, und das
+   * ist die ganze Strafe. Dafür ist er die einzige Stelle im Spiel, an der politisches Kapital
+   * **entsteht** statt zu tropfen.
+   */
+  appointments: Appointment[]
+  /** Wann welcher Gesprächspartner zuletzt drankam, damit derselbe nicht alle drei Monate anruft. */
+  appointmentsAnswered: Record<string, number>
   /**
    * Wohin jede verortete Vorlage gegangen ist.
    *
@@ -381,6 +393,8 @@ export function createInitialState(
     siting: [],
     blocking: [],
     renewals: [],
+    appointments: [],
+    appointmentsAnswered: {},
     sites: {},
     hotspots: [],
     spread: initialSpread(),
@@ -1066,6 +1080,8 @@ export function migrateState(state: SimulationState): SimulationState {
     siting: Array.isArray(state.siting) ? state.siting : (state.siting ? [state.siting] : []),
     blocking: Array.isArray(state.blocking) ? state.blocking : [],
     renewals: Array.isArray(state.renewals) ? state.renewals : [],
+    appointments: Array.isArray(state.appointments) ? state.appointments : [],
+    appointmentsAnswered: state.appointmentsAnswered ?? {},
     sites: state.sites ?? {},
     hotspots: state.hotspots ?? [],
     spread: state.spread ?? initialSpread(),
@@ -1227,6 +1243,72 @@ export function chooseSite(state: SimulationState, districtId: DistrictId): Simu
     : settled.spread
 
   return { ...settled, spread, sites: { ...settled.sites, [waiting.policyId]: districtId } }
+}
+
+/**
+ * Die Termine weiterlaufen lassen: was abgelaufen ist, fliegt raus, und höchstens einer kommt dazu.
+ *
+ * Neben den Brennpunkten und vor der Sitzung. Ein Termin, der im selben Monat aufmacht, in dem man
+ * ihn beantworten könnte, ist richtig so — er hat seine eigene Frist und hält die Uhr nicht an.
+ */
+function tickAppointments(state: SimulationState, month: number): SimulationState {
+  const standing = expire(state.appointments, month)
+  const arrived = openAppointment(
+    standing,
+    state.appointmentsAnswered,
+    month,
+    createRandomStream(state.seed, `appointment:${month}`),
+  )
+  if (!arrived)
+    return standing.length === state.appointments.length ? state : { ...state, appointments: standing }
+
+  /*
+   * **Keine Meldung im Stadtfunk.** Ein Termin ist keine Nachricht, sondern eine Einladung: in der
+   * Stadt ist nichts passiert, jemand möchte reden. Die erste Fassung hat ihn trotzdem gemeldet und
+   * die Leiste damit von 5,7 auf 6,04 Meldungen je Monat gehoben — über die Schwelle, ab der
+   * `bulletin.test.ts` sie für unlesbar hält, und das ist keine willkürliche Zahl: was im Stadtfunk
+   * steht, soll man lesen können.
+   *
+   * Gemeldet wird das **Ergebnis**, in `keepAppointment`, und das ist auch das Richtige — dass der
+   * Handelsverein zur Presse geht, ist eine Nachricht. Dass er anruft, steht als Karte in den
+   * Entscheidungen, und der Punkt am Knopf im Deck sagt, dass dort etwas liegt.
+   */
+  return { ...state, appointments: [...standing, arrived] }
+}
+
+/**
+ * Einen Termin wahrnehmen — Haltung gegen Rückhalt.
+ *
+ * Die einzige Handlung im Spiel, die politisches Kapital **einbringen** kann. Sie hält die Uhr
+ * nicht an und braucht keine Mehrheit: man spricht mit jemandem, und danach steht man da, wo man
+ * sich hingestellt hat. Was das für die nächste Abstimmung heißt, steht in `negotiationCost`.
+ */
+export function keepAppointment(state: SimulationState, id: string, optionId: string): SimulationState {
+  const open = state.appointments.find(entry => entry.id === id)
+  if (!open)
+    return state
+  // Ohne eigene Fraktion — vor der Parteiwahl — gilt niemand als „man selbst", und das ist richtig.
+  const effect = effectOf(open.templateId, optionId, state.partyId ?? 'spd')
+  if (!effect)
+    return state
+
+  const relationships = { ...state.relationships }
+  for (const [partyId, swing] of Object.entries(effect.relationships) as [PartyId, number][])
+    relationships[partyId] = clamp((relationships[partyId] ?? 0) + swing, -1, 1)
+
+  return pushNews({
+    ...state,
+    appointments: state.appointments.filter(entry => entry.id !== id),
+    appointmentsAnswered: { ...state.appointmentsAnswered, [open.templateId]: state.month },
+    relationships,
+    metrics: { ...state.metrics, politicalCapital: clamp(state.metrics.politicalCapital + effect.capital) },
+  }, {
+    id: `${id}-answered`,
+    month: state.month,
+    scope: 'city',
+    urgency: 'normal',
+    headline: `${effect.caller}: ${effect.outcome}`,
+  })
 }
 
 /**
@@ -1536,6 +1618,7 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     ),
     pendingSiting: sitingView(state),
     pendingBlock: blockView(state),
+    appointments: viewOf(state.appointments, state.month, state.partyId ?? 'spd'),
     renewals: state.renewals.map(renewal => ({
       id: renewal.id,
       districtId: renewal.districtId,
@@ -1958,6 +2041,7 @@ function advanceOneMonth(state: SimulationState): SimulationState {
    * nicht im nächsten — die Rechnung kommt, wenn man sie ausgesessen hat, und nicht später.
    */
   next = tickHotspots(next, month)
+  next = tickAppointments(next, month)
 
   /*
    * Und was gerade eingerüstet ist, treibt die Miete in seinem Viertel.

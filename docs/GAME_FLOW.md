@@ -664,3 +664,54 @@ steht, und es schärft ihn: ein Termin ist nicht noch eine Entscheidung, sondern
 Kapital entsteht**. Handelsverein, Mieterbund, Lokalpresse — man gibt eine Haltung her und bekommt
 Rückhalt dafür, und was man dem einen verspricht, macht den anderen teurer. Dieselbe Mechanik wie
 oben, nur dass man sie diesmal selbst auslöst.
+
+
+## Gebaut: die Termine
+
+Politisches Kapital kam von nirgendwo. `BASE_CAPITAL_PER_MONTH` tropfte eine feste Rate in die
+Kasse, ausgegeben wurde sie für Verhandeln, Kampagne und Dringlichkeit. Eine Währung, die eine
+Stoppuhr ist, enthält keine Entscheidung — man kann nur warten, bis man genug hat, und es gibt
+nichts, was man tun könnte, um früher genug zu haben.
+
+Ein Termin ist die Gegenrichtung: jemand will wissen, wo man steht, und man **tauscht Haltung gegen
+Rückhalt.**
+
+> **Stadtsportbund · noch 2 Monate**
+> Neunzehn Vereine teilen sich sieben Hallen, und der Verteilschlüssel ist von 1994.
+>
+> „Euer Schlüssel geht so in die Verwaltung." **+12** · wärmer SPD, CDU · kälter GRÜNE
+> „Ich setze euch mit den kleinen Vereinen an einen Tisch." **+6** · wärmer GRÜNE
+
+Der Preis steht nicht im Kapital, sondern in der nächsten Sitzung: weil `negotiationCost` am
+Verhältnis hängt, macht jede Zusage die Stimme der Gegenseite teurer. Acht Gesprächspartner,
+Handelsverein bis Hafenwirtschaft, im Schnitt einer alle drei Monate, höchstens zwei offen, und
+derselbe ruht nach einer Antwort ein Jahr.
+
+### Was ihn vom Brennpunkt trennt
+
+| | Brennpunkt | Termin |
+| --- | --- | --- |
+| hängt an | einem **Ort** und einer Kennzahl | einer **Beziehung** |
+| wenn man nichts tut | eskaliert und kippt | verfällt |
+| Währung | Geld und Zufriedenheit | Kapital und Verhältnisse |
+| steht | als Marke auf der Karte | als Karte in den Entscheidungen |
+
+Beide füllen denselben Monat. Mit verschiedenen Fragen, und das ist der Punkt.
+
+### Drei Sachen, die erst im Spielen auffielen
+
+**Ein Termin ist keine Nachricht.** Die erste Fassung meldete jeden Anruf im Stadtfunk und hob ihn
+damit von 5,7 auf 6,04 Meldungen je Monat — über die Schwelle, ab der `bulletin.test.ts` die Leiste
+für unlesbar hält. Gemeldet wird jetzt das **Ergebnis**: dass der Handelsverein zur Presse geht, ist
+eine Nachricht; dass er anruft, ist eine Einladung.
+
+**Und er muss trotzdem auffallen.** Er hält die Uhr nicht an, steht nicht im Funk und verfällt — eine
+Mechanik, die man nur findet, wenn man zufällig eine geschlossene Schublade aufmacht, ist keine. Der
+Punkt am Vorlagenknopf zählt ihn deshalb mit.
+
+**Der Nachteil darf nicht verschwinden.** Im Spiel aufgefallen: die Spielerin führte die Grünen, der
+Sportbund-Schlüssel kühlte „gruene" ab — und weil das die eigene Fraktion war, fiel der Nachteil
+ersatzlos weg. Übrig blieb ein kostenloses +12, ausgerechnet bei der Antwort, die als die teure
+gedacht war; je nach gewählter Partei war ein Drittel der Termine geschenkt. Die eigene Basis vor den
+Kopf zu stoßen kostet jetzt den Gewinn — davon bleibt ein gutes Drittel. Man kann mit der eigenen
+Fraktion nicht verhandeln, also den Schaden auch nicht zurückkaufen.

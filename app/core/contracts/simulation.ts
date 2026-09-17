@@ -93,6 +93,8 @@ export interface SimulationSnapshot {
   pendingBlock: { policyId: string, title: string, cost: number, months: number } | null
   /** Die beschlossenen Blocksanierungen, laufende wie fertige. Der Renderer putzt danach die Häuser. */
   renewals: RenewalView[]
+  /** Wer gerade um ein Gespräch bittet. Siehe `simulation/appointments.ts`. */
+  appointments: AppointmentView[]
   /**
    * Die Tagesordnung der nächsten Ratssitzung.
    *
@@ -167,6 +169,25 @@ export type SimulationMessage
  * Der Rat hat entschieden, was gebaut wird. Wo, entscheidet der Spieler, und bis dahin ist nichts
  * bezahlt und nichts gebaut. Siehe `simulation/siting.ts`.
  */
+/**
+ * Ein Termin, so wie ihn die Oberfläche braucht.
+ *
+ * Die einzige Karte im Spiel, deren Antworten **kein Geld** bewegen und keine Mehrheit brauchen: man
+ * gibt eine Haltung her und bekommt Rückhalt dafür. `capital` darf deshalb negativ sein, und
+ * `warms` / `cools` sind die eigentliche Auskunft — sie sagen, wessen Stimme danach billiger und
+ * wessen teurer wird.
+ */
+export interface AppointmentView {
+  id: string
+  templateId: string
+  caller: string
+  title: string
+  body: string
+  /** Wie viele Monate er noch offen steht. Null heißt: dieser Monat ist der letzte. */
+  monthsLeft: number
+  options: { id: string, label: string, capital: number, warms: PartyId[], cools: PartyId[] }[]
+}
+
 /** Eine Blocksanierung, so wie der Renderer und die Karte sie brauchen. */
 export interface RenewalView {
   id: string
@@ -232,6 +253,8 @@ export type SimulationCommandExtra
     | { type: 'CHOOSE_SITE', districtId: DistrictId }
     /** Auf welchen Block die Sanierung geht: das angeklickte Haus. Siehe `simulation/renewal.ts`. */
     | { type: 'CHOOSE_BLOCK', at: { x: number, z: number, districtId: DistrictId } }
+    /** Einen Termin wahrnehmen: Haltung gegen Rückhalt. Siehe `simulation/appointments.ts`. */
+    | { type: 'KEEP_APPOINTMENT', appointmentId: string, optionId: string }
     /** Eine Antwort auf einen Brennpunkt. Ohne Rat, aus eigenen Mitteln. */
     | { type: 'ANSWER_HOTSPOT', id: string, answerId: string }
     /** Auf die Tagesordnung der nächsten Sitzung damit. Abgestimmt wird am Monatsende. */

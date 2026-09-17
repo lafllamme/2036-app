@@ -10,6 +10,7 @@ import {
   chooseSite,
   createInitialState,
   forecastsForEvent,
+  keepAppointment,
   migrateState,
   negotiate,
   resolveDecision,
@@ -84,6 +85,12 @@ globalThis.onmessage = ({ data }: MessageEvent<SimulationCommand>) => {
       case 'CHOOSE_BLOCK': {
         // Auf welchen Häuserzug die Sanierung geht. Erst damit ist sie wirklich beschlossen.
         state = chooseBlock(state, data.at)
+        publish('SNAPSHOT')
+        return
+      }
+      case 'KEEP_APPOINTMENT': {
+        // Haltung gegen Rückhalt. Braucht keine Mehrheit und hält die Uhr nicht an.
+        state = keepAppointment(state, data.appointmentId, data.optionId)
         publish('SNAPSHOT')
         return
       }

@@ -1021,6 +1021,89 @@ function moveBannerFocus(event: KeyboardEvent, index: number): void {
 .profile-sources p { flex-basis: 100%; max-width: 70ch; margin: 6px 0 0; color: var(--faint); font-size: 12px; line-height: 1.6; }
 .profile-confirm { width: 100%; justify-content: center; margin-top: 30px; }
 
+/*
+ * Der Vorsitz. Das Namensfeld trägt das Monogramm rechts, damit der Name sofort ein Gesicht bekommt
+ * und nicht erst auf dem nächsten Bildschirm.
+ */
+.leader-layout { display: grid; gap: 18px; }
+
+.leader-name {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  padding: 20px 96px 20px 20px;
+  border: 0;
+  border-radius: var(--r-inner);
+  background: var(--panel);
+  box-shadow: var(--body-edge), var(--body-drop);
+}
+
+/* Die letzte gesperrte Versalienzeile des Einstiegs. Auch sie ist eine Beschriftung, also Sprache. */
+.leader-name > span {
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.leader-name input {
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  padding: 0 0 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+.leader-name input:focus { outline: none; border-bottom-color: var(--ink); }
+.leader-name input::placeholder { color: var(--faint); font-size: 15px; }
+
+.leader-monogram {
+  position: absolute;
+  inset-block: 50% auto;
+  inset-inline-end: 20px;
+  translate: 0 -50%;
+  display: grid;
+  place-items: center;
+  inline-size: 58px;
+  block-size: 58px;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  color: var(--ink);
+  font-size: 19px;
+  font-style: normal;
+  letter-spacing: 0.04em;
+}
+
+.leader-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.leader-grid button {
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  border: 0;
+  border-radius: var(--r-inner);
+  background: var(--panel);
+  box-shadow: var(--body-edge), var(--body-drop);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.leader-grid button:hover { border-color: var(--hairline); background: rgba(18, 24, 29, 0.74); }
+/* Selection is paper, matching the filled action elsewhere — the old olive was an amber leftover. */
+.leader-grid button.selected {
+  background: rgba(246, 243, 236, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(246, 243, 236, 0.4), var(--body-drop);
+}
+
+.leader-grid button span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--dim);
+  font-size: 12px;
+}
+
 /* --- Priorities --------------------------------------------------------- */
 
 .manifesto-screen { display: grid; grid-template-rows: auto 1fr auto; justify-items: center; }

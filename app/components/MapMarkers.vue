@@ -252,7 +252,7 @@ watch(placements, () => {
       Die Blocksanierung fragt nicht nach einem Viertel, sondern nach einer Adresse. Also steht hier
       nur die Frage — und der Hinweis, woran man den richtigen Block erkennt: an den Häusern.
     -->
-    <p v-else-if="blocking" class="ask is-block">
+    <p v-else-if="blocking" class="ask">
       <span>Block anklicken</span>
       <b>{{ blocking.title }}</b>
       <em>Zeig auf ein Haus — der Zug drumherum wird saniert. {{ formatNumber(blocking.cost, 1) }} Mio., {{ blocking.months }} Monate Gerüst.</em>

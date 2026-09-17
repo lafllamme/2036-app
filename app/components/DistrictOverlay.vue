@@ -455,7 +455,7 @@ watch(showing, (now) => {
 </script>
 
 <template>
-  <div v-if="(showing && reading) || campaign" class="districts" :class="{ 'is-campaign': campaign }" :aria-hidden="campaign ? undefined : 'true'">
+  <div v-if="(showing && reading) || campaign" class="districts" :aria-hidden="campaign ? undefined : 'true'">
     <svg class="sheet" :class="{ 'is-live': campaign }">
       <!--
         Im Wahlkampf ist die Fläche ein Knopf. Sonst fängt die Ebene bewusst keine Klicks — sie liegt

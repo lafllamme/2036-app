@@ -366,6 +366,7 @@ h4 { margin: 0 0 8px; color: var(--ink-3); font-family: var(--text); font-size: 
   transition: background 140ms ease;
 }
 .stance-row:hover { background: rgba(255, 255, 255, 0.09); }
+.stance-row .label { line-height: 1.4; }
 .stance-row .price { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
 .stance-row .price.is-gain { color: var(--good, #6cc78a); }
 .stance-row .price.is-loss { color: var(--bad, #d66a46); }

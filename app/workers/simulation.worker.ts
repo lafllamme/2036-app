@@ -10,6 +10,7 @@ import {
   chooseSite,
   createInitialState,
   forecastsForEvent,
+  holdAppearance,
   keepAppointment,
   migrateState,
   negotiate,
@@ -91,6 +92,12 @@ globalThis.onmessage = ({ data }: MessageEvent<SimulationCommand>) => {
       case 'KEEP_APPOINTMENT': {
         // Haltung gegen Rückhalt. Braucht keine Mehrheit und hält die Uhr nicht an.
         state = keepAppointment(state, data.appointmentId, data.optionId)
+        publish('SNAPSHOT')
+        return
+      }
+      case 'HOLD_APPEARANCE': {
+        // Wahlkampf in einem Viertel. Nur in den drei Monaten vor einer Wahl, je Viertel einmal.
+        state = holdAppearance(state, data.districtId)
         publish('SNAPSHOT')
         return
       }

@@ -96,6 +96,17 @@ export interface SimulationSnapshot {
   /** Wer gerade um ein Gespräch bittet. Siehe `simulation/appointments.ts`. */
   appointments: AppointmentView[]
   /**
+   * Der laufende Wahlkampf, oder `null`.
+   *
+   * In 129 von 132 Monaten steht hier nichts, und in dreien wird die Karte zum Wahlkampfbrett:
+   * je Viertel die eigene Bilanz und was ein Auftritt dort einbrächte. Siehe `simulation/campaign.ts`.
+   */
+  campaign: {
+    monthsLeft: number
+    cost: number
+    districts: { districtId: DistrictId, record: number, gain: number, done: boolean }[]
+  } | null
+  /**
    * Die Tagesordnung der nächsten Ratssitzung.
    *
    * Eingebracht heißt: steht hier. Abgestimmt wird am Monatsende über alles davon — und in der Zeit
@@ -255,6 +266,8 @@ export type SimulationCommandExtra
     | { type: 'CHOOSE_BLOCK', at: { x: number, z: number, districtId: DistrictId } }
     /** Einen Termin wahrnehmen: Haltung gegen Rückhalt. Siehe `simulation/appointments.ts`. */
     | { type: 'KEEP_APPOINTMENT', appointmentId: string, optionId: string }
+    /** Im Wahlkampf in einem Viertel auftreten. Siehe `simulation/campaign.ts`. */
+    | { type: 'HOLD_APPEARANCE', districtId: DistrictId }
     /** Eine Antwort auf einen Brennpunkt. Ohne Rat, aus eigenen Mitteln. */
     | { type: 'ANSWER_HOTSPOT', id: string, answerId: string }
     /** Auf die Tagesordnung der nächsten Sitzung damit. Abgestimmt wird am Monatsende. */

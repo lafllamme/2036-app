@@ -37,7 +37,24 @@ import { DISTRICT_BY_ID } from '~/world/model/lindenhafen'
  */
 
 const game = useGameStore()
-const { overlay, snapshot, walking, experienceStage, project, districtShapes } = storeToRefs(game)
+const { overlay, snapshot, walking, experienceStage, project, districtShapes, campaignBoard } = storeToRefs(game)
+
+/**
+ * Der Wahlkampf macht aus der Lage ein Brett.
+ *
+ * Drei Monate vor einer Wahl zeigt die Karte nicht mehr eine Kennzahl, sondern die **eigene Bilanz**
+ * je Viertel — und jede Fläche wird anklickbar. Das ist die eine Stelle, an der die zwanzig Viertel
+ * nicht Auskunft sind, sondern Spielbrett; alles davor war die Vorarbeit dafür.
+ *
+ * Sie verdrängt die gewählte Lage, solange sie läuft. Zwei Färbungen gleichzeitig wären zwei
+ * Aussagen auf derselben Fläche, und man könnte beide nicht mehr lesen.
+ */
+const campaign = computed(() =>
+  (experienceStage.value === 'gameplay' && !walking.value && campaignBoard.value
+    ? snapshot.value?.campaign ?? null
+    : null))
+
+const campaignBy = computed(() => new Map((campaign.value?.districts ?? []).map(entry => [entry.districtId, entry])))
 
 /** Was die drei Lagen anzeigen — und wie man die Zahl schreibt. */
 const READINGS = {
@@ -47,7 +64,7 @@ const READINGS = {
 } as const
 
 const showing = computed(() =>
-  overlay.value !== 'none' && experienceStage.value === 'gameplay' && !walking.value
+  overlay.value !== 'none' && experienceStage.value === 'gameplay' && !walking.value && !campaign.value
     ? overlay.value
     : null)
 
@@ -81,6 +98,21 @@ const outlines = computed(() => new Map(districtShapes.value.map((shape) => {
 })))
 
 const districts = computed(() => {
+  /*
+   * Im Wahlkampf zeigt die Fläche die Bilanz, sonst die gewählte Kennzahl. Derselbe Rechenweg, ein
+   * anderer Wert — damit bleibt alles darunter (Schnitt, Beschriftung, Ausschlag) unverändert.
+   */
+  if (campaign.value) {
+    return districtShapes.value.map(shape => ({
+      id: shape.id,
+      name: DISTRICT_BY_ID.get(shape.id)?.shortName ?? shape.id,
+      value: campaignBy.value.get(shape.id)?.record ?? 0,
+      ratio: 1 + (campaignBy.value.get(shape.id)?.record ?? 0),
+      corners: outlines.value.get(shape.id) ?? [],
+      centre: shape.centre,
+    }))
+  }
+
   const metric = showing.value
   const city = metric ? snapshot.value?.metrics[metric] ?? 0 : 0
   if (!metric || !snapshot.value || city === 0)
@@ -98,6 +130,17 @@ const districts = computed(() => {
     }
   })
 })
+
+/** Was an der Marke steht: im Wahlkampf die Bilanz in Prozent, sonst der Messwert mit Einheit. */
+function readingOf(id: DistrictId): string {
+  const value = districts.value.find(entry => entry.id === id)?.value ?? 0
+  if (campaign.value) {
+    if (campaignBy.value.get(id)?.done)
+      return 'aufgetreten'
+    return `${value >= 0 ? '+' : ''}${Math.round(value * 100)} % Bilanz`
+  }
+  return reading.value ? `${formatNumber(value, reading.value.digits)} ${reading.value.unit}` : ''
+}
 
 /**
  * Der Ausschlag — nach **Rangfolge**, nicht nach Abweichung.
@@ -131,6 +174,15 @@ const ranking = computed(() => {
 
 /** −1 (am niedrigsten) … 1 (am höchsten), nach Platz in der Reihe. */
 function tiltOf(id: DistrictId): number {
+  /*
+   * Im Wahlkampf zählt der **Wert** und nicht der Rang, und die Richtung dreht sich: bei der Miete
+   * ist „viel" das, was auffällt und rot wird; bei der Bilanz ist „gut" grün. Ein Rang wäre hier
+   * auch falsch — ob man in seinem besten Viertel auftritt, hängt davon ab, ob die Bilanz dort
+   * wirklich gut ist, nicht davon, ob sie die beste unter zwanzig schlechten ist.
+   */
+  if (campaign.value)
+    return -Math.max(-1, Math.min(1, campaignBy.value.get(id)?.record ?? 0))
+
   const { places, last, force } = ranking.value
   const place = places.get(id)
   if (place === undefined)
@@ -164,7 +216,7 @@ function tint(tilt: number): string {
   return `rgba(${channel(0)}, ${channel(1)}, ${channel(2)}, ${(0.22 + strength * 0.22).toFixed(3)})`
 }
 
-const shapes = ref<{ id: string, points: string, fill: string, at: { x: number, y: number } | null }[]>([])
+const shapes = ref<{ id: DistrictId, points: string, fill: string, at: { x: number, y: number } | null }[]>([])
 const point = screenPoint()
 const probe = screenPoint()
 let frame = 0
@@ -403,16 +455,22 @@ watch(showing, (now) => {
 </script>
 
 <template>
-  <div v-if="showing && reading" class="districts" aria-hidden="true">
-    <svg class="sheet">
+  <div v-if="(showing && reading) || campaign" class="districts" :class="{ 'is-campaign': campaign }" :aria-hidden="campaign ? undefined : 'true'">
+    <svg class="sheet" :class="{ 'is-live': campaign }">
+      <!--
+        Im Wahlkampf ist die Fläche ein Knopf. Sonst fängt die Ebene bewusst keine Klicks — sie liegt
+        über der ganzen Stadt, und ein Layer, der Klicks schluckt, nähme dem Ziehen der Karte die
+        Fläche. Deshalb hängt `pointer-events` am Wahlkampf und nicht am Polygon.
+      -->
       <polygon
         v-for="shape in shapes"
         :key="shape.id"
         :points="shape.points"
         :fill="shape.fill"
-        stroke="rgba(255, 255, 255, 0.34)"
+        :stroke="campaign && !campaignBy.get(shape.id)?.done ? 'rgba(255, 255, 255, 0.6)' : 'rgba(255, 255, 255, 0.34)'"
         stroke-width="1.2"
         stroke-linejoin="round"
+        @click="campaign && game.holdAppearance(shape.id)"
       />
     </svg>
 
@@ -420,13 +478,20 @@ watch(showing, (now) => {
       v-for="shape in shapes"
       :key="`tag-${shape.id}`"
       class="tag"
+      :class="{ 'is-done': campaignBy.get(shape.id)?.done }"
       :style="shape.at ? { left: `${shape.at.x}px`, top: `${shape.at.y}px` } : { display: 'none' }"
     >
       <b>{{ districts.find(entry => entry.id === shape.id)?.name }}</b>
-      <i>{{ formatNumber(districts.find(entry => entry.id === shape.id)?.value ?? 0, reading.digits) }} {{ reading.unit }}</i>
+      <i>{{ readingOf(shape.id) }}</i>
     </span>
 
-    <p class="legend">
+    <p v-if="campaign" class="legend">
+      <span>Wahlkampf · {{ campaign.monthsLeft === 1 ? 'letzter Monat' : `noch ${campaign.monthsLeft} Monate` }}</span>
+      <em class="low">schlechte Bilanz</em>
+      <em class="high">gute Bilanz</em>
+      <b class="cue">Klick ein Viertel · {{ campaign.cost }} Kapital</b>
+    </p>
+    <p v-else-if="reading" class="legend">
       <span>{{ reading.label }} je Viertel</span>
       <em class="low">am niedrigsten</em>
       <em class="high">am höchsten</em>
@@ -440,6 +505,21 @@ watch(showing, (now) => {
   inset: 0;
   z-index: 3;
   pointer-events: none;
+}
+
+/* Nur im Wahlkampf nimmt die Ebene Klicks an — sonst nähme sie der Karte das Ziehen. */
+.sheet.is-live { pointer-events: auto; }
+.sheet.is-live polygon { cursor: pointer; }
+.sheet.is-live polygon:hover { fill-opacity: 0.85; }
+
+/* Ein Viertel, in dem man schon war, tritt zurück: es ist erledigt, nicht verboten. */
+.tag.is-done { opacity: 0.5; }
+
+.legend .cue {
+  font-family: var(--mono);
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--ink-2);
 }
 
 .sheet {

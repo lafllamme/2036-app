@@ -43,7 +43,7 @@ import { SITE_PROFILES } from '../content/sites'
 import { CAMPAIGN_LAST_MONTH } from '../core/campaign'
 import { formatNumber } from '../core/format'
 import { createRandomStream } from '../core/rng'
-import { LINDENHAFEN } from '../world/model/lindenhafen'
+import { DISTRICT_BY_ID, LINDENHAFEN } from '../world/model/lindenhafen'
 import { effectOf, expire, openAppointment, viewOf } from './appointments'
 import {
   BASELINE_METRICS,
@@ -53,6 +53,7 @@ import {
   vacancyRate,
 } from './baseline'
 import { bulletin } from './bulletin'
+import { afterAppearance, APPEARANCE_COST, appearanceGain, campaignAhead, recordIn } from './campaign'
 import { castVote, forecastVote, supportFor, weightedDistance } from './council'
 import { initialSpread, shift, valueIn } from './districts'
 import { BASE_CAPITAL_PER_MONTH, clamp, healthFromState, stepDynamics } from './dynamics'
@@ -196,6 +197,12 @@ export interface SimulationState {
   appointments: Appointment[]
   /** Wann welcher Gesprächspartner zuletzt drankam, damit derselbe nicht alle drei Monate anruft. */
   appointmentsAnswered: Record<string, number>
+  /**
+   * In welchen Vierteln man in **diesem** Wahlkampf schon aufgetreten ist.
+   *
+   * Wird bei jeder Wahl geleert: der nächste Wahlkampf ist ein neuer. Siehe `simulation/campaign.ts`.
+   */
+  appearances: DistrictId[]
   /**
    * Wohin jede verortete Vorlage gegangen ist.
    *
@@ -395,6 +402,7 @@ export function createInitialState(
     renewals: [],
     appointments: [],
     appointmentsAnswered: {},
+    appearances: [],
     sites: {},
     hotspots: [],
     spread: initialSpread(),
@@ -1082,6 +1090,7 @@ export function migrateState(state: SimulationState): SimulationState {
     renewals: Array.isArray(state.renewals) ? state.renewals : [],
     appointments: Array.isArray(state.appointments) ? state.appointments : [],
     appointmentsAnswered: state.appointmentsAnswered ?? {},
+    appearances: Array.isArray(state.appearances) ? state.appearances : [],
     sites: state.sites ?? {},
     hotspots: state.hotspots ?? [],
     spread: state.spread ?? initialSpread(),
@@ -1274,6 +1283,42 @@ function tickAppointments(state: SimulationState, month: number): SimulationStat
    * Entscheidungen, und der Punkt am Knopf im Deck sagt, dass dort etwas liegt.
    */
   return { ...state, appointments: [...standing, arrived] }
+}
+
+/**
+ * Im Wahlkampf in einem Viertel auftreten.
+ *
+ * Die einzige Handlung, die es nur in drei Monaten je Amtszeit gibt — und die einzige, deren Ertrag
+ * davon abhängt, **wo** man sie tut. Wer in einem Viertel auftritt, in dem die Miete unter ihm
+ * gefallen ist, gewinnt; wer es dort tut, wo sie gestiegen ist, verliert Anteile und hat vierzehn
+ * Kapital dafür bezahlt.
+ *
+ * Je Viertel einmal. Ein Wahlkampf, in dem man denselben Saal dreimal füllt, ist keiner.
+ */
+export function holdAppearance(state: SimulationState, districtId: DistrictId): SimulationState {
+  if (campaignAhead(state.month) === null || state.appearances.includes(districtId))
+    return state
+  if (!state.partyId || state.metrics.politicalCapital < APPEARANCE_COST)
+    return state
+
+  const gain = appearanceGain(state.spread, districtId)
+  const support = afterAppearance(state.support, state.spread, districtId, state.partyId)
+  const name = DISTRICT_BY_ID.get(districtId)?.name ?? districtId
+
+  return pushNews({
+    ...state,
+    appearances: [...state.appearances, districtId],
+    support,
+    metrics: { ...state.metrics, politicalCapital: clamp(state.metrics.politicalCapital - APPEARANCE_COST) },
+  }, {
+    id: `appearance-${districtId}-${state.month}`,
+    month: state.month,
+    scope: 'city',
+    urgency: 'normal',
+    headline: gain >= 0
+      ? `WAHLKAMPF: Gut besuchter Abend in ${name}`
+      : `WAHLKAMPF: Unruhiger Abend in ${name} — die Mieten waren das Thema`,
+  })
 }
 
 /**
@@ -1546,6 +1591,28 @@ function visualsFrom(metrics: CityMetrics, stocks: CityStocks): CityVisualState 
  * Frage kommt. Was das Blatt braucht, ist nur der Preis und die Bauzeit, damit der Spieler weiß,
  * worauf er zeigt.
  */
+/**
+ * Der Wahlkampf, wie ihn die Karte braucht.
+ *
+ * `null`, solange keiner läuft — und das ist die Aussage: in 129 von 132 Monaten gibt es hier
+ * nichts, und in dreien ist die Karte etwas anderes.
+ */
+function campaignView(state: SimulationState): SimulationSnapshot['campaign'] {
+  const monthsLeft = campaignAhead(state.month)
+  if (monthsLeft === null)
+    return null
+  return {
+    monthsLeft,
+    cost: APPEARANCE_COST,
+    districts: LINDENHAFEN.districts.map(district => ({
+      districtId: district.id,
+      record: recordIn(state.spread, district.id),
+      gain: appearanceGain(state.spread, district.id),
+      done: state.appearances.includes(district.id),
+    })),
+  }
+}
+
 function blockView(state: SimulationState): { policyId: string, title: string, cost: number, months: number } | null {
   const waiting = state.blocking[0]
   const definition = waiting ? getPolicy(waiting.policyId) : undefined
@@ -1619,6 +1686,7 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     pendingSiting: sitingView(state),
     pendingBlock: blockView(state),
     appointments: viewOf(state.appointments, state.month, state.partyId ?? 'spd'),
+    campaign: campaignView(state),
     renewals: state.renewals.map(renewal => ({
       id: renewal.id,
       districtId: renewal.districtId,
@@ -1755,8 +1823,20 @@ function tickHotspots(state: SimulationState, month: number): SimulationState {
      * der ganzen Stadt — also auch die in der Vorstadt West, wo nichts passiert war. Die Stadtzahl
      * bleibt, was die Dynamik gesagt hat; verschoben wird das Gefälle.
      */
+    /*
+     * Beides hinterlässt eine Spur, und zwar jeweils die eigene. Die Einbruchserie hebt die
+     * Einbruchsrate, die Brandserie den **Leerstand**: was ausbrennt, steht danach leer, und
+     * verschlossene Häuser bleiben verschlossen, bis jemand das Geld dafür hat.
+     *
+     * Die Brandserie tat das bis hierher nirgends. Ihr Treiber ist `investmentBacklog`, und der ist
+     * eine Stadtzahl ohne Bezirksverteilung — drei Monate Feuer im Messeviertel waren im ganzen
+     * Modell nur an einer Stadtkennzahl zu sehen und auf der Karte an gar nichts. Aufgefallen ist
+     * das erst am Wahlkampf, wo plötzlich gefragt wird, wie es einem Viertel ergangen ist.
+     */
     if (opened.kind === 'burglary')
       next = { ...next, spread: { ...next.spread, burglaryRate: shift(next.spread.burglaryRate, opened.districtId, 0.14) } }
+    if (opened.kind === 'fire')
+      next = { ...next, spread: { ...next.spread, vacantUnits: shift(next.spread.vacantUnits, opened.districtId, 0.11) } }
     const template = hotspotTemplate(opened.kind)
     next = pushNews(next, {
       id: `hotspot-open-${opened.id}`,
@@ -1837,7 +1917,7 @@ export function answerSituation(state: SimulationState, id: string, answerId: st
     // Was man vor Ort tut, wirkt vor Ort: die Antwort holt das Gefälle wieder zurück.
     spread: spot.kind === 'burglary'
       ? { ...state.spread, burglaryRate: shift(state.spread.burglaryRate, spot.districtId, -0.1 * answer.relief) }
-      : state.spread,
+      : { ...state.spread, vacantUnits: shift(state.spread.vacantUnits, spot.districtId, -0.08 * answer.relief) },
   }
   if (done.monthly === 0)
     return next
@@ -2000,6 +2080,8 @@ function advanceOneMonth(state: SimulationState): SimulationState {
    * if it cannot reach a majority the campaign is over.
    */
   if (isElectionMonth(month) && !next.defeat) {
+    // Der Wahlkampf ist vorbei; der nächste ist ein neuer. Siehe `simulation/campaign.ts`.
+    next = { ...next, appearances: [] }
     const result = holdElection(next.support, next.seatsByParty, next.partyId)
     const coalition = formCoalitionWith(next.partyId, result.seats)
     next = { ...next, seatsByParty: result.seats, coalitionPartyIds: coalition }

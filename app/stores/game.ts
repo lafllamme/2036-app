@@ -232,6 +232,15 @@ export const useGameStore = defineStore('game', () => {
    * eine Entscheidung ohne die Information, die sie beantwortet.
    */
   const overlay = ref<'none' | 'averageRent' | 'burglaryRate' | 'vacantUnits'>('none')
+  /**
+   * Ob das Wahlkampfbrett liegt.
+   *
+   * Es geht von selbst auf, wenn der Wahlkampf beginnt — man soll die drei Monate nicht verpassen,
+   * weil man zufällig keine Lage eingeschaltet hatte. Aber es muss auch wieder zugehen: eine Ebene,
+   * die drei Monate lang über der Stadt klebt und die man nicht wegbekommt, ist eine Zumutung.
+   * Derselbe Knopf, der sonst die Lagen durchschaltet, macht es zu.
+   */
+  const campaignBoard = ref(true)
 
   const railOpen = ref(false)
   const decisionsOpen = ref(false)
@@ -848,6 +857,17 @@ export const useGameStore = defineStore('game', () => {
    * Tagesordnungspunkt. Er läuft neben dem Rat her, hat seine eigene Frist, und wer ihn verstreichen
    * lässt, hat ihn verstreichen lassen.
    */
+  /**
+   * Im Wahlkampf einmal in einem Viertel auftreten.
+   *
+   * Hält die Uhr nicht an — der Wahlkampf ist keine Entscheidung, die auf einen wartet, sondern
+   * drei Monate, in denen man etwas tun **kann**. Wer sie verstreichen lässt, geht ohne Auftritte
+   * in die Wahl, und auch das ist eine Antwort.
+   */
+  function holdAppearance(districtId: DistrictId): void {
+    send({ type: 'HOLD_APPEARANCE', districtId })
+  }
+
   function keepAppointment(appointmentId: string, optionId: string): void {
     send({ type: 'KEEP_APPOINTMENT', appointmentId, optionId })
   }
@@ -1002,6 +1022,7 @@ export const useGameStore = defineStore('game', () => {
     railOpen,
     openHotspotId,
     overlay,
+    campaignBoard,
     walking,
     walkState,
     project,
@@ -1032,6 +1053,7 @@ export const useGameStore = defineStore('game', () => {
     chooseSite,
     chooseBlock,
     keepAppointment,
+    holdAppearance,
     answerHotspot,
     withdrawMotion,
     callUrgent,

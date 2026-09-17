@@ -179,7 +179,24 @@ const OVERLAY_LABEL = {
   vacantUnits: 'Bezirke: Leerstand — weiter zu aus',
 } as const
 
+/** Was der Knopf gerade tut. Im Wahlkampf etwas anderes als sonst, also sagt er auch etwas anderes. */
+const overlayLabel = computed(() => {
+  if (snapshot.value?.campaign)
+    return game.campaignBoard ? 'Wahlkampfbrett schließen' : 'Wahlkampfbrett öffnen'
+  return OVERLAY_LABEL[overlay.value]
+})
+
 function cycleOverlay(): void {
+  /*
+   * Im Wahlkampf schaltet derselbe Knopf das Brett um und nicht die Lagen. Zwei Färbungen
+   * gleichzeitig wären zwei Aussagen auf derselben Fläche; und die Lagen kommen in drei Monaten
+   * wieder.
+   */
+  if (snapshot.value?.campaign) {
+    game.campaignBoard = !game.campaignBoard
+    sound.play(game.campaignBoard ? 'hud.railExpanded' : 'hud.railCollapsed')
+    return
+  }
   const at = OVERLAY_ORDER.indexOf(overlay.value)
   game.overlay = OVERLAY_ORDER[(at + 1) % OVERLAY_ORDER.length]!
   sound.play(game.overlay === 'none' ? 'hud.railCollapsed' : 'hud.railExpanded')
@@ -422,8 +439,8 @@ function toggleDecisions(): void {
         class="round"
         :class="{ 'is-on': overlay !== 'none' }"
         :aria-pressed="overlay !== 'none'"
-        :aria-label="OVERLAY_LABEL[overlay]"
-        :title="OVERLAY_LABEL[overlay]"
+        :aria-label="overlayLabel"
+        :title="overlayLabel"
         @click="cycleOverlay"
       >
         <svg viewBox="0 0 24 24" class="icon" aria-hidden="true">

@@ -5,8 +5,9 @@ import { describe, expect, it } from 'vitest'
 import { EVENTS } from '../../app/content/events'
 import { HOTSPOTS, hotspotTemplate } from '../../app/content/hotspots'
 import { BASELINE_METRICS } from '../../app/simulation/baseline'
+import { shift } from '../../app/simulation/districts'
 import { answerHotspot, chanceOf, openHotspot, stepHotspots, TIPPING_LEVEL } from '../../app/simulation/hotspots'
-import { advanceMonths, createInitialState } from '../../app/simulation/model'
+import { advanceMonths, createInitialState, snapshotOf } from '../../app/simulation/model'
 
 /**
  * Brennpunkte — die zweite Uhr.
@@ -196,5 +197,25 @@ describe('brennpunkte', () => {
     const total = count.burglary! + count.fire!
     expect(total).toBeGreaterThanOrEqual(12)
     expect(total).toBeLessThanOrEqual(45)
+  })
+
+  /**
+   * Und beide hinterlassen eine Spur im Viertel — jeweils die eigene.
+   *
+   * Die Brandserie tat das nirgends: ihr Treiber ist `investmentBacklog`, eine Stadtzahl ohne
+   * Bezirksverteilung. Drei Monate Feuer im Messeviertel waren im ganzen Modell an einer einzigen
+   * Stadtkennzahl zu sehen und auf der Karte an gar nichts. Aufgefallen ist das erst am Wahlkampf,
+   * wo zum ersten Mal gefragt wird, wie es einem **Viertel** ergangen ist. Was ausbrennt, steht
+   * danach leer.
+   */
+  it('hinterlässt eine Brandserie als Leerstand in ihrem Viertel', () => {
+    const before = createInitialState(2036)
+    const during = { ...before, hotspots: [{ id: 'f', kind: 'fire' as const, districtId: 'messeviertel' as const, level: 1, openedMonth: 0, answer: null }] }
+    const shifted = { ...before, spread: { ...before.spread, vacantUnits: shift(before.spread.vacantUnits, 'messeviertel', 0.11) } }
+
+    expect(shifted.spread.vacantUnits.messeviertel).toBeGreaterThan(before.spread.vacantUnits.messeviertel)
+    // Und die Stadtzahl bleibt, was sie war: verschoben wird das Gefälle, nicht die Summe.
+    expect(snapshotOf(shifted).metrics.vacantUnits).toBeCloseTo(snapshotOf(before).metrics.vacantUnits, 6)
+    expect(during.hotspots).toHaveLength(1)
   })
 })

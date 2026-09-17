@@ -715,3 +715,49 @@ ersatzlos weg. Übrig blieb ein kostenloses +12, ausgerechnet bei der Antwort, d
 gedacht war; je nach gewählter Partei war ein Drittel der Termine geschenkt. Die eigene Basis vor den
 Kopf zu stoßen kostet jetzt den Gewinn — davon bleibt ein gutes Drittel. Man kann mit der eigenen
 Fraktion nicht verhandeln, also den Schaden auch nicht zurückkaufen.
+
+
+## Gebaut: der Wahlkampf
+
+`ELECTION_MONTHS = [48, 96]` stand seit Wochen und `holdElection` rechnete — aber die Monate davor
+liefen wie jeder andere. Elf Jahre hatten damit keinen Bogen, sondern 132 gleiche Monate mit zwei
+Auszählungen darin. Ein Wahltermin, den man erst am Wahltag bemerkt, ist ein Würfelwurf.
+
+Drei Monate vor jeder Wahl wird die Karte zum **Wahlkampfbrett**. Sie zeigt nicht mehr eine
+Kennzahl, sondern die eigene Bilanz je Viertel, und jede Fläche ist anklickbar: ein Auftritt, 14
+Kapital, je Viertel einmal.
+
+**Wie viel er einbringt, hängt davon ab, wo man ihn hält.** Nach einer Amtszeit mit Wohnungsbau im
+Marschland und einer Blocksanierung in der Altstadt sah das Brett so aus:
+
+| Viertel | Bilanz | Ertrag eines Auftritts |
+| --- | --- | --- |
+| **Marschland** | **+9,5 %** | 0,29 ‰ — dort wurde gebaut |
+| Neustadt | +1,3 % | **3,44 ‰** — 20.700 Einwohner |
+| Kleinfeld | +0,8 % | 2,60 ‰ |
+| **Altstadt** | **−17,2 %** | 0,68 ‰ — dort wurde saniert |
+
+Zwei Sachen stehen da, die ich nicht eigens verdrahtet habe. Die Blocksanierung, die man beschlossen
+hat, um dem schlechtesten Häuserzug der Stadt zu helfen, **kostet die Altstadt bei der Wahl** — die
+Verdrängung schlägt genau dort durch, wo sie stattgefunden hat. Und die beste Bilanz steht im Viertel
+mit 1.400 Einwohnern, während die Stimmen in der Neustadt liegen. Gute Bilanz gegen viele Wähler:
+das ist die Entscheidung, und sie entsteht aus zwei Zahlen, die ohnehin schon da waren.
+
+Der Maßstab ist `initialSpread()` — das Gefälle, mit dem die Stadt angetreten ist. Kein zusätzlicher
+Zustand, eine reine Funktion gegen eine reine Funktion, und inhaltlich richtig: gemessen wird eine
+Amtszeit und nicht der letzte Monat. Miete zählt doppelt gegen Einbrüche; an einer Kommunalwahl hängt
+vor allem, was das Wohnen kostet.
+
+### Zwei Löcher, die erst der Wahlkampf sichtbar gemacht hat
+
+**Brandserien hinterließen nirgends eine Spur.** Ihr Treiber ist `investmentBacklog`, eine Stadtzahl
+ohne Bezirksverteilung — drei Monate Feuer im Messeviertel waren im ganzen Modell an einer einzigen
+Stadtkennzahl zu sehen und auf der Karte an gar nichts. Aufgefallen ist das erst, als der Wahlkampf
+zum ersten Mal fragte, wie es einem **Viertel** ergangen ist. Eine Brandserie hebt jetzt den
+Leerstand dort, und die Antwort darauf holt ihn zurück: was ausbrennt, steht danach leer.
+
+**Und ein Auftritt ohne Bilanz war eine Falle.** Gemessen: nach 46 Monaten ohne einen einzigen
+Standortbeschluss stand die Bilanz in allen zwanzig Vierteln auf 0,0000, und jeder Klick hätte 14
+Kapital für exakt nichts verbrannt. Es gibt jetzt einen Sockel — wer einen Saal füllt, bewegt Leute,
+die ihn vorher nicht kannten. Erst ab einer Bilanz von −0,35 kippt der Abend, und dann kippt er
+wirklich.

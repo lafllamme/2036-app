@@ -31,8 +31,15 @@ describe('emergency dispatch', () => {
 
   it('stacks them up when the city is in trouble, but never without pause', () => {
     expect(callWait(WORST)).toBe(CALL_INTERVAL_BUSY)
-    // Even at its worst, half a minute passes between one call and the next.
-    expect(callWait(WORST)).toBeGreaterThan(30)
+    /*
+     * Auch am schlimmsten Tag liegt eine Pause dazwischen.
+     *
+     * Waren einmal dreißig Sekunden, sind jetzt fünfzehn: gemeldet war, dass in der ruhigen Stadt
+     * viel zu wenig passiert — alle zwei Minuten einer, bei einem Monat von fünf realen Minuten.
+     * Was hier kürzer wird, ist der Abstand und nicht die Dauer eines Einsatzes; eine Sirene, die
+     * nie aufhört, bedeutet weiterhin nichts.
+     */
+    expect(callWait(WORST)).toBeGreaterThan(12)
   })
 
   it('gets louder with every pressure separately, so a policy is legible', () => {

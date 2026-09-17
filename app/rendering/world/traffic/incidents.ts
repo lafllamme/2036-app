@@ -31,16 +31,34 @@ export interface CityPressure {
 const BASE_PRESSURE = 0.12
 
 /**
- * Seconds between calls at no pressure and at full pressure.
+ * Sekunden zwischen zwei Einsätzen, bei keinem Druck und bei vollem.
  *
- * A settled city has one every three and a half minutes and is otherwise silent; a city in trouble
- * has them stacked up. The first version of this held a share of the fleet on blue lights for ever,
- * so the sirens never stopped and meant nothing. Silence is what makes a siren worth hearing.
+ * Hier standen 210 und 34, und das war zu leise. Gerechnet: bei den Ausgangswerten der Stadt liegt
+ * die Last bei knapp der Hälfte, also **ein Einsatz alle gut zwei Minuten** — und ein Monat dauert
+ * fünf reale Minuten. Eine Stadt mit 120.000 Einwohnern hatte damit gut zwei Polizeieinsätze im
+ * Monat, und wer zusieht, sieht die meiste Zeit nichts.
+ *
+ * Gemeldet als genau das: *„das passiert viel zu selten, vor allem Einbrüche."* Jetzt ist es etwa
+ * einer je Minute in einer ruhigen Stadt und einer alle fünfzehn Sekunden in einer, die ihre
+ * Ordnungsbehörde zusammengestrichen hat.
+ *
+ * Die Stille bleibt trotzdem der Punkt: die erste Fassung hielt einen Teil der Flotte dauerhaft auf
+ * Blaulicht, und dann bedeutet eine Sirene nichts mehr. Was hier kürzer wird, ist der Abstand
+ * zwischen den Einsätzen — nicht ihre Dauer.
  */
-export const CALL_INTERVAL_CALM = 210
-export const CALL_INTERVAL_BUSY = 34
-/** The summed weight at which calls arrive at the busy interval. Above it nothing gets faster. */
-const PRESSURE_FULL = 1.6
+export const CALL_INTERVAL_CALM = 88
+export const CALL_INTERVAL_BUSY = 15
+/**
+ * Die Summe der Gewichte, ab der Einsätze im kurzen Takt kommen. Darüber wird nichts mehr schneller.
+ *
+ * Hängt an `KIND_WEIGHT` und muss mitwandern: mit dem höheren Einbruchsgewicht wurde die alte 1,6
+ * schon bei mittlerem Druck erreicht, und danach änderte ein weiterer Einschnitt bei der
+ * Ordnungsbehörde **gar nichts** mehr. Genau das ist der Fehler, den `dispatch.test.ts` mit „eine
+ * Maßnahme muss lesbar bleiben“ abfängt. Der Wert liegt weiter bei rund sechzig Prozent der
+ * rechnerisch möglichen Gesamtlast, damit die Stadt bei den Ausgangswerten genauso laut ist wie
+ * vorher — nur eben in kürzeren Abständen.
+ */
+const PRESSURE_FULL = 2.15
 
 /**
  * How serious calls are rationed.
@@ -52,7 +70,15 @@ const PRESSURE_FULL = 1.6
  * fire different from the rest is not how often it happens but where: it happens to a building, and
  * everything else happens at a junction. `dispatch.ts` is where that is decided.
  */
-const KIND_WEIGHT = { burglary: 1, accident: 1, assault: 0.35, fire: 0.08 } as const
+/*
+ * Wie oft welche Art vorkommt, relativ zueinander.
+ *
+ * Der Einbruch führt, und zwar absichtlich: er ist die Art, die man auf der Karte am ehesten
+ * wiedererkennt — drei Absperrungen an einer Haustür, zwei Nachbarn —, und er hängt an der Kennzahl,
+ * die der Rat am direktesten bewegt. Der Brand bleibt selten, aber nicht so selten, dass man ihn in
+ * einer Amtszeit nie sieht; bei 0,08 war er praktisch unsichtbar.
+ */
+const KIND_WEIGHT = { burglary: 1.7, accident: 1, assault: 0.4, fire: 0.16 } as const
 
 export type IncidentKind = keyof typeof KIND_WEIGHT
 export type Service = 'police' | 'ambulance' | 'fire' | 'none'
@@ -124,8 +150,8 @@ export function responseSpeed(pressure: CityPressure): number {
  * because nobody has cleared the last one — which is exactly what a player should see when they cut
  * the budget, rather than a number in a panel.
  */
-const CALL_LIMIT_MIN = 2
-export const CALL_LIMIT_MAX = 6
+const CALL_LIMIT_MIN = 3
+export const CALL_LIMIT_MAX = 10
 
 export function callLimit(pressure: CityPressure): number {
   const load = clamp01(total(callWeights(pressure)) / PRESSURE_FULL)

@@ -78,6 +78,13 @@ export interface SimulationSnapshot {
   sites: Partial<Record<string, DistrictId>>
   /** Was der Stadt gerade an einem Ort zusetzt. Siehe `HotspotView`. */
   hotspots: HotspotView[]
+  /**
+   * Drei Kennzahlen je Bezirk — Miete, Einbrüche, Leerstand.
+   *
+   * Keine acht Simulationen: die Stadtzahl bleibt die Wahrheit, und das gewichtete Mittel dieser acht
+   * Werte ist immer exakt sie. Siehe `simulation/districts.ts`.
+   */
+  districtMetrics: Record<DistrictId, { averageRent: number, burglaryRate: number, vacantUnits: number }>
   councilSeatsByParty: Record<PartyId, number>
   coalitionPartyIds: PartyId[]
   coalitionSupport: number

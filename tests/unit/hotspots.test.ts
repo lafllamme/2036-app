@@ -44,7 +44,8 @@ describe('brennpunkte', () => {
   })
 
   it('kommt häufiger, je schlechter die Zahl steht', () => {
-    const wenig = chanceOf(BURGLARY, metrics({ burglaryRate: BURGLARY.quiet + 3 }))
+    // Ein Zehntel über der Schwelle — mehr bewegt sich diese Kennzahl im ganzen Spiel nicht.
+    const wenig = chanceOf(BURGLARY, metrics({ burglaryRate: BURGLARY.quiet + 0.1 }))
     const viel = chanceOf(BURGLARY, metrics({ burglaryRate: BURGLARY.loud }))
     expect(wenig).toBeGreaterThan(0)
     expect(viel).toBeGreaterThan(wenig)
@@ -163,5 +164,37 @@ describe('brennpunkte', () => {
     // Bezahlt wird im Rat und nicht bei den Mieten.
     expect(after.metrics.politicalCapital).toBeLessThan(before.metrics.politicalCapital)
     expect(after.pending.map(entry => entry.eventId)).toContain('saf-burglary-series')
+  })
+
+  /**
+   * Die Schwellen gegen das, was die Kennzahlen wirklich tun.
+   *
+   * Dreimal danebengelegen, und jedes Mal unsichtbar: `burglaryRate` startet bei 3,4 und erreicht in
+   * einer völlig vernachlässigten Amtszeit höchstens 4,4 — eine Schwelle bei 9 heißt, dass es diese
+   * Lage im ganzen Spiel nicht gibt. Beim Sanierungsstau lief es umgekehrt: bei 60 gegen 160 stand er
+   * die halbe Amtszeit auf der Höchstwahrscheinlichkeit, bei 95 gegen 300 passierte gar nichts mehr.
+   *
+   * Aufgefallen ist es erst, als die Bezirkswerte auf der Gebäudekarte standen und dort „Einbrüche
+   * 3,9 / 1.000“ zu lesen war. Ein Inhalt, den niemand je sieht, meldet sich nicht — also fragt ihn
+   * dieser Test.
+   */
+  it('lässt über ein vernachlässigtes Jahrzehnt beide Arten wirklich vorkommen', () => {
+    let state = createInitialState(2036)
+    const count: Record<string, number> = { burglary: 0, fire: 0 }
+
+    for (let month = 0; month < 131; month += 1) {
+      const before = state.hotspots.length
+      state = advanceMonths(state, 1)
+      const newest = state.hotspots[state.hotspots.length - 1]
+      if (state.hotspots.length > before && newest)
+        count[newest.kind] = (count[newest.kind] ?? 0) + 1
+    }
+
+    expect(count.burglary, 'Einbruchserien').toBeGreaterThan(0)
+    expect(count.fire, 'Brandserien').toBeGreaterThan(0)
+    // Etwa alle fünf Monate einer. Deutlich mehr wäre Lärm, deutlich weniger tote Mechanik.
+    const total = count.burglary! + count.fire!
+    expect(total).toBeGreaterThanOrEqual(12)
+    expect(total).toBeLessThanOrEqual(45)
   })
 })

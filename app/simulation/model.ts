@@ -25,6 +25,7 @@ import type {
 import type { RandomStream } from '../core/rng'
 import type { CityStocks } from './baseline'
 import type { VoteContext } from './council'
+import type { Spread } from './districts'
 import type { Defeat, EdgeState } from './election'
 import type { Support } from './electorate'
 import type { ActiveMeasure, EventDrawState } from './events'
@@ -40,6 +41,7 @@ import { SITE_PROFILES } from '../content/sites'
 import { CAMPAIGN_LAST_MONTH } from '../core/campaign'
 import { formatNumber } from '../core/format'
 import { createRandomStream } from '../core/rng'
+import { LINDENHAFEN } from '../world/model/lindenhafen'
 import {
   BASELINE_METRICS,
   BASELINE_PERCEPTION,
@@ -49,6 +51,7 @@ import {
 } from './baseline'
 import { bulletin } from './bulletin'
 import { castVote, forecastVote, supportFor } from './council'
+import { initialSpread, shift, valueIn } from './districts'
 import { BASE_CAPITAL_PER_MONTH, clamp, healthFromState, stepDynamics } from './dynamics'
 import { defeatFromEdges, holdElection, isElectionMonth, MAJORITY, trackEdges, votedOut } from './election'
 import { axisDistance, driftFromCity, initialSupport, shiftFromDecision } from './electorate'
@@ -142,6 +145,13 @@ export interface SimulationState {
    * Siehe `simulation/hotspots.ts`. Leer in Spielständen von vorher.
    */
   hotspots: Hotspot[]
+  /**
+   * Dieselben Zahlen, über die acht Bezirke verteilt.
+   *
+   * Nur ein Gefälle, keine acht Simulationen: die Stadtzahl bleibt die Wahrheit, und je Bezirk steht
+   * ein Faktor um eins, dessen gewichtetes Mittel immer exakt eins ist. Siehe `simulation/districts.ts`.
+   */
+  spread: Spread
   pending: PendingDecision[]
   /**
    * Negotiation and campaigning the player has already paid for, keyed by motion id. Kept apart
@@ -314,6 +324,7 @@ export function createInitialState(
     siting: null,
     sites: {},
     hotspots: [],
+    spread: initialSpread(),
     pending: [],
     motionPrep: {},
     cooldowns: {},
@@ -786,6 +797,7 @@ export function migrateState(state: SimulationState): SimulationState {
     siting: state.siting ?? null,
     sites: state.sites ?? {},
     hotspots: state.hotspots ?? [],
+    spread: state.spread ?? initialSpread(),
     cooldowns: state.cooldowns ?? {},
     streaks: state.streaks ?? {},
     firedOnce: state.firedOnce ?? [],
@@ -907,7 +919,24 @@ export function chooseSite(state: SimulationState, districtId: DistrictId): Simu
     waiting.policyId,
     districtId,
   )
-  return { ...settled, sites: { ...settled.sites, [waiting.policyId]: districtId } }
+  /*
+   * Und was gebaut wird, wirkt dort, wo es gebaut wird.
+   *
+   * Der Punkt, an dem die Standortwahl von „Preis und Tempo“ zu einer Frage der Wirkung wird: neue
+   * Wohnungen drücken die Miete **in ihrem Bezirk** und heben dort den Leerstand. Stadtweit ändert
+   * sich dadurch nichts — das tun die Wohnungen selbst, über die Dynamik.
+   */
+  const definition = getPolicy(waiting.policyId)
+  const builds = definition?.effects.some(effect => effect.target === 'housingUnits' || effect.target === 'socialUnits') ?? false
+  const spread = builds
+    ? {
+        ...settled.spread,
+        averageRent: shift(settled.spread.averageRent, districtId, -0.06),
+        vacantUnits: shift(settled.spread.vacantUnits, districtId, 0.12),
+      }
+    : settled.spread
+
+  return { ...settled, spread, sites: { ...settled.sites, [waiting.policyId]: districtId } }
 }
 
 /** Put one of the three standing motions to the council instead of adopting it directly. */
@@ -1146,6 +1175,11 @@ function buildSnapshot(state: SimulationState): SimulationSnapshot {
     motionPreparation: state.motionPrep,
     pendingSiting: sitingView(state),
     sites: state.sites,
+    districtMetrics: Object.fromEntries(LINDENHAFEN.districts.map(district => [district.id, {
+      averageRent: valueIn(state.metrics.averageRent, state.spread.averageRent, district.id),
+      burglaryRate: valueIn(state.metrics.burglaryRate, state.spread.burglaryRate, district.id),
+      vacantUnits: valueIn(state.metrics.vacantUnits, state.spread.vacantUnits, district.id),
+    }])) as SimulationSnapshot['districtMetrics'],
     hotspots: state.hotspots.map((spot) => {
       const template = hotspotTemplate(spot.kind)
       return {
@@ -1250,6 +1284,13 @@ function tickHotspots(state: SimulationState, month: number): SimulationState {
   const opened = openHotspot(stepped.open, next.metrics, month, createRandomStream(state.seed, `hotspot:${month}`))
   const open = opened ? [...stepped.open, opened] : stepped.open
   if (opened) {
+    /*
+     * Und sie steigen **dort**. Bis hierher hob eine Einbruchserie in der Gründerzeit Nord die Rate
+     * der ganzen Stadt — also auch die in der Vorstadt West, wo nichts passiert war. Die Stadtzahl
+     * bleibt, was die Dynamik gesagt hat; verschoben wird das Gefälle.
+     */
+    if (opened.kind === 'burglary')
+      next = { ...next, spread: { ...next.spread, burglaryRate: shift(next.spread.burglaryRate, opened.districtId, 0.14) } }
     const template = hotspotTemplate(opened.kind)
     next = pushNews(next, {
       id: `hotspot-open-${opened.id}`,
@@ -1327,6 +1368,10 @@ export function answerSituation(state: SimulationState, id: string, answerId: st
     ...state,
     hotspots: done.open,
     metrics: { ...state.metrics, cityBudget: Math.max(0, state.metrics.cityBudget - done.cost) },
+    // Was man vor Ort tut, wirkt vor Ort: die Antwort holt das Gefälle wieder zurück.
+    spread: spot.kind === 'burglary'
+      ? { ...state.spread, burglaryRate: shift(state.spread.burglaryRate, spot.districtId, -0.1 * answer.relief) }
+      : state.spread,
   }
   if (done.monthly === 0)
     return next

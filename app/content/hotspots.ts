@@ -105,8 +105,26 @@ export const HOTSPOTS: HotspotTemplate[] = [
     label: 'Einbruchserie',
     headline: 'EINBRUCHSERIE in {bezirk} — dritte Woche in Folge',
     driver: 'burglaryRate',
-    quiet: 9,
-    loud: 22,
+    /*
+     * Der Ausgangswert ist **3,4** Einbrüche je 1.000 Einwohner, nicht neun.
+     *
+     * Hier standen 9 und 22, und damit war die Einbruchserie totes Inventar: die Schwelle lag beim
+     * Zweieinhalbfachen des Startwertes, also hätte sie in keiner realistischen Amtszeit je
+     * ausgelöst — 26 Brennpunkte in elf Jahren waren gemessen fast alle Brandserien. Aufgefallen ist
+     * es erst, als die Bezirkswerte auf der Gebäudekarte standen und dort „Einbrüche 3,9 / 1.000“
+     * zu lesen war. Eine Zahl, die man sieht, ist eine Zahl, die man prüft.
+     *
+     * Auch 3,8 gegen 7,5 war noch geraten statt gemessen, und auch 3,5 gegen 6,0: gezählt kamen in
+     * einem durchgerechneten Jahrzehnt **null** Einbruchserien heraus und neunzehn Brandserien. Der
+     * Grund ist, dass diese Kennzahl sich kaum bewegt — sie startet bei 3,4 und erreicht in einer
+     * völlig vernachlässigten Stadt über elf Jahre höchstens **4,4**. Eine Schwelle bei 6 liegt damit
+     * jenseits von allem, was im Spiel je passiert.
+     *
+     * Jetzt spannt der Bereich genau über das, was die Zahl wirklich tut: knapp über dem Startwert
+     * fängt es an, und bei 4,6 ist es so häufig, wie es werden kann.
+     */
+    quiet: 3.42,
+    loud: 4.3,
     districts: RESIDENTIAL,
     escalation: 'saf-burglary-series',
     answers: [
@@ -145,8 +163,16 @@ export const HOTSPOTS: HotspotTemplate[] = [
     label: 'Brandserie',
     headline: 'FEUERWEHR: dritter Einsatz in {bezirk} binnen zwei Wochen',
     driver: 'investmentBacklog',
-    quiet: 60,
-    loud: 160,
+    /*
+     * Und dasselbe von der anderen Seite: bei 60 gegen 160 stand die Brandserie über weite Strecken
+     * auf der Höchstwahrscheinlichkeit — gezählt neunzehn in elf Jahren gegen zwei Einbruchserien.
+     * Der Sanierungsstau ist die Kennzahl, die am weitesten läuft — aber auch nicht beliebig weit:
+     * gemessen 45 zu Beginn und **120** als Höchstwert einer völlig vernachlässigten Amtszeit. 95
+     * gegen 300 war deshalb der Fehler in die andere Richtung und ließ überhaupt nichts mehr
+     * passieren. Der Bereich spannt jetzt genau über das, was die Zahl wirklich tut.
+     */
+    quiet: 68,
+    loud: 118,
     districts: BUSY,
     // Die Ursache einer Brandserie ist aufgeschobener Unterhalt — also kommt das Instandhaltungsprogramm.
     escalation: 'fin-maintenance-program',

@@ -441,3 +441,53 @@ Haushalt verschiebt. Die Lösung war beide Male dieselbe Einsicht: der Test spie
 Brennpunkte **nie** beantwortet — also jemanden, der eine ganze Mechanik nicht kennt. Er beantwortet
 sie jetzt mit dem Billigsten, was frei ist. Das ist kein Aufweichen des Tests, sondern die Korrektur
 seiner Annahme.
+
+
+## Drei Kennzahlen je Bezirk
+
+Eine Einbruchserie in der Gründerzeit Nord hob die Einbruchsrate **der Stadt**, und Wohnungsbau im
+Hafen senkte die Miete überall — also genau so viel wie im Wohnring Süd, wo nicht gebaut wurde. Damit
+war jeder Ort austauschbar und der Standortbeschluss eine Frage von Preis und Tempo statt von Wirkung.
+
+Jetzt gelten **Miete, Einbrüche und Leerstand je Bezirk**, und man liest sie auf der Gebäudekarte:
+Innenstadt 16,73 €/m², Wohnring Süd 12,49 €, Hafen & Industrie 9,74 € — bei einer Stadtmiete von
+13,20 €.
+
+### Verteilung statt acht Simulationen
+
+Acht kleine Städte zu rechnen wäre der Weg, auf dem man sich das Modell zerschießt: `goals.test.ts`
+hat an einem Tag zweimal gezeigt, wie eng die Zielschwellen sitzen — die beste von 36 Durchspielungen
+kommt teils auf 0,2 an ihr Ziel heran. Acht parallel driftende Teilstädte, deren Summe irgendwo
+landet, wären das Ende dieser Balance.
+
+Deshalb bleibt die **Stadtzahl die Wahrheit** und die Bezirke sind ihre Verteilung: je Bezirk ein
+Faktor um eins, gewichtet mit der Einwohnerzahl, und das gewichtete Mittel ist **immer exakt eins**.
+Verschiebt sich etwas an einem Ort, verschiebt es sich woanders gegenläufig — die Summe kann gar nicht
+auseinanderlaufen, weil sie nicht gerechnet, sondern erhalten wird. Der Test fragt die Gegenprobe nach
+jedem Eingriff und nach zehn gespielten Jahren.
+
+Das ist auch die ehrlichere Aussage: eine Stadt hat eine Durchschnittsmiete, und was ein Bezirk hat,
+ist seine Abweichung davon.
+
+### Was sich dadurch verschiebt
+
+| | |
+|---|---|
+| Brennpunkt macht auf | Einbrüche dort +14 % |
+| Brennpunkt beantwortet | dort zurück, im Maß der Antwort |
+| Wohnungsbau am Standort | Miete dort −6 %, Leerstand dort +12 % |
+
+Und weil normiert wird, heißt „dort billiger" automatisch „anderswo relativ teurer".
+
+### Der Fehler, den erst diese Anzeige gezeigt hat
+
+Die Brennpunkt-Schwellen waren **geraten statt gemessen**, und zwar dreimal. `burglaryRate` startet
+bei 3,4 und erreicht in einer völlig vernachlässigten Amtszeit höchstens **4,4** — die Schwelle stand
+bei 9. Die Einbruchserie war totes Inventar: über ein durchgerechnetes Jahrzehnt kam **null** davon
+vor und neunzehn Brandserien. Beim Sanierungsstau lief es umgekehrt: 60 gegen 160 hieß halbe Amtszeit
+auf Höchstwahrscheinlichkeit, 95 gegen 300 hieß gar nichts mehr — gemessen läuft er von 45 auf 120.
+
+Aufgefallen ist es erst, als „Einbrüche 3,9 / 1.000" auf der Gebäudekarte stand. **Ein Inhalt, den
+niemand je sieht, meldet sich nicht.** Jetzt spannen beide Bereiche über das, was die Kennzahlen
+wirklich tun, und ein Test spielt ein vernachlässigtes Jahrzehnt durch und verlangt, dass beide Arten
+vorkommen: 3 Einbruchserien und 22 Brandserien, etwa alle fünf Monate eine.

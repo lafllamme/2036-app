@@ -66,6 +66,12 @@ const tenancy = computed(() => {
  * kann man fast nichts, bis ein Beschluss es freigeschaltet hat — der Standort, den der Rat gerade
  * sucht, und die Lage, die im Bezirk läuft, sind die beiden Fälle, in denen es etwas zu tun gibt.
  */
+/** Was in diesem Bezirk gilt — dieselbe Kennzahl, an diesem Ort. */
+const here = computed(() => {
+  const picked = selectedBuilding.value
+  return picked ? game.snapshot?.districtMetrics?.[picked.districtId] ?? null : null
+})
+
 const hereYouCan = computed(() => {
   const picked = selectedBuilding.value
   const snap = game.snapshot
@@ -296,6 +302,23 @@ function restart(): void {
                 {{ tenancy.open ? tenancy.label : `${tenancy.label} · geschlossen` }}
               </dd>
             </div>
+            <!--
+              Und was im **Bezirk** gilt, nicht in der Stadt.
+
+              Eine Stadtmiete von 13,20 € sagt über ein Haus in der Altstadt wenig und über eins im
+              Hafen etwas Falsches. Das gewichtete Mittel dieser acht Werte ist immer genau die
+              Stadtzahl — siehe `simulation/districts.ts`.
+            -->
+            <template v-if="here">
+              <div>
+                <dt>Miete im Bezirk</dt>
+                <dd>{{ formatNumber(here.averageRent, 2) }} €/m²</dd>
+              </div>
+              <div>
+                <dt>Einbrüche</dt>
+                <dd>{{ formatNumber(here.burglaryRate, 1) }} / 1.000</dd>
+              </div>
+            </template>
           </dl>
 
           <!--

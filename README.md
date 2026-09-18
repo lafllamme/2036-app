@@ -18,3 +18,7 @@ pnpm test:e2e        # browser smoke flows (forced WebGL)
 ```
 
 Start with the [documentation index](docs/README.md). The [feature matrix](docs/FEATURE_MATRIX.md) is the live implementation map; the [testing guide](docs/TESTING.md) defines what must be checked for each kind of change.
+
+---
+
+Made with love by [Laflamme](https://github.com/lafllamme).
